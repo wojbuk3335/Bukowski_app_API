@@ -11,7 +11,9 @@ const jacketSchema = mongoose.Schema({
     currentStall: { type: String, required: true },
     currentStallID: { type: String, required: true },
     dateOfAdd: { type: Date, required: true },
-    defaultPrice: { type: Number, required: true }
+    defaultPriceKrupowki: { type: Number, required: true },
+    defaultPriceGubalowka: { type: Number, required: true },
+    defaultPriceKarpacz: { type: Number, required: true }
 });
 
 module.exports = mongoose.model('Jacket', jacketSchema);
