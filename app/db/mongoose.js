@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const {database}= require('../config');
+const { database } = require('../config');
 
 mongoose.connect(database)
   .then(() => {
@@ -8,5 +8,5 @@ mongoose.connect(database)
   })
   .catch((error) => {
     // display a message if the connection fails
-    console.log('Error connecting to the database');
+    console.log('Error connecting to the database', error);
   });

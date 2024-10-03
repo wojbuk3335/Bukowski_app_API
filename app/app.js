@@ -11,9 +11,13 @@ const mongoose = require('./db/mongoose');
 app.use(morgan('dev'));
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
+
+// Routes which should handle requests
 const jacketRoutes = require('./routes/jackets');
+const userRoutes = require('./routes/user');
 
 app.use('/jackets', jacketRoutes);
+app.use('/user', userRoutes);
 
 app.use((req, res, next) => {
     const error = new Error('Not Found');
