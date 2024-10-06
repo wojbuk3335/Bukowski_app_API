@@ -1,0 +1,18 @@
+.logo{
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.logoWidth{
+    width: 40%;
+    height: auto;
+}
+
+.checkboxInput {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .checkboxLabel {
+    margin-left: 10px;
+  }
