@@ -16,8 +16,8 @@ app.use(bodyParser.json());
 const jacketRoutes = require('./routes/jackets');
 const userRoutes = require('./routes/user');
 
-app.use('/jackets', jacketRoutes);
-app.use('/user', userRoutes);
+app.use('/api/jackets', jacketRoutes);
+app.use('/api/user', userRoutes);
 
 app.use((req, res, next) => {
     const error = new Error('Not Found');
