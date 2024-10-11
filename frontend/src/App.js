@@ -1,27 +1,24 @@
-import React from 'react'
-import '../node_modules/bootstrap/dist/css/bootstrap.min.css'
-import './App.css'
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
-
-import Login from './components/Login/Login'
-import SignUp from './components/Rejestracja/Signup'
+import React, { useState } from 'react';
+import '../node_modules/bootstrap/dist/css/bootstrap.min.css';
+import './App.css';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import AdminLogin from './components/AdminLogin/AdminLogin';
+import UserLogin from './components/UserLogin/UserLogin';
 
 function App() {
   return (
     <Router>
       <div className="App">
         <div className="auth-wrapper">
-          <div className="auth-inner">
-            <Routes>
-              <Route exact path="/" element={<Login />} />
-              <Route path="/sign-in" element={<Login />} />
-              <Route path="/sign-up" element={<SignUp />} />
-            </Routes>
-          </div>
+          <Routes>
+            <Route path="/" element={<Navigate to="/user" />} />
+            <Route path="/admin" element={<AdminLogin />} />
+            <Route path="/user" element={<UserLogin />} />
+          </Routes>
         </div>
       </div>
     </Router>
-  )
+  );
 }
 
-export default App
+export default App;

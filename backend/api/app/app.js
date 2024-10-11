@@ -3,6 +3,9 @@ const app = express();
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const {database}= require('./config');
+const cors = require('cors');
+
+app.use(cors());
 
 
 const mongoose = require('./db/mongoose');

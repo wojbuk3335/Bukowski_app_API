@@ -75,7 +75,10 @@ class UsersController {
                         });
                         return res.status(200).json({
                             message: 'Auth successful',
-                            token: token
+                            token: token,
+                            userId: user._id,
+                            email: user.email,
+                            success: true
                         });
                     }
                     res.status(401).json({
