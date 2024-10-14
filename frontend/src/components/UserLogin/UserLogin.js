@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Logo from '../../assets/images/bukowski_logo.png';
-import styles from './UserLogin.module.css';
+import AuthContext from '../../context/AuthProvider';
+import AuthForm from '../AuthForm/AuthForm';
+import Icon from '../../assets/images/user.png';
+
 
 const UserLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { setAuth } = useContext(AuthContext);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -24,75 +28,33 @@ const UserLogin = () => {
     try {
       const response = await axios.post('http://localhost:3000/api/user/login', { email, password });
       if (response.data.success) {
-        navigate('/user/dashboard');
+        localStorage.setItem('role', response.data.role);
+        if (response.data.role === 'user') {
+          setAuth(response.data);
+          navigate('/user/dashboard');
+        } else {
+          setError('Dostęp tylko dla użytkowników.');
+        }
       } else {
-        setError('Invalid credentials');
+        setError('Niepoprawne dane logowania.');
       }
     } catch (error) {
-      setError('An error occurred. Please try again.');
+      setError('Wystąpił błąd podczas logowania.');
     }
   };
 
   return (
-    <div className="auth-inner">
-      <form onSubmit={handleSubmit}>
-        <div className={styles.logo}>
-          <img src={Logo} alt="Logo" className={styles.logoWidth} />
-        </div>
-
-        <div className="mb-3">
-          <label>Adres Email</label>
-          <input
-            type="email"
-            className="form-control"
-            placeholder="Enter email"
-            name="email"
-            value={email}
-            onChange={handleInputChange}
-          />
-        </div>
-
-        <div className="mb-3">
-          <label>Hasło</label>
-          <input
-            type="password"
-            className="form-control"
-            placeholder="Enter password"
-            name="password"
-            value={password}
-            onChange={handleInputChange}
-          />
-        </div>
-
-        <div className="mb-3">
-          <div className="custom-control custom-checkbox">
-            <input
-              type="checkbox"
-              className={`custom-control-input ${styles.checkboxInput}`}
-              id="customCheck1"
-            />
-            <label
-              className={`custom-control-label ${styles.checkboxLabel}`}
-              htmlFor="customCheck1"
-            >
-              Zapamiętaj mnie
-            </label>
-          </div>
-        </div>
-
-        {error && <div className="alert alert-danger">{error}</div>}
-
-        <div className="d-grid">
-          <button type="submit" className="btn btn-primary">
-            Zaloguj
-          </button>
-        </div>
-        <p className="forgot-password text-center">
-          Zapomniałeś <a href="#">hasła?</a>
-        </p>
-        <p className={styles.place_of_login}>PANEL UŻYTKOWNIKA</p>
-      </form>
-    </div>
+    <AuthForm
+      userType="user"
+      panelName="PANEL UŻYTKOWNIKA"
+      handleSubmit={handleSubmit}
+      handleInputChange={handleInputChange}
+      email={email}
+      password={password}
+      error={error}
+      Logo={Logo}
+      Icon={Icon}
+    />
   );
 };
 

@@ -23,12 +23,20 @@ class UsersController {
                             const newUser = new User({
                                 _id: new mongoose.Types.ObjectId(),
                                 email: req.body.email,
-                                password: hash
+                                password: hash,
+                                role: req.body.role // Assuming role is provided in the request body
                             });
                             newUser.save()
                                 .then(result => {
                                     res.status(201).json({
-                                        message: 'User created'
+                                        message: 'User created',
+                                        role: newUser.role,
+                                        request: {
+                                            type: 'GET',
+                                            url: 'http://localhost:3000/api/user/' + result._id
+                                        },
+                                        success: true,
+                                        email: newUser.email
                                     });
                                 })
                                 .catch(error => {
@@ -51,6 +59,7 @@ class UsersController {
                 });
             });
     }
+    
     login(req, res, next){
         User.findOne({ email: req.body.email })
             .exec()
@@ -78,7 +87,8 @@ class UsersController {
                             token: token,
                             userId: user._id,
                             email: user.email,
-                            success: true
+                            success: true,
+                            role: user.role
                         });
                     }
                     res.status(401).json({
