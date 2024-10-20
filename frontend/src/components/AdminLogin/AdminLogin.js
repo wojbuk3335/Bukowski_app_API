@@ -2,16 +2,17 @@ import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Logo from '../../assets/images/bukowski_logo.png';
-import AuthContext from '../../context/AuthProvider'
+import AuthContext from '../../context/AuthProvider';
 import AuthForm from '../AuthForm/AuthForm';
 import userIcon from '../../assets/images/user.png';
 import Icon from '../../assets/images/admin.png';
 
 const AdminLogin = () => {
-  const {setAuth} = useContext(AuthContext);
+  const { setAuth } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
 
   const handleInputChange = (event) => {
@@ -23,14 +24,24 @@ const AdminLogin = () => {
     }
   };
 
+  const handleRememberMeChange = (event) => {
+    setRememberMe(event.target.checked);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
       const response = await axios.post('http://localhost:3000/api/user/login', { email, password });
       if (response.data.success) {
-        localStorage.setItem('role', response.data.role); // Store role in localStorage
+        localStorage.setItem('AdminRole', response.data.role); // Store role in localStorage
+        localStorage.setItem('AdminEmail', email); // Store email in localStorage
         if (response.data.role === 'admin') {
           setAuth(response.data); // Pass true and response.data to setAuth
+          if (rememberMe) {
+            localStorage.setItem('AdminToken', response.data.token);
+          } else {
+            sessionStorage.setItem('AdminToken', response.data.token);
+          }
           navigate('/admin/dashboard');
         } else {
           setError('Dostęp tylko dla administratorów.');
@@ -52,6 +63,8 @@ const AdminLogin = () => {
       email={email}
       password={password}
       error={error}
+      rememberMe={rememberMe}
+      handleRememberMeChange={handleRememberMeChange}
       Logo={Logo}
       userIcon={userIcon}
       Icon={Icon}

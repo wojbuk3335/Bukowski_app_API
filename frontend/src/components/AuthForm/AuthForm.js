@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styles from './AuthForm.module.css'; // Adjust the path as necessary
 
-const AuthForm = ({ userType, panelName, handleSubmit, handleInputChange, email, password, error, Logo, Icon}) => {
+const AuthForm = ({userType,panelName,handleSubmit,handleInputChange,email,password,error,rememberMe,handleRememberMeChange,Logo,Icon}) => {
   return (
     <div className={styles.authWrapper}>
       <div className={styles.authInner}>
@@ -43,6 +43,8 @@ const AuthForm = ({ userType, panelName, handleSubmit, handleInputChange, email,
                 type="checkbox"
                 className={`custom-control-input ${styles.checkboxInput}`}
                 id="customCheck1"
+                checked={rememberMe}
+                onChange={handleRememberMeChange}
               />
               <label
                 className={`custom-control-label ${styles.checkboxLabel}`}
@@ -66,12 +68,12 @@ const AuthForm = ({ userType, panelName, handleSubmit, handleInputChange, email,
           <p className={styles.place_of_login}>{panelName}</p>
           <div className={styles.userIcon}>
             <Link to={`/${userType === 'user' ? 'admin' : 'user'}`} className={styles.tooltip}>
-            <img 
+              <img 
                 src={Icon} 
                 alt={userType === 'user' ? 'Admin Icon' : 'User Icon'} 
                 className={styles.userIcon} 
               />
-              <span className={styles.tooltipText}>IDŹ DO PANELU {userType === 'user' ? 'PANELU ADMINISTRACYJNEGO' : 'uŻYTKOWNIKA'}</span>
+              <span className={styles.tooltipText}>IDŹ DO PANELU {userType === 'user' ? 'PANELU ADMINISTRACYJNEGO' : 'UŻYTKOWNIKA'}</span>
             </Link>
           </div>
         </form>
