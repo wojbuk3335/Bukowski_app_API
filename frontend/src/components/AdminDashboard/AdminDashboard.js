@@ -1,7 +1,8 @@
 import React, { useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Outlet } from 'react-router-dom';
 import AuthContext from '../../context/AuthProvider';
 import styles from './AdminDashboard.module.css';
+import Navigaton from './Nav/Navigaton';
 
 const AdminDashBoard = () => {
   const { auth, setAuth } = useContext(AuthContext);
@@ -35,11 +36,19 @@ const AdminDashBoard = () => {
   };
 
   return (
-    <div className={styles.userPanel}>
-      <p className={styles.loginText}>
-        PANEL ADMINISTRACYJNY - zalogowany jako <span className={styles.autTextEmail}>{auth.email}</span>
-      </p>
-      <a href="#" onClick={handleLogout} className={styles.logoutButton}>Wyloguj</a>
+    <div>
+      <div className={styles.userPanel}>
+        <p className={styles.loginText}>
+          PANEL ADMINISTRACYJNY - zalogowany jako <span className={styles.autTextEmail}>{auth.email}</span>
+        </p>
+        <a href="#" onClick={handleLogout} className={styles.logoutButton}>Wyloguj</a>
+      </div> 
+      <div>
+        <Navigaton />
+      </div>
+      <div className={styles.outlet}>
+        <Outlet />
+      </div>
     </div>
   );
 };
