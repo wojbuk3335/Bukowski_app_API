@@ -8,8 +8,13 @@ import {
     Input,
     Table,
     FormText,
+    Modal,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
 } from "reactstrap";
 import axios from "axios";
+import styles from './Stock.module.css';
 
 const requiredFields = ["Tow_Kod", "Tow_Opis"];
 
@@ -19,23 +24,59 @@ const Stock = () => {
     const [excelRows, setExcelRows] = useState([]);
     const [selectedFile, setSelectedFile] = useState(null);
     const [rows, setRows] = useState([]);
+    const [modal, setModal] = useState(false);
+    const [currentStock, setCurrentStock] = useState({ _id: '', Tow_Opis: '' });
 
     useEffect(() => {
         fetchData();
     }, []);
 
+    const toggleModal = () => setModal(!modal);
+
+    const handleUpdateClick = (stock) => {
+        setCurrentStock(stock);
+        toggleModal();
+    };
+
+    const handleUpdateChange = (e) => {
+        setCurrentStock({ ...currentStock, Tow_Opis: e.target.value });
+    };
+
+    const handleUpdateSubmit = async () => {
+        try {
+            setLoading(true);
+
+            // Check if the Tow_Opis value is unique
+            const response = await axios.get(`http://localhost:3000/api/excel/stock/get-all-stocks`);
+            const stocks = response.data.stocks;
+            const duplicate = stocks.find(stock => stock.Tow_Opis === currentStock.Tow_Opis && stock._id !== currentStock._id);
+
+            if (duplicate) {
+                alert(`Tow_Opis value "${currentStock.Tow_Opis}" is already in use. Please choose a different value.`);
+                setLoading(false);
+                return;
+            }
+
+            await axios.patch(`http://localhost:3000/api/excel/stock/update-stock/${currentStock._id}`, { Tow_Opis: currentStock.Tow_Opis });
+            fetchData();
+            toggleModal();
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const removeFile = async () => {
         try {
             setLoading(true);
             await axios.delete("http://localhost:3000/api/excel/stock/delete-all-stocks");
-            setSelectedFile(null);
-            setExcelRows([]);
-            fetchData(); // Fetch the updated data to refresh the table
+            resetState();
             alert("Dane zostały usunięte poprawnie.");
-            setLoading(false);
         } catch (error) {
-            setLoading(false);
             console.log(error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -44,82 +85,41 @@ const Stock = () => {
             setLoading(true);
             const result = (await axios.get("http://localhost:3000/api/excel/stock/get-all-stocks")).data;
             setRows(Array.isArray(result.stocks) ? result.stocks : []);
-            setLoading(false);
             console.log(result);
         } catch (error) {
+            console.log(error);
+        } finally {
             setLoading(false);
         }
     };
 
     const uploadData = async () => {
         try {
-            // Check if a file has been selected
             if (!selectedFile) {
                 alert("Proszę wybrać plik do załadowania danych.");
                 return;
             }
-    
+
             setLoading(true);
-    
-            // Check if the required fields are present in the uploaded file
-            const firstItemKeys = excelRows[0] && Object.keys(excelRows[0]);
-            let requiredValidation = false;
-    
-            if (firstItemKeys.length) {
-                requiredFields.forEach((element) => {
-                    if (!firstItemKeys.find((x) => x === element)) {
-                        requiredValidation = true;
-                    }
-                });
-            }
-    
-            if (requiredValidation) {
-                alert("Wymagane dane: " + JSON.stringify(requiredFields)+". Proszę również umieścić dane w pierwszym arkuszu excela.");
-                setLoading(false);
+
+            if (!validateRequiredFields()) {
+                alert("Wymagane dane: " + JSON.stringify(requiredFields) + ". Proszę również umieścić dane w pierwszym arkuszu excela.");
                 return;
             }
-    
-            // Check if the stocks collection exists and if it is empty
-            const stockResponse = (await axios.get("http://localhost:3000/api/excel/stock/get-all-stocks")).data;
-            const stockList = Array.isArray(stockResponse.stocks) ? stockResponse.stocks : [];
-    
+
+            const stockList = await getStockList();
             if (stockList.length > 0) {
                 alert("Tabela asortymentu nie jest pusta. Proszę usunąć wszystkie dane aby wgrać nowe.");
-                setLoading(false);
                 return;
             }
-    
-            // Prepare the stocks data for insertion
-            const stocks = excelRows.map((obj) => ({
-                _id: stockList.find((x) => x.Tow_Kod === obj["Tow_Kod"])?._id,
-                Tow_Kod: obj["Tow_Kod"] || "",
-                Tow_Opis: obj["Tow_Opis"] || ""
-            }));
-    
-            const updatedStocks = stocks.filter((x) => x._id);
-            const newStocks = stocks.filter((x) => !x._id);
-    
-            if (updatedStocks.length) {
-                const result = (await axios.post("http://localhost:3000/api/excel/stock/update-many-stocks", updatedStocks)).data;
-                if (result) {
-                    alert("Dodano pomyślnie " + updatedStocks.length + " rekordów.");
-                }
-            }
-    
-            if (newStocks.length) {
-                const result = (await axios.post("http://localhost:3000/api/excel/stock/insert-many-stocks", newStocks)).data;
-                if (result) {
-                    alert("Dodano pomyślnie " + newStocks.length + " rekordów.");
-                }
-            }
-    
-            // Fetch the updated data to display in the table
+
+            await insertOrUpdateStocks(stockList);
+
             fetchData();
-    
-            setLoading(false);
         } catch (error) {
-            setLoading(false);
             console.log(error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -139,82 +139,146 @@ const Stock = () => {
                     setExcelRows(json);
                     console.log(json);
                 } catch (error) {
-                    if (error.message.includes("File is password-protected")) {
-                        alert("Plik jest chroniony hasłem. Proszę wybrać inny plik.");
-                    } else {
-                        alert("Wystąpił błąd podczas przetwarzania pliku. Proszę spróbować ponownie.");
-                        console.log(error);
-                    }
+                    handleFileReadError(error);
                 }
             };
             reader.readAsArrayBuffer(file);
         }
     };
 
-    function renderDataTable() {
-        return (
-            <Table>
-                <thead>
-                    <tr>
-                        <th>Tow_Kod</th>
-                        <th>Tow_Opis</th>
+    const validateRequiredFields = () => {
+        const firstItemKeys = excelRows[0] && Object.keys(excelRows[0]);
+        if (firstItemKeys.length) {
+            return requiredFields.every((field) => firstItemKeys.includes(field));
+        }
+        return false;
+    };
+
+    const getStockList = async () => {
+        const stockResponse = (await axios.get("http://localhost:3000/api/excel/stock/get-all-stocks")).data;
+        return Array.isArray(stockResponse.stocks) ? stockResponse.stocks : [];
+    };
+
+    const insertOrUpdateStocks = async (stockList) => {
+        const stocks = excelRows.map((obj) => ({
+            _id: stockList.find((x) => x.Tow_Kod === obj["Tow_Kod"])?._id,
+            Tow_Kod: obj["Tow_Kod"] || "",
+            Tow_Opis: obj["Tow_Opis"] || ""
+        }));
+
+        const updatedStocks = stocks.filter((x) => x._id);
+        const newStocks = stocks.filter((x) => !x._id);
+
+        if (updatedStocks.length) {
+            const result = (await axios.post("http://localhost:3000/api/excel/stock/update-many-stocks", updatedStocks)).data;
+            if (result) {
+                alert("Dodano pomyślnie " + updatedStocks.length + " rekordów.");
+            }
+        }
+
+        if (newStocks.length) {
+            const result = (await axios.post("http://localhost:3000/api/excel/stock/insert-many-stocks", newStocks)).data;
+            if (result) {
+                alert("Dodano pomyślnie " + newStocks.length + " rekordów.");
+            }
+        }
+    };
+
+    const handleFileReadError = (error) => {
+        if (error.message.includes("File is password-protected")) {
+            alert("Plik jest chroniony hasłem. Proszę wybrać inny plik.");
+        } else {
+            alert("Wystąpił błąd podczas przetwarzania pliku. Proszę spróbować ponownie.");
+            console.log(error);
+        }
+    };
+
+    const resetState = () => {
+        setSelectedFile(null);
+        setExcelRows([]);
+        fetchData();
+    };
+
+    const renderDataTable = () => (
+        <Table className={styles.table}>
+            <thead>
+                <tr>
+                    <th>Tow_Kod</th>
+                    <th>Tow_Opis</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map((item, idx) => (
+                    <tr key={idx}>
+                        <td>{item.Tow_Kod}</td>
+                        <td id={item._id}>{item.Tow_Opis}</td>
+                        <td>
+                            <Button color="primary" size="sm" className={styles.button} onClick={() => handleUpdateClick(item)}>Update</Button>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    {rows.map((item, idx) => (
-                        <tr key={idx}>
-                            <td>{item.Tow_Kod}</td>
-                            <td>{item.Tow_Opis}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </Table>
-        );
-    }
+                ))}
+            </tbody>
+        </Table>
+    );
 
     return (
         <div>
             <Fragment>
-                <h3 className="text-center mt-4 mb-4">
+                <h3 className={`${styles.textCenter} ${styles.mt4} ${styles.mb4} ${styles.textWhite}`}>
                     Asortyment
                 </h3>
-                <div className="container">
-                    <div className="row">
-                    </div>
-                    <Row>
-                        <Col md="6 text-left">
+                <div className={styles.container}>
+                    <Row className={styles.xxx}>
+                        <Col md="6" className={styles.textLeft}>
                             <FormGroup>
-                                <Input
-                                    id="inputEmpGroupFile"
-                                    name="file"
-                                    type="file"
-                                    onChange={readUploadFile}
-                                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                                />
-                                <FormText>
-                                    {
-                                        "NOTE: The headers in the Excel file should be as follows!. => "
-                                    }
+                                <div>
+                                <input className={styles.inputFile}
+                                        id="inputEmpGroupFile"
+                                        name="file"
+                                        type="file"
+                                        onChange={readUploadFile}
+                                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                                    />
+                                </div>
+
+                                <FormText className={styles.textWhite}>
+                                    {"NOTE: Nagłówki w Excelu powinny być następujące!. => "}
                                     {requiredFields.join(", ")}
                                 </FormText>
                             </FormGroup>
                         </Col>
-                        <Col md="6 text-left">
-                                <Button disabled={loading} color="success" onClick={uploadData}>
-                                    {"Upload data"}
-                                </Button>
-                                <Button disabled={loading} color="danger" onClick={removeFile}>
-                                    {"Remove file"}
-                                </Button>
+                        <Col md="6" className={styles.textRight}>
+                            <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
+                                {"Upload data"}
+                            </Button>
+                            <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
+                                {"Remove file"}
+                            </Button>
                         </Col>
                     </Row>
-                    {loading && <progress style={{ width: "100%" }}></progress>}
-                    <h4 className="mt-4" style={{ color: "lightgray" }}>
-                    </h4>
-                    <button onClick={fetchData}>Refresh</button>
+                    {loading && <progress className={styles.progress}></progress>}
+                    <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Refresh</Button>
                     {renderDataTable()}
                 </div>
             </Fragment>
+
+            <Modal isOpen={modal} toggle={toggleModal}>
+                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Update Tow_Opis</ModalHeader>
+                <ModalBody className={styles.modalBody}>
+                    <FormGroup>
+                        <Input
+                            type="text"
+                            value={currentStock.Tow_Opis}
+                            onChange={handleUpdateChange}
+                        />
+                    </FormGroup>
+                </ModalBody>
+                <ModalFooter className={styles.modalFooter}>
+                    <Button color="primary" size="sm" className={styles.button} onClick={handleUpdateSubmit}>Update</Button>{' '}
+                    <Button color="secondary" size="sm" className={styles.button} onClick={toggleModal}>Cancel</Button>
+                </ModalFooter>
+            </Modal>
         </div>
     );
 };
