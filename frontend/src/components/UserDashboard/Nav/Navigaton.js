@@ -12,13 +12,7 @@ function Navigaton() {
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-            <Nav.Link as={Link} to="/admin/dashboard/searchengine">Wyszukiwarka</Nav.Link>
-            <NavDropdown title="Tabele" id="basic-nav-dropdown">
-              <NavDropdown.Item as={Link} to="/admin/dashboard/stock">Tabela asortymentu</NavDropdown.Item>
-              <NavDropdown.Item as={Link} to="/admin/dashboard/colors">Tabela kolorów</NavDropdown.Item>
-              <NavDropdown.Item as={Link} to="/admin/dashboard/sizes">Tabela rozmiarów</NavDropdown.Item>
-            </NavDropdown>
-            <Nav.Link as={Link} to="/admin/dashboard/users">Użytkownicy</Nav.Link>
+            <Nav.Link as={Link} to="/user/dashboard/profile">Profil</Nav.Link>
           </Nav>
         </Navbar.Collapse>
       </Container>

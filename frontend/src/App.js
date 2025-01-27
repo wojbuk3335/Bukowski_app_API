@@ -14,6 +14,8 @@ import Profile from './components/AdminDashboard/Profile/Profile';
 import Colors from './components/AdminDashboard/Colors/Colors';
 import Sizes from './components/AdminDashboard/Sizes/Sizes';
 import Searchengine from './components/AdminDashboard/Searchengine/Searchengine';
+import Users from './components/AdminDashboard/Users/Users';
+import UserProfile from './components/UserDashboard/Profile/Profile';
 
 function App() {
   return (
@@ -29,9 +31,12 @@ function App() {
               <Route path='colors' element={<Colors/>}/>
               <Route path='sizes' element={<Sizes/>}/>
               <Route path='searchengine' element={<Searchengine/>}/>
+              <Route path='users' element={<Users/>}/>
             </Route>
             <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />
-            <Route path="/user/dashboard/*" element={<UserPrivateRoute element={UserDashboard} allowedRoles={['user']} />} />
+            <Route path="/user/dashboard/*" element={<UserPrivateRoute element={UserDashboard} allowedRoles={['user']} />}>
+              <Route path="profile" element={<UserProfile />} />
+            </Route>
           </Routes>
       </div>
     </Router>

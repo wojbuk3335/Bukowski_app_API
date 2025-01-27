@@ -41,7 +41,7 @@ const AdminDashBoard = () => {
         <p className={styles.loginText}>
           PANEL ADMINISTRACYJNY - zalogowany jako <span className={styles.autTextEmail}>{auth.email}</span>
         </p>
-        <a href="#" onClick={handleLogout} className={styles.logoutButton}>Wyloguj</a>
+        <a href="#" onClick={handleLogout} className={`${styles.logoutButton} btn btn-sm`}>Wyloguj</a>
       </div> 
       <div>
         <Navigaton />

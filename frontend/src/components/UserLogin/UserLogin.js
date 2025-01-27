@@ -36,6 +36,8 @@ const UserLogin = () => {
       if (response.data.success) {
         localStorage.setItem('UserRole', response.data.role); // Store role in localStorage
         localStorage.setItem('UserEmail', email); // Store email in localStorage
+        localStorage.setItem('UserId', response.data.userId); // Store userId in localStorage
+        localStorage.setItem('UserSymbol', response.data.symbol); // Store userSymbol in localStorage
         if (response.data.role === 'user') {
           setAuth(response.data);
           if (rememberMe) {

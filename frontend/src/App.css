@@ -66,3 +66,36 @@
   color: rgba(255, 255, 255, 0.75) !important;
 }
 
+.btn-warning {
+  --bs-btn-color: #000000;
+  --bs-btn-hover-color: #ffffff;
+}
+
+.btn-danger {
+  --bs-btn-color: #000000;
+  --bs-btn-hover-color: #fff;
+}
+
+@media (max-width: 768px) {
+  .btn-warning.btn {
+      margin-right: 10px; /* Add margin-right to .btn-warning */
+  }
+
+  .form-select:disabled {
+    background-color: #242424;
+}
+
+.form-control:disabled {
+  background-color: #242424;
+  opacity: 1;
+}
+}
+
+.form-select:disabled {
+  background-color: #242424;
+}
+
+.form-control:disabled {
+  background-color: #242424;
+  opacity: 1;
+}

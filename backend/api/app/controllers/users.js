@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const jsonwebtoken = require('../config').jsonwebtoken;
 
 class UsersController {
+    // ... other methods ...
+
     signup(req, res, next) {
         User.findOne({ email: req.body.email })
             .exec()
@@ -20,10 +22,13 @@ class UsersController {
                                 error: err
                             });
                         } else {
+                            // Ensure sellingPoint is an empty string for admins
                             const newUser = new User({
                                 _id: new mongoose.Types.ObjectId(),
                                 email: req.body.email,
                                 password: hash,
+                                symbol: req.body.symbol, // Ensure symbol is provided in the request body
+                                sellingPoint: req.body.role === 'admin' ? '' : req.body.sellingPoint, // Ensure sellingPoint is empty for admins
                                 role: req.body.role // Assuming role is provided in the request body
                             });
                             newUser.save()
@@ -88,7 +93,9 @@ class UsersController {
                             userId: user._id,
                             email: user.email,
                             success: true,
-                            role: user.role
+                            role: user.role,
+                            symbol: user.symbol,
+                            sellingPoint: user.sellingPoint
                         });
                     }
                     res.status(401).json({
@@ -97,7 +104,6 @@ class UsersController {
                 });
             })
             .catch(error => {
-                console.log(error);
                 res.status(500).json({
                     error: error
                 });
@@ -126,7 +132,7 @@ class UsersController {
 
     getAllUsers(req, res, next) {
         User.find()
-            .select('_id email')
+            .select('_id email role symbol sellingPoint')
             .exec()
             .then(docs => {
                 const response = {
@@ -135,6 +141,9 @@ class UsersController {
                         return {
                             _id: doc._id,
                             email: doc.email,
+                            role: doc.role,
+                            symbol: doc.symbol,
+                            sellingPoint: doc.sellingPoint,
                             request: {
                                 type: 'GET',
                                 url: 'http://localhost:3000/api/user/' + doc._id
@@ -154,7 +163,7 @@ class UsersController {
     getOneUser(req, res, next) {
         const id = req.params.userId;
         User.findById(id)
-            .select('_id email')
+            .select('_id email symbol role sellingPoint')
             .exec()
             .then(doc => {
                 if (doc) {
@@ -177,7 +186,53 @@ class UsersController {
                 });
             });
     }
+
+    updateUser = (req, res, next) => {
+        const id = req.params.userId;
+        const updateOps = {};
+
+        for (const ops of Object.keys(req.body)) {
+            updateOps[ops] = req.body[ops];
+        }
+
+        if (updateOps.role === 'admin') {
+            updateOps.sellingPoint = null; // Ensure sellingPoint is null for admins
+        }
+
+        if (updateOps.password) {
+            bcrypt.hash(updateOps.password, 10, (err, hash) => {
+                if (err) {
+                    return res.status(500).json({
+                        error: err
+                    });
+                } else {
+                    updateOps.password = hash;
+                    updateUserInDB(id, updateOps, res);
+                }
+            });
+        } else {
+            updateUserInDB(id, updateOps, res);
+        }
+    };
 }
 
-module.exports = new UsersController();
+const updateUserInDB = (id, updateOps, res) => {
+    User.updateOne({ _id: id }, { $set: updateOps })
+        .exec()
+        .then(result => {
+            res.status(200).json({
+                message: 'User updated',
+                request: {
+                    type: 'GET',
+                    url: 'http://localhost:3000/api/user/' + id
+                }
+            });
+        })
+        .catch(error => {
+            res.status(500).json({
+                error: error
+            });
+        });
+};
 
+module.exports = new UsersController();
