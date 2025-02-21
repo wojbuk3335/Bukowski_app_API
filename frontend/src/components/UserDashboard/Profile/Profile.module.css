@@ -185,7 +185,7 @@
 }
 
 .btn-close {
-    --bs-btn-close-bg: 
+    --bs-btn-close-bg: transparent; /* Set the background to transparent */
     display: none; /* Hide the default close button */
 }
 

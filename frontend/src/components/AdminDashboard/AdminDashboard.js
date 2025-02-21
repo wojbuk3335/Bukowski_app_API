@@ -15,7 +15,6 @@ const AdminDashBoard = () => {
 
     if (token && role === 'admin') {
       setAuth({ email, token, role });
-      console.log('Token found in:', localStorage.getItem('AdminToken') ? 'localStorage' : 'sessionStorage');
     } else {
       navigate('/admin'); // Redirect to login if not authenticated
     }

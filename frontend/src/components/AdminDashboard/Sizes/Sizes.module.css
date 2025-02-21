@@ -184,3 +184,18 @@ input[type=file]::file-selector-button:hover {
     background-color: #208657; /* Darken background color on hover */
     border-color: #208657; /* Darken border color on hover */
 }
+
+.inputFile::file-selector-button {
+    cursor: pointer; /* Ensure the cursor is a pointer for the file input button */
+}
+
+
+.inputFile::file-selector-button:hover {
+    color: #000000;
+    background-color: #df480c; /* Darken background color on hover */
+    border-color: #da1919; /* Darken border color on hover */
+  }
+
+  .btn-success {
+    --bs-btn-color: #000000;
+}

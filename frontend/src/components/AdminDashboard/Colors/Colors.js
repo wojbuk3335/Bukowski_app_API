@@ -213,7 +213,7 @@ const Colors = () => {
                 <tr>
                     <th>Kol_Kod</th>
                     <th>Kol_Opis</th>
-                    <th>Actions</th>
+                    <th>Akcje</th>
                 </tr>
             </thead>
             <tbody>
@@ -222,7 +222,7 @@ const Colors = () => {
                         <td id_from_excel_column={item.Kol_Kod} id={item._id} >{item.Kol_Kod}</td>
                         <td id_from_excel_column={item.Kol_Kod} id={item._id}>{item.Kol_Opis}</td>
                         <td id_from_excel_column={item.Kol_Kod} id={item._id}>
-                            <Button id_from_excel_column={item.Kol_Kod} id={item._id} color="primary" size="sm" className={styles.button} onClick={() => handleUpdateClick(item)}>Update</Button>
+                            <Button id_from_excel_column={item.Kol_Kod} id={item._id} color="primary" size="sm" className={styles.button} onClick={() => handleUpdateClick(item)}>Aktualizuj</Button>
                         </td>
                     </tr>
                 ))}
@@ -251,7 +251,7 @@ const Colors = () => {
                                 </div>
 
                                 <FormText className={styles.textWhite}>
-                                    {"NOTE: Nagłówki w Excelu powinny być następujące!. => "}
+                                    {"UWAGA: Nagłówki w Excelu powinny być następujące!. => "}
                                     {requiredFields.join(", ")}
                                 </FormText>
                             </FormGroup>
@@ -266,13 +266,13 @@ const Colors = () => {
                         </Col>
                     </Row>
                     {loading && <progress className={styles.progress}></progress>}
-                    <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>odśwież</Button>
+                    <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
                     {renderDataTable()}
                 </div>
             </Fragment>
 
             <Modal isOpen={modal} toggle={toggleModal}>
-                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Update Kol_Opis</ModalHeader>
+                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Aktualizuj Kol_Opis</ModalHeader>
                 <ModalBody className={styles.modalBody}>
                     <FormGroup>
                         <Input
@@ -283,8 +283,8 @@ const Colors = () => {
                     </FormGroup>
                 </ModalBody>
                 <ModalFooter className={styles.modalFooter}>
-                    <Button color="primary" size="sm" className={styles.button} onClick={handleUpdateSubmit}>Update</Button>{' '}
-                    <Button color="secondary" size="sm" className={styles.button} onClick={toggleModal}>Cancel</Button>
+                    <Button color="primary" size="sm" className={styles.button} onClick={handleUpdateSubmit}>Aktualizuj</Button>{' '}
+                    <Button color="secondary" size="sm" className={styles.button} onClick={toggleModal}>Anuluj</Button>
                 </ModalFooter>
             </Modal>
         </div>

@@ -1,0 +1,201 @@
+.container {
+    margin-top: 20px;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mt-4 {
+    margin-top: 1.5rem;
+}
+
+.mb-4 {
+    margin-bottom: 1.5rem;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.textRight {
+    text-align: right;
+}
+
+.progress {
+    width: 100%;
+}
+
+.lightgray {
+    color: lightgray;
+}
+
+.table {
+    width: 60%;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: black;
+    color: white;
+    border: 1px solid white;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+    text-align: center;
+}
+
+.table > :not(caption) > * > * {
+    padding: .5rem .5rem;
+    color: var(--bs-table-color-state,var(--bs-table-color-type,var(--bs-table-color)));
+    background-color: #000;
+    border-bottom-width: var(--bs-border-width);
+    box-shadow: inset 0 0 0 9999px var(--bs-table-bg-state,var(--bs-table-bg-type,var(--bs-table-accent-bg)));
+    color: white;
+    border: 1px solid white; /* Add this line to set the border */
+}
+
+@media (max-width: 768px) {
+    .table {
+        width: 100%;
+    }
+}
+
+.button {
+    font-size: 0.875rem; /* Small button size */
+}
+
+.buttonRefresh {
+    background-color: #ffc107; /* Bootstrap yellow */
+    border-color: #ffc107;
+    color: #212529;
+    margin-bottom: 10px;
+}
+
+.buttonRefresh:hover {
+    background-color: #ffe066; /* Lighter yellow */
+    border-color: #ffe066;
+    color: #212529;
+}
+
+.xxx{
+    width: 60%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (max-width: 768px) {
+    .xxx{
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+.UploadButton{
+    margin-right: 5px;
+}
+
+.modalHeader {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    padding: var(--bs-modal-header-padding);
+    border-bottom: var(--bs-modal-header-border-width) solid var(--bs-modal-header-border-color);
+    border-top-left-radius: var(--bs-modal-inner-border-radius);
+    border-top-right-radius: var(--bs-modal-inner-border-radius);
+    background-color: black;
+    color: white;
+    border: 1px solid white;
+}
+
+.modalBody {
+    position: relative;
+    flex: 1 1 auto;
+    padding: var(--bs-modal-body-padding);
+    color: white;
+    border: 1px solid white;
+    background-color: black;
+    padding: 20px;
+}
+
+.modalFooter {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    padding: var(--bs-modal-footer-padding);
+    border-top: var(--bs-modal-footer-border-width) solid var(--bs-modal-footer-border-color);
+    background-color: black;
+    color: white;
+    border: 1px solid white;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+.textWhite {
+    color: #fff;
+}
+
+.inputFile {
+    display: inline-block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.2;
+    color: #fff; /* Set text color to white */
+    background-color: #000; /* Set background color to black */
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.3rem; /* Bootstrap-like border radius */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: pointer; /* Add pointer cursor on hover */
+}
+
+.inputFile:focus {
+    color: #fff; /* Ensure text color remains white on focus */
+    background-color: #000; /* Ensure background color remains black on focus */
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.inputFile:hover {
+    border-color: #fff; /* Change border color to white on hover */
+}
+
+input[type=file]::file-selector-button {
+    border: 2px solid #1f8a58;
+    padding: .2em .4em;
+    border-radius: .2em;
+    background-color: #198754;
+    color: #fff;
+}
+
+input[type=file]::file-selector-button:hover {
+    background-color: #208657; /* Darken background color on hover */
+    border-color: #208657; /* Darken border color on hover */
+}
+
+.inputFile::file-selector-button {
+    cursor: pointer; /* Ensure the cursor is a pointer for the file input button */
+}
+
+
+.inputFile::file-selector-button:hover {
+    color: #000000;
+    background-color: #df480c; /* Darken background color on hover */
+    border-color: #da1919; /* Darken border color on hover */
+  }
+
+.btn-success {
+    --bs-btn-color: #000000;
+}

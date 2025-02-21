@@ -74,3 +74,8 @@ html,
 }
 
 
+.inputFile::file-selector-button:hover {
+  color: #000000;
+  background-color: #df480c; /* Darken background color on hover */
+  border-color: #da1919; /* Darken border color on hover */
+}

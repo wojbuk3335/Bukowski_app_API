@@ -56,6 +56,7 @@
     background-color: black;
     color: white;
     border: 1px solid white;
+    cursor: grab; /* Add cursor style for draggable header */
 }
 
 .modalHeader .btn-close {
@@ -174,7 +175,7 @@
 }
 
 .btn-close {
-    --bs-btn-close-bg: 
+    --bs-btn-close-bg: transparent; /* Set the background to transparent */
     display: none; /* Hide the default close button */
 }
 
