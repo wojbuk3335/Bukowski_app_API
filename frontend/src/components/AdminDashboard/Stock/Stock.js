@@ -70,6 +70,15 @@ const Stock = () => {
     const removeFile = async () => {
         try {
             setLoading(true);
+
+            // Check if there are any records in the goods database
+            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            if (goodsResponse.data.goods.length > 0) {
+                alert("Nie można usunąć asortymentu ponieważ na ich podstawie zostały już stworzone gotowe produkty. Usuń najpierw wszystkie produkty i spróbuj ponownie");
+                setLoading(false);
+                return;
+            }
+
             await axios.delete("http://localhost:3000/api/excel/stock/delete-all-stocks");
             resetState();
             alert("Dane zostały usunięte poprawnie.");
@@ -101,6 +110,14 @@ const Stock = () => {
             }
 
             setLoading(true);
+
+            // Check if there are any records in the goods database
+            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            if (goodsResponse.data.goods.length > 0) {
+                alert("Na bazie istaniejego asortymentu zostały już stworzone produkty... Proszę usunąć wszystkie produkty i spróbować ponownie");
+                setLoading(false);
+                return;
+            }
 
             if (!validateRequiredFields()) {
                 alert("Wymagane dane: " + JSON.stringify(requiredFields) + ". Proszę również umieścić dane w pierwszym arkuszu excela.");
