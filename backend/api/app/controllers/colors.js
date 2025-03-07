@@ -1,5 +1,6 @@
 const Color = require('../db/models/color');
 const mongoose = require('mongoose');
+const config = require('../config');
 
 class ColorsController {
     getAllColors(req, res, next) {
@@ -15,7 +16,7 @@ class ColorsController {
                             Kol_Opis: color.Kol_Opis,
                             request: {
                                 type: 'GET',
-                                url: 'http://localhost:3000/api/excel/color/' + color._id
+                                url: `${config.domain}/api/excel/color/${color._id}`
                             }
                         };
                     })
@@ -72,7 +73,6 @@ class ColorsController {
             });
     }
 
-    //deleteAllColors
     deleteAllColors(req, res, next) {
         Color.deleteMany()
             .then(result => {
@@ -89,7 +89,6 @@ class ColorsController {
             });
     }
 
-    //getColorById
     getColorById(req, res, next) {
         const id = req.params.colorId;
         Color.findById(id)
@@ -100,7 +99,7 @@ class ColorsController {
                         color: color,
                         request: {
                             type: 'GET',
-                            url: 'http://localhost:3000/api/excel/color/get-all-colors'
+                            url: `${config.domain}/api/excel/color/get-all-colors`
                         }
                     });
                 } else {
@@ -120,7 +119,6 @@ class ColorsController {
             });
     }
 
-    //updateColorById
     updateColorById(req, res, next) {
         const id = req.params.colorId;
         const updateOps = {};
@@ -135,7 +133,7 @@ class ColorsController {
                     message: 'Color updated',
                     request: {
                         type: 'GET',
-                        url: 'http://localhost:3000/api/excel/color/' + id
+                        url: `${config.domain}/api/excel/color/${id}`
                     }
                 });
             })

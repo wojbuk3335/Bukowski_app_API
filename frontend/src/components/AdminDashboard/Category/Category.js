@@ -18,8 +18,8 @@ import styles from './Category.module.css';
 
 const requiredFields = ["Kat_Kod", "Kat_Opis"];
 
-const Category = () => {
 
+const Category = () => {
     const [loading, setLoading] = useState(false);
     const [excelRows, setExcelRows] = useState([]);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -28,7 +28,10 @@ const Category = () => {
     const [currentCategory, setCurrentCategory] = useState({ _id: '', Kat_Opis: '' });
 
     useEffect(() => {
-        fetchData();
+        const initialize = async () => {
+            fetchData();
+        };
+        initialize();
     }, []);
 
     const toggleModal = () => setModal(!modal);
@@ -47,7 +50,7 @@ const Category = () => {
             setLoading(true);
 
             // Check if the Kat_Opis value is unique
-            const response = await axios.get(`http://localhost:3000/api/excel/category/get-all-categories`);
+            const response = await axios.get(`/api/excel/category/get-all-categories`);
             const categories = response.data.categories;
             const duplicate = categories.find(category => category.Kat_Opis === currentCategory.Kat_Opis && category._id !== currentCategory._id);
 
@@ -57,7 +60,7 @@ const Category = () => {
                 return;
             }
 
-            await axios.patch(`http://localhost:3000/api/excel/category/update-category/${currentCategory._id}`, { Kat_Opis: currentCategory.Kat_Opis });
+            await axios.patch(`/api/excel/category/update-category/${currentCategory._id}`, { Kat_Opis: currentCategory.Kat_Opis });
             fetchData();
             toggleModal();
         } catch (error) {
@@ -72,14 +75,14 @@ const Category = () => {
             setLoading(true);
 
             // Check if there are any records in the goods database
-            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
             if (goodsResponse.data.goods.length > 0) {
                 alert("Nie można usunąć kategorii ponieważ na ich podstawie zostały już stworzone gotowe produkty. Usuń najpierw wszystkie produkty i spróbuj ponownie");
                 setLoading(false);
                 return;
             }
 
-            await axios.delete("http://localhost:3000/api/excel/category/delete-all-categories");
+            await axios.delete(`/api/excel/category/delete-all-categories`);
             resetState();
             alert("Dane zostały usunięte poprawnie.");
         } catch (error) {
@@ -92,7 +95,7 @@ const Category = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const result = (await axios.get("http://localhost:3000/api/excel/category/get-all-categories")).data;
+            const result = (await axios.get(`/api/excel/category/get-all-categories`)).data;
             setRows(Array.isArray(result.categories) ? result.categories : []);
             console.log(result);
         } catch (error) {
@@ -112,7 +115,7 @@ const Category = () => {
             setLoading(true);
 
             // Check if there are any records in the goods database
-            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
             if (goodsResponse.data.goods.length > 0) {
                 alert("Na bazie istaniejego asortymentu zostały już stworzone produkty... Proszę usunąć wszystkie produkty i spróbować ponownie");
                 setLoading(false);
@@ -173,7 +176,7 @@ const Category = () => {
 
     const getCategoryList = async () => {
         try {
-            const url = "http://localhost:3000/api/excel/category/get-all-categories";
+            const url = `/api/excel/category/get-all-categories`;
             console.log(`Requesting URL: ${url}`);
             const categoryResponse = (await axios.get(url)).data;
             return Array.isArray(categoryResponse.categories) ? categoryResponse.categories : [];
@@ -195,14 +198,14 @@ const Category = () => {
         const newCategories = categories.filter((x) => !x._id);
 
         if (updatedCategories.length) {
-            const result = (await axios.post("http://localhost:3000/api/excel/category/update-many-categories", updatedCategories)).data;
+            const result = (await axios.post(`/api/excel/category/update-many-categories`, updatedCategories)).data;
             if (result) {
                 alert("Dodano pomyślnie " + updatedCategories.length + " rekordów.");
             }
         }
 
         if (newCategories.length) {
-            const result = (await axios.post("http://localhost:3000/api/excel/category/insert-many-categories", newCategories)).data;
+            const result = (await axios.post(`/api/excel/category/insert-many-categories`, newCategories)).data;
             if (result) {
                 alert("Dodano pomyślnie " + newCategories.length + " rekordów.");
             }

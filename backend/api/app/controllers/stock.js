@@ -1,5 +1,6 @@
 const Stock = require('../db/models/stock');
 const mongoose = require('mongoose');
+const config = require('../config');
 
 class StockController {
     getAllStocks(req, res, next) {
@@ -15,7 +16,7 @@ class StockController {
                             Tow_Opis: stock.Tow_Opis,
                             request: {
                                 type: 'GET',
-                                url: 'http://localhost:3000/api/excel/stock/' + stock._id
+                                url: `${config.domain}/api/excel/stock/${stock._id}`
                             }
                         };
                     })
@@ -72,7 +73,6 @@ class StockController {
             });
     }
 
-    //deleteAllStocks
     deleteAllStocks(req, res, next) {
         Stock.deleteMany()
             .then(result => {
@@ -89,7 +89,6 @@ class StockController {
             });
     }
 
-    //getStockById
     getStockById(req, res, next) {
         const id = req.params.stockId;
         Stock.findById(id)
@@ -100,7 +99,7 @@ class StockController {
                         stock: stock,
                         request: {
                             type: 'GET',
-                            url: 'http://localhost:3000/api/excel/stock/get-all-stocks'
+                            url: `${config.domain}/api/excel/stock/get-all-stocks`
                         }
                     });
                 } else {
@@ -120,7 +119,6 @@ class StockController {
             });
     }
 
-    //updateStockById
     updateStockById(req, res, next) {
         const id = req.params.stockId;
         const updateOps = {};
@@ -135,7 +133,7 @@ class StockController {
                     message: 'Stock updated',
                     request: {
                         type: 'GET',
-                        url: 'http://localhost:3000/api/excel/stock/' + id
+                        url: `${config.domain}/api/excel/stock/${id}`
                     }
                 });
             })

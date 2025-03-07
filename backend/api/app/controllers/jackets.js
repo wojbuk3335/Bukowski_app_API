@@ -1,5 +1,6 @@
 const Jacket = require('./../db/models/jacket');
 const mongoose = require('mongoose');
+const config = require('../config');
 
 class JacketsController {
     getAllJackets(req, res, next) {
@@ -25,7 +26,7 @@ class JacketsController {
                             defaultPriceKarpacz: jacket.defaultPriceKarpacz,
                             request: {
                                 type: 'GET',
-                                url: 'http://localhost:3000/jackets/' + jacket._id
+                                url: `${config.domain}/jackets/${jacket._id}`
                             }
                         };
                     })
@@ -77,7 +78,7 @@ class JacketsController {
                         defaultPrice: result.defaultPrice,
                         request: {
                             type: 'GET',
-                            url: 'http://localhost:3000/jackets/' + result._id
+                            url: `${config.domain}/jackets/${result._id}`
                         }
                     }
                 });
@@ -103,7 +104,7 @@ class JacketsController {
                         request: {
                             type: 'GET',
                             description: 'Get all jackets',
-                            url: 'http://localhost:3000/jackets'
+                            url: `${config.domain}/jackets`
                         }
                     });
                 } else {
@@ -138,7 +139,7 @@ class JacketsController {
                     message: 'Jacket updated',
                     request: {
                         type: 'GET',
-                        url: 'http://localhost:3000/jackets/' + id
+                        url: `${config.domain}/jackets/${id}`
                     }
                 });
             })
@@ -159,7 +160,7 @@ class JacketsController {
                     message: 'Jacket deleted',
                     request: {
                         type: 'POST',
-                        url: 'http://localhost:3000/jackets',
+                        url: `${config.domain}/jackets`,
                         body: {    name: { type: String, required: true },
                         nameID: { type: String, required: true },
                         color: { type: String, required: true },

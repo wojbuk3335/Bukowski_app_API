@@ -2,6 +2,7 @@ const Goods = require('../db/models/goods');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const upload = multer();
+const config = require('../config');
 
 class GoodsController {
     async createGood(req, res, next) {
@@ -12,7 +13,7 @@ class GoodsController {
         const category = req.body.category;
         const price = req.body.price; // Ensure price field is correctly retrieved
         const discount_price = req.body.discount_price || 0;
-        const picture = req.file ? `http://localhost:3000/images/${req.file.filename}` : '';
+        const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
 
         // Validate stock value
@@ -120,7 +121,7 @@ class GoodsController {
         };
 
         if (req.file) {
-            updateData.picture = `http://localhost:3000/images/${req.file.filename}`;
+            updateData.picture = `${config.domain}/images/${req.file.filename}`;
         }
 
         // Validate stock value

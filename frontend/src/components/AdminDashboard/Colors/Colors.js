@@ -47,7 +47,7 @@ const Colors = () => {
             setLoading(true);
 
             // Check if the Kol_Opis value is unique
-            const response = await axios.get(`http://localhost:3000/api/excel/color/get-all-colors`);
+            const response = await axios.get(`/api/excel/color/get-all-colors`);
             const colors = response.data.colors;
             const duplicate = colors.find(color => color.Kol_Opis === currentColor.Kol_Opis && color._id !== currentColor._id);
 
@@ -57,7 +57,7 @@ const Colors = () => {
                 return;
             }
 
-            await axios.patch(`http://localhost:3000/api/excel/color/update-color/${currentColor._id}`, { Kol_Opis: currentColor.Kol_Opis });
+            await axios.patch(`/api/excel/color/update-color/${currentColor._id}`, { Kol_Opis: currentColor.Kol_Opis });
             fetchData();
             toggleModal();
         } catch (error) {
@@ -72,14 +72,14 @@ const Colors = () => {
             setLoading(true);
 
             // Check if there are any records in the goods database
-            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
             if (goodsResponse.data.goods.length > 0) {
                 alert("Nie można usunąć kolorów ponieważ na ich podstawie zostały już stworzone gotowe produkty. Usuń najpierw wszystkie produkty i spróbuj ponownie");
                 setLoading(false);
                 return;
             }
 
-            await axios.delete("http://localhost:3000/api/excel/color/delete-all-colors");
+            await axios.delete(`/api/excel/color/delete-all-colors`);
             resetState();
             alert("Dane zostały usunięte poprawnie.");
         } catch (error) {
@@ -92,7 +92,7 @@ const Colors = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const result = (await axios.get("http://localhost:3000/api/excel/color/get-all-colors")).data;
+            const result = (await axios.get(`/api/excel/color/get-all-colors`)).data;
             setRows(Array.isArray(result.colors) ? result.colors : []);
             console.log(result);
         } catch (error) {
@@ -112,7 +112,7 @@ const Colors = () => {
             setLoading(true);
 
             // Check if there are any records in the goods database
-            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
             if (goodsResponse.data.goods.length > 0) {
                 alert("Na bazie istaniejego asortymentu zostały już stworzone produkty... Proszę usunąć wszystkie produkty i spróbować ponownie");
                 setLoading(false);
@@ -173,7 +173,7 @@ const Colors = () => {
 
     const getColorList = async () => {
         try {
-            const url = "http://localhost:3000/api/excel/color/get-all-colors";
+            const url = `/api/excel/color/get-all-colors`;
             console.log(`Requesting URL: ${url}`);
             const colorResponse = (await axios.get(url)).data;
             return Array.isArray(colorResponse.colors) ? colorResponse.colors : [];
@@ -195,14 +195,14 @@ const Colors = () => {
         const newColors = colors.filter((x) => !x._id);
 
         if (updatedColors.length) {
-            const result = (await axios.post("http://localhost:3000/api/excel/color/update-many-colors", updatedColors)).data;
+            const result = (await axios.post(`/api/excel/color/update-many-colors`, updatedColors)).data;
             if (result) {
                 alert("Dodano pomyślnie " + updatedColors.length + " rekordów.");
             }
         }
 
         if (newColors.length) {
-            const result = (await axios.post("http://localhost:3000/api/excel/color/insert-many-colors", newColors)).data;
+            const result = (await axios.post(`/api/excel/color/insert-many-colors`, newColors)).data;
             if (result) {
                 alert("Dodano pomyślnie " + newColors.length + " rekordów.");
             }

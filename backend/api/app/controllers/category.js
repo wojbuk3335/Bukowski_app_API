@@ -1,5 +1,6 @@
 const Category = require('../db/models/category');
 const mongoose = require('mongoose');
+const config = require('../config');
 
 class CategoriesController {
     getAllCategories(req, res, next) {
@@ -15,7 +16,7 @@ class CategoriesController {
                             Kat_Opis: category.Kat_Opis,
                             request: {
                                 type: 'GET',
-                                url: 'http://localhost:3000/api/excel/category/' + category._id
+                                url: `${config.domain}/api/excel/category/${category._id}`
                             }
                         };
                     })
@@ -98,7 +99,7 @@ class CategoriesController {
                         category: category,
                         request: {
                             type: 'GET',
-                            url: 'http://localhost:3000/api/excel/category/get-all-categories'
+                            url: `${config.domain}/api/excel/category/get-all-categories`
                         }
                     });
                 } else {
@@ -132,7 +133,7 @@ class CategoriesController {
                     message: 'Kategoria zaktualizowana',
                     request: {
                         type: 'GET',
-                        url: 'http://localhost:3000/api/excel/category/' + id
+                        url: `${config.domain}/api/excel/category/${id}`
                     }
                 });
             })

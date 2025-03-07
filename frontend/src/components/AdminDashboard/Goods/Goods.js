@@ -30,14 +30,14 @@ const Goods = () => {
     };
 
     const fetchGoods = () => {
-        fetch('http://localhost:3000/api/excel/goods/get-all-goods')
+        fetch('/api/excel/goods/get-all-goods')
             .then(response => response.json())
             .then(data => setGoods(data.goods || []))
             .catch(error => console.error('Error fetching goods:', error));
     };
 
     useEffect(() => {
-        fetch('http://localhost:3000/api/excel/stock/get-all-stocks')
+        fetch('/api/excel/stock/get-all-stocks')
             .then(response => response.json())
             .then(data => {
                 const filteredStocks = (data.stocks || []).filter(stock => stock.Tow_Opis !== '');
@@ -49,7 +49,7 @@ const Goods = () => {
             })
             .catch(error => console.error('Error fetching stocks:', error));
 
-        fetch('http://localhost:3000/api/excel/color/get-all-colors')
+        fetch('/api/excel/color/get-all-colors')
             .then(response => response.json())
             .then(data => {
                 const filteredColors = (data.colors || []).filter(color => color.Kol_Opis !== '');
@@ -61,7 +61,7 @@ const Goods = () => {
             })
             .catch(error => console.error('Error fetching colors:', error));
 
-        fetch('http://localhost:3000/api/excel/category/get-all-categories')
+        fetch('/api/excel/category/get-all-categories')
             .then(response => response.json())
             .then(data => {
                 const filteredCategories = (data.categories || []).filter(category => category.Kat_Opis !== '');
@@ -76,7 +76,7 @@ const Goods = () => {
     }, []);
 
     useEffect(() => {
-        fetch('http://localhost:3000/api/excel/size/get-all-sizes')
+        fetch('/api/excel/size/get-all-sizes')
             .then(response => response.json())
             .then(data => setSizes(data.sizes || []))
             .catch(error => console.error('Error fetching sizes:', error));
@@ -222,7 +222,7 @@ const Goods = () => {
             formData.append('Picture', selectedImage);
         }
 
-        const url = editingGood ? `http://localhost:3000/api/excel/goods/${editingGood._id}` : 'http://localhost:3000/api/excel/goods/create-goods';
+        const url = editingGood ? `/api/excel/goods/${editingGood._id}` : '/api/excel/goods/create-goods';
         const method = editingGood ? 'PUT' : 'POST';
 
         fetch(url, {
@@ -244,7 +244,7 @@ const Goods = () => {
 
     const handleDeleteProduct = (goodId) => {
         if (window.confirm('Czy na pewno chcesz usunąć produkt?')) {
-            fetch(`http://localhost:3000/api/excel/goods/${goodId}`, {
+            fetch(`/api/excel/goods/${goodId}`, {
                 method: 'DELETE'
             })
             .then(response => response.json())

@@ -47,7 +47,7 @@ const Stock = () => {
             setLoading(true);
 
             // Check if the Tow_Opis value is unique
-            const response = await axios.get(`http://localhost:3000/api/excel/stock/get-all-stocks`);
+            const response = await axios.get(`/api/excel/stock/get-all-stocks`);
             const stocks = response.data.stocks;
             const duplicate = stocks.find(stock => stock.Tow_Opis === currentStock.Tow_Opis && stock._id !== currentStock._id);
 
@@ -57,7 +57,7 @@ const Stock = () => {
                 return;
             }
 
-            await axios.patch(`http://localhost:3000/api/excel/stock/update-stock/${currentStock._id}`, { Tow_Opis: currentStock.Tow_Opis });
+            await axios.patch(`/api/excel/stock/update-stock/${currentStock._id}`, { Tow_Opis: currentStock.Tow_Opis });
             fetchData();
             toggleModal();
         } catch (error) {
@@ -72,14 +72,14 @@ const Stock = () => {
             setLoading(true);
 
             // Check if there are any records in the goods database
-            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
             if (goodsResponse.data.goods.length > 0) {
                 alert("Nie można usunąć asortymentu ponieważ na ich podstawie zostały już stworzone gotowe produkty. Usuń najpierw wszystkie produkty i spróbuj ponownie");
                 setLoading(false);
                 return;
             }
 
-            await axios.delete("http://localhost:3000/api/excel/stock/delete-all-stocks");
+            await axios.delete(`/api/excel/stock/delete-all-stocks`);
             resetState();
             alert("Dane zostały usunięte poprawnie.");
         } catch (error) {
@@ -92,7 +92,7 @@ const Stock = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const result = (await axios.get("http://localhost:3000/api/excel/stock/get-all-stocks")).data;
+            const result = (await axios.get(`/api/excel/stock/get-all-stocks`)).data;
             setRows(Array.isArray(result.stocks) ? result.stocks : []);
             console.log(result);
         } catch (error) {
@@ -112,7 +112,7 @@ const Stock = () => {
             setLoading(true);
 
             // Check if there are any records in the goods database
-            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
             if (goodsResponse.data.goods.length > 0) {
                 alert("Na bazie istaniejego asortymentu zostały już stworzone produkty... Proszę usunąć wszystkie produkty i spróbować ponownie");
                 setLoading(false);
@@ -172,7 +172,7 @@ const Stock = () => {
     };
 
     const getStockList = async () => {
-        const stockResponse = (await axios.get("http://localhost:3000/api/excel/stock/get-all-stocks")).data;
+        const stockResponse = (await axios.get(`/api/excel/stock/get-all-stocks`)).data;
         return Array.isArray(stockResponse.stocks) ? stockResponse.stocks : [];
     };
 
@@ -188,14 +188,14 @@ const Stock = () => {
         const newStocks = stocks.filter((x) => !x._id);
 
         if (updatedStocks.length) {
-            const result = (await axios.post("http://localhost:3000/api/excel/stock/update-many-stocks", updatedStocks)).data;
+            const result = (await axios.post(`/api/excel/stock/update-many-stocks`, updatedStocks)).data;
             if (result) {
                 alert("Dodano pomyślnie " + updatedStocks.length + " rekordów.");
             }
         }
 
         if (newStocks.length) {
-            const result = (await axios.post("http://localhost:3000/api/excel/stock/insert-many-stocks", newStocks)).data;
+            const result = (await axios.post(`/api/excel/stock/insert-many-stocks`, newStocks)).data;
             if (result) {
                 alert("Dodano pomyślnie " + newStocks.length + " rekordów.");
             }

@@ -47,7 +47,7 @@ const Sizes = () => {
             setLoading(true);
 
             // Check if the Roz_Opis value is unique
-            const response = await axios.get(`http://localhost:3000/api/excel/size/get-all-sizes`);
+            const response = await axios.get(`/api/excel/size/get-all-sizes`);
             const sizes = response.data.sizes;
             const duplicate = sizes.find(size => size.Roz_Opis === currentSize.Roz_Opis && size._id !== currentSize._id);
 
@@ -57,7 +57,7 @@ const Sizes = () => {
                 return;
             }
 
-            await axios.patch(`http://localhost:3000/api/excel/size/update-size/${currentSize._id}`, { Roz_Opis: currentSize.Roz_Opis });
+            await axios.patch(`/api/excel/size/update-size/${currentSize._id}`, { Roz_Opis: currentSize.Roz_Opis });
             fetchData();
             toggleModal();
         } catch (error) {
@@ -72,14 +72,14 @@ const Sizes = () => {
             setLoading(true);
 
             // Check if there are any records in the goods database
-            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            const goodsResponse = await axios.get("/api/excel/goods/get-all-goods");
             if (goodsResponse.data.goods.length > 0) {
                 alert("Nie można usunąć rozmiarów ponieważ na ich podstawie zostały już stworzone gotowe produkty. Usuń najpierw wszystkie produkty i spróbuj ponownie");
                 setLoading(false);
                 return;
             }
 
-            await axios.delete("http://localhost:3000/api/excel/size/delete-all-sizes");
+            await axios.delete("/api/excel/size/delete-all-sizes");
             resetState();
             alert("Dane zostały usunięte poprawnie.");
         } catch (error) {
@@ -92,7 +92,7 @@ const Sizes = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const result = (await axios.get("http://localhost:3000/api/excel/size/get-all-sizes")).data;
+            const result = (await axios.get("/api/excel/size/get-all-sizes")).data;
             setRows(Array.isArray(result.sizes) ? result.sizes : []);
             console.log(result);
         } catch (error) {
@@ -112,7 +112,7 @@ const Sizes = () => {
             setLoading(true);
 
             // Check if there are any records in the goods database
-            const goodsResponse = await axios.get("http://localhost:3000/api/excel/goods/get-all-goods");
+            const goodsResponse = await axios.get("/api/excel/goods/get-all-goods");
             if (goodsResponse.data.goods.length > 0) {
                 alert("Na bazie istaniejego asortymentu zostały już stworzone produkty... Proszę usunąć wszystkie produkty i spróbować ponownie");
                 setLoading(false);
@@ -173,7 +173,7 @@ const Sizes = () => {
 
     const getSizeList = async () => {
         try {
-            const url = "http://localhost:3000/api/excel/size/get-all-sizes";
+            const url = "/api/excel/size/get-all-sizes";
             console.log(`Requesting URL: ${url}`);
             const sizeResponse = (await axios.get(url)).data;
             return Array.isArray(sizeResponse.sizes) ? sizeResponse.sizes : [];
@@ -195,14 +195,14 @@ const Sizes = () => {
         const newSizes = sizes.filter((x) => !x._id);
 
         if (updatedSizes.length) {
-            const result = (await axios.post("http://localhost:3000/api/excel/size/update-many-sizes", updatedSizes)).data;
+            const result = (await axios.post("/api/excel/size/update-many-sizes", updatedSizes)).data;
             if (result) {
                 alert("Dodano pomyślnie " + updatedSizes.length + " rekordów.");
             }
         }
 
         if (newSizes.length) {
-            const result = (await axios.post("http://localhost:3000/api/excel/size/insert-many-sizes", newSizes)).data;
+            const result = (await axios.post("/api/excel/size/insert-many-sizes", newSizes)).data;
             if (result) {
                 alert("Dodano pomyślnie " + newSizes.length + " rekordów.");
             }

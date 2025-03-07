@@ -31,7 +31,7 @@ const Users = () => {
     }, [isAddUserModalOpen, isModalOpen, isDeleteConfirmModalOpen]);
 
     const fetchUsers = () => {
-        axios.get('http://localhost:3000/api/user')
+        axios.get('/api/user')
             .then(response => {
                 setUsers(response.data.users);
             })
@@ -131,7 +131,7 @@ const Users = () => {
             return;
         }
 
-        axios.post('http://localhost:3000/api/user/signup', newUser)
+        axios.post('/api/user/signup', newUser)
             .then(response => {
                 toggleAddUserModal();
                 fetchUsers(); // Refresh the user list
@@ -145,7 +145,7 @@ const Users = () => {
     };
 
     const handleEditUser = (userId) => {
-        axios.get(`http://localhost:3000/api/user/${userId}`)
+        axios.get(`/api/user/${userId}`)
             .then(response => {
                 const user = response.data.user;
                 setEditUser({
@@ -216,7 +216,7 @@ const Users = () => {
 
         // Check if changing from admin to user and if this is the last admin
         if (initialRole === 'admin' && updatedUser.role !== 'admin') {
-            axios.get('http://localhost:3000/api/user')
+            axios.get('/api/user')
                 .then(response => {
                     const adminUsers = response.data.users.filter(user => user.role === 'admin');
                     if (adminUsers.length <= 1) {
@@ -235,7 +235,7 @@ const Users = () => {
     };
 
     const updateUserInDatabase = (updatedUser) => {
-        axios.put(`http://localhost:3000/api/user/${updatedUser._id}`, updatedUser)
+        axios.put(`/api/user/${updatedUser._id}`, updatedUser)
             .then(response => {
                 toggleModal();
                 fetchUsers(); // Refresh the user list
@@ -248,7 +248,7 @@ const Users = () => {
     const handleDeleteUser = (userId) => {
         const userToDelete = users.find(user => user._id === userId);
         if (userToDelete.role === 'admin') {
-            axios.get('http://localhost:3000/api/user')
+            axios.get('/api/user')
                 .then(response => {
                     const adminUsers = response.data.users.filter(user => user.role === 'admin');
                     if (adminUsers.length <= 1) {
@@ -269,7 +269,7 @@ const Users = () => {
     };
 
     const confirmDeleteUser = () => {
-        axios.delete(`http://localhost:3000/api/user/${userIdToDelete}`)
+        axios.delete(`/api/user/${userIdToDelete}`)
             .then(response => {
                 toggleDeleteConfirmModal();
                 fetchUsers(); // Refresh the user list

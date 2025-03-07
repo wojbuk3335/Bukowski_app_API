@@ -32,7 +32,7 @@ const UserLogin = () => {
     event.preventDefault();
     setLoading(true); // Set loading to true when the login process starts
     try {
-      const response = await axios.post('http://localhost:3000/api/user/login', { email, password });
+      const response = await axios.post('/api/user/login', { email, password });
       if (response.data.success) {
         localStorage.setItem('UserRole', response.data.role); // Store role in localStorage
         localStorage.setItem('UserEmail', email); // Store email in localStorage

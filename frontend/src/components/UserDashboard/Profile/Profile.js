@@ -13,8 +13,7 @@ const Profile = () => {
 
     useEffect(() => {
         const userId = localStorage.getItem('UserId'); // Get userId from localStorage
-        const baseUrl = process.env.REACT_APP_API_BASE_URL; // Get base URL from environment variable
-        axios.get(`${baseUrl}/api/user/${userId}`)
+        axios.get(`/api/user/${userId}`)
             .then(response => {
                 setUser(response.data.user); // Access the user data correctly
             })
@@ -102,8 +101,7 @@ const Profile = () => {
         }
 
         const userId = localStorage.getItem('UserId');
-        const baseUrl = process.env.REACT_APP_API_BASE_URL;
-        axios.put(`${baseUrl}/api/user/${userId}`, updatedUser)
+        axios.put(`/api/user/${userId}`, updatedUser)
             .then(response => {
                 const updatedUserData = response.data.user || updatedUser; // Adjust based on actual response structure
                 setUser(updatedUserData); // Update the user state with the updated user data

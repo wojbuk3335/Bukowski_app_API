@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const jsonwebtoken = require('../config').jsonwebtoken;
+const config = require('../config');
 
 class UsersController {
     // ... other methods ...
@@ -38,7 +39,7 @@ class UsersController {
                                         role: newUser.role,
                                         request: {
                                             type: 'GET',
-                                            url: 'http://localhost:3000/api/user/' + result._id
+                                            url: `${config.domain}/api/user/${result._id}`
                                         },
                                         success: true,
                                         email: newUser.email
@@ -118,7 +119,7 @@ class UsersController {
                     message: 'User deleted',
                     request: {
                         type: 'POST',
-                        url: 'http://localhost:3000/api/user',
+                        url: `${config.domain}/api/user`,
                         body: { email: 'String', password: 'String' }
                     }
                 });
@@ -146,7 +147,7 @@ class UsersController {
                             sellingPoint: doc.sellingPoint,
                             request: {
                                 type: 'GET',
-                                url: 'http://localhost:3000/api/user/' + doc._id
+                                url: `${config.domain}/api/user/${doc._id}`
                             }
                         }
                     })
@@ -171,7 +172,7 @@ class UsersController {
                         user: doc,
                         request: {
                             type: 'GET',
-                            url: 'http://localhost:3000/api/user'
+                            url: `${config.domain}/api/user`
                         }
                     });
                 } else {
@@ -224,7 +225,7 @@ const updateUserInDB = (id, updateOps, res) => {
                 message: 'User updated',
                 request: {
                     type: 'GET',
-                    url: 'http://localhost:3000/api/user/' + id
+                    url: `${config.domain}/api/user/${id}`
                 }
             });
         })

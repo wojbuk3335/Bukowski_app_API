@@ -1,5 +1,6 @@
 const Size = require('../db/models/size');
 const mongoose = require('mongoose');
+const config = require('../config');
 
 class SizesController {
     getAllSizes(req, res, next) {
@@ -15,7 +16,7 @@ class SizesController {
                             Roz_Opis: size.Roz_Opis,
                             request: {
                                 type: 'GET',
-                                url: 'http://localhost:3000/api/excel/size/' + size._id
+                                url: `${config.domain}/api/excel/size/${size._id}`
                             }
                         };
                     })
@@ -98,7 +99,7 @@ class SizesController {
                         size: size,
                         request: {
                             type: 'GET',
-                            url: 'http://localhost:3000/api/excel/size/get-all-sizes'
+                            url: `${config.domain}/api/excel/size/get-all-sizes`
                         }
                     });
                 } else {
@@ -132,7 +133,7 @@ class SizesController {
                     message: 'Size updated',
                     request: {
                         type: 'GET',
-                        url: 'http://localhost:3000/api/excel/size/' + id
+                        url: `${config.domain}/api/excel/size/${id}`
                     }
                 });
             })
