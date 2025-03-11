@@ -93,7 +93,8 @@ const Sizes = () => {
         try {
             setLoading(true);
             const result = (await axios.get("/api/excel/size/get-all-sizes")).data;
-            setRows(Array.isArray(result.sizes) ? result.sizes : []);
+            const sortedSizes = Array.isArray(result.sizes) ? result.sizes.sort((a, b) => a.Roz_Kod.localeCompare(b.Roz_Kod)) : [];
+            setRows(sortedSizes);
             console.log(result);
         } catch (error) {
             console.log(error);
