@@ -144,10 +144,21 @@ const Goods = () => {
         setProductName(newName);
     };
 
+    const calculateControlSum = (code) => {
+        let sum = 0;
+        for (let i = 0; i < code.length; i++) {
+            sum += parseInt(code[i]) * (i % 2 === 0 ? 1 : 3);
+        }
+        return (10 - (sum % 10)) % 10;
+    };
+
     const getProductCode = () => {
         const stock = stocks.find(stock => stock._id === selectedStock);
         const color = colors.find(color => color._id === selectedColor);
-        return `${stock ? stock.Tow_Kod : ''}${color ? color.Kol_Kod : ''}`.trim();
+        const baseCode = `${stock ? stock.Tow_Kod : ''}${color ? color.Kol_Kod : ''}`.trim();
+        const extendedCode = `${baseCode}0000000`; // Add the 0000000 digits
+        const controlSum = calculateControlSum(extendedCode);
+        return `${extendedCode}${controlSum}`;
     };
 
     const handleAddProduct = () => {
@@ -363,8 +374,12 @@ const Goods = () => {
                             value={selectedStock}
                         >
                             {stocks.map(stock => (
-                                <option key={stock._id} value={stock._id} tow_opis={stock.Tow_Opis} tow_kod={stock.Tow_Kod}>{stock.Tow_Opis}</option>
+                                <option key={stock._id} value={stock._id} data-source="stock" tow_opis={stock.Tow_Opis} tow_kod={stock.Tow_Kod}>{stock.Tow_Opis}</option>
                             ))}
+                            {/* Add options from other sources here */}
+                            {/* {otherSourceOptions.map(option => (
+                                <option key={option._id} value={option._id} data-source="other">{option.name}</option>
+                            ))} */}
                         </Input>
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
@@ -429,7 +444,7 @@ const Goods = () => {
                         <Input
                             type="number"
                             id="productPrice"
-                            className={styles.inputField}
+                            className={`${styles.inputField} digit-color`}
                             value={price}
                             onChange={handlePriceChange}
                         />
@@ -439,7 +454,7 @@ const Goods = () => {
                         <Input
                             type="number"
                             id="discountPrice"
-                            className={styles.inputField}
+                            className={`${styles.inputField} digit-color`}
                             value={discountPrice === 0 ? '' : discountPrice}
                             onChange={handleDiscountPriceChange}
                         />
@@ -489,7 +504,7 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Produkt</th>
                             <th className={styles.tableHeader}>Kolor</th>
                             <th className={styles.tableHeader}>Nazwa produktu</th>
-                            <th className={styles.tableHeader}>Kod produktu</th>
+                            <th className={styles.tableHeader}>Kod kreskowy</th>
                             <th className={styles.tableHeader}>Kategoria</th>
                             <th className={styles.tableHeader}>Zdjęcie</th>
                             <th className={styles.tableHeader}>Cena (PLN) </th>

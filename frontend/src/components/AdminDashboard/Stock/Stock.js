@@ -93,8 +93,7 @@ const Stock = () => {
         try {
             setLoading(true);
             const result = (await axios.get(`/api/excel/stock/get-all-stocks`)).data;
-            const sortedStocks = Array.isArray(result.stocks) ? result.stocks.sort((a, b) => a.Tow_Kod.localeCompare(b.Tow_Kod)) : [];
-            setRows(sortedStocks);
+            setRows(Array.isArray(result.stocks) ? result.stocks : []);
             console.log(result);
         } catch (error) {
             console.log(error);
