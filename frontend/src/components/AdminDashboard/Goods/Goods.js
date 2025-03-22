@@ -162,11 +162,19 @@ const Goods = () => {
     };
 
     const handleAddProduct = () => {
+
+        const category = categories.find(cat => cat._id === selectedCategory);
+        if (category && category.Kat_Opis === '!NIEOKREŚLONY') {
+            alert('Kategoria nie może posiadać wartości !NIEOKREŚLONY');
+            return;
+        }
         const stock = stocks.find(stock => stock._id === selectedStock);
         if (stock && stock.Tow_Opis === '!NIEOKREŚLONY') {
             alert('Produkt nie może posiadać wartości !NIEOKREŚLONY');
             return;
         }
+
+
 
         const color = colors.find(color => color._id === selectedColor);
         const fullName = productName;
@@ -240,17 +248,17 @@ const Goods = () => {
             method: method,
             body: formData
         })
-        .then(response => response.json())
-        .then(data => {
-            // Handle success (e.g., close modal, show success message)
-            setModal(false);
-            fetchGoods();
-            resetForm();
-        })
-        .catch(error => {
-            console.error('Error adding/updating product:', error);
-            // Handle error (e.g., show error message)
-        });
+            .then(response => response.json())
+            .then(data => {
+                // Handle success (e.g., close modal, show success message)
+                setModal(false);
+                fetchGoods();
+                resetForm();
+            })
+            .catch(error => {
+                console.error('Error adding/updating product:', error);
+                // Handle error (e.g., show error message)
+            });
     };
 
     const handleDeleteProduct = (goodId) => {
@@ -258,19 +266,19 @@ const Goods = () => {
             fetch(`/api/excel/goods/${goodId}`, {
                 method: 'DELETE'
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message === 'Good deleted successfully') {
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message === 'Good deleted successfully') {
 
-                    fetchGoods(); // Refresh the goods list
-                } else {
-                    alert('Nie znaleziono produktu');
-                }
-            })
-            .catch(error => {
-                console.error('Error deleting product:', error);
-                alert('Wystąpił błąd podczas usuwania produktu');
-            });
+                        fetchGoods(); // Refresh the goods list
+                    } else {
+                        alert('Nie znaleziono produktu');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting product:', error);
+                    alert('Wystąpił błąd podczas usuwania produktu');
+                });
         }
     };
 
@@ -356,7 +364,7 @@ const Goods = () => {
                 <ModalHeader
                     style={{ cursor: 'grab' }}
                     onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
-                    onMouseUp={(e) => e.currentTarget.style.cursor = 'grab' }
+                    onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}
                     toggle={toggle}
                     className={`modal-header draggable-header ${styles.modalHeader}`}
                 >
@@ -364,6 +372,20 @@ const Goods = () => {
                     <button className={styles.customCloseButton} onClick={toggle}></button>
                 </ModalHeader>
                 <ModalBody className={styles.modalBody}>
+                    <FormGroup className={styles.formGroup}>
+                        <Label for="categorySelect" className={styles.label}>Kategoria:</Label>
+                        <Input
+                            type="select"
+                            id="categorySelect"
+                            className={styles.inputField}
+                            onChange={handleCategoryChange}
+                            value={selectedCategory}
+                        >
+                            {categories.map(category => (
+                                <option key={category._id} value={category._id}>{category.Kat_Opis}</option>
+                            ))}
+                        </Input>
+                    </FormGroup>
                     <FormGroup className={styles.formGroup}>
                         <Label for="productSelect" className={styles.label}>Produkt:</Label>
                         <Input
@@ -376,10 +398,6 @@ const Goods = () => {
                             {stocks.map(stock => (
                                 <option key={stock._id} value={stock._id} data-source="stock" tow_opis={stock.Tow_Opis} tow_kod={stock.Tow_Kod}>{stock.Tow_Opis}</option>
                             ))}
-                            {/* Add options from other sources here */}
-                            {/* {otherSourceOptions.map(option => (
-                                <option key={option._id} value={option._id} data-source="other">{option.name}</option>
-                            ))} */}
                         </Input>
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
@@ -415,20 +433,6 @@ const Goods = () => {
                             value={getProductCode()}
                             readOnly
                         />
-                    </FormGroup>
-                    <FormGroup className={styles.formGroup}>
-                        <Label for="categorySelect" className={styles.label}>Kategoria:</Label>
-                        <Input
-                            type="select"
-                            id="categorySelect"
-                            className={styles.inputField}
-                            onChange={handleCategoryChange}
-                            value={selectedCategory}
-                        >
-                            {categories.map(category => (
-                                <option key={category._id} value={category._id}>{category.Kat_Opis}</option>
-                            ))}
-                        </Input>
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
                         <Label for="productImage" className={`${styles.label} ${styles.noWrapLabel}`}>Zdjęcie produktu:</Label>
@@ -490,7 +494,7 @@ const Goods = () => {
                             ))}
                         </div>
                     </FormGroup>
-                    <div style={{ textAlign: 'center',marginBottom: '15px',marginTop: '-20px' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '15px', marginTop: '-20px' }}>
                         <Button color="primary" size="sm" onClick={handleAddPriceException}>Dodaj wyjątek</Button>
                     </div>
                     <Button color="primary" onClick={handleAddProduct} className={`${styles.button} btn-sm`}>{editingGood ? 'Zaktualizuj produkt' : 'Dodaj produkt'}</Button>
