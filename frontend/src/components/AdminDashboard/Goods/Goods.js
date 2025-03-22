@@ -167,14 +167,12 @@ const Goods = () => {
         if (category && category.Kat_Opis === '!NIEOKREŚLONY') {
             alert('Kategoria nie może posiadać wartości !NIEOKREŚLONY');
             return;
-        } cd
+        }
         const stock = stocks.find(stock => stock._id === selectedStock);
         if (stock && stock.Tow_Opis === '!NIEOKREŚLONY') {
             alert('Produkt nie może posiadać wartości !NIEOKREŚLONY');
             return;
         }
-
-
 
         const color = colors.find(color => color._id === selectedColor);
         const fullName = productName;
