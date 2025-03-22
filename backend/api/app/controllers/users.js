@@ -65,8 +65,8 @@ class UsersController {
                 });
             });
     }
-    
-    login(req, res, next){
+
+    login(req, res, next) {
         User.findOne({ email: req.body.email })
             .exec()
             .then(user => {

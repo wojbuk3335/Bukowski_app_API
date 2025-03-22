@@ -34,7 +34,7 @@ class StockController {
 
     insertManyStocks(req, res, next) {
         const stocks = req.body;
-    
+
         // Check for duplicate Tow_Kod values in the request body
         const towKodSet = new Set();
         for (const stock of stocks) {
@@ -47,7 +47,7 @@ class StockController {
             }
             towKodSet.add(stock.Tow_Kod);
         }
-    
+
         // Proceed to insert the stocks
         Stock.insertMany(stocks)
             .then(result => {

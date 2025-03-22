@@ -21,6 +21,7 @@ function Navigaton() {
             </NavDropdown>
             <Nav.Link as={Link} to="/admin/dashboard/users">Użytkownicy</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/goods">Produkty</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/state">Stan</Nav.Link>
           </Nav>
         </Navbar.Collapse>
       </Container>
