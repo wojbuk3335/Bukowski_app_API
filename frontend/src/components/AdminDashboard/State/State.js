@@ -705,7 +705,7 @@ const State = () => {
                         >
                             {({
                                 getInputProps,
-                                getItemProps, d
+                                getItemProps,
                                 getMenuProps,
                                 isOpen,
                                 highlightedIndex,
