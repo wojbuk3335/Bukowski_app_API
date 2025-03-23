@@ -3,9 +3,12 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import axios from 'axios';
 import Downshift from 'downshift';
+import Barcode from 'react-barcode'; // Ensure this import is present
+import styles from './State.module.css'; // Import the CSS module
+import { Modal, ModalHeader, ModalBody, Button, FormGroup, Label, Input, ModalFooter } from 'reactstrap'; // Import reactstrap components
 
 const State = () => {
-    const [selectedDate, setSelectedDate] = useState(new Date()); // Set default to today's date
+    const [selectedDate, setSelectedDate] = useState(new Date());
     const [sellingPoints, setSellingPoints] = useState([]);
     const [selectedSellingPoint, setSelectedSellingPoint] = useState('');
     const [goods, setGoods] = useState([]);
@@ -13,24 +16,33 @@ const State = () => {
     const [filteredGoods, setFilteredGoods] = useState([]);
     const [sizes, setSizes] = useState([]);
     const [sizeInputValue, setSizeInputValue] = useState('');
-    const secondDownshiftInputRef = useRef(null); // Ref for the second Downshift input
-    const buttonRef = useRef(null); // Ref for the button
-    const [nonEditableInputValue, setNonEditableInputValue] = useState(''); // State for non-editable input value
+    const secondDownshiftInputRef = useRef(null);
+    const buttonRef = useRef(null);
+    const [nonEditableInputValue, setNonEditableInputValue] = useState('');
+    const [tableData, setTableData] = useState([]);
+    const productInputRef = useRef(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editIndex, setEditIndex] = useState(null);
+    const [loading, setLoading] = useState(false); // Add a loading state
+    const modalRef = useRef(null);
 
     useEffect(() => {
-        // Fetch selling points from the API
+        // Fetch selling points
         axios.get('/api/user')
             .then(response => {
                 const points = response.data.users
                     .map(user => user.sellingPoint)
                     .filter(point => point !== null);
                 setSellingPoints(points);
+                if (points.length > 0) {
+                    setSelectedSellingPoint(points[0]); // Set the first selling point as default
+                }
             })
             .catch(error => {
                 console.error('Error fetching selling points:', error);
             });
 
-        // Fetch goods from the API
+        // Fetch goods
         axios.get('/api/excel/goods/get-all-goods')
             .then(response => {
                 setGoods(response.data.goods || []);
@@ -39,7 +51,7 @@ const State = () => {
                 console.error('Error fetching goods:', error);
             });
 
-        // Fetch sizes from the API
+        // Fetch sizes
         axios.get('/api/excel/size/get-all-sizes')
             .then(response => {
                 setSizes(response.data.sizes || []);
@@ -47,10 +59,59 @@ const State = () => {
             .catch(error => {
                 console.error('Error fetching sizes:', error);
             });
+
+        // Fetch table data (states)
+        axios.get('http://localhost:3000/api/state/get')
+            .then(response => {
+                const fetchedStates = response.data.states || [];
+                setTableData(fetchedStates);
+
+                // Log fetched states only if debugging is enabled
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('Fetched states:', fetchedStates);
+                }
+
+                // Ensure the first state's sellingPoint and barcode are set
+                if (fetchedStates.length > 0) {
+                    const firstState = fetchedStates[0];
+
+                    // Check and set sellingPoint
+                    if (firstState.sellingPoint) {
+                        setSelectedSellingPoint(firstState.sellingPoint);
+                    } else {
+                        console.warn('Missing sellingPoint in the first state:', firstState);
+                        setSelectedSellingPoint(''); // Fallback to empty string
+                    }
+
+                    // Check and set barcode
+                    if (firstState.barcode) {
+                        setNonEditableInputValue(firstState.barcode);
+                    } else {
+                        console.warn('Missing barcode in the first state:', firstState);
+                        setNonEditableInputValue(''); // Fallback to empty string
+                    }
+                } else {
+                    console.warn('No states fetched from the API.');
+                    setSelectedSellingPoint(''); // Reset to empty if no states
+                    setNonEditableInputValue(''); // Reset to empty if no states
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching table data:', error);
+                setSelectedSellingPoint(''); // Reset to empty on error
+                setNonEditableInputValue(''); // Reset to empty on error
+            });
     }, []);
 
+    // Debugging: Log state changes only in development mode
     useEffect(() => {
-        // Filter goods based on input value
+        if (process.env.NODE_ENV === 'development') {
+            console.log('Selected Selling Point:', selectedSellingPoint);
+            console.log('Non-Editable Barcode:', nonEditableInputValue);
+        }
+    }, [selectedSellingPoint, nonEditableInputValue]);
+
+    useEffect(() => {
         setFilteredGoods(
             goods.filter(good =>
                 good.fullName.toLowerCase().includes(inputValue.toLowerCase())
@@ -59,45 +120,202 @@ const State = () => {
     }, [inputValue, goods]);
 
     const updateCodeWithSizeAndChecksum = (baseCode, rozKod) => {
-        // Ensure the base code is at least 11 digits long (excluding Roz_Kod and checksum)
         let paddedCode = baseCode.padEnd(11, '0');
-
-        // Ensure Roz_Kod is exactly 3 digits
         const formattedRozKod = rozKod.padStart(3, '0');
-
-        // Update the 6th, 7th, and 8th digits with Roz_Kod
         paddedCode = paddedCode.substring(0, 5) + formattedRozKod + paddedCode.substring(8);
-
-        // Calculate checksum using the first 12 digits
         const checksum = paddedCode
             .split('')
-            .slice(0, 12) // Use only the first 12 digits
+            .slice(0, 12)
             .reduce((sum, digit, index) => {
                 const num = parseInt(digit, 10);
-                return sum + (index % 2 === 0 ? num : num * 3); // Multiply every second digit by 3
+                return sum + (index % 2 === 0 ? num : num * 3);
             }, 0) % 10;
-
-        const controlDigit = checksum === 0 ? 0 : 10 - checksum; // Calculate the control digit
-
-        // Return the updated code with the new checksum
+        const controlDigit = checksum === 0 ? 0 : 10 - checksum;
         return paddedCode.substring(0, 12) + controlDigit;
     };
+
+    // Prevent double-triggering of handleAddToTable
+    const handleAddToTable = () => {
+        if (loading) return; // Prevent re-execution if already processing
+
+        if (!inputValue || !sizeInputValue || !selectedSellingPoint) {
+            alert("Proszę uzupełnić wszystkie wymagane pola: produkt, rozmiar i punkt sprzedaży.");
+            return;
+        }
+
+        const payload = {
+            date: selectedDate.toISOString(),
+            sellingPoint: selectedSellingPoint,
+            fullName: inputValue,
+            size: sizeInputValue, // Include size in the payload
+            barcode: nonEditableInputValue,
+        };
+
+        setLoading(true); // Set loading to true to prevent duplicate submissions
+
+        // Prevent multiple submissions by disabling the button temporarily
+        if (buttonRef.current) {
+            buttonRef.current.disabled = true;
+        }
+
+        axios.post('http://localhost:3000/api/state/add', payload)
+            .then(response => {
+                const newProduct = response.data.createdState;
+                setTableData(prevData => [...prevData, newProduct]);
+                setInputValue('');
+                setSizeInputValue('');
+                setNonEditableInputValue('');
+                if (productInputRef.current) {
+                    productInputRef.current.focus();
+                }
+            })
+            .catch(error => {
+                console.error('Błąd podczas dodawania do tabeli:', error.response || error);
+                alert('Wystąpił błąd podczas dodawania do tabeli.');
+            })
+            .finally(() => {
+                setLoading(false); // Reset loading state
+                if (buttonRef.current) {
+                    buttonRef.current.disabled = false;
+                }
+            });
+    };
+
+    const handleDelete = (index) => {
+        const itemToDelete = tableData[index];
+        axios
+            .delete(`http://localhost:3000/api/state/delete/${itemToDelete._id}`)
+            .then(() => {
+                const updatedTableData = [...tableData];
+                updatedTableData.splice(index, 1);
+                setTableData(updatedTableData);
+                alert('Produkt został usunięty.');
+            })
+            .catch((error) => {
+                console.error('Błąd podczas usuwania produktu:', error.response || error);
+                alert('Wystąpił błąd podczas usuwania produktu.');
+            });
+    };
+
+    const handleEdit = (index) => {
+        const itemToEdit = tableData[index];
+        setInputValue(itemToEdit.fullName);
+        setSelectedDate(new Date(itemToEdit.date));
+        setSelectedSellingPoint(itemToEdit.sellingPoint);
+        setSizeInputValue(itemToEdit.size);
+        setNonEditableInputValue(itemToEdit.barcode);
+        setEditIndex(index);
+        setIsModalOpen(true);
+    };
+
+    const handleSaveEdit = () => {
+        if (editIndex !== null) {
+            const itemToEdit = tableData[editIndex];
+            const payload = {
+                fullName: inputValue,
+                date: selectedDate.toISOString(),
+                sellingPoint: selectedSellingPoint,
+                size: sizeInputValue,
+                barcode: nonEditableInputValue,
+            };
+
+            // Log all modal values
+            console.log('Modal Values:');
+            console.log('Full Name:', inputValue);
+            console.log('Date:', selectedDate.toISOString());
+            console.log('Selling Point:', selectedSellingPoint);
+            console.log('Size:', sizeInputValue);
+            console.log('Barcode:', nonEditableInputValue);
+
+            console.log('Payload:', payload); // Log the payload
+            console.log('Updating ID:', itemToEdit._id); // Log the ID being updated
+
+            axios
+                .patch(`http://localhost:3000/api/state/update/${itemToEdit._id}`, payload)
+                .then(() => {
+                    const updatedTableData = [...tableData];
+                    updatedTableData[editIndex] = { ...itemToEdit, ...payload };
+                    setTableData(updatedTableData);
+                    setIsModalOpen(false);
+                    setInputValue('');
+                    setSizeInputValue('');
+                    setNonEditableInputValue('');
+                    setEditIndex(null);
+                    alert('Produkt został zaktualizowany.');
+                })
+                .catch((error) => {
+                    console.error('Błąd podczas aktualizacji produktu:', error.response || error);
+                    if (error.response) {
+                        console.error('Response Data:', error.response.data);
+                        console.error('Response Status:', error.response.status);
+                    }
+                    alert('Wystąpił błąd podczas aktualizacji produktu.');
+                });
+        }
+    };
+
+    const makeModalDraggable = () => {
+        const modal = modalRef.current;
+        if (!modal) return;
+
+        const header = modal.querySelector('.modal-header');
+        if (!header) return;
+
+        let isDragging = false;
+        let startX, startY, initialX, initialY;
+
+        const onMouseDown = (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            const rect = modal.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+            modal.style.position = 'absolute'; // Ensure the modal is positioned absolutely
+            modal.style.margin = '0'; // Remove any default margin
+            modal.style.left = `${initialX}px`;
+            modal.style.top = `${initialY}px`;
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        };
+
+        const onMouseMove = (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            modal.style.left = `${initialX + dx}px`;
+            modal.style.top = `${initialY + dy}px`;
+        };
+
+        const onMouseUp = () => {
+            isDragging = false;
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        header.addEventListener('mousedown', onMouseDown);
+    };
+
+    useEffect(() => {
+        if (isModalOpen) {
+            makeModalDraggable();
+        }
+    }, [isModalOpen]);
 
     return (
         <div>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <label style={{ color: "white" }}>Kalendarz</label>
-
                     <DatePicker
                         selected={selectedDate}
                         onChange={(date) => setSelectedDate(date)}
                         className="form-control"
                         style={{
-                            width: '150px', // Set consistent width
-                            marginRight: '15px', // Set a consistent margin
+                            width: '150px',
+                            marginRight: '15px',
                         }}
-                        data-displayid="num=1" // Add displayid attribute
+                        data-displayid="num=1"
                     />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -106,7 +324,7 @@ const State = () => {
                         className="form-control"
                         value={selectedSellingPoint}
                         onChange={(e) => setSelectedSellingPoint(e.target.value)}
-                        style={{ width: '150px' }} // Set consistent width
+                        style={{ width: '150px' }}
                     >
                         {sellingPoints.length > 0 ? (
                             sellingPoints.map((point, index) => (
@@ -124,20 +342,15 @@ const State = () => {
                     <Downshift
                         inputValue={inputValue}
                         onInputValueChange={(value) => {
-                            const matches = goods.filter((good) =>
-                                good.fullName.toLowerCase().includes(value.toLowerCase())
-                            );
-                            if (matches.length > 0) {
-                                setInputValue(value); // Allow input if matches exist
-                            }
+                            setInputValue(value);
                         }}
                         onChange={(selectedItem) => {
-                            console.log('Selected item:', selectedItem);
                             if (selectedItem) {
-                                setNonEditableInputValue(selectedItem.code.padEnd(13, '0')); // Ensure 13 digits
-                            }
-                            if (secondDownshiftInputRef.current) {
-                                secondDownshiftInputRef.current.focus(); // Focus on the second Downshift input
+                                setInputValue(selectedItem.fullName);
+                                setNonEditableInputValue(selectedItem.code.padEnd(13, '0'));
+                                if (secondDownshiftInputRef.current) {
+                                    secondDownshiftInputRef.current.focus();
+                                }
                             }
                         }}
                         itemToString={(item) => (item ? item.fullName : '')}
@@ -149,21 +362,22 @@ const State = () => {
                             isOpen,
                             highlightedIndex,
                         }) => (
-                            <div style={{ width: '250px', position: 'relative' }}> {/* Set consistent width */}
+                            <div style={{ width: '250px', position: 'relative' }}>
                                 <input
                                     {...getInputProps({
                                         className: 'form-control',
+                                        ref: productInputRef,
                                         onKeyDown: (e) => {
-                                            if (e.key === 'Enter' && isOpen && highlightedIndex !== null) {
+                                            if (e.key === 'Enter') {
                                                 e.preventDefault();
-                                                const selectedItem = goods.filter((good) =>
-                                                    good.fullName.toLowerCase().includes(inputValue.toLowerCase())
-                                                )[highlightedIndex];
-                                                if (selectedItem) {
-                                                    setInputValue(selectedItem.fullName);
-                                                    setNonEditableInputValue(selectedItem.code.padEnd(13, '0')); // Ensure 13 digits
+                                                const matchedItem = goods.find((good) =>
+                                                    good.fullName.toLowerCase() === inputValue.toLowerCase()
+                                                );
+                                                if (matchedItem) {
+                                                    setInputValue(matchedItem.fullName);
+                                                    setNonEditableInputValue(matchedItem.code.padEnd(13, '0'));
                                                     if (secondDownshiftInputRef.current) {
-                                                        secondDownshiftInputRef.current.focus(); // Focus on the second Downshift input
+                                                        secondDownshiftInputRef.current.focus();
                                                     }
                                                 }
                                             }
@@ -177,12 +391,12 @@ const State = () => {
                                         padding: 0,
                                         margin: 0,
                                         border: '1px solid #ccc',
-                                        borderTop: 'none', // Remove the top border
-                                        borderBottom: isOpen ? '1px solid #ccc' : 'none', // Conditionally show border-bottom
+                                        borderTop: 'none',
+                                        borderBottom: isOpen ? '1px solid #ccc' : 'none',
                                         maxHeight: '150px',
                                         overflowY: 'auto',
-                                        backgroundColor: 'black', // Set background color to black
-                                        color: 'white', // Set text color to white
+                                        backgroundColor: 'black',
+                                        color: 'white',
                                         position: 'absolute',
                                         top: '100%',
                                         left: 0,
@@ -201,8 +415,8 @@ const State = () => {
                                                     {...getItemProps({ item, index })}
                                                     style={{
                                                         padding: '5px 10px',
-                                                        backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black', // Hover background color
-                                                        color: 'white', // Text color
+                                                        backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black',
+                                                        color: 'white',
                                                         cursor: 'pointer',
                                                     }}
                                                 >
@@ -219,25 +433,17 @@ const State = () => {
                     <Downshift
                         inputValue={sizeInputValue}
                         onInputValueChange={(value) => {
-                            const matches = sizes.filter((size) =>
-                                size.Roz_Opis.toLowerCase().includes(value.toLowerCase())
-                            );
-                            if (matches.length > 0) {
-                                setSizeInputValue(value); // Allow input if matches exist
-                            }
+                            setSizeInputValue(value);
                         }}
                         onChange={(selectedItem) => {
-                            if (!inputValue) {
-                                alert("Proszę najpierw uzupełnić produkt"); // Alert if product is empty
-                                return;
-                            }
-                            console.log('Selected size:', selectedItem);
                             if (selectedItem) {
                                 const updatedCode = updateCodeWithSizeAndChecksum(
                                     nonEditableInputValue,
                                     selectedItem.Roz_Kod
                                 );
-                                setNonEditableInputValue(updatedCode); // Update the non-editable input with the new code
+                                setNonEditableInputValue(updatedCode);
+                                setSizeInputValue('');
+                                handleAddToTable();
                             }
                         }}
                         itemToString={(item) => (item ? item.Roz_Opis : '')}
@@ -249,23 +455,25 @@ const State = () => {
                             isOpen,
                             highlightedIndex,
                         }) => (
-                            <div style={{ width: '150px', position: 'relative' }}> {/* Set consistent width */}
+                            <div style={{ width: '150px', position: 'relative' }}>
                                 <input
                                     {...getInputProps({
                                         className: 'form-control',
                                         ref: secondDownshiftInputRef,
                                         onKeyDown: (e) => {
-                                            if (e.key === 'Enter' && isOpen && highlightedIndex !== null) {
+                                            if (e.key === 'Enter') {
                                                 e.preventDefault();
-                                                const selectedItem = sizes.filter((size) =>
-                                                    size.Roz_Opis.toLowerCase().includes(sizeInputValue.toLowerCase())
-                                                )[highlightedIndex];
-                                                if (selectedItem) {
+                                                const matchedItem = sizes.find((size) =>
+                                                    size.Roz_Opis.toLowerCase() === sizeInputValue.toLowerCase()
+                                                );
+                                                if (matchedItem) {
                                                     const updatedCode = updateCodeWithSizeAndChecksum(
                                                         nonEditableInputValue,
-                                                        selectedItem.Roz_Kod
+                                                        matchedItem.Roz_Kod
                                                     );
-                                                    setNonEditableInputValue(updatedCode); // Update the non-editable input with the new code
+                                                    setNonEditableInputValue(updatedCode);
+                                                    setSizeInputValue('');
+                                                    handleAddToTable();
                                                 }
                                             }
                                         },
@@ -278,12 +486,12 @@ const State = () => {
                                         padding: 0,
                                         margin: 0,
                                         border: '1px solid #ccc',
-                                        borderTop: 'none', // Remove the top border
-                                        borderBottom: isOpen ? '1px solid #ccc' : 'none', // Conditionally show border-bottom
+                                        borderTop: 'none',
+                                        borderBottom: isOpen ? '1px solid #ccc' : 'none',
                                         maxHeight: '150px',
                                         overflowY: 'auto',
-                                        backgroundColor: 'black', // Set background color to black
-                                        color: 'white', // Set text color to white
+                                        backgroundColor: 'black',
+                                        color: 'white',
                                         position: 'absolute',
                                         top: '100%',
                                         left: 0,
@@ -302,8 +510,8 @@ const State = () => {
                                                     {...getItemProps({ item, index })}
                                                     style={{
                                                         padding: '5px 10px',
-                                                        backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black', // Hover background color
-                                                        color: 'white', // Text color
+                                                        backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black',
+                                                        color: 'white',
                                                         cursor: 'pointer',
                                                     }}
                                                 >
@@ -319,55 +527,191 @@ const State = () => {
                     <label style={{ color: "white" }}>Kod kreskowy</label>
                     <input
                         type="text"
-                        value={`${nonEditableInputValue}`} // Add ordering number to value
+                        value={`${nonEditableInputValue}`}
                         readOnly
                         className="form-control text-center"
                         style={{
-                            width: '150px', // Set consistent width
+                            width: '150px',
                             backgroundColor: 'black',
                             color: 'white',
                             cursor: 'not-allowed',
                         }}
                         tabIndex={-1}
                     />
+                    {/* Removed the barcode rendering here */}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <label style={{ color: "black" }}>Dodaj</label>
                     <button
                         ref={buttonRef}
-                        className="btn btn-primary"
-                        onClick={() => {
-                            if (!selectedDate) {
-                                alert("Proszę wybrać datę"); // Alert if the date is empty
-                            } else if (!inputValue) {
-                                alert("Proszę wybrać produkt"); // Alert if the Goods input is empty
-                            } else {
-                                const payload = {
-                                    date: selectedDate.toISOString(),
-                                    sellingPoint: selectedSellingPoint,
-                                    fullName: inputValue, // Send product as fullName
-                                    size: sizeInputValue,
-                                    barcode: nonEditableInputValue,
-                                };
-
-                                axios.post('http://localhost:3000/api/state/add', payload)
-                                    .then(response => {
-                                        alert('Dane zostały pomyślnie wysłane!');
-                                    })
-                                    .catch(error => {
-                                        console.error('Błąd podczas wysyłania danych:', error);
-                                        alert('Wystąpił błąd podczas wysyłania danych.');
-                                    });
-                            }
-                        }}
+                        className="btn btn-primary btn-sm" // Add btn-sm class
+                        onClick={handleAddToTable}
                     >
                         Dodaj
                     </button>
                 </div>
             </div>
             <div>
-
+                <table style={{ width: '100%', marginTop: '20px', color: 'white', borderCollapse: 'collapse' }}>
+                    <thead>
+                        <tr>
+                            <th style={{ border: '1px solid white', padding: '10px' }}>Numer Zamówienia</th>
+                            <th style={{ border: '1px solid white', padding: '10px' }}>Pełna Nazwa</th>
+                            <th style={{ border: '1px solid white', padding: '10px' }}>Data</th>
+                            <th style={{ border: '1px solid white', padding: '10px' }}>Punkt Sprzedaży</th>
+                            <th style={{ border: '1px solid white', padding: '10px' }}>Rozmiar</th>
+                            <th style={{ border: '1px solid white', padding: '10px' }}>Kod Kreskowy</th>
+                            <th style={{ border: '1px solid white', padding: '10px' }}>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {tableData.map((row, index) => (
+                            <tr key={index}>
+                                <td style={{ border: '1px solid white', padding: '10px' }}>{index + 1}</td><td style={{ border: '1px solid white', padding: '10px' }}>{row.fullName}</td><td style={{ border: '1px solid white', padding: '10px' }}>{new Date(row.date).toLocaleDateString()}</td><td style={{ border: '1px solid white', padding: '10px' }}>{row.sellingPoint}</td><td style={{ border: '1px solid white', padding: '10px' }}>{row.size}</td><td style={{ border: '1px solid white', padding: '10px', textAlign: 'center' }}>{row.barcode && (<Barcode value={row.barcode} width={1} height={25} />)}</td><td style={{ border: '1px solid white', padding: '10px', textAlign: 'center' }}><button style={{ marginRight: '10px' }} className="btn btn-warning btn-sm" onClick={() => handleEdit(index)}>Edytuj</button><button className="btn btn-danger btn-sm" onClick={() => handleDelete(index)}>Usuń</button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
+            <Modal
+                isOpen={isModalOpen}
+                toggle={() => setIsModalOpen(!isModalOpen)}
+                className={styles.customModal}
+                innerRef={modalRef} // Attach the ref to the modal
+                backdrop={false} // Disable the backdrop to allow free movement
+            >
+                <ModalHeader
+                    toggle={() => setIsModalOpen(false)}
+                    className={styles.modalHeader}
+                    style={{ cursor: 'grab' }}
+                >
+                    Edytuj Produkt
+                    <button className={styles.customCloseButton} onClick={() => setIsModalOpen(false)}></button>
+                </ModalHeader>
+                <ModalBody className={styles.modalBody}>
+                    <FormGroup>
+                        <Label for="productName">Nazwa Produktu</Label>
+                        <Input
+                            type="text"
+                            id="productName"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            className={styles.inputField}
+                        />
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="productDate">Data</Label>
+                        <DatePicker
+                            selected={selectedDate}
+                            onChange={(date) => setSelectedDate(date)}
+                            className="form-control"
+                        />
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="sellingPoint">Punkt Sprzedaży</Label>
+                        <select
+                            id="sellingPoint"
+                            className="form-control"
+                            value={selectedSellingPoint}
+                            onChange={(e) => setSelectedSellingPoint(e.target.value)}
+                        >
+                            {sellingPoints.map((point, index) => (
+                                <option key={index} value={point}>
+                                    {point}
+                                </option>
+                            ))}
+                        </select>
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="productSize">Rozmiar</Label>
+                        <Downshift
+                            inputValue={sizeInputValue}
+                            onInputValueChange={(value) => setSizeInputValue(value)}
+                            onChange={(selectedItem) => {
+                                if (selectedItem) {
+                                    const updatedCode = updateCodeWithSizeAndChecksum(
+                                        nonEditableInputValue,
+                                        selectedItem.Roz_Kod
+                                    );
+                                    setNonEditableInputValue(updatedCode);
+                                    setSizeInputValue(selectedItem.Roz_Opis);
+                                }
+                            }}
+                            itemToString={(item) => (item ? item.Roz_Opis : '')}
+                        >
+                            {({
+                                getInputProps,
+                                getItemProps,
+                                getMenuProps,
+                                isOpen,
+                                highlightedIndex,
+                            }) => (
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        {...getInputProps({
+                                            className: 'form-control',
+                                        })}
+                                    />
+                                    <ul
+                                        {...getMenuProps()}
+                                        style={{
+                                            listStyleType: 'none',
+                                            padding: 0,
+                                            margin: 0,
+                                            border: '1px solid #ccc',
+                                            maxHeight: '150px',
+                                            overflowY: 'auto',
+                                            backgroundColor: 'white',
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            width: '100%',
+                                            zIndex: 1000,
+                                        }}
+                                    >
+                                        {isOpen &&
+                                            sizes
+                                                .filter((size) =>
+                                                    size.Roz_Opis.toLowerCase().includes(sizeInputValue.toLowerCase())
+                                                )
+                                                .map((item, index) => (
+                                                    <li
+                                                        key={item._id}
+                                                        {...getItemProps({ item, index })}
+                                                        style={{
+                                                            padding: '5px 10px',
+                                                            backgroundColor: highlightedIndex === index ? '#0d6efd' : 'white',
+                                                            cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        {item.Roz_Opis}
+                                                    </li>
+                                                ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </Downshift>
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="barcode">Kod Kreskowy</Label>
+                        <Input
+                            type="text"
+                            id="barcode"
+                            value={nonEditableInputValue}
+                            readOnly
+                            className="form-control"
+                        />
+                    </FormGroup>
+                </ModalBody>
+                <ModalFooter className={styles.modalFooter}>
+                    <Button color="primary" onClick={handleSaveEdit}>
+                        Zapisz
+                    </Button>
+                    <Button color="secondary" onClick={() => setIsModalOpen(false)}>
+                        Anuluj
+                    </Button>
+                </ModalFooter>
+            </Modal>
         </div>
     );
 };

@@ -27,6 +27,7 @@ const categoryRoutes = require('./routes/category'); // Ensure this line is corr
 const configRoutes = require('./routes/config');
 const stateRoutes = require('./routes/state');
 
+
 app.use('/api/jackets', jacketRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/excel/stock', stockRoutes);

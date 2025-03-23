@@ -34,7 +34,7 @@ class SizesController {
 
     insertManySizes(req, res, next) {
         const sizes = req.body;
-    
+
         // Check for duplicate Roz_Kod values in the request body
         const rozKodSet = new Set();
         for (const size of sizes) {
@@ -47,7 +47,7 @@ class SizesController {
             }
             rozKodSet.add(size.Roz_Kod);
         }
-    
+
         // Proceed to insert the sizes
         Size.insertMany(sizes)
             .then(result => {

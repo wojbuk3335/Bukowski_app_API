@@ -5,6 +5,22 @@ const stateSchema = mongoose.Schema({
     fullName: {
         type: String,
         required: true
+    },
+    date: {
+        type: Date,
+        required: true
+    },
+    sellingPoint: {
+        type: String,
+        required: true // Ensure this field is required
+    },
+    barcode: {
+        type: String,
+        required: true // Ensure this field is required
+    },
+    size: {
+        type: String,
+        required: true // Ensure this field is required
     }
 });
 

@@ -3,36 +3,41 @@ const category = require('./category');
 
 const goodsSchema = mongoose.Schema({
     _id: mongoose.Schema.Types.ObjectId,
-    stock:{ type: 
-        mongoose.Schema.Types.ObjectId, 
-        ref: 'Stock', 
+    stock: {
+        type:
+            mongoose.Schema.Types.ObjectId,
+        ref: 'Stock',
         required: true,
     },
-    color:{ type: 
-        mongoose.Schema.Types.ObjectId, 
-        ref: 'Color', 
-        required: true 
+    color: {
+        type:
+            mongoose.Schema.Types.ObjectId,
+        ref: 'Color',
+        required: true
     },
     fullName: { type: String, required: true, unique: true },
     code: { type: String, required: true, unique: true },
     price: { type: Number, required: true },
-    discount_price: {type: Number },
-    category:{ type: 
-        mongoose.Schema.Types.ObjectId, 
-        ref: 'Category', 
-        required: true 
+    discount_price: { type: Number },
+    category: {
+        type:
+            mongoose.Schema.Types.ObjectId,
+        ref: 'Category',
+        required: true
     },
     picture: { type: String, default: "" },
-    priceExceptions: { 
+    priceExceptions: {
         type: [{
             size: { type: mongoose.Schema.Types.ObjectId, ref: 'Size' },
             value: { type: Number }
-        }], 
-        default: [] 
+        }],
+        default: []
     },
+    sellingPoint: { type: String, required: true }, // Add sellingPoint field
+    barcode: { type: String, required: true }, // Add barcode field
 });
 
-goodsSchema.post('save', function(error, doc, next) {
+goodsSchema.post('save', function (error, doc, next) {
     if (error.name === 'MongoError' && error.code === 11000) {
         if (error.keyPattern && error.keyPattern.fullName) {
             next(new Error('Podana nazwa produktu już znajduje się w bazie danych!'));
