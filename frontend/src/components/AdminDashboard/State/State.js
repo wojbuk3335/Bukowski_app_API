@@ -147,7 +147,7 @@ const State = () => {
             date: selectedDate.toISOString(),
             sellingPoint: selectedSellingPoint,
             fullName: inputValue,
-            size: sizeInputValue, // Include size in the payload
+            size: sizeInputValue.toUpperCase(), // Ensure size is uppercase
             barcode: nonEditableInputValue,
         };
 
@@ -268,23 +268,19 @@ const State = () => {
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
-            const rect = modal.getBoundingClientRect();
-            initialX = rect.left;
-            initialY = rect.top;
-            modal.style.position = 'absolute'; // Ensure the modal is positioned absolutely
-            modal.style.margin = '0'; // Remove any default margin
-            modal.style.left = `${initialX}px`;
-            modal.style.top = `${initialY}px`;
+            initialX = modal.offsetLeft;
+            initialY = modal.offsetTop;
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
         };
 
         const onMouseMove = (e) => {
-            if (!isDragging) return;
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
-            modal.style.left = `${initialX + dx}px`;
-            modal.style.top = `${initialY + dy}px`;
+            if (isDragging) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                modal.style.left = `${initialX + dx}px`;
+                modal.style.top = `${initialY + dy}px`;
+            }
         };
 
         const onMouseUp = () => {
@@ -298,9 +294,22 @@ const State = () => {
 
     useEffect(() => {
         if (isModalOpen) {
-            makeModalDraggable();
+            setTimeout(() => {
+                makeModalDraggable();
+            }, 100);
         }
     }, [isModalOpen]);
+
+    const CustomInput = React.forwardRef(({ value, onClick }, ref) => (
+        <input
+            type="text"
+            className="form-control custom-datepicker-input"
+            onClick={onClick}
+            value={value}
+            readOnly
+            ref={ref}
+        />
+    ));
 
     return (
         <div>
@@ -310,11 +319,7 @@ const State = () => {
                     <DatePicker
                         selected={selectedDate}
                         onChange={(date) => setSelectedDate(date)}
-                        className="form-control"
-                        style={{
-                            width: '150px',
-                            marginRight: '15px',
-                        }}
+                        customInput={<CustomInput />}
                         data-displayid="num=1"
                     />
                 </div>
@@ -390,9 +395,7 @@ const State = () => {
                                         listStyleType: 'none',
                                         padding: 0,
                                         margin: 0,
-                                        border: '1px solid #ccc',
-                                        borderTop: 'none',
-                                        borderBottom: isOpen ? '1px solid #ccc' : 'none',
+                                        border: isOpen ? '1px solid #ccc' : 'none', // Show border only when open
                                         maxHeight: '150px',
                                         overflowY: 'auto',
                                         backgroundColor: 'black',
@@ -433,7 +436,7 @@ const State = () => {
                     <Downshift
                         inputValue={sizeInputValue}
                         onInputValueChange={(value) => {
-                            setSizeInputValue(value);
+                            setSizeInputValue(value.toUpperCase()); // Convert input to uppercase
                         }}
                         onChange={(selectedItem) => {
                             if (selectedItem) {
@@ -442,7 +445,7 @@ const State = () => {
                                     selectedItem.Roz_Kod
                                 );
                                 setNonEditableInputValue(updatedCode);
-                                setSizeInputValue('');
+                                setSizeInputValue(selectedItem.Roz_Opis.toUpperCase()); // Ensure selected size is uppercase
                                 handleAddToTable();
                             }
                         }}
@@ -472,7 +475,7 @@ const State = () => {
                                                         matchedItem.Roz_Kod
                                                     );
                                                     setNonEditableInputValue(updatedCode);
-                                                    setSizeInputValue('');
+                                                    setSizeInputValue(matchedItem.Roz_Opis.toUpperCase()); // Ensure matched size is uppercase
                                                     handleAddToTable();
                                                 }
                                             }
@@ -485,9 +488,7 @@ const State = () => {
                                         listStyleType: 'none',
                                         padding: 0,
                                         margin: 0,
-                                        border: '1px solid #ccc',
-                                        borderTop: 'none',
-                                        borderBottom: isOpen ? '1px solid #ccc' : 'none',
+                                        border: isOpen ? '1px solid #ccc' : 'none', // Show border only when open
                                         maxHeight: '150px',
                                         overflowY: 'auto',
                                         backgroundColor: 'black',
@@ -582,62 +583,27 @@ const State = () => {
             >
                 <ModalHeader
                     toggle={() => setIsModalOpen(false)}
-                    className={styles.modalHeader}
+                    className={`modal-header draggable-header ${styles.modalHeader}`}
                     style={{ cursor: 'grab' }}
+                    onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
+                    onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}
                 >
                     Edytuj Produkt
                     <button className={styles.customCloseButton} onClick={() => setIsModalOpen(false)}></button>
                 </ModalHeader>
                 <ModalBody className={styles.modalBody}>
                     <FormGroup>
-                        <Label for="productName">Nazwa Produktu</Label>
-                        <Input
-                            type="text"
-                            id="productName"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            className={styles.inputField}
-                        />
-                    </FormGroup>
-                    <FormGroup>
-                        <Label for="productDate">Data</Label>
-                        <DatePicker
-                            selected={selectedDate}
-                            onChange={(date) => setSelectedDate(date)}
-                            className="form-control"
-                        />
-                    </FormGroup>
-                    <FormGroup>
-                        <Label for="sellingPoint">Punkt Sprzedaży</Label>
-                        <select
-                            id="sellingPoint"
-                            className="form-control"
-                            value={selectedSellingPoint}
-                            onChange={(e) => setSelectedSellingPoint(e.target.value)}
-                        >
-                            {sellingPoints.map((point, index) => (
-                                <option key={index} value={point}>
-                                    {point}
-                                </option>
-                            ))}
-                        </select>
-                    </FormGroup>
-                    <FormGroup>
-                        <Label for="productSize">Rozmiar</Label>
+                        <Label for="modalProduct">Produkt</Label>
                         <Downshift
-                            inputValue={sizeInputValue}
-                            onInputValueChange={(value) => setSizeInputValue(value)}
+                            inputValue={inputValue} // Use a separate state for the modal if needed
+                            onInputValueChange={(value) => setInputValue(value)}
                             onChange={(selectedItem) => {
                                 if (selectedItem) {
-                                    const updatedCode = updateCodeWithSizeAndChecksum(
-                                        nonEditableInputValue,
-                                        selectedItem.Roz_Kod
-                                    );
-                                    setNonEditableInputValue(updatedCode);
-                                    setSizeInputValue(selectedItem.Roz_Opis);
+                                    setInputValue(selectedItem.fullName);
+                                    setNonEditableInputValue(selectedItem.code.padEnd(13, '0'));
                                 }
                             }}
-                            itemToString={(item) => (item ? item.Roz_Opis : '')}
+                            itemToString={(item) => (item ? item.fullName : '')}
                         >
                             {({
                                 getInputProps,
@@ -658,10 +624,109 @@ const State = () => {
                                             listStyleType: 'none',
                                             padding: 0,
                                             margin: 0,
-                                            border: '1px solid #ccc',
+                                            border: isOpen ? '1px solid #ccc' : 'none', // Show border only when open
                                             maxHeight: '150px',
                                             overflowY: 'auto',
-                                            backgroundColor: 'white',
+                                            backgroundColor: 'black', // Set background to black
+                                            color: 'white', // Set text color to white
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            width: '100%',
+                                            zIndex: 1000,
+                                        }}
+                                    >
+                                        {isOpen &&
+                                            goods
+                                                .filter((good) =>
+                                                    good.fullName.toLowerCase().includes(inputValue.toLowerCase())
+                                                )
+                                                .map((item, index) => (
+                                                    <li
+                                                        key={item._id}
+                                                        {...getItemProps({ item, index })}
+                                                        style={{
+                                                            padding: '5px 10px',
+                                                            backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black',
+                                                            color: 'white',
+                                                            cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        {item.fullName}
+                                                    </li>
+                                                ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </Downshift>
+                    </FormGroup>
+                    <FormGroup>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                            <Label for="productDate" style={{ marginBottom: '5px' }}>Data</Label>
+                            <DatePicker
+                                selected={selectedDate}
+                                onChange={(date) => setSelectedDate(date)}
+                                className="form-control xxx"
+                                style={{ width: '600px' }} // Set input width to 100%
+                            />
+                        </div>
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="sellingPoint">Punkt Sprzedaży</Label>
+                        <select
+                            id="sellingPoint"
+                            className="form-control"
+                            value={selectedSellingPoint}
+                            onChange={(e) => setSelectedSellingPoint(e.target.value)}
+                        >
+                            {sellingPoints.map((point, index) => (
+                                <option key={index} value={point}>
+                                    {point}
+                                </option>
+                            ))}
+                        </select>
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="productSize">Rozmiar</Label>
+                        <Downshift
+                            inputValue={sizeInputValue}
+                            onInputValueChange={(value) => setSizeInputValue(value.toUpperCase())} // Convert input to uppercase
+                            onChange={(selectedItem) => {
+                                if (selectedItem) {
+                                    const updatedCode = updateCodeWithSizeAndChecksum(
+                                        nonEditableInputValue,
+                                        selectedItem.Roz_Kod
+                                    );
+                                    setNonEditableInputValue(updatedCode);
+                                    setSizeInputValue(selectedItem.Roz_Opis.toUpperCase()); // Ensure selected size is uppercase
+                                }
+                            }}
+                            itemToString={(item) => (item ? item.Roz_Opis : '')}
+                        >
+                            {({
+                                getInputProps,
+                                getItemProps, d
+                                getMenuProps,
+                                isOpen,
+                                highlightedIndex,
+                            }) => (
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        {...getInputProps({
+                                            className: 'form-control',
+                                        })}
+                                    />
+                                    <ul
+                                        {...getMenuProps()}
+                                        style={{
+                                            listStyleType: 'none',
+                                            padding: 0,
+                                            margin: 0,
+                                            border: isOpen ? '1px solid #ccc' : 'none', // Show border only when open
+                                            maxHeight: '150px',
+                                            overflowY: 'auto',
+                                            backgroundColor: 'black', // Set background to black
+                                            color: 'white', // Set text color to white
                                             position: 'absolute',
                                             top: '100%',
                                             left: 0,
@@ -680,7 +745,8 @@ const State = () => {
                                                         {...getItemProps({ item, index })}
                                                         style={{
                                                             padding: '5px 10px',
-                                                            backgroundColor: highlightedIndex === index ? '#0d6efd' : 'white',
+                                                            backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black',
+                                                            color: 'white',
                                                             cursor: 'pointer',
                                                         }}
                                                     >
@@ -702,12 +768,13 @@ const State = () => {
                             className="form-control"
                         />
                     </FormGroup>
+
                 </ModalBody>
                 <ModalFooter className={styles.modalFooter}>
-                    <Button color="primary" onClick={handleSaveEdit}>
+                    <Button color="primary btn-sm" onClick={handleSaveEdit}>
                         Zapisz
                     </Button>
-                    <Button color="secondary" onClick={() => setIsModalOpen(false)}>
+                    <Button color="secondary btn-sm" onClick={() => setIsModalOpen(false)}>
                         Anuluj
                     </Button>
                 </ModalFooter>

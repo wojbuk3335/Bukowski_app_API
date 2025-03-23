@@ -32,6 +32,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -50,7 +51,7 @@
   background-clip: padding-box;
   border: var(--bs-border-width) solid var(--bs-border-color);
   border-radius: var(--bs-border-radius);
-  transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
 }
 
 .form-control:focus {
@@ -58,7 +59,7 @@
   background-color: #000;
   border-color: #fff;
   outline: 0;
-  box-shadow: 0 0 0 .25rem rgba(255,255,255,.25);
+  box-shadow: 0 0 0 .25rem rgba(255, 255, 255, .25);
 }
 
 .text-muted {
@@ -78,17 +79,18 @@
 
 @media (max-width: 768px) {
   .btn-warning.btn {
-      margin-right: 10px; /* Add margin-right to .btn-warning */
+    margin-right: 10px;
+    /* Add margin-right to .btn-warning */
   }
 
   .form-select:disabled {
     background-color: #242424;
-}
+  }
 
-.form-control:disabled {
-  background-color: #242424;
-  opacity: 1;
-}
+  .form-control:disabled {
+    background-color: #242424;
+    opacity: 1;
+  }
 }
 
 .form-select:disabled {
@@ -118,8 +120,10 @@
 
 .inputFile::file-selector-button:hover {
   color: #000000;
-  background-color: #df480c; /* Darken background color on hover */
-  border-color: #da1919; /* Darken border color on hover */
+  background-color: #df480c;
+  /* Darken background color on hover */
+  border-color: #da1919;
+  /* Darken border color on hover */
 }
 
 .btn-success {

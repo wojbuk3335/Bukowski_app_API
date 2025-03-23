@@ -900,3 +900,31 @@ span {
     color: red;
     /* Change this to your desired color */
 }
+
+.custom-datepicker {
+    width: 100%;
+}
+
+.custom-datepicker input {
+    width: 100% !important;
+}
+
+.custom-datepicker-input {
+    width: 100%;
+    background-color: rgb(255, 6, 6);
+    color: white;
+    border: 1px solid white;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.customDatePickerInput {
+    width: 100% !important;
+    box-sizing: border-box;
+    /* Ensure padding and border are included in the width */
+    background-color: black;
+    color: white;
+    border: 1px solid white;
+    padding: 8px;
+    border-radius: 4px;
+}
