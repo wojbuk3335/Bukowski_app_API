@@ -1,0 +1,36 @@
+.table {
+    /* Removed custom table styles in favor of Bootstrap classes */
+}
+
+.tableHeader {
+    /* Removed custom header styles in favor of Bootstrap classes */
+}
+
+.tableRow {
+    /* Removed custom row styles in favor of Bootstrap classes */
+}
+
+.dropdownMenu {
+    z-index: 1000;
+    max-height: auto;
+    background-color: black;
+    /* Black background */
+    color: white;
+    /* White text */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.dropdownItem {
+    background-color: black;
+    /* Black background for dropdown items */
+    color: white;
+    /* White text for dropdown items */
+}
+
+.dropdownItemActive {
+    background-color: #0d6efd;
+    /* Blue background for active dropdown item */
+    color: white;
+    /* White text for active dropdown item */
+}

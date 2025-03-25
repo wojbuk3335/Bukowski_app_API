@@ -1,25 +1,31 @@
 const mongoose = require('mongoose');
+const Goods = require('./goods');
+const Size = require('./size');
 
 const stateSchema = mongoose.Schema({
     _id: mongoose.Schema.Types.ObjectId,
     fullName: {
-        type: String,
-        required: true
+        //relation Goods
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Goods',
+        required: true, // Ensure this field is required
     },
     date: {
         type: Date,
         required: true
     },
-    sellingPoint: {
-        type: String,
-        required: true // Ensure this field is required
-    },
-    barcode: {
-        type: String,
-        required: true // Ensure this field is required
-    },
+    // sellingPoint: {
+    //     type: String,
+    //     required: true // Ensure this field is required
+    // },
+    // barcode: {
+    //     type: String,
+    //     required: true // Ensure this field is required
+    // },
     size: {
-        type: String,
+        //relation Size
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Size',
         required: true // Ensure this field is required
     }
 });

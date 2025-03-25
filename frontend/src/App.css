@@ -129,3 +129,17 @@
 .btn-success {
   --bs-btn-color: #000000;
 }
+
+.table-bordered>:not(caption)>*>* {
+  border-width: 0 var(--bs-border-width);
+  background: black;
+}
+
+.table-striped>tbody>tr:nth-of-type(odd)>* {
+  --bs-table-color-type: var(--bs-table-striped-color);
+  --bs-table-bg-type: #000000;
+}
+
+.table {
+  border: 1px solid #ffffff;
+}
