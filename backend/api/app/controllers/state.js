@@ -11,7 +11,14 @@ class StatesController {
             const states = await State.find()
                 .populate('fullName', 'fullName') // Populate fullName with its value from Goods
                 .populate('size', 'Roz_Opis');   // Populate size with its value from Size
-            res.status(200).json(states);
+
+            res.status(200).json(states.map(state => ({
+                id: state._id,
+                fullName: state.fullName.fullName,
+                date: state.date,
+                size: state.size.Roz_Opis,
+                barcode: state.barcode // Include barcode in the response
+            })));
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -32,15 +39,32 @@ class StatesController {
                 return res.status(404).json({ message: 'Size not found' });
             }
 
-            // Create a new State with the found ObjectIds
+            // Extract the code from Goods and update it with Roz_Kod
+            let barcode = goods.code; // Assuming `code` is the field in Goods
+            console.log(barcode)
+            const rozKod = size.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
+            barcode = barcode.substring(0, 5) + rozKod + barcode.substring(8);
+
+            // Calculate the checksum for the barcode
+            const calculateChecksum = (barcode) => {
+                const digits = barcode.split('').map(Number);
+                const sum = digits.reduce((acc, digit, index) => {
+                    return acc + (index % 2 === 0 ? digit : digit * 3);
+                }, 0);
+                const checksum = (10 - (sum % 10)) % 10;
+                return checksum;
+            };
+            const checksum = calculateChecksum(barcode);
+            barcode = barcode.substring(0, 12) + checksum; // Append checksum to barcode
+
+            // Create a new State with the updated barcode
             const state = new State({
                 _id: new mongoose.Types.ObjectId(),
-                fullName: goods._id, // Save the ObjectId from Goods
+                fullName: goods._id,
                 date: req.body.date,
-                size: size._id,      // Save the ObjectId from Size
+                size: size._id,
+                barcode // Save the updated barcode
             });
-
-            console.log(state);
 
             const newState = await state.save();
             res.status(201).json(newState);

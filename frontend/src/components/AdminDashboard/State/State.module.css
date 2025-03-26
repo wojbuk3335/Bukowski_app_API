@@ -34,3 +34,56 @@
     color: white;
     /* White text for active dropdown item */
 }
+
+.responsiveTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.responsiveTable thead {
+    display: table-header-group;
+}
+
+.responsiveTable tbody tr {
+    display: table-row;
+}
+
+@media (max-width: 768px) {
+    .responsiveTable thead {
+        display: none;
+        /* Hide table headers */
+    }
+
+    .responsiveTable tbody tr {
+        display: block;
+        /* Display rows as blocks */
+        margin-bottom: 1rem;
+        border: 1px solid #444;
+    }
+
+    .responsiveTable tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem;
+        border-bottom: 1px solid #444;
+        text-align: center;
+        /* Center horizontally */
+        vertical-align: middle;
+        /* Center vertically */
+    }
+
+    .responsiveTable tbody td:last-child {
+        border-bottom: none;
+    }
+
+    .responsiveTable tbody td::before {
+        content: attr(data-label);
+        /* Use data-label as the title */
+        font-weight: bold;
+        color: #ccc;
+        margin-right: 1rem;
+        text-align: left;
+        /* Keep labels aligned to the left */
+    }
+}

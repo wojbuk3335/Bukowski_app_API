@@ -14,14 +14,10 @@ const stateSchema = mongoose.Schema({
         type: Date,
         required: true
     },
-    // sellingPoint: {
-    //     type: String,
-    //     required: true // Ensure this field is required
-    // },
-    // barcode: {
-    //     type: String,
-    //     required: true // Ensure this field is required
-    // },
+    barcode: {
+        type: String,
+        required: true // Ensure this field is required
+    },
     size: {
         //relation Size
         type: mongoose.Schema.Types.ObjectId,

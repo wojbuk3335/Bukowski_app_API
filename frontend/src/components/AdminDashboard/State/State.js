@@ -5,6 +5,12 @@ import Downshift from 'downshift';
 import 'react-datepicker/dist/react-datepicker.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import styles from './State.module.css'; // Import the CSS module
+import Barcode from 'react-barcode'; // Import the Barcode component
+import { saveAs } from 'file-saver'; // For exporting files
+import { Modal, ModalHeader, ModalBody, Button, Table, ModalFooter } from 'reactstrap'; // Import reactstrap components
+import * as XLSX from 'xlsx'; // Import XLSX for Excel export
+import jsPDF from 'jspdf'; // Import jsPDF for PDF export
+import 'jspdf-autotable'; // Import autotable plugin for jsPDF
 
 const State = () => {
     const [selectedDate, setSelectedDate] = useState(new Date()); // Default to today's date
@@ -14,6 +20,11 @@ const State = () => {
     const [sizeInputValue, setSizeInputValue] = useState(''); // Manage size input value manually
     const [tableData, setTableData] = useState([]); // State to store table data
     const sizeInputRef = React.useRef(null); // Ref for the size input field
+    const [searchQuery, setSearchQuery] = useState(''); // State for search input
+    const [filteredTableData, setFilteredTableData] = useState([]); // State for filtered table data
+    const [isModalOpen, setIsModalOpen] = useState(false); // State for modal visibility
+    const [editData, setEditData] = useState(null); // State for data to edit
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }); // State for sorting configuration
 
     useEffect(() => {
         // Fetch data from the API
@@ -65,6 +76,7 @@ const State = () => {
                 fullName: row.fullName?.fullName || row.fullName, // Ensure fullName is a string
                 date: row.date,
                 size: row.size?.Roz_Opis || row.size, // Ensure size is a string
+                barcode: row.barcode, // Ensure barcode is included
             }));
             setTableData(formattedData); // Update table data state
         } catch (error) {
@@ -101,8 +113,129 @@ const State = () => {
         fetchTableData(); // Fetch table data on component mount
     }, []);
 
+    useEffect(() => {
+        // Filter table data based on search query
+        const filteredData = tableData.filter((row) =>
+            Object.values(row).some((value) =>
+                value?.toString().toLowerCase().includes(searchQuery.toLowerCase())
+            )
+        );
+        setFilteredTableData(filteredData);
+    }, [searchQuery, tableData]); // Update filtered data when searchQuery or tableData changes
+
+    const deleteRow = async (id) => {
+        try {
+            await axios.delete(`/api/state/${id}`); // Send delete request to the backend
+            fetchTableData(); // Refresh table data after deletion
+        } catch (error) {
+            console.error('Error deleting row:', error);
+        }
+    };
+
+    const fetchEditData = async (id) => {
+        try {
+            const response = await axios.get(`http://localhost:3000/api/state/${id}`); // Fetch data for editing
+            setEditData(response.data); // Set data to edit
+            setIsModalOpen(true); // Open modal
+        } catch (error) {
+            console.error('Error fetching data for editing:', error);
+        }
+    };
+
+    const handleExport = (format) => {
+        switch (format) {
+            case 'excel':
+                const worksheet = XLSX.utils.json_to_sheet(tableData); // Convert table data to worksheet
+                const workbook = XLSX.utils.book_new(); // Create a new workbook
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'TableData'); // Append worksheet to workbook
+                XLSX.writeFile(workbook, 'tableData.xlsx'); // Save workbook as Excel file
+                break;
+            case 'json':
+                const jsonBlob = new Blob([JSON.stringify(tableData, null, 2)], { type: 'application/json' });
+                saveAs(jsonBlob, 'tableData.json');
+                break;
+            case 'csv':
+                const csvContent = tableData.map(row => Object.values(row).join(',')).join('\n');
+                const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+                saveAs(csvBlob, 'tableData.csv');
+                break;
+            case 'pdf':
+                const doc = new jsPDF(); // Create a new jsPDF instance
+                doc.text('Table Data', 10, 10); // Add title
+                doc.autoTable({
+                    head: [['Nr zamówienia', 'Pełna nazwa', 'Data', 'Rozmiar', 'Barcode']],
+                    body: tableData.map((row, index) => [
+                        index + 1,
+                        row.fullName,
+                        new Date(row.date).toLocaleDateString(),
+                        row.size,
+                        row.barcode,
+                    ]),
+                });
+                doc.save('tableData.pdf'); // Save PDF file
+                break;
+            default:
+                console.error('Unsupported export format:', format);
+        }
+    };
+
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+
+        const sortedData = [...filteredTableData].sort((a, b) => {
+            if (a[key] < b[key]) return direction === 'asc' ? -1 : 1;
+            if (a[key] > b[key]) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        setFilteredTableData(sortedData);
+    };
+
+    const getSortIcon = (key) => {
+        if (sortConfig.key === key) {
+            return sortConfig.direction === 'asc' ? '▲' : '▼'; // Use arrows for sorting direction
+        }
+        return '⇅'; // Default icon when no sorting is applied
+    };
+
+    const tableCellStyle = {
+        textAlign: 'center', // Center horizontally
+        verticalAlign: 'middle', // Center vertically
+    };
+
     return (
         <div>
+            {/* Modal for editing */}
+            <Modal isOpen={isModalOpen} toggle={() => setIsModalOpen(false)}>
+                <ModalHeader toggle={() => setIsModalOpen(false)}>Edit Data</ModalHeader>
+                <ModalBody>
+                    {editData && (
+                        <div>
+                            <p>Full Name: {editData.fullName}</p>
+                            <p>Date: {new Date(editData.date).toLocaleDateString()}</p>
+                            <p>Size: {editData.size}</p>
+                            {/* Add form fields for editing if needed */}
+                        </div>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <Button color="secondary" onClick={() => setIsModalOpen(false)}>Close</Button>
+                </ModalFooter>
+            </Modal>
+
+            {/* Export section */}
+            <div className="d-flex justify-content-center mb-3">
+                <div className="btn-group">
+                    <Button color="success" className="me-2 btn btn-sm" onClick={() => handleExport('excel')}>Export to Excel</Button>
+                    <Button color="primary" className="me-2 btn btn-sm" onClick={() => handleExport('json')}>Export to JSON</Button>
+                    <Button color="info" className="me-2 btn btn-sm" onClick={() => handleExport('csv')}>Export to CSV</Button>
+                    <Button color="danger" className="me-2 btn btn-sm" onClick={() => handleExport('pdf')}>Export to PDF</Button>
+                </div>
+            </div>
+
             <div className="d-flex align-items-center gap-3 mb-4">
                 <DatePicker
                     selected={selectedDate}
@@ -248,39 +381,67 @@ const State = () => {
                         </div>
                     )}
                 </Downshift>
+                <input
+                    type="text"
+                    placeholder="Szukaj w tabeli" // Polish: Search in the table
+                    className="form-control w-25"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)} // Update search query on input change
+                />
             </div>
-            <table className="table table-dark table-striped table-bordered">
+            <Table dark striped bordered className={styles.responsiveTable}>
                 <thead style={{ backgroundColor: 'black', color: 'white' }}>
                     <tr>
-                        <th>Nr zamówienia</th>
-                        <th>Pełna nazwa</th>
-                        <th>Data</th>
-                        <th>Rozmiar</th>
-                        <th>Akcje</th>
+                        <th style={tableCellStyle}>Nr zamówienia</th>
+                        <th
+                            style={{ ...tableCellStyle, cursor: 'pointer' }} // Add pointer cursor
+                            onClick={() => handleSort('fullName')}
+                        >
+                            Pełna nazwa <span>{getSortIcon('fullName')}</span>
+                        </th>
+                        <th
+                            style={{ ...tableCellStyle, cursor: 'pointer' }} // Add pointer cursor
+                            onClick={() => handleSort('date')}
+                        >
+                            Data <span>{getSortIcon('date')}</span>
+                        </th>
+                        <th
+                            style={{ ...tableCellStyle, cursor: 'pointer' }} // Add pointer cursor
+                            onClick={() => handleSort('size')}
+                        >
+                            Rozmiar <span>{getSortIcon('size')}</span>
+                        </th>
+                        <th style={tableCellStyle}>Barcode</th>
+                        <th style={tableCellStyle}>Akcje</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {tableData.map((row, index) => (
+                    {filteredTableData.map((row, index) => (
                         <tr key={row.id || index} style={{ backgroundColor: 'black', color: 'white' }}>
-                            <td>{index + 1}</td>
-                            <td>{row.fullName}</td>
-                            <td>{new Date(row.date).toLocaleDateString()}</td>
-                            <td>{row.size}</td>
-                            <td>
-                                <button
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() => {
-                                        // Add logic for deleting or handling actions
-                                        console.log(`Action for row ID: ${row.id}`);
-                                    }}
-                                >
+                            <td style={tableCellStyle} data-label="Nr zamówienia">{index + 1}</td>
+                            <td style={tableCellStyle} data-label="Pełna nazwa">{row.fullName}</td>
+                            <td style={tableCellStyle} data-label="Data">{new Date(row.date).toLocaleDateString()}</td>
+                            <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
+                            <td style={tableCellStyle} data-label="Barcode">
+                                <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} /> {/* Adjusted barcode size */}
+                            </td>
+                            <td style={tableCellStyle} data-label="Akcje">
+                                <Button color="danger" size="sm" onClick={() => {
+                                    if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) { // Confirm before deleting
+                                        deleteRow(row.id);
+                                    }
+                                }}>
                                     Usuń
-                                </button>
+                                </Button>
+                                <Button color="warning" size="sm" className="ms-2" onClick={() => fetchEditData(row.id)} // Fetch data for editing
+                                >
+                                    Edytuj
+                                </Button>
                             </td>
                         </tr>
                     ))}
                 </tbody>
-            </table>
+            </Table>
         </div>
     );
 };
