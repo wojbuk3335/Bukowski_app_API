@@ -1,6 +1,8 @@
 :root {
-    --bs-table-bg: #bf2121; /* Override Bootstrap table background color */
-    --bs-table-color: var(--bs-table-color-state, var(--bs-table-color-type, #ffffff)); /* Override Bootstrap table text color */
+    --bs-table-bg: #bf2121;
+    /* Override Bootstrap table background color */
+    --bs-table-color: var(--bs-table-color-state, var(--bs-table-color-type, #ffffff));
+    /* Override Bootstrap table text color */
 }
 
 .title {
@@ -13,30 +15,35 @@
 }
 
 .table {
-    color: var(--bs-table-color); /* Use the overridden variable */
+    color: var(--bs-table-color);
+    /* Use the overridden variable */
     text-decoration: none;
     width: 50%;
     border: 1px solid white;
     margin: 0 auto;
-    background-color:  black;
-    --bs-table-bg:black;
-    --bs-table-color-state:white; 
-    --bs-table-color-type:white;
-    --bs-table-color:white;
+    background-color: black;
+    --bs-table-bg: black;
+    --bs-table-color-state: white;
+    --bs-table-color-type: white;
+    --bs-table-color: white;
 }
 
 .tableHeader {
     border: 1px solid white;
     padding: 8px;
-    background-color: var(--bs-table-bg); /* Use the overridden variable */
-    color: var(--bs-table-color); /* Use the overridden variable */
+    background-color: var(--bs-table-bg);
+    /* Use the overridden variable */
+    color: var(--bs-table-color);
+    /* Use the overridden variable */
 }
 
 .tableCell {
     border: 1px solid white;
     padding: 8px;
-    background-color: var(--bs-table-bg); /* Use the overridden variable */
-    color: var(--bs-table-color); /* Use the overridden variable */
+    background-color: var(--bs-table-bg);
+    /* Use the overridden variable */
+    color: var(--bs-table-color);
+    /* Use the overridden variable */
 }
 
 .custom-modal .modal-content {
@@ -56,44 +63,39 @@
     background-color: black;
     color: white;
     border: 1px solid white;
-    cursor: grab; /* Add cursor style for draggable header */
+    cursor: grab;
+    /* Add cursor style for draggable header */
 }
 
 .modalHeader .btn-close {
-    background-color: white; /* Set background color to white */
-    color: black; /* Set font color to black */
-    border-radius: 50%; /* Make it circular */
-    padding: 5px; /* Add some padding */
-    border: 1px solid black; /* Add border for better visibility */
-    position: absolute; /* Position it absolutely */
-    top: 10px; /* Adjust top position */
-    right: 10px; /* Adjust right position */
+    background-color: white;
+    /* Set background color to white */
+    color: black;
+    /* Set font color to black */
+    border-radius: 50%;
+    /* Make it circular */
+    padding: 5px;
+    /* Add some padding */
+    border: 1px solid black;
+    /* Add border for better visibility */
+    position: absolute;
+    /* Position it absolutely */
+    top: 10px;
+    /* Adjust top position */
+    right: 10px;
+    /* Adjust right position */
 }
 
 .btn-close {
     --bs-btn-close-color: #fff;
     --bs-btn-close-bg: url(data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27 fill=%27%23fff%27%3e%3cpath d=%27M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z%27/%3e%3c/svg%3e);
-    display: none; /* Hide the default close button */
+    display: none;
+    /* Hide the default close button */
 }
 
-.customCloseButton {
-    background: url('../../../assets/images/close-button.png') no-repeat center center; /* Correct the path to the close-button.png icon */
-    background-size: contain; /* Ensure the icon fits within the button */
-    background-color: black; /* Set background color to black */
-    border: none; /* Remove default border */
-    border-radius: 50%; /* Make it oval */
-    position: absolute; /* Position it absolutely */
-    top: 10px; /* Adjust top position */
-    right: 10px; /* Adjust right position */
-    cursor: pointer; /* Change cursor to pointer */
-    z-index: 1050; /* Ensure it is above other elements */
-    width: 30px; /* Adjust width */
-    height: 30px; /* Adjust height */
-}
+.customCloseButton {}
 
-.customCloseButton:hover {
-    background-color: white; /* Change background color to white on hover */
-}
+.customCloseButton:hover {}
 
 .modalBody {
     position: relative;
@@ -126,29 +128,38 @@
 .emailLabel {
     margin-right: 10px;
     color: white;
-    min-width: 80px; /* Adjust the width as needed */
+    min-width: 80px;
+    /* Adjust the width as needed */
 }
 
 .inputField {
     flex: 1;
-    background-color: black; /* Set background color to black */
-    color: white; /* Set font color to white */
+    background-color: black;
+    /* Set background color to black */
+    color: white;
+    /* Set font color to white */
 }
 
 .buttonGroup {
     display: flex;
-    gap: 10px; /* Add margin between buttons */
-    justify-content: center; /* Center the buttons horizontally */
+    gap: 10px;
+    /* Add margin between buttons */
+    justify-content: center;
+    /* Center the buttons horizontally */
 }
 
 .buttonGroup .btn {
-    color: black; /* Set font color to black */
-    font-size: 12px; /* Make the buttons small */
-    padding: 5px 10px; /* Adjust padding for smaller buttons */
+    color: black;
+    /* Set font color to black */
+    font-size: 12px;
+    /* Make the buttons small */
+    padding: 5px 10px;
+    /* Adjust padding for smaller buttons */
 }
 
 .buttonGroup .btn:hover {
-    color: white; /* Set font color to white on hover */
+    color: white;
+    /* Set font color to white on hover */
 }
 
 .btn-danger {
@@ -157,26 +168,34 @@
 }
 
 .btn-warning:hover {
-    color: rgb(255, 255, 255) !important; /* Ensure the font color is set to black on hover */
+    color: rgb(255, 255, 255) !important;
+    /* Ensure the font color is set to black on hover */
 }
 
 .btn-warning {
-    --bs-btn-hover-color: white; /* Set hover color to white */
+    --bs-btn-hover-color: white;
+    /* Set hover color to white */
 }
 
 .btn-wyloguj {
-    color: black; /* Set font color to black */
-    font-size: 12px; /* Make the button small */
-    padding: 5px 10px; /* Adjust padding for smaller button */
+    color: black;
+    /* Set font color to black */
+    font-size: 12px;
+    /* Make the button small */
+    padding: 5px 10px;
+    /* Adjust padding for smaller button */
 }
 
 .btn-wyloguj:hover {
-    color: white; /* Set font color to white on hover */
+    color: white;
+    /* Set font color to white on hover */
 }
 
 .btn-close {
-    --bs-btn-close-bg: transparent; /* Set the background to transparent */
-    display: none; /* Hide the default close button */
+    --bs-btn-close-bg: transparent;
+    /* Set the background to transparent */
+    display: none;
+    /* Hide the default close button */
 }
 
 .modal-header .btn-close {
@@ -187,12 +206,12 @@
 
 .modal-backdrop {
     background-color: red;
- }
+}
 
 .form-select {
     color: #ffffff;
     background-color: #000000;
-    
+
 }
 
 .btn-warning {
@@ -213,8 +232,10 @@
 }
 
 .sellingPointColumn {
-    width: 150px; /* Adjust the width as needed */
-    white-space: nowrap; /* Prevent text from wrapping */
+    width: 150px;
+    /* Adjust the width as needed */
+    white-space: nowrap;
+    /* Prevent text from wrapping */
 }
 
 .hand-cursor {
@@ -225,27 +246,31 @@
     cursor: move !important;
 }
 
-.modal-header{
+.modal-header {
     cursor: move !important;
 }
 
 @media (max-width: 768px) {
-    
+
     .table {
         display: block;
         width: 100%;
         overflow-x: auto;
-        border: 1px solid white; /* Ensure table border remains white */
+        border: 1px solid white;
+        /* Ensure table border remains white */
     }
 
     .table thead {
         display: none;
     }
 
-    .table tbody, .table tr, .table td {
+    .table tbody,
+    .table tr,
+    .table td {
         display: block;
         width: 100%;
-        border: 1px solid white; /* Ensure table cell borders remain white */
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
     }
 
     .table tr {
@@ -256,7 +281,8 @@
         text-align: right;
         padding-left: 50%;
         position: relative;
-        border: 1px solid white; /* Ensure table cell borders remain white */
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
     }
 
     .table td::before {
@@ -270,15 +296,18 @@
     }
 
     .table td[data-label="Punkt sprzedaży"]::before {
-        content: "Punkt sprzedaży"; /* Ensure the label is displayed even if the content is empty */
+        content: "Punkt sprzedaży";
+        /* Ensure the label is displayed even if the content is empty */
     }
 
     .buttonGroup .btn {
-        margin-bottom: 10px; /* Add margin between buttons */
+        margin-bottom: 10px;
+        /* Add margin between buttons */
         margin-right: 10px;
     }
 
     .btn-warning.btn {
-        margin-right: 10px; /* Add margin-right to .btn-warning */
+        margin-right: 10px;
+        /* Add margin-right to .btn-warning */
     }
 }

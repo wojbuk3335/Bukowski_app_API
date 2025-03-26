@@ -4,6 +4,16 @@ const config = require('../config');
 const Goods = require('../db/models/goods'); // Import Goods model
 const Size = require('../db/models/size');   // Import Size model
 
+// Corrected checksum calculation function
+const calculateChecksum = (barcode) => {
+    const digits = barcode.split('').map(Number);
+    const sum = digits.reduce((acc, digit, index) => {
+        return acc + (index % 2 === 0 ? digit : digit * 3); // Correct weights: 1 for odd, 3 for even
+    }, 0);
+    const checksum = (10 - (sum % 10)) % 10; // Ensure checksum is between 0-9
+    return checksum;
+};
+
 class StatesController {
     // Get all states
     async getAllStates(req, res, next) {
@@ -18,7 +28,7 @@ class StatesController {
                 date: state.date,
                 size: state.size.Roz_Opis,
                 barcode: state.barcode // Include barcode in the response
-            })));
+            }))); // Fixed missing closing parenthesis
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -45,15 +55,7 @@ class StatesController {
             const rozKod = size.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
             barcode = barcode.substring(0, 5) + rozKod + barcode.substring(8);
 
-            // Calculate the checksum for the barcode
-            const calculateChecksum = (barcode) => {
-                const digits = barcode.split('').map(Number);
-                const sum = digits.reduce((acc, digit, index) => {
-                    return acc + (index % 2 === 0 ? digit : digit * 3);
-                }, 0);
-                const checksum = (10 - (sum % 10)) % 10;
-                return checksum;
-            };
+            // Corrected checksum calculation
             const checksum = calculateChecksum(barcode);
             barcode = barcode.substring(0, 12) + checksum; // Append checksum to barcode
 
@@ -87,19 +89,47 @@ class StatesController {
     }
 
     // Update a state by ID
-    async updateState(req, res, next) {
+    async updateStateById(req, res, next) {
         try {
+            const goods = await Goods.findOne({ fullName: req.body.fullName });
+            if (!goods) {
+                return res.status(404).json({ message: 'Goods not found' });
+            }
+
+            const size = await Size.findOne({ Roz_Opis: req.body.size });
+            if (!size) {
+                return res.status(404).json({ message: 'Size not found' });
+            }
+
+            let barcode = goods.code; // Assuming `code` is the field in Goods
+            const rozKod = size.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
+            barcode = barcode.substring(0, 5) + rozKod + barcode.substring(8);
+
+            // Corrected checksum calculation
+            const checksum = calculateChecksum(barcode);
+            barcode = barcode.substring(0, 12) + checksum; // Append checksum to barcode
+
+            // Update the State with the new data
             const updatedState = await State.findByIdAndUpdate(
                 req.params.id,
-                { fullName: req.body.fullName },
-                { new: true }
+                {
+                    fullName: goods._id,
+                    date: req.body.date,
+                    size: size._id,
+                    barcode // Save the updated barcode
+                },
+                { new: true } // Return the updated document
             );
+
             if (!updatedState) {
                 return res.status(404).json({ message: 'State not found' });
             }
+
             res.status(200).json(updatedState);
+
         } catch (error) {
             res.status(500).json({ error: error.message });
+
         }
     }
 

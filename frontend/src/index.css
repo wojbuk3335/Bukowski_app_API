@@ -134,3 +134,48 @@ html,
 .table {
   border: 1px solid #000000;
 }
+
+.modal-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: var(--bs-modal-header-padding);
+  border-bottom: var(--bs-modal-header-border-width) solid var(--bs-modal-header-border-color);
+  border-top-left-radius: var(--bs-modal-inner-border-radius);
+  border-top-right-radius: var(--bs-modal-inner-border-radius);
+  background: black;
+  border: 1px solid white;
+  color: white;
+}
+
+.modal-header .btn-close {
+  background: url('../src/assets/images/close-button.png') no-repeat center center;
+  /* Correct the path to the close-button.png icon */
+  background-size: contain;
+  /* Ensure the icon fits within the button */
+  background-color: black;
+  /* Set background color to black */
+  border: none;
+  /* Remove default border */
+  border-radius: 50%;
+  /* Make it oval */
+  position: absolute;
+  /* Position it absolutely */
+  top: 30;
+  /* Adjust top position */
+  right: 30px;
+  /* Adjust right position */
+  cursor: pointer;
+  /* Change cursor to pointer */
+  z-index: 1050;
+  /* Ensure it is above other elements */
+  width: 15px;
+  /* Adjust width */
+  height: 15px;
+  /* Adjust height */
+}
+
+.modal-header .btn-close:hover {
+  background-color: white;
+  /* Change background color to white on hover */
+}
