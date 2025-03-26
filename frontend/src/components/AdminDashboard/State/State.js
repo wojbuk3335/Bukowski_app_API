@@ -273,10 +273,19 @@ const State = () => {
         setEditData({ ...editData, [id]: value }); // Update the edit data
     };
 
-    const handleSaveEdit = () => {
-        // Logic to save the edited data (e.g., send to backend)
-        console.log('Edited data:', editData);
-        toggleEditModal(); // Close the modal after saving
+    const handleSaveEdit = async () => {
+        try {
+            const response = await axios.put(`/api/state/${editData.id}`, {
+                fullName: editData.fullName,
+                date: editData.date,
+                size: editData.size,
+            });
+            console.log('Updated data:', response.data);
+            fetchTableData(); // Refresh table data after successful update
+            toggleEditModal(); // Close the modal
+        } catch (error) {
+            console.error('Error updating state:', error);
+        }
     };
 
     const makeModalDraggable = () => {

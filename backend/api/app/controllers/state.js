@@ -53,7 +53,7 @@ class StatesController {
             let barcode = goods.code; // Assuming `code` is the field in Goods
             console.log(barcode)
             const rozKod = size.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
-            barcode = barcode.substring(0, 5) + rozKod + barcode.substring(8);
+            barcode = barcode.substring(0, 5) + rozKod + barcode.substring(7, 11);
 
             // Corrected checksum calculation
             const checksum = calculateChecksum(barcode);
@@ -91,32 +91,36 @@ class StatesController {
     // Update a state by ID
     async updateStateById(req, res, next) {
         try {
-            const goods = await Goods.findOne({ fullName: req.body.fullName });
+            const { id } = req.params;
+            const { fullName, date, size } = req.body;
+
+            // Find the ObjectId for fullName in Goods
+            const goods = await Goods.findOne({ fullName });
             if (!goods) {
                 return res.status(404).json({ message: 'Goods not found' });
             }
 
-            const size = await Size.findOne({ Roz_Opis: req.body.size });
-            if (!size) {
+            // Find the ObjectId for size in Size
+            const sizeObj = await Size.findOne({ Roz_Opis: size });
+            if (!sizeObj) {
                 return res.status(404).json({ message: 'Size not found' });
             }
 
+            // Update the barcode
             let barcode = goods.code; // Assuming `code` is the field in Goods
-            const rozKod = size.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
-            barcode = barcode.substring(0, 5) + rozKod + barcode.substring(8);
-
-            // Corrected checksum calculation
+            const rozKod = sizeObj.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
+            barcode = barcode.substring(0, 5) + rozKod + barcode.substring(7, 11);
             const checksum = calculateChecksum(barcode);
-            barcode = barcode.substring(0, 12) + checksum; // Append checksum to barcode
+            barcode = barcode.substring(0, 12) + checksum;
 
-            // Update the State with the new data
+            // Update the state
             const updatedState = await State.findByIdAndUpdate(
-                req.params.id,
+                id,
                 {
                     fullName: goods._id,
-                    date: req.body.date,
-                    size: size._id,
-                    barcode // Save the updated barcode
+                    date,
+                    size: sizeObj._id,
+                    barcode,
                 },
                 { new: true } // Return the updated document
             );
@@ -126,10 +130,8 @@ class StatesController {
             }
 
             res.status(200).json(updatedState);
-
         } catch (error) {
-            res.status(500).json({ error: error.message });
-
+            res.status(400).json({ error: error.message });
         }
     }
 
