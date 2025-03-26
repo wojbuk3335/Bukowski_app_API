@@ -344,14 +344,24 @@ const State = () => {
                 </div>
             </div>
 
-            <div className="d-flex align-items-center gap-3 mb-4">
-                <DatePicker
-                    selected={selectedDate}
-                    onChange={(date) => setSelectedDate(date)} // Update selectedDate on change
-                    placeholderText="Wybierz datę" // Polish: Select a date
-                    className="form-control"
-                    dateFormat="yyyy-MM-dd" // Ensure a valid date format
-                />
+            <div className={`d-flex align-items-center gap-3 mb-4 ${styles.responsiveContainer}`}>
+                <div style={{ margin: '10px 0', padding: '5px', borderRadius: '4px' }}>
+                    <DatePicker
+                        selected={selectedDate}
+                        onChange={(date) => setSelectedDate(date)} // Update selectedDate on change
+                        placeholderText="Wybierz datę" // Polish: Select a date
+                        className={`form-control xxxx ${styles.datePicker}`} // Apply custom styles
+                        dateFormat="yyyy-MM-dd" // Ensure a valid date format
+                        style={{
+                            margin: '0',
+                            padding: '5px',
+                            boxSizing: 'border-box',
+                            width: '100%', // Ensure consistent width
+                            height: '38px', // Match default input height
+                            lineHeight: '1.5', // Match default line height
+                        }}
+                    />
+                </div>
                 <Downshift
                     inputValue={inputValue} // Bind inputValue to Downshift
                     onInputValueChange={(newInputValue) => {
@@ -500,7 +510,7 @@ const State = () => {
                         </div>
                     )}
                 </Downshift>
-                <div className="d-flex align-items-center gap-2">
+                <div className="d-flex align-items-center gap-2 rrr">
                     <input
                         type="text"
                         placeholder="Szukaj w tabeli" // Polish: Search in the table
@@ -524,10 +534,10 @@ const State = () => {
                 </div>
             </div>
 
-            <Table dark striped bordered className={styles.responsiveTable}>
+            <Table className={`table ${styles.responsiveTable}`} styles={styles.table}>
                 <thead style={{ backgroundColor: 'black', color: 'white' }}>
                     <tr>
-                        <th style={tableCellStyle}>Nr zamówienia</th>
+                        <th style={tableCellStyle}>Lp</th>
                         <th
                             style={{ ...tableCellStyle, cursor: 'pointer' }}
                             onClick={() => handleSort('fullName')} // Enable sorting for "Pełna nazwa"
@@ -608,16 +618,28 @@ const State = () => {
                             onClick={() => handleSort('date')} // Enable sorting for "Data"
                         >
                             <div>
-                                <label style={{ display: 'block' }}>Data</label> {/* Display block for label */}
-                                <DatePicker
-                                    selected={dateFilter}
-                                    onChange={(date) => setDateFilter(date)} // Update dateFilter on change
-                                    placeholderText="Filtruj datę" // Polish: Filter date
-                                    className="form-control mt-2"
-                                    dateFormat="yyyy-MM-dd" // Ensure a valid date format
-                                    style={{ margin: '0' }} // Ensure consistent margins
-                                />
-                                <span>{getSortIcon('date')}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                    <label style={{ margin: 0 }}>Data</label>
+                                    <span>{getSortIcon('date')}</span>
+                                </div>
+                                <div style={{ margin: '0', padding: '0', borderRadius: '4px' }}>
+
+                                    <DatePicker
+                                        selected={dateFilter}
+                                        onChange={(date) => setDateFilter(date)} // Update dateFilter on change
+                                        placeholderText="Filtruj datę" // Polish: Filter date
+                                        className="form-control"
+                                        dateFormat="yyyy-MM-dd" // Ensure a valid date format
+                                        style={{
+                                            margin: '0',
+                                            padding: '0px',
+                                            boxSizing: 'border-box',
+                                            width: '100%', // Ensure consistent width
+                                            height: '38px', // Match default input height
+                                            lineHeight: '1.5', // Match default line height
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </th>
                         <th
@@ -770,7 +792,7 @@ const State = () => {
                                     <input
                                         {...getInputProps({
                                             placeholder: 'Wybierz pełną nazwę', // Polish: Select a full name
-                                            className: 'form-control',
+                                            className: 'form-control sssss',
                                         })}
                                     />
                                     <ul
@@ -812,14 +834,16 @@ const State = () => {
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
                         <Label for="date" className={styles.emailLabel}>Data:</Label>
-                        <DatePicker
-                            selected={editData.date ? new Date(editData.date) : null} // Bind editData.date to DatePicker
-                            onChange={(date) => setEditData({ ...editData, date: date.toISOString() })} // Update editData.date on change
-                            placeholderText="Wybierz datę" // Polish: Select a date
-                            className="form-control"
-                            dateFormat="yyyy-MM-dd" // Ensure a valid date format
-                            onKeyDown={(e) => e.preventDefault()} // Prevent manual input
-                        />
+                        <div style={{ margin: '10px 0', padding: '5px', borderRadius: '4px' }}>
+                            <DatePicker
+                                selected={editData.date ? new Date(editData.date) : null} // Bind editData.date to DatePicker
+                                onChange={(date) => setEditData({ ...editData, date: date.toISOString() })} // Update editData.date on change
+                                placeholderText="Wybierz datę" // Polish: Select a date
+                                className="form-control"
+                                dateFormat="yyyy-MM-dd" // Ensure a valid date format
+                                onKeyDown={(e) => e.preventDefault()} // Prevent manual input
+                            />
+                        </div>
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
                         <Label for="size" className={styles.emailLabel}>Rozmiar:</Label>
@@ -892,8 +916,11 @@ const State = () => {
                             )}
                         </Downshift>
                     </FormGroup>
-                    <Button color="primary" onClick={handleSaveEdit} className="btn-sm">Zapisz zmiany</Button>
                 </ModalBody>
+                <ModalFooter className="d-flex justify-content-end" style={{ gap: '10px' }}> {/* Add margin between buttons */}
+                    <Button color="primary" onClick={handleSaveEdit} className="btn-sm">Zapisz zmiany</Button>
+                    <Button color="secondary" onClick={toggleEditModal} className="btn-sm">Anuluj</Button> {/* Add Cancel button */}
+                </ModalFooter>
             </Modal>
 
             {/* Pagination */}
