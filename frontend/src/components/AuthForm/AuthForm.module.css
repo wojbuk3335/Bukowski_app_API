@@ -1,0 +1,84 @@
+.logo{
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.logoWidth{
+    width: 40%;
+    height: auto;
+}
+
+.checkboxInput {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .checkboxLabel {
+    margin-left: 10px;
+  }
+
+  .place_of_login{
+    text-align: center;
+    margin-top: 30px;
+    color: #fff;
+    font-weight: 800;
+  }
+
+  .authInner {
+    width: 450px;
+    margin: auto;
+    background: #000000;
+    box-shadow: 0px 14px 80px rgba(228, 212, 212, 0.2);
+    padding: 40px 55px 45px 55px;
+    border-radius: 15px;
+    transition: all 0.3s;
+    -webkit-box-shadow: 0px 0px 8px 3px rgba(255, 255, 255, 1);
+    -moz-box-shadow: 0px 0px 8px 3px rgba(255, 255, 255, 1);
+    box-shadow: 0px 0px 8px 3px rgba(255, 255, 255, 1);
+    position: relative;
+  }
+
+  .userIcon {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 30px; /* Adjust the width to make the icon smaller */
+}
+
+/* Add these styles to your CSS file */
+.tooltip {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.tooltip .tooltipText {
+  visibility: hidden;
+  width: 120px;
+  background-color: black;
+  color: #ffffff;
+  text-align: center;
+  border-radius: 5px;
+  padding: 5px 0;
+  position: absolute;
+  z-index: 1;
+  top: 125%; /* Position the tooltip below the icon */
+  left: 100%; /* Shift the tooltip to the right */
+  margin-left: 10px; /* Adjust the margin to fine-tune the position */
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: small;
+}
+
+.tooltip:hover .tooltipText,
+.tooltip .tooltipText:hover {
+  visibility: visible;
+  opacity: 1;
+}
+
+.authWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* Ensure the parent container has a height */
+}

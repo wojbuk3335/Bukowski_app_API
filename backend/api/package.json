@@ -1,0 +1,32 @@
+{
+  "name": "kurs-node",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon app/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "nodemon app/index.js -e js,json,ejs",
+    "debug": "nodemon --inspect app/index.js -e js,json"
+  },
+  "author": "TworcaStron.pl",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcrypt": "^5.1.1",
+    "chalk": "^3.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^10.0.0",
+    "ejs": "^3.1.6",
+    "express": "^4.17.1",
+    "express-ejs-layouts": "^2.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.7.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

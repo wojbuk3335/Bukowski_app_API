@@ -1,0 +1,54 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.7.7",
+    "bcrypt": "^5.1.1",
+    "bootstrap": "^5.3.3",
+    "date-fns": "^4.1.0",
+    "downshift": "^9.0.9",
+    "jquery": "^3.7.1",
+    "popper.js": "^1.16.1",
+    "react": "^18.3.1",
+    "react-barcode": "^1.6.1",
+    "react-bootstrap": "^2.10.5",
+    "react-datepicker": "^8.2.1",
+    "react-dom": "^18.3.1",
+    "react-draggable": "^4.4.6",
+    "react-router-dom": "^6.26.2",
+    "react-scripts": "5.0.1",
+    "react-select": "^5.10.1",
+    "reactstrap": "^9.2.3",
+    "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "proxy": "http://localhost:3000"
+}
