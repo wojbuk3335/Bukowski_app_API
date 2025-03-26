@@ -6,13 +6,7 @@ const config = require('../config');
 
 class GoodsController {
     async createGood(req, res, next) {
-        const stock = req.body.stock;
-        const color = req.body.color;
-        const fullName = req.body.fullName;
-        const code = req.body.code;
-        const category = req.body.category;
-        const price = req.body.price; // Ensure price field is correctly retrieved
-        const discount_price = req.body.discount_price || 0;
+        const { stock, color, fullName, code, category, price, discount_price, sellingPoint, barcode } = req.body;
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
 
@@ -24,6 +18,11 @@ class GoodsController {
         // Validate price
         if (price <= 0) {
             return res.status(400).json({ message: 'Cena musi być większa od zera' });
+        }
+
+        // Validate required fields
+        if (!sellingPoint || !barcode) {
+            return res.status(400).json({ message: 'Selling point and barcode are required' });
         }
 
         // Check for duplicate sizes in price exceptions
@@ -43,10 +42,12 @@ class GoodsController {
             fullName,
             code,
             category,
-            price, // Ensure price field is included
+            price,
             discount_price,
             picture,
-            priceExceptions
+            priceExceptions,
+            sellingPoint,
+            barcode
         });
 
         newGood.save()
@@ -60,10 +61,12 @@ class GoodsController {
                         fullName: result.fullName,
                         code: result.code,
                         category: result.category,
-                        price: result.price, // Include price in response
+                        price: result.price,
                         discount_price: result.discount_price,
                         picture: result.picture,
-                        priceExceptions: result.priceExceptions
+                        priceExceptions: result.priceExceptions,
+                        sellingPoint: result.sellingPoint,
+                        barcode: result.barcode
                     }
                 });
             })
@@ -76,7 +79,7 @@ class GoodsController {
 
     async getAllGoods(req, res, next) {
         Goods.find()
-            .select('_id stock color fullName code category price discount_price picture priceExceptions') // Include price in selection
+            .select('_id stock color fullName code category price discount_price picture priceExceptions sellingPoint barcode')
             .populate('stock', 'Tow_Opis Tow_Kod')
             .populate('color', 'Kol_Opis Kol_Kod')
             .populate('category', 'Kat_Opis')
@@ -91,10 +94,12 @@ class GoodsController {
                         fullName: good.fullName,
                         code: good.code,
                         category: good.category,
-                        price: good.price, // Include price in response
+                        price: good.price,
                         discount_price: good.discount_price,
                         picture: good.picture,
-                        priceExceptions: good.priceExceptions
+                        priceExceptions: good.priceExceptions,
+                        sellingPoint: good.sellingPoint,
+                        barcode: good.barcode
                     }))
                 });
             })
@@ -117,7 +122,9 @@ class GoodsController {
             category: req.body.category,
             price: req.body.price,
             discount_price: req.body.discount_price || 0,
-            priceExceptions: JSON.parse(req.body.priceExceptions || '[]')
+            priceExceptions: JSON.parse(req.body.priceExceptions || '[]'),
+            sellingPoint: req.body.sellingPoint,
+            barcode: req.body.barcode
         };
 
         if (req.file) {

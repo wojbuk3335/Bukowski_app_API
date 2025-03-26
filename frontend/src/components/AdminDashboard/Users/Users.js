@@ -63,10 +63,10 @@ const Users = () => {
 
     const handleEditRoleChange = (e) => {
         const { value } = e.target;
-        setEditUser({ 
-            ...editUser, 
-            role: value, 
-            sellingPoint: value === 'admin' ? null : editUser.sellingPoint 
+        setEditUser({
+            ...editUser,
+            role: value,
+            sellingPoint: value === 'admin' ? null : editUser.sellingPoint
         });
     };
 

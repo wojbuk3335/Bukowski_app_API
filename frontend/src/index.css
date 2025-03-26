@@ -3,6 +3,7 @@
 * {
   box-sizing: border-box;
 }
+
 body {
   background: #000000 !important;
   min-height: 100vh;
@@ -76,6 +77,120 @@ html,
 
 .inputFile::file-selector-button:hover {
   color: #000000;
-  background-color: #df480c; /* Darken background color on hover */
-  border-color: #da1919; /* Darken border color on hover */
+  background-color: #df480c;
+  /* Darken background color on hover */
+  border-color: #da1919;
+  /* Darken border color on hover */
+}
+
+.form-control-xxx {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.6;
+  color: #222;
+  /* Darker text color */
+  background-color: #e9ecef;
+  /* Light gray background */
+  background-clip: padding-box;
+  border: 2px solid #6c757d;
+  /* Gray border */
+  border-radius: 0.5rem;
+  /* Rounded corners */
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.form-control-xxx:focus {
+  color: #000;
+  background-color: #fff;
+  border-color: #495057;
+  /* Darker gray on focus */
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.5);
+  /* Gray shadow */
+}
+
+.modal-content .react-datepicker-wrapper {
+  width: 100%;
+  /* Adjust the width as needed */
+}
+
+.modal-content .productDate {
+  text-align: center;
+}
+
+.table-bordered>:not(caption)>*>* {
+  border-width: 0 var(--bs-border-width);
+  background: black;
+}
+
+.table-striped>tbody>tr:nth-of-type(odd)>* {
+  --bs-table-color-type: var(--bs-table-striped-color);
+  --bs-table-bg-type: #000000;
+}
+
+.table {
+  border: 1px solid #000000;
+}
+
+.modal-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: var(--bs-modal-header-padding);
+  border-bottom: var(--bs-modal-header-border-width) solid var(--bs-modal-header-border-color);
+  border-top-left-radius: var(--bs-modal-inner-border-radius);
+  border-top-right-radius: var(--bs-modal-inner-border-radius);
+  background: black;
+  border: 1px solid white;
+  color: white;
+}
+
+.modal-header .btn-close {
+  background: url('../src/assets/images/close-button.png') no-repeat center center;
+  /* Correct the path to the close-button.png icon */
+  background-size: contain;
+  /* Ensure the icon fits within the button */
+  background-color: black;
+  /* Set background color to black */
+  border: none;
+  /* Remove default border */
+  border-radius: 50%;
+  /* Make it oval */
+  position: absolute;
+  /* Position it absolutely */
+  top: 30;
+  /* Adjust top position */
+  right: 30px;
+  /* Adjust right position */
+  cursor: pointer;
+  /* Change cursor to pointer */
+  z-index: 1050;
+  /* Ensure it is above other elements */
+  width: 15px;
+  /* Adjust width */
+  height: 15px;
+  /* Adjust height */
+}
+
+.modal-header .btn-close:hover {
+  background-color: white;
+  /* Change background color to white on hover */
+}
+
+.modal-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  padding: calc(var(--bs-modal-padding) - var(--bs-modal-footer-gap)* .5);
+  background-color: var(--bs-modal-footer-bg);
+  border-top: var(--bs-modal-footer-border-width) solid var(--bs-modal-footer-border-color);
+  border-bottom-right-radius: var(--bs-modal-inner-border-radius);
+  border-bottom-left-radius: var(--bs-modal-inner-border-radius);
+  background: black;
+  border: 1px solid white;
 }

@@ -18,29 +18,31 @@ import Users from './components/AdminDashboard/Users/Users';
 import UserProfile from './components/UserDashboard/Profile/Profile';
 import Goods from './components/AdminDashboard/Goods/Goods';
 import Category from './components/AdminDashboard/Category/Category';
+import State from './components/AdminDashboard/State/State';
 
 function App() {
   return (
     <div className="App">
-        <Routes>
-          <Route path="/" element={<Navigate to="/user" />} />
-          <Route path="/admin" element={<AdminLogin />} />
-          <Route path="/user" element={<UserLogin />} />
-          <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={AdminDashboard} allowedRoles={['admin']} />}>
-            <Route path="stock" element={<Stock />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path='colors' element={<Colors/>}/>
-            <Route path='sizes' element={<Sizes/>}/>
-            <Route path='searchengine' element={<Searchengine/>}/>
-            <Route path='users' element={<Users/>}/>
-            <Route path='goods' element={<Goods/>}/>
-            <Route path="category" element={<Category/>}/>
-          </Route>
-          <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />
-          <Route path="/user/dashboard/*" element={<UserPrivateRoute element={UserDashboard} allowedRoles={['user']} />}>
-            <Route path="profile" element={<UserProfile />} />
-          </Route>
-        </Routes>
+      <Routes>
+        <Route path="/" element={<Navigate to="/user" />} />
+        <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/user" element={<UserLogin />} />
+        <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={AdminDashboard} allowedRoles={['admin']} />}>
+          <Route path="stock" element={<Stock />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path='colors' element={<Colors />} />
+          <Route path='sizes' element={<Sizes />} />
+          <Route path='searchengine' element={<Searchengine />} />
+          <Route path='users' element={<Users />} />
+          <Route path='goods' element={<Goods />} />
+          <Route path="category" element={<Category />} />
+          <Route path="state" element={<State />} />
+        </Route>
+        <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />
+        <Route path="/user/dashboard/*" element={<UserPrivateRoute element={UserDashboard} allowedRoles={['user']} />}>
+          <Route path="profile" element={<UserProfile />} />
+        </Route>
+      </Routes>
     </div>
   );
 }

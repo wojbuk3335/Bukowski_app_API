@@ -259,7 +259,7 @@ const Sizes = () => {
                         <Col md="6" className={styles.textLeft}>
                             <FormGroup>
                                 <div>
-                                <input className={styles.inputFile}
+                                    <input className={styles.inputFile}
                                         id="inputEmpGroupFile"
                                         name="file"
                                         type="file"

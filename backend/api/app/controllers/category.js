@@ -34,7 +34,7 @@ class CategoriesController {
 
     insertManyCategories(req, res, next) {
         const categories = req.body;
-    
+
         // Check for duplicate Kat_Kod values in the request body
         const katKodSet = new Set();
         for (const category of categories) {
@@ -47,7 +47,7 @@ class CategoriesController {
             }
             katKodSet.add(category.Kat_Kod);
         }
-    
+
         // Proceed to insert the categories
         Category.insertMany(categories)
             .then(result => {

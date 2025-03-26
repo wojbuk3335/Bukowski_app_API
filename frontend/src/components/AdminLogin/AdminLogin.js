@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Logo from '../../assets/images/bukowski_logo.png';
@@ -14,6 +14,15 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('AdminToken');
+    const role = localStorage.getItem('AdminRole');
+    if (token && role === 'admin') {
+      setAuth({ token, role });
+      navigate('/admin/dashboard');
+    }
+  }, [setAuth, navigate]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -37,11 +46,7 @@ const AdminLogin = () => {
         localStorage.setItem('AdminEmail', email); // Store email in localStorage
         if (response.data.role === 'admin') {
           setAuth(response.data); // Pass true and response.data to setAuth
-          if (rememberMe) {
-            localStorage.setItem('AdminToken', response.data.token);
-          } else {
-            sessionStorage.setItem('AdminToken', response.data.token);
-          }
+          localStorage.setItem('AdminToken', response.data.token); // Always store token in localStorage
           navigate('/admin/dashboard');
         } else {
           setError('Dostęp tylko dla administratorów.');
