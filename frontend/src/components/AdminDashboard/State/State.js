@@ -456,7 +456,7 @@ const State = () => {
                         isOpen,
                         highlightedIndex,
                     }) => (
-                        <div className="w-70 position-relative"> {/* Adjusted width to 70% */}
+                        <div className="w-70 position-relative">
                             <input
                                 {...getInputProps({
                                     placeholder: 'Wybierz rozmiar', // Polish: Select a size
@@ -708,7 +708,7 @@ const State = () => {
                                                                     },
                                                                 })}
                                                             >
-                                                                {item.Roz_Opis} {/* Display Roz_Opis */}
+                                                                {item.Roz_Opis}
                                                             </li>
                                                         ))}
                                             </ul>
@@ -727,11 +727,11 @@ const State = () => {
                             <td style={tableCellStyle} data-label="Nr zamówienia">{indexOfFirstRecord + index + 1}</td>
                             <td style={tableCellStyle} data-label="Pełna nazwa">{row.fullName}</td>
                             <td style={tableCellStyle} data-label="Data">
-                                {new Date(row.date).toLocaleDateString()} {/* Render as plain text */}
+                                {new Date(row.date).toLocaleDateString()}
                             </td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
                             <td style={tableCellStyle} data-label="Barcode">
-                                <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} /> {/* Adjusted barcode size */}
+                                <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
                             </td>
                             <td style={tableCellStyle} data-label="Akcje">
                                 <div className="d-flex gap-1"> {/* Adjust button spacing */}
@@ -917,9 +917,9 @@ const State = () => {
                         </Downshift>
                     </FormGroup>
                 </ModalBody>
-                <ModalFooter className="d-flex justify-content-end" style={{ gap: '10px' }}> {/* Add margin between buttons */}
+                <ModalFooter className="d-flex justify-content-end" style={{ gap: '10px' }}>
                     <Button color="primary" onClick={handleSaveEdit} className="btn-sm">Zapisz zmiany</Button>
-                    <Button color="secondary" onClick={toggleEditModal} className="btn-sm">Anuluj</Button> {/* Add Cancel button */}
+                    <Button color="secondary" onClick={toggleEditModal} className="btn-sm">Anuluj</Button>
                 </ModalFooter>
             </Modal>
 
