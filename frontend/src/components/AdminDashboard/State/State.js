@@ -387,7 +387,7 @@ const State = () => {
                             <ul
                                 {...getMenuProps()}
                                 className={`list-group mt-1 position-absolute w-100 ${isOpen ? '' : 'd-none'} ${styles.dropdownMenu}`}
-                                style={{ backgroundColor: 'black', color: 'white' }} // Black background and white text
+                                style={{ backgroundColor: 'black', color: 'white', zIndex: 1050 }} // Black background and white text
                             >
                                 {isOpen &&
                                     goods
@@ -467,7 +467,7 @@ const State = () => {
                             <ul
                                 {...getMenuProps()}
                                 className={`list-group mt-1 position-absolute w-100 ${isOpen ? '' : 'd-none'} ${styles.dropdownMenu}`}
-                                style={{ backgroundColor: 'black', color: 'white' }} // Black background and white text
+                                style={{ backgroundColor: 'black', color: 'white', zIndex: 1050 }} // Black background and white text
                             >
                                 {isOpen &&
                                     sizes
