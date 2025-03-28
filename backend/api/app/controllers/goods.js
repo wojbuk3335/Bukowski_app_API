@@ -10,6 +10,24 @@ class GoodsController {
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
 
+
+        //console.log
+
+        console.log('Received data:', {
+            stock,
+            color,
+            fullName,
+            code,
+            category,
+            price,
+            discount_price,
+            picture,
+            priceExceptions,
+            sellingPoint,
+            barcode
+        });
+        
+        
         // Validate stock value
         if (stock === 'NIEOKREŚLONY') {
             return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
@@ -20,10 +38,10 @@ class GoodsController {
             return res.status(400).json({ message: 'Cena musi być większa od zera' });
         }
 
-        // Validate required fields
-        if (!sellingPoint || !barcode) {
-            return res.status(400).json({ message: 'Selling point and barcode are required' });
-        }
+        // // Validate required fields
+        // if (!sellingPoint || !barcode) {
+        //     return res.status(400).json({ message: 'Selling point and barcode are required' });
+        // }
 
         // Check for duplicate sizes in price exceptions
         const sizeCounts = priceExceptions.reduce((acc, exception) => {

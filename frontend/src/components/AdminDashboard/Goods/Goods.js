@@ -162,7 +162,6 @@ const Goods = () => {
     };
 
     const handleAddProduct = () => {
-
         const category = categories.find(cat => cat._id === selectedCategory);
         if (category && category.Kat_Opis === '!NIEOKREŚLONY') {
             alert('Kategoria nie może posiadać wartości !NIEOKREŚLONY');
@@ -235,8 +234,16 @@ const Goods = () => {
         formData.append('price', price);
         formData.append('discount_price', discountPrice);
         formData.append('priceExceptions', JSON.stringify(priceExceptions));
+        formData.append('sellingPoint', ''); // Default value for sellingPoint
+        formData.append('barcode', ''); // Default value for barcode
         if (selectedImage) {
             formData.append('Picture', selectedImage);
+        }
+
+        // Log the formData values before sending to the backend
+        console.log('FormData being sent to the backend:');
+        for (let [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
         }
 
         const url = editingGood ? `/api/excel/goods/${editingGood._id}` : '/api/excel/goods/create-goods';
@@ -508,8 +515,6 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Nazwa produktu</th>
                             <th className={styles.tableHeader}>Kod kreskowy</th>
                             <th className={styles.tableHeader}>Kategoria</th>
-                            <th className={styles.tableHeader}>Punkt sprzedaży</th> {/* Add sellingPoint column */}
-                            <th className={styles.tableHeader}>Kod kreskowy</th> {/* Add barcode column */}
                             <th className={styles.tableHeader}>Zdjęcie</th>
                             <th className={styles.tableHeader}>Cena (PLN)</th>
                             <th className={styles.tableHeader}>Cena promocyjna (PLN)</th>
@@ -526,8 +531,6 @@ const Goods = () => {
                                 <td className={styles.tableCell} data-label="Nazwa produktu">{good.fullName}</td>
                                 <td className={styles.tableCell} data-label="Kod produktu">{good.code}</td>
                                 <td className={styles.tableCell} data-label="Kategoria">{good.category.Kat_Opis}</td>
-                                <td className={styles.tableCell} data-label="Punkt sprzedaży">{good.sellingPoint}</td> {/* Display sellingPoint */}
-                                <td className={styles.tableCell} data-label="Kod kreskowy">{good.barcode}</td> {/* Display barcode */}
                                 <td className={styles.tableCell} data-label="Zdjęcie">
                                     <img
                                         src={good.picture || defaultPicture}

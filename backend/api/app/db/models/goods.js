@@ -33,8 +33,8 @@ const goodsSchema = mongoose.Schema({
         }],
         default: []
     },
-    sellingPoint: { type: String, required: true }, // Add sellingPoint field
-    barcode: { type: String, required: true }, // Add barcode field
+    sellingPoint: { type: String, required: false, default: '' }, // Default to an empty string
+barcode: { type: String, required: false, default: '' }, // Default to an empty string
 });
 
 goodsSchema.post('save', function (error, doc, next) {
