@@ -1,6 +1,6 @@
 const User = require('../db/models/user');
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+const argon2 = require('argon2'); // Replaced bcrypt with argon2
 const jwt = require('jsonwebtoken');
 const jsonwebtoken = require('../config').jsonwebtoken;
 const config = require('../config');
@@ -17,12 +17,8 @@ class UsersController {
                         message: 'Email already exists'
                     });
                 } else {
-                    bcrypt.hash(req.body.password, 10, (err, hash) => {
-                        if (err) {
-                            return res.status(500).json({
-                                error: err
-                            });
-                        } else {
+                    argon2.hash(req.body.password) // Replaced bcrypt.hash with argon2.hash
+                        .then(hash => {
                             // Ensure sellingPoint is an empty string for admins
                             const newUser = new User({
                                 _id: new mongoose.Types.ObjectId(),
@@ -55,8 +51,12 @@ class UsersController {
                                         error: error
                                     });
                                 });
-                        }
-                    });
+                        })
+                        .catch(err => {
+                            return res.status(500).json({
+                                error: err
+                            });
+                        });
                 }
             })
             .catch(error => {
@@ -75,34 +75,35 @@ class UsersController {
                         message: 'Auth failed'
                     });
                 }
-                bcrypt.compare(req.body.password, user.password, (err, result) => {
-                    if (err) {
-                        return res.status(401).json({
+                argon2.verify(user.password, req.body.password) // Replaced bcrypt.compare with argon2.verify
+                    .then(result => {
+                        if (result) {
+                            const token = jwt.sign({
+                                email: user.email,
+                                userId: user._id
+                            }, jsonwebtoken, {
+                                expiresIn: '1h'
+                            });
+                            return res.status(200).json({
+                                message: 'Auth successful',
+                                token: token,
+                                userId: user._id,
+                                email: user.email,
+                                success: true,
+                                role: user.role,
+                                symbol: user.symbol,
+                                sellingPoint: user.sellingPoint
+                            });
+                        }
+                        res.status(401).json({
                             message: 'Auth failed'
                         });
-                    }
-                    if (result) {
-                        const token = jwt.sign({
-                            email: user.email,
-                            userId: user._id
-                        }, jsonwebtoken, {
-                            expiresIn: '1h'
+                    })
+                    .catch(err => {
+                        res.status(401).json({
+                            message: 'Auth failed'
                         });
-                        return res.status(200).json({
-                            message: 'Auth successful',
-                            token: token,
-                            userId: user._id,
-                            email: user.email,
-                            success: true,
-                            role: user.role,
-                            symbol: user.symbol,
-                            sellingPoint: user.sellingPoint
-                        });
-                    }
-                    res.status(401).json({
-                        message: 'Auth failed'
                     });
-                });
             })
             .catch(error => {
                 res.status(500).json({
@@ -201,16 +202,16 @@ class UsersController {
         }
 
         if (updateOps.password) {
-            bcrypt.hash(updateOps.password, 10, (err, hash) => {
-                if (err) {
+            argon2.hash(updateOps.password) // Replaced bcrypt.hash with argon2.hash
+                .then(hash => {
+                    updateOps.password = hash;
+                    updateUserInDB(id, updateOps, res);
+                })
+                .catch(err => {
                     return res.status(500).json({
                         error: err
                     });
-                } else {
-                    updateOps.password = hash;
-                    updateUserInDB(id, updateOps, res);
-                }
-            });
+                });
         } else {
             updateUserInDB(id, updateOps, res);
         }
