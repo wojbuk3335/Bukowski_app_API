@@ -1,312 +1,405 @@
-import React, { Fragment, useEffect, useState } from "react";
-import { read, utils } from "xlsx";
-import {
-    Col,
-    Row,
-    Button,
-    FormGroup,
-    Input,
-    Table,
-    FormText,
-    Modal,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-} from "reactstrap";
-import axios from "axios";
-import styles from './Category.module.css';
-
-const requiredFields = ["Kat_Kod", "Kat_Opis"];
-
+import React, { useState, useRef, useEffect } from 'react';
+import { Input, Button, Form, FormGroup, Label, Col } from 'reactstrap';
+import axios from 'axios';
 
 const Category = () => {
-    const [loading, setLoading] = useState(false);
-    const [excelRows, setExcelRows] = useState([]);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [rows, setRows] = useState([]);
-    const [modal, setModal] = useState(false);
-    const [currentCategory, setCurrentCategory] = useState({ _id: '', Kat_Opis: '' });
+    const [categoryName, setCategoryName] = useState('');
+    const [categories, setCategories] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [subcategoryName, setSubcategoryName] = useState('');
+    const [subcategories, setSubcategories] = useState({});
+    const [selectedSubcategory, setSelectedSubcategory] = useState('');
+    const [subsubcategoryName, setSubsubcategoryName] = useState('');
+    const [subsubcategories, setSubsubcategories] = useState({});
+    const [selectedSubsubcategory, setSelectedSubsubcategory] = useState('');
+    const [subsubsubcategoryName, setSubsubsubcategoryName] = useState('');
+    const [subsubsubcategories, setSubsubsubcategories] = useState({});
+    const [savedCategories, setSavedCategories] = useState([]);
+
+    const categoryInputRef = useRef(null);
+    const subcategoryInputRef = useRef(null);
+    const subsubcategoryInputRef = useRef(null);
 
     useEffect(() => {
-        const initialize = async () => {
-            fetchData();
-        };
-        initialize();
+        fetchCategories();
     }, []);
 
-    const toggleModal = () => setModal(!modal);
-
-    const handleUpdateClick = (category) => {
-        setCurrentCategory(category);
-        toggleModal();
-    };
-
-    const handleUpdateChange = (e) => {
-        setCurrentCategory({ ...currentCategory, Kat_Opis: e.target.value });
-    };
-
-    const handleUpdateSubmit = async () => {
+    const fetchCategories = async () => {
         try {
-            setLoading(true);
-
-            // Check if the Kat_Opis value is unique
-            const response = await axios.get(`/api/excel/category/get-all-categories`);
-            const categories = response.data.categories;
-            const duplicate = categories.find(category => category.Kat_Opis === currentCategory.Kat_Opis && category._id !== currentCategory._id);
-
-            if (duplicate && currentCategory.Kat_Opis !== "") {
-                alert(`Wartość Kat_Opis "${currentCategory.Kat_Opis}" już istnieje w bazie danych. Proszę wybrać inną wartość.`);
-                setLoading(false);
-                return;
-            }
-
-            await axios.patch(`/api/excel/category/update-category/${currentCategory._id}`, { Kat_Opis: currentCategory.Kat_Opis });
-            fetchData();
-            toggleModal();
+            const response = await axios.get('http://localhost:3001/api/excel/category');
+            setSavedCategories(response.data);
         } catch (error) {
-            console.log(error);
-        } finally {
-            setLoading(false);
+            console.error('Error fetching categories:', error);
         }
     };
 
-    const removeFile = async () => {
+    const handleAddCategory = () => {
+        if (categoryName.trim() !== '') {
+            setCategories([...categories, categoryName]);
+            setSubcategories({ ...subcategories, [categoryName]: [] });
+            setCategoryName('');
+            categoryInputRef.current.focus();
+        }
+    };
+
+    const handleRemoveCategory = (category) => {
+        setCategories(categories.filter((c) => c !== category));
+        const updatedSubcategories = { ...subcategories };
+        delete updatedSubcategories[category];
+        setSubcategories(updatedSubcategories);
+
+        const updatedSubsubcategories = { ...subsubcategories };
+        Object.keys(updatedSubsubcategories).forEach((key) => {
+            if (key.startsWith(`${category}-`)) {
+                delete updatedSubsubcategories[key];
+            }
+        });
+        setSubsubcategories(updatedSubsubcategories);
+
+        const updatedSubsubsubcategories = { ...subsubsubcategories };
+        Object.keys(updatedSubsubsubcategories).forEach((key) => {
+            if (key.startsWith(`${category}-`)) {
+                delete updatedSubsubsubcategories[key];
+            }
+        });
+        setSubsubsubcategories(updatedSubsubsubcategories);
+
+        if (selectedCategory === category) {
+            setSelectedCategory('');
+            setSelectedSubcategory('');
+        }
+    };
+
+    const handleAddSubcategory = () => {
+        if (selectedCategory && subcategoryName.trim() !== '') {
+            setSubcategories({
+                ...subcategories,
+                [selectedCategory]: [...subcategories[selectedCategory], subcategoryName],
+            });
+            setSubsubcategories({
+                ...subsubcategories,
+                [`${selectedCategory}-${subcategoryName}`]: [],
+            });
+            setSubcategoryName('');
+            subcategoryInputRef.current.focus();
+        }
+    };
+
+    const handleRemoveSubcategory = (subcategory) => {
+        const updatedSubcategories = {
+            ...subcategories,
+            [selectedCategory]: subcategories[selectedCategory].filter((s) => s !== subcategory),
+        };
+        setSubcategories(updatedSubcategories);
+
+        const updatedSubsubcategories = { ...subsubcategories };
+        delete updatedSubsubcategories[`${selectedCategory}-${subcategory}`];
+        setSubsubcategories(updatedSubsubcategories);
+
+        const updatedSubsubsubcategories = { ...subsubsubcategories };
+        Object.keys(updatedSubsubsubcategories).forEach((key) => {
+            if (key.startsWith(`${selectedCategory}-${subcategory}-`)) {
+                delete updatedSubsubsubcategories[key];
+            }
+        });
+        setSubsubsubcategories(updatedSubsubsubcategories);
+
+        if (selectedSubcategory === subcategory) {
+            setSelectedSubcategory('');
+        }
+    };
+
+    const handleAddSubsubcategory = () => {
+        if (selectedSubcategory && subsubcategoryName.trim() !== '') {
+            const key = `${selectedCategory}-${selectedSubcategory}`;
+            setSubsubcategories({
+                ...subsubcategories,
+                [key]: [...subsubcategories[key], subsubcategoryName],
+            });
+            setSubsubcategoryName('');
+            subsubcategoryInputRef.current.focus();
+        }
+    };
+
+    const handleRemoveSubsubcategory = (subsubcategory) => {
+        const key = `${selectedCategory}-${selectedSubcategory}`;
+        setSubsubcategories({
+            ...subsubcategories,
+            [key]: subsubcategories[key].filter((s) => s !== subsubcategory),
+        });
+
+        const updatedSubsubsubcategories = { ...subsubsubcategories };
+        Object.keys(updatedSubsubsubcategories).forEach((key) => {
+            if (key.startsWith(`${selectedCategory}-${selectedSubcategory}-${subsubcategory}-`)) {
+                delete updatedSubsubsubcategories[key];
+            }
+        });
+        setSubsubsubcategories(updatedSubsubsubcategories);
+    };
+
+    const handleAddSubsubsubcategory = () => {
+        if (selectedSubcategory && selectedSubsubcategory && subsubsubcategoryName.trim() !== '') {
+            const key = `${selectedCategory}-${selectedSubcategory}-${selectedSubsubcategory}`;
+            setSubsubsubcategories({
+                ...subsubsubcategories,
+                [key]: [...(subsubsubcategories[key] || []), subsubsubcategoryName],
+            });
+            setSubsubsubcategoryName('');
+            subsubcategoryInputRef.current.focus();
+        }
+    };
+
+    const handleRemoveSubsubsubcategory = (subsubsubcategory) => {
+        const key = `${selectedCategory}-${selectedSubcategory}-${selectedSubsubcategory}`;
+        setSubsubsubcategories({
+            ...subsubsubcategories,
+            [key]: subsubsubcategories[key].filter((s) => s !== subsubsubcategory),
+        });
+    };
+
+    const handleKeyPress = (event, addFunction) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addFunction();
+        }
+    };
+
+    const handleSaveCategories = async () => {
         try {
-            setLoading(true);
+            const formattedCategories = categories.map((category) => ({
+                name: category,
+                subcategories: subcategories[category]?.map((subcategory) => ({
+                    name: subcategory,
+                    subsubcategories: subsubcategories[`${category}-${subcategory}`]?.map((subsubcategory) => ({
+                        name: subsubcategory,
+                        subsubsubcategories: subsubsubcategories[`${category}-${subcategory}-${subsubcategory}`]?.map(
+                            (subsubsubcategory) => ({
+                                name: subsubsubcategory,
+                            })
+                        ),
+                    })),
+                })),
+            }));
 
-            // Check if there are any records in the goods database
-            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
-            if (goodsResponse.data.goods.length > 0) {
-                alert("Nie można usunąć kategorii ponieważ na ich podstawie zostały już stworzone gotowe produkty. Usuń najpierw wszystkie produkty i spróbuj ponownie");
-                setLoading(false);
-                return;
-            }
+            console.log('Formatted JSON to be sent:', JSON.stringify(formattedCategories, null, 2)); // Log JSON
 
-            await axios.delete(`/api/excel/category/delete-all-categories`);
-            resetState();
-            alert("Dane zostały usunięte poprawnie.");
+            await axios.post('http://localhost:3001/api/excel/category', formattedCategories);
+            fetchCategories();
         } catch (error) {
-            console.log(error);
-        } finally {
-            setLoading(false);
+            console.error('Error saving categories:', error.response?.data || error.message);
         }
     };
-
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const result = (await axios.get(`/api/excel/category/get-all-categories`)).data;
-            setRows(Array.isArray(result.categories) ? result.categories : []);
-            console.log(result);
-        } catch (error) {
-            console.log(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const uploadData = async () => {
-        try {
-            if (!selectedFile) {
-                alert("Proszę wybrać plik do załadowania danych.");
-                return;
-            }
-
-            setLoading(true);
-
-            // Check if there are any records in the goods database
-            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
-            if (goodsResponse.data.goods.length > 0) {
-                alert("Na bazie istaniejego asortymentu zostały już stworzone produkty... Proszę usunąć wszystkie produkty i spróbować ponownie");
-                setLoading(false);
-                return;
-            }
-
-            if (!validateRequiredFields()) {
-                alert("Wymagane dane: " + JSON.stringify(requiredFields) + ". Proszę również umieścić dane w czwartym arkuszu excela.");
-                return;
-            }
-
-            const categoryList = await getCategoryList();
-            if (categoryList.length > 0) {
-                alert("Tabela kategorii nie jest pusta. Proszę usunąć wszystkie dane aby wgrać nowe.");
-                return;
-            }
-
-            await insertOrUpdateCategories(categoryList);
-
-            fetchData();
-        } catch (error) {
-            console.log(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const readUploadFile = (e) => {
-        e.preventDefault();
-        if (e.target.files) {
-            const file = e.target.files[0];
-            setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = e.target.result;
-                    const workbook = read(data, { type: "array" });
-                    const sheetName = workbook.SheetNames[3]; // Fourth sheet
-                    const worksheet = workbook.Sheets[sheetName];
-                    const json = utils.sheet_to_json(worksheet);
-                    console.log("Read data from fourth sheet:", json); // Add this line
-                    setExcelRows(json);
-                } catch (error) {
-                    handleFileReadError(error);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-    };
-
-    const validateRequiredFields = () => {
-        const firstItemKeys = excelRows[0] && Object.keys(excelRows[0]);
-        if (firstItemKeys.length) {
-            return requiredFields.every((field) => firstItemKeys.includes(field));
-        }
-        return false;
-    };
-
-    const getCategoryList = async () => {
-        try {
-            const url = `/api/excel/category/get-all-categories`;
-            console.log(`Requesting URL: ${url}`);
-            const categoryResponse = (await axios.get(url)).data;
-            return Array.isArray(categoryResponse.categories) ? categoryResponse.categories : [];
-        } catch (error) {
-            console.error(error);
-            throw error;
-        }
-    };
-
-    const insertOrUpdateCategories = async (categoryList) => {
-        const categories = excelRows.map((obj) => ({
-            _id: categoryList.find((x) => x.Kat_Kod === obj["Kat_Kod"])?._id,
-            Kat_Kod: obj["Kat_Kod"] || "",
-            Kat_Opis: obj["Kat_Opis"] || "",
-            number_id: Number(obj["Kat_Kod"]) || 0
-        }));
-
-        const updatedCategories = categories.filter((x) => x._id);
-        const newCategories = categories.filter((x) => !x._id);
-
-        if (updatedCategories.length) {
-            const result = (await axios.post(`/api/excel/category/update-many-categories`, updatedCategories)).data;
-            if (result) {
-                alert("Dodano pomyślnie " + updatedCategories.length + " rekordów.");
-            }
-        }
-
-        if (newCategories.length) {
-            const result = (await axios.post(`/api/excel/category/insert-many-categories`, newCategories)).data;
-            if (result) {
-                alert("Dodano pomyślnie " + newCategories.length + " rekordów.");
-            }
-        }
-    };
-
-    const handleFileReadError = (error) => {
-        if (error.message.includes("File is password-protected")) {
-            alert("Plik jest chroniony hasłem. Proszę wybrać inny plik.");
-        } else {
-            alert("Wystąpił błąd podczas przetwarzania pliku. Proszę spróbować ponownie.");
-            console.log(error);
-        }
-    };
-
-    const resetState = () => {
-        setSelectedFile(null);
-        setExcelRows([]);
-        fetchData();
-    };
-
-    const renderDataTable = () => (
-        <Table className={styles.table}>
-            <thead>
-                <tr>
-                    <th>Kat_Kod</th>
-                    <th>Kat_Opis</th>
-                    <th>Akcje</th>
-                </tr>
-            </thead>
-            <tbody>
-                {rows.map((item, idx) => (
-                    <tr key={idx}>
-                        <td id_from_excel_column={item.Kat_Kod} id={item._id} >{item.Kat_Kod}</td>
-                        <td id_from_excel_column={item.Kat_Kod} id={item._id}>{item.Kat_Opis}</td>
-                        <td id_from_excel_column={item.Kat_Kod} id={item._id}>
-                            <Button id_from_excel_column={item.Kat_Kod} id={item._id} color="primary" size="sm" className={styles.button} onClick={() => handleUpdateClick(item)}>Aktualizuj</Button>
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </Table>
-    );
 
     return (
-        <div>
-            <Fragment>
-                <h3 className={`${styles.textCenter} ${styles.mt4} ${styles.mb4} ${styles.textWhite}`}>
-                    Kategorie
-                </h3>
-                <div className={styles.container}>
-                    <Row className={styles.xxx}>
-                        <Col md="6" className={styles.textLeft}>
-                            <FormGroup>
-                                <div>
-                                <input className={styles.inputFile}
-                                        id="inputEmpGroupFile"
-                                        name="file"
-                                        type="file"
-                                        onChange={readUploadFile}
-                                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                                    />
-                                </div>
-
-                                <FormText className={styles.textWhite}>
-                                    {"UWAGA: Nagłówki w Excelu powinny być następujące!. => "}
-                                    {requiredFields.join(", ")}
-                                </FormText>
-                            </FormGroup>
-                        </Col>
-                        <Col md="6" className={styles.textRight}>
-                            <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
-                                {"Wczytaj dane z pliku"}
-                            </Button>
-                            <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
-                                {"Usuń dane z bazy danych"}
-                            </Button>
-                        </Col>
-                    </Row>
-                    {loading && <progress className={styles.progress}></progress>}
-                    <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
-                    {renderDataTable()}
-                </div>
-            </Fragment>
-
-            <Modal isOpen={modal} toggle={toggleModal}>
-                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Aktualizuj Kat_Opis</ModalHeader>
-                <ModalBody className={styles.modalBody}>
-                    <FormGroup>
+        <div className="container mt-4">
+            <h2 style={{ color: 'white' }}>Zarządzanie Kategoriami</h2>
+            <Form>
+                {/* Category Input and Add Button */}
+                <FormGroup row>
+                    <Label for="categoryInput" sm={2}>Nazwa Kategorii</Label>
+                    <Col sm={8}>
                         <Input
                             type="text"
-                            value={currentCategory.Kat_Opis}
-                            onChange={handleUpdateChange}
+                            id="categoryInput"
+                            placeholder="Wpisz nazwę kategorii"
+                            value={categoryName}
+                            onChange={(e) => setCategoryName(e.target.value)}
+                            onKeyPress={(e) => handleKeyPress(e, handleAddCategory)}
+                            innerRef={categoryInputRef}
                         />
-                    </FormGroup>
-                </ModalBody>
-                <ModalFooter className={styles.modalFooter}>
-                    <Button color="primary" size="sm" className={styles.button} onClick={handleUpdateSubmit}>Aktualizuj</Button>{' '}
-                    <Button color="secondary" size="sm" className={styles.button} onClick={toggleModal}>Anuluj</Button>
-                </ModalFooter>
-            </Modal>
+                    </Col>
+                    <Col sm={2}>
+                        <Button color="primary" onClick={handleAddCategory}>
+                            Dodaj Kategorię
+                        </Button>
+                    </Col>
+                </FormGroup>
+
+                {/* Category List with Remove Buttons */}
+                <FormGroup row>
+                    <Label sm={2}>Kategorie</Label>
+                    <Col sm={10}>
+                        {categories.map((category, index) => (
+                            <div key={index} className="d-flex align-items-center mb-2">
+                                <Input
+                                    type="radio"
+                                    name="category"
+                                    value={category}
+                                    checked={selectedCategory === category}
+                                    onChange={() => {
+                                        setSelectedCategory(category);
+                                        setSelectedSubcategory('');
+                                    }}
+                                />
+                                <span className="ms-2">{category}</span>
+                                <Button
+                                    color="danger"
+                                    size="sm"
+                                    className="ms-2"
+                                    onClick={() => handleRemoveCategory(category)}
+                                >
+                                    Usuń
+                                </Button>
+                            </div>
+                        ))}
+                    </Col>
+                </FormGroup>
+
+                {/* Subcategory Input and Add Button */}
+                {selectedCategory && (
+                    <>
+                        <FormGroup row>
+                            <Label for="subcategoryInput" sm={2}>Nazwa Podkategorii</Label>
+                            <Col sm={8}>
+                                <Input
+                                    type="text"
+                                    id="subcategoryInput"
+                                    placeholder={`Wpisz podkategorię dla ${selectedCategory}`}
+                                    value={subcategoryName}
+                                    onChange={(e) => setSubcategoryName(e.target.value)}
+                                    onKeyPress={(e) => handleKeyPress(e, handleAddSubcategory)}
+                                    innerRef={subcategoryInputRef}
+                                />
+                            </Col>
+                            <Col sm={2}>
+                                <Button color="secondary" onClick={handleAddSubcategory}>
+                                    Dodaj Podkategorię
+                                </Button>
+                            </Col>
+                        </FormGroup>
+
+                        {/* Subcategory List with Remove Buttons */}
+                        <FormGroup row>
+                            <Label sm={2}>Podkategorie</Label>
+                            <Col sm={10}>
+                                {subcategories[selectedCategory]?.map((subcategory, index) => (
+                                    <div key={index} className="d-flex align-items-center mb-2">
+                                        <Input
+                                            type="radio"
+                                            name="subcategory"
+                                            value={subcategory}
+                                            checked={selectedSubcategory === subcategory}
+                                            onChange={() => setSelectedSubcategory(subcategory)}
+                                        />
+                                        <span className="ms-2">{subcategory}</span>
+                                        <Button
+                                            color="danger"
+                                            size="sm"
+                                            className="ms-2"
+                                            onClick={() => handleRemoveSubcategory(subcategory)}
+                                        >
+                                            Usuń
+                                        </Button>
+                                    </div>
+                                ))}
+                            </Col>
+                        </FormGroup>
+                    </>
+                )}
+
+                {/* Sub-subcategory Input and Add Button */}
+                {selectedSubcategory && (
+                    <>
+                        <FormGroup row>
+                            <Label for="subsubcategoryInput" sm={2}>Nazwa Pod-podkategorii</Label>
+                            <Col sm={8}>
+                                <Input
+                                    type="text"
+                                    id="subsubcategoryInput"
+                                    placeholder={`Wpisz pod-podkategorię dla ${selectedSubcategory}`}
+                                    value={subsubcategoryName}
+                                    onChange={(e) => setSubsubcategoryName(e.target.value)}
+                                    onKeyPress={(e) => handleKeyPress(e, handleAddSubsubcategory)}
+                                    innerRef={subsubcategoryInputRef}
+                                />
+                            </Col>
+                            <Col sm={2}>
+                                <Button color="success" onClick={handleAddSubsubcategory}>
+                                    Dodaj Pod-podkategorię
+                                </Button>
+                            </Col>
+                        </FormGroup>
+
+                        {/* Sub-subcategory List with Remove Buttons */}
+                        <FormGroup row>
+                            <Label sm={2}>Pod-podkategorie</Label>
+                            <Col sm={10}>
+                                {subsubcategories[`${selectedCategory}-${selectedSubcategory}`]?.map(
+                                    (subsubcategory, index) => (
+                                        <div key={index} className="d-flex align-items-center mb-2">
+                                            <Input
+                                                type="radio"
+                                                name="subsubcategory"
+                                                value={subsubcategory}
+                                                checked={selectedSubsubcategory === subsubcategory}
+                                                onChange={() => setSelectedSubsubcategory(subsubcategory)}
+                                            />
+                                            <span className="ms-2">{subsubcategory}</span>
+                                            <Button
+                                                color="danger"
+                                                size="sm"
+                                                className="ms-2"
+                                                onClick={() => handleRemoveSubsubcategory(subsubcategory)}
+                                            >
+                                                Usuń
+                                            </Button>
+                                        </div>
+                                    )
+                                )}
+                            </Col>
+                        </FormGroup>
+                    </>
+                )}
+
+                {/* Sub-sub-subcategory Input and Add Button */}
+                {selectedSubsubcategory && (
+                    <>
+                        <FormGroup row>
+                            <Label for="subsubsubcategoryInput" sm={2}>Nazwa Pod-pod-podkategorii</Label>
+                            <Col sm={8}>
+                                <Input
+                                    type="text"
+                                    id="subsubsubcategoryInput"
+                                    placeholder={`Wpisz pod-pod-podkategorię dla ${selectedSubsubcategory}`}
+                                    value={subsubsubcategoryName}
+                                    onChange={(e) => setSubsubsubcategoryName(e.target.value)}
+                                    onKeyPress={(e) => handleKeyPress(e, handleAddSubsubsubcategory)}
+                                />
+                            </Col>
+                            <Col sm={2}>
+                                <Button color="info" onClick={handleAddSubsubsubcategory}>
+                                    Dodaj Pod-pod-podkategorię
+                                </Button>
+                            </Col>
+                        </FormGroup>
+
+                        {/* Sub-sub-subcategory List with Remove Buttons */}
+                        <FormGroup row>
+                            <Label sm={2}>Pod-pod-podkategorie</Label>
+                            <Col sm={10}>
+                                {subsubsubcategories[`${selectedCategory}-${selectedSubcategory}-${selectedSubsubcategory}`]?.map(
+                                    (subsubsubcategory, index) => (
+                                        <div key={index} className="d-flex align-items-center mb-2">
+                                            <span>{subsubsubcategory}</span>
+                                            <Button
+                                                color="danger"
+                                                size="sm"
+                                                className="ms-2"
+                                                onClick={() => handleRemoveSubsubsubcategory(subsubsubcategory)}
+                                            >
+                                                Usuń
+                                            </Button>
+                                        </div>
+                                    )
+                                )}
+                            </Col>
+                        </FormGroup>
+                    </>
+                )}
+                <Button color="success" onClick={handleSaveCategories}>
+                    Zapisz Kategorie
+                </Button>
+            </Form>
         </div>
     );
 };

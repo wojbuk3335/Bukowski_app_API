@@ -1,0 +1,10 @@
+.custom-select {
+    color: white;
+    background-color: black;
+    border: 1px solid white;
+}
+
+.custom-select option {
+    color: black;
+    background-color: white;
+}

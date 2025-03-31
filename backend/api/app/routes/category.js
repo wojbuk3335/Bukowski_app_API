@@ -1,11 +1,8 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const CategoriesController = require('../controllers/category');
+const categoryController = require('../controllers/category');
 
-router.get('/get-all-categories', CategoriesController.getAllCategories);
-router.post('/insert-many-categories', CategoriesController.insertManyCategories);
-router.delete('/delete-all-categories', CategoriesController.deleteAllCategories);
-router.get('/:categoryId', CategoriesController.getCategoryById);
-router.patch('/update-category/:categoryId', CategoriesController.updateCategoryById);
+router.get('/', categoryController.getCategories);
+router.post('/', categoryController.addCategory); // Match frontend endpoint
 
 module.exports = router;
