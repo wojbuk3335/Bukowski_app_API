@@ -17,8 +17,8 @@ import Searchengine from './components/AdminDashboard/Searchengine/Searchengine'
 import Users from './components/AdminDashboard/Users/Users';
 import UserProfile from './components/UserDashboard/Profile/Profile';
 import Goods from './components/AdminDashboard/Goods/Goods';
-import Category from './components/AdminDashboard/Category/Category';
 import State from './components/AdminDashboard/State/State';
+import Jacketscoatsfurs from './components/AdminDashboard/Category/Jacketscoatsfurs/Jacketscoatsfurs';
 
 function App() {
   return (
@@ -35,7 +35,9 @@ function App() {
           <Route path='searchengine' element={<Searchengine />} />
           <Route path='users' element={<Users />} />
           <Route path='goods' element={<Goods />} />
-          <Route path="category" element={<Category />} />
+          <Route path="category">
+            <Route path="jacketscoatsfurs" element={<Jacketscoatsfurs />} />
+          </Route>
           <Route path="state" element={<State />} />
         </Route>
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />

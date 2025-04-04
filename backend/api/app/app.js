@@ -26,6 +26,7 @@ const goodsRoutes = require('./routes/goods');
 const categoryRoutes = require('./routes/category'); // Ensure this line is correct
 const configRoutes = require('./routes/config');
 const stateRoutes = require('./routes/state');
+const jacketscoatsfursRoutes = require('./routes/jacketscoatsfurs'); // Ensure this line is correct
 
 
 app.use('/api/jackets', jacketRoutes);
@@ -37,6 +38,7 @@ app.use('/api/excel/goods', goodsRoutes);
 app.use('/api/excel/category', categoryRoutes); // Ensure this line is correct
 app.use('/api/config', configRoutes);
 app.use('/api/state', stateRoutes);
+app.use('/api/excel/jacketscoatsfurs', jacketscoatsfursRoutes); // Ensure this line is correct
 
 app.use((req, res, next) => {
     const error = new Error('Not Found');
