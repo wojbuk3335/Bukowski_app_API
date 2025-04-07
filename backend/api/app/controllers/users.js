@@ -67,23 +67,32 @@ class UsersController {
     }
 
     login(req, res, next) {
+        console.log("Login request received with email:", req.body.email); // Log the email from the request
+
         User.findOne({ email: req.body.email })
             .exec()
             .then(user => {
                 if (!user) {
+                    console.log("No user found with email:", req.body.email); // Log if no user is found
                     return res.status(401).json({
                         message: 'Auth failed'
                     });
                 }
+                console.log("User found:", user); // Log the user object if found
+
                 argon2.verify(user.password, req.body.password) // Replaced bcrypt.compare with argon2.verify
                     .then(result => {
                         if (result) {
+                            console.log("Password verification successful for user:", user.email); // Log successful password verification
+
                             const token = jwt.sign({
                                 email: user.email,
                                 userId: user._id
                             }, jsonwebtoken, {
                                 expiresIn: '1h'
                             });
+                            console.log("Generated token:", token); // Log the generated token
+
                             return res.status(200).json({
                                 message: 'Auth successful',
                                 token: token,
@@ -95,17 +104,20 @@ class UsersController {
                                 sellingPoint: user.sellingPoint
                             });
                         }
+                        console.log("Password verification failed for user:", user.email); // Log failed password verification
                         res.status(401).json({
                             message: 'Auth failed'
                         });
                     })
                     .catch(err => {
+                        console.error("Error during password verification:", err); // Log any error during password verification
                         res.status(401).json({
                             message: 'Auth failed'
                         });
                     });
             })
             .catch(error => {
+                console.error("Error during user lookup:", error); // Log any error during user lookup
                 res.status(500).json({
                     error: error
                 });
@@ -216,6 +228,44 @@ class UsersController {
             updateUserInDB(id, updateOps, res);
         }
     };
+
+    validateToken(req, res, next) {
+        const token = req.headers.authorization?.split(" ")[1];
+        console.log("Token received:", token);
+        if (!token) {
+            return res.status(401).json({ message: "No token provided" });
+        }
+
+        jwt.verify(token, jsonwebtoken, (err, decoded) => {
+            if (err) {
+                console.error("JWT verification error:", err.message); // Log the error message
+                console.error("Token that caused the error:", token); // Log the token for debugging
+                return res.status(401).json({ message: "Invalid or expired token" });
+            }
+            console.log("Decoded token:", decoded); // Log the decoded token to verify its contents
+            return res.status(200).json({ // Explicitly return status 200
+                message: "Token is valid",
+                userId: decoded.userId,
+                email: decoded.email
+            });
+        });
+    }
+
+    logout(req, res, next) {
+        const token = req.headers.authorization?.split(" ")[1];
+        if (!token) {
+            return res.status(401).json({ message: "No token provided" });
+        }
+
+        // Add the token to a blacklist (implementation depends on your system)
+        blacklistToken(token) // Assuming a function to handle token blacklisting
+            .then(() => {
+                res.status(200).json({ message: "Logout successful" });
+            })
+            .catch(error => {
+                res.status(500).json({ error: error.message });
+            });
+    }
 }
 
 const updateUserInDB = (id, updateOps, res) => {
@@ -235,6 +285,12 @@ const updateUserInDB = (id, updateOps, res) => {
                 error: error
             });
         });
+};
+
+// Example function to handle token blacklisting
+const blacklistToken = async (token) => {
+    // Implement token blacklisting logic here (e.g., store in a database or cache)
+    return Promise.resolve(); // Placeholder for actual implementation
 };
 
 module.exports = new UsersController();
