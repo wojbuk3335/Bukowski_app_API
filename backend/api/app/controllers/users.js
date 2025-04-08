@@ -229,15 +229,32 @@ class UsersController {
         }
     };
 
+<<<<<<< HEAD
     validateToken(req, res, next) {
         const token = req.headers.authorization?.split(" ")[1];
         console.log("Token received:", token);
         if (!token) {
             return res.status(401).json({ message: "No token provided" });
+=======
+    verifyToken(req, res, next) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(400).json({
+                message: 'Invalid Authorization header format. Expected "Bearer <token>".'
+            });
+        }
+
+        const token = authHeader.split(' ')[1]; // Extract token
+        if (!token) {
+            return res.status(401).json({
+                message: 'Token not provided'
+            });
+>>>>>>> 635dec9 (Fix dla kart produktu)
         }
 
         jwt.verify(token, jsonwebtoken, (err, decoded) => {
             if (err) {
+<<<<<<< HEAD
                 console.error("JWT verification error:", err.message); // Log the error message
                 console.error("Token that caused the error:", token); // Log the token for debugging
                 return res.status(401).json({ message: "Invalid or expired token" });
@@ -247,11 +264,21 @@ class UsersController {
                 message: "Token is valid",
                 userId: decoded.userId,
                 email: decoded.email
+=======
+                return res.status(401).json({
+                    message: 'Token is invalid or expired'
+                });
+            }
+            res.status(200).json({
+                message: 'Token is valid',
+                userData: decoded
+>>>>>>> 635dec9 (Fix dla kart produktu)
             });
         });
     }
 
     logout(req, res, next) {
+<<<<<<< HEAD
         const token = req.headers.authorization?.split(" ")[1];
         if (!token) {
             return res.status(401).json({ message: "No token provided" });
@@ -265,6 +292,12 @@ class UsersController {
             .catch(error => {
                 res.status(500).json({ error: error.message });
             });
+=======
+        // Inform the client to remove the token
+        res.status(200).json({
+            message: 'Logout successful. Please remove the token on the client side.'
+        });
+>>>>>>> 635dec9 (Fix dla kart produktu)
     }
 }
 

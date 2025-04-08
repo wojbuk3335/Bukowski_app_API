@@ -12,8 +12,9 @@ const Goods = () => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [selectedPicture, setSelectedPicture] = useState(null);
-    const [categories, setCategories] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('Kurtki kożuchy futra'); // Default to fixed category value
+    const [subcategories, setSubcategories] = useState([]); // New state for subcategories
+    const [selectedSubcategory, setSelectedSubcategory] = useState(''); // New state for selected subcategory
     const [price, setPrice] = useState(0);
     const [discountPrice, setDiscountPrice] = useState(0);
     const [priceExceptions, setPriceExceptions] = useState([]); // Initialize with an empty array
@@ -32,7 +33,13 @@ const Goods = () => {
     const fetchGoods = () => {
         fetch('/api/excel/goods/get-all-goods')
             .then(response => response.json())
-            .then(data => setGoods(data.goods || []))
+            .then(data => {
+                const updatedGoods = (data.goods || []).map(good => ({
+                    ...good,
+                    category: good.category || 'Brak kategorii' // Ensure category is a string
+                }));
+                setGoods(updatedGoods);
+            })
             .catch(error => console.error('Error fetching goods:', error));
     };
 
@@ -61,17 +68,6 @@ const Goods = () => {
             })
             .catch(error => console.error('Error fetching colors:', error));
 
-        fetch('/api/excel/category/get-all-categories')
-            .then(response => response.json())
-            .then(data => {
-                const filteredCategories = (data.categories || []).filter(category => category.Kat_Opis !== '');
-                setCategories(filteredCategories);
-                if (filteredCategories.length > 0) {
-                    setSelectedCategory(filteredCategories[0]._id);
-                }
-            })
-            .catch(error => console.error('Error fetching categories:', error));
-
         fetchGoods();
     }, []);
 
@@ -80,6 +76,19 @@ const Goods = () => {
             .then(response => response.json())
             .then(data => setSizes(data.sizes || []))
             .catch(error => console.error('Error fetching sizes:', error));
+    }, []);
+
+    useEffect(() => {
+        fetch('/api/excel/jacketscoatsfurs/get-all')
+            .then(response => response.json())
+            .then(data => {
+                const filteredSubcategories = (data.items || []).filter(sub => sub.Kat_1_Opis_1 && sub.Kat_1_Opis_1.trim() !== '');
+                setSubcategories(filteredSubcategories);
+                if (filteredSubcategories.length > 0) {
+                    setSelectedSubcategory(filteredSubcategories[0]._id);
+                }
+            })
+            .catch(error => console.error('Error fetching subcategories:', error));
     }, []);
 
     useEffect(() => {
@@ -104,10 +113,6 @@ const Goods = () => {
     const handleColorChange = (e) => {
         setSelectedColor(e.target.value);
         updateProductName(selectedStock, e.target.value);
-    };
-
-    const handleCategoryChange = (e) => {
-        setSelectedCategory(e.target.value);
     };
 
     const handleImageChange = (e) => {
@@ -162,11 +167,14 @@ const Goods = () => {
     };
 
     const handleAddProduct = () => {
-        const category = categories.find(cat => cat._id === selectedCategory);
-        if (category && category.Kat_Opis === '!NIEOKREŚLONY') {
-            alert('Kategoria nie może posiadać wartości !NIEOKREŚLONY');
+        // Ensure selectedCategory is correctly set
+        console.log('Selected category:', selectedCategory);
+
+        if (!selectedCategory) {
+            alert('Kategoria nie została ustawiona!');
             return;
         }
+
         const stock = stocks.find(stock => stock._id === selectedStock);
         if (stock && stock.Tow_Opis === '!NIEOKREŚLONY') {
             alert('Produkt nie może posiadać wartości !NIEOKREŚLONY');
@@ -197,45 +205,22 @@ const Goods = () => {
             return;
         }
 
-        // Check if any size in price exceptions is "NIEOKREŚLONY" or empty
-        const invalidSizeException = priceExceptions.find(exception => {
-            const size = sizes.find(size => size._id === exception.size);
-            return !exception.size || (size && size.Roz_Opis === '!NIEOKREŚLONY');
-        });
-        if (invalidSizeException) {
-            alert('Rozmiar w wyjątkach nie może być pusty lub !NIEOKREŚLONY');
-            return;
-        }
-
-        // Check if any price in price exceptions is less than or equal to zero
-        const invalidPriceException = priceExceptions.find(exception => exception.value <= 0);
-        if (invalidPriceException) {
-            alert('Cena w wyjątkach powinna być większa od zera');
-            return;
-        }
-
-        // Check for duplicate sizes in price exceptions
-        const sizeCounts = priceExceptions.reduce((acc, exception) => {
-            acc[exception.size] = (acc[exception.size] || 0) + 1;
-            return acc;
-        }, {});
-        const duplicateSize = Object.values(sizeCounts).some(count => count > 1);
-        if (duplicateSize) {
-            alert('Nie może być dwóch wyjątków z tym samym rozmiarem');
-            return;
-        }
+        const subcategoryElement = document.querySelector(`#subcategorySelect option[value="${selectedSubcategory}"]`);
+        const sex = subcategoryElement ? subcategoryElement.getAttribute('sex') : '';
 
         const formData = new FormData();
         formData.append('stock', stock ? stock._id : '');
         formData.append('color', color ? color._id : '');
         formData.append('fullName', fullName);
         formData.append('code', productCode);
-        formData.append('category', selectedCategory); // Ensure category is appended
+        formData.append('category', selectedCategory); // Save category with spaces
+        formData.append('subcategory', selectedSubcategory); // Append subcategory to form data
         formData.append('price', price);
         formData.append('discount_price', discountPrice);
         formData.append('priceExceptions', JSON.stringify(priceExceptions));
         formData.append('sellingPoint', ''); // Default value for sellingPoint
         formData.append('barcode', ''); // Default value for barcode
+        formData.append('sex', sex); // Append the sex value
         if (selectedImage) {
             formData.append('Picture', selectedImage);
         }
@@ -255,14 +240,12 @@ const Goods = () => {
         })
             .then(response => response.json())
             .then(data => {
-                // Handle success (e.g., close modal, show success message)
                 setModal(false);
                 fetchGoods();
                 resetForm();
             })
             .catch(error => {
                 console.error('Error adding/updating product:', error);
-                // Handle error (e.g., show error message)
             });
     };
 
@@ -299,7 +282,8 @@ const Goods = () => {
         setEditingGood(good);
         setSelectedStock(good.stock._id);
         setSelectedColor(good.color._id);
-        setSelectedCategory(good.category._id);
+        setSelectedCategory(good.category); // Set category directly as a string
+        setSelectedSubcategory(good.subcategory ? good.subcategory._id : ''); // Set subcategory for editing
         setPrice(good.price);
         setDiscountPrice(good.discount_price);
         setPriceExceptions(good.priceExceptions.map(exception => ({
@@ -307,13 +291,15 @@ const Goods = () => {
             value: exception.value
         })));
         setProductName(good.fullName); // Set product name for editing
+        setSelectedImage(null); // Reset image selection for editing
         setModal(true);
     };
 
     const resetForm = () => {
         setSelectedStock(stocks.length > 0 ? stocks[0]._id : '');
         setSelectedColor(colors.length > 0 ? colors[0]._id : '');
-        setSelectedCategory(categories.length > 0 ? categories[0]._id : '');
+        setSelectedCategory('Kurtki kożuchy futra'); // Reset to fixed category value
+        setSelectedSubcategory(subcategories.length > 0 ? subcategories[0]._id : ''); // Reset subcategory
         setPrice(0);
         setDiscountPrice(0);
         setPriceExceptions([]); // Reset to an empty array
@@ -383,11 +369,23 @@ const Goods = () => {
                             type="select"
                             id="categorySelect"
                             className={styles.inputField}
-                            onChange={handleCategoryChange}
                             value={selectedCategory}
+                            disabled // Disable the select input as it will have only one option
                         >
-                            {categories.map(category => (
-                                <option key={category._id} value={category._id}>{category.Kat_Opis}</option>
+                            <option value="Kurtki kożuchy futra">Kurtki kożuchy futra</option> 
+                        </Input>
+                    </FormGroup>
+                    <FormGroup className={styles.formGroup}>
+                        <Label for="subcategorySelect" className={styles.label}>Podkategoria:</Label>
+                        <Input
+                            type="select"
+                            id="subcategorySelect"
+                            className={styles.inputField}
+                            value={selectedSubcategory}
+                            onChange={(e) => setSelectedSubcategory(e.target.value)}
+                        >
+                            {subcategories.map(sub => (
+                                <option key={sub._id} value={sub._id} category={sub.Kat_1_Opis_1} sex={sub.Plec}>{sub.Kat_1_Opis_1}</option>
                             ))}
                         </Input>
                     </FormGroup>
@@ -515,10 +513,12 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Nazwa produktu</th>
                             <th className={styles.tableHeader}>Kod kreskowy</th>
                             <th className={styles.tableHeader}>Kategoria</th>
+                            <th className={styles.tableHeader}>Podkategoria</th>
                             <th className={styles.tableHeader}>Zdjęcie</th>
                             <th className={styles.tableHeader}>Cena (PLN)</th>
                             <th className={styles.tableHeader}>Cena promocyjna (PLN)</th>
                             <th className={styles.tableHeader}>Wyjątki</th>
+                            <th className={styles.tableHeader}>Płeć</th> {/* New column for sex */}
                             <th className={styles.tableHeader}>Akcje</th>
                         </tr>
                     </thead>
@@ -530,7 +530,8 @@ const Goods = () => {
                                 <td className={styles.tableCell} data-label="Kolor">{good.color.Kol_Opis}</td>
                                 <td className={styles.tableCell} data-label="Nazwa produktu">{good.fullName}</td>
                                 <td className={styles.tableCell} data-label="Kod produktu">{good.code}</td>
-                                <td className={styles.tableCell} data-label="Kategoria">{good.category.Kat_Opis}</td>
+                                <td className={styles.tableCell} data-label="Kategoria">{good.category}</td> 
+                                <td className={styles.tableCell} data-label="Podkategoria">{good.subcategory ? good.subcategory.Kat_1_Opis_1 : ''}</td>
                                 <td className={styles.tableCell} data-label="Zdjęcie">
                                     <img
                                         src={good.picture || defaultPicture}
@@ -552,6 +553,7 @@ const Goods = () => {
                                         </span>
                                     ))}
                                 </td>
+                                <td className={styles.tableCell} data-label="Płeć">{good.sex}</td> {/* Display the sex value */}
                                 <td className={styles.tableCell} data-label="Akcje">
                                     <Button color="warning" size="sm" className="edit" onClick={() => handleEditProduct(good)}>Edytuj</Button>
                                     <Button color="danger" size="sm" className="ml-2" onClick={() => handleDeleteProduct(good._id)}>Usuń</Button>

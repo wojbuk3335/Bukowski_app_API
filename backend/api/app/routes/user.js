@@ -15,9 +15,12 @@ router.post('/signup', UsersController.signup);
 router.post('/login', UsersController.login);
 router.get('/validate-token', UsersController.validateToken); // Added route for token validation
 router.get('/', UsersController.getAllUsers);
+router.get('/verifyToken', UsersController.verifyToken); // Changed to GET method
 router.delete('/:userId', UsersController.deleteUser);
 router.get('/:userId', UsersController.getOneUser);
 router.put('/:userId', UsersController.updateUser);
+router.post('/logout', UsersController.logout); // Add route for logout
+
 router.post('/logout', UsersController.logout);
 
 module.exports = router;

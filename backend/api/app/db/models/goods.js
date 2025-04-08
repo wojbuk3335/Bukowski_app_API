@@ -19,12 +19,13 @@ const goodsSchema = mongoose.Schema({
     code: { type: String, required: true, unique: true },
     price: { type: Number, required: true },
     discount_price: { type: Number },
-    category: {
-        type:
-            mongoose.Schema.Types.ObjectId,
-        ref: 'Category',
+    category: { type: String, required: true }, // Changed to string
+    subcategory: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'JacketsCoatsFurs', // Reference to the subcategory model
         required: true
     },
+    sex: { type: String, required: true }, // New field for sex
     picture: { type: String, default: "" },
     priceExceptions: {
         type: [{
@@ -34,7 +35,7 @@ const goodsSchema = mongoose.Schema({
         default: []
     },
     sellingPoint: { type: String, required: false, default: '' }, // Default to an empty string
-    barcode: { type: String, required: false, default: '' }, // Default to an empty string
+barcode: { type: String, required: false, default: '' }, // Default to an empty string
 });
 
 goodsSchema.post('save', function (error, doc, next) {

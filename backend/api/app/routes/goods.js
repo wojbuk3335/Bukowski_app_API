@@ -5,6 +5,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const { createGood, getAllGoods, updateGood, deleteGood } = GoodsController;
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const dir = path.join(__dirname, '../../public/images');
@@ -21,9 +23,9 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 } // Limit file size to 5MB
 });
 
-router.post('/create-goods', upload.single('Picture'), GoodsController.createGood);
-router.get('/get-all-goods', GoodsController.getAllGoods);
-router.put('/:goodId', upload.single('Picture'), GoodsController.updateGood); // Add route for updating goods
-router.delete('/:goodId', GoodsController.deleteGood);
+router.post('/create-goods', upload.single('Picture'), createGood);
+router.get('/get-all-goods', getAllGoods);
+router.put('/:goodId', upload.single('Picture'), updateGood);
+router.delete('/:goodId', deleteGood);
 
 module.exports = router;
