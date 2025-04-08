@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import DatePicker from 'react-datepicker';
+import DatePicker, { registerLocale } from 'react-datepicker';
 import Downshift from 'downshift';
 import 'react-datepicker/dist/react-datepicker.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -11,6 +11,9 @@ import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, Input, 
 import * as XLSX from 'xlsx'; // Import XLSX for Excel export
 import jsPDF from 'jspdf'; // Import jsPDF for PDF export
 import autoTable from 'jspdf-autotable'; // Ensure correct import for autoTable
+import pl from 'date-fns/locale/pl'; // Import Polish locale
+
+registerLocale('pl', pl); // Register Polish locale
 
 const State = () => {
     const [selectedDate, setSelectedDate] = useState(new Date()); // Default to today's date
@@ -28,9 +31,12 @@ const State = () => {
     const [nameFilter, setNameFilter] = useState(''); // State for filtering by name
     const [sizeFilter, setSizeFilter] = useState(''); // State for filtering by size
     const [dateFilter, setDateFilter] = useState(null); // State for filtering by date
+    const [sellingPointFilter, setSellingPointFilter] = useState(''); // State for filtering by selling point
     const [isEditModalOpen, setIsEditModalOpen] = useState(false); // State for edit modal visibility
     const [editData, setEditData] = useState({}); // State for data to edit
     const modalRef = useRef(null); // Ref for draggable modal
+    const [users, setUsers] = useState([]); // State to store user data
+    const [selectedSellingPoint, setSelectedSellingPoint] = useState(''); // State for selected selling point
 
     useEffect(() => {
         // Fetch data from the API
@@ -74,6 +80,30 @@ const State = () => {
         fetchSizes();
     }, []);
 
+    useEffect(() => {
+        // Fetch user data from the API
+        const fetchUsers = async () => {
+            try {
+                const response = await axios.get('http://localhost:3000/api/user');
+                if (response.data && Array.isArray(response.data.users)) {
+                    const filteredUsers = response.data.users.filter(user => user.role !== 'admin'); // Exclude admin users
+                    setUsers(filteredUsers); // Update users state
+                    if (filteredUsers.length > 0) {
+                        setSelectedSellingPoint(filteredUsers[0].sellingPoint); // Set the first sellingPoint as default
+                    }
+                } else {
+                    console.error('Unexpected API response format:', response.data);
+                    setUsers([]); // Fallback to an empty array
+                }
+            } catch (error) {
+                console.error('Error fetching users:', error);
+                setUsers([]); // Fallback to an empty array
+            }
+        };
+
+        fetchUsers();
+    }, []);
+
     const fetchTableData = async () => {
         try {
             const response = await axios.get('/api/state'); // Fetch table data from backend
@@ -83,6 +113,7 @@ const State = () => {
                 date: row.date,
                 size: row.size?.Roz_Opis || row.size, // Ensure size is a string
                 barcode: row.barcode, // Ensure barcode is included
+                sellingPoint: row.sellingPoint, // Include sellingPoint
             }));
             setTableData(formattedData); // Update table data state
         } catch (error) {
@@ -91,7 +122,7 @@ const State = () => {
     };
 
     const sendDataToBackend = async (selectedSize) => {
-        if (!inputValue.trim() || !selectedSize?.Roz_Opis || !selectedDate) { // Ensure all fields are filled
+        if (!inputValue.trim() || !selectedSize?.Roz_Opis || !selectedDate || !selectedSellingPoint) { // Ensure all fields are filled
             alert('Wszystkie dane muszą być uzupełnione'); // Alert if any field is empty
             return;
         }
@@ -101,12 +132,14 @@ const State = () => {
                 fullName: inputValue.trim(), // Trim whitespace before sending
                 size: selectedSize.Roz_Opis,
                 date: selectedDate.toISOString(), // Ensure date is sent in ISO format
+                sellingPoint: selectedSellingPoint, // Include sellingPoint
             });
             fetchTableData(); // Refresh table data after successful save
 
             // Clear inputs
             setInputValue('');
             setSizeInputValue('');
+            setSelectedSellingPoint(users.length > 0 ? users[0].sellingPoint : ''); // Reset to the first sellingPoint
 
             // Move cursor to the product input field
             document.querySelector('[placeholder="Wybierz pełną nazwę"]')?.focus();
@@ -130,19 +163,7 @@ const State = () => {
     }, [searchQuery, tableData]); // Update filtered data when searchQuery or tableData changes
 
     useEffect(() => {
-        // Filter table data based on the selected name filter
-        if (nameFilter) {
-            const filteredData = tableData.filter((row) =>
-                row.fullName.toLowerCase().includes(nameFilter.toLowerCase())
-            );
-            setFilteredTableData(filteredData);
-        } else {
-            setFilteredTableData(tableData); // Reset to full table data if no filter is applied
-        }
-    }, [nameFilter, tableData]); // Update filtered data when nameFilter or tableData changes
-
-    useEffect(() => {
-        // Filter table data based on the selected size and date filters
+        // Filter table data based on the selected filters
         let filteredData = tableData;
 
         if (nameFilter) {
@@ -163,8 +184,14 @@ const State = () => {
             );
         }
 
+        if (sellingPointFilter) {
+            filteredData = filteredData.filter((row) =>
+                row.sellingPoint.toLowerCase().includes(sellingPointFilter.toLowerCase())
+            );
+        }
+
         setFilteredTableData(filteredData);
-    }, [nameFilter, sizeFilter, dateFilter, tableData]); // Update filtered data when filters or tableData change
+    }, [nameFilter, sizeFilter, dateFilter, sellingPointFilter, tableData]); // Update filtered data when filters or tableData change
 
     const deleteRow = async (id) => {
         try {
@@ -195,13 +222,14 @@ const State = () => {
             case 'pdf':
                 const doc = new jsPDF(); // Create a new jsPDF instance
                 autoTable(doc, {
-                    head: [['Nr zamówienia', 'Pełna nazwa', 'Data', 'Rozmiar', 'Barcode']],
+                    head: [['Nr zamówienia', 'Pełna nazwa', 'Data', 'Rozmiar', 'Barcode', 'Punkt Sprzedaży']],
                     body: tableData.map((row, index) => [
                         index + 1,
                         row.fullName,
                         new Date(row.date).toLocaleDateString(),
                         row.size,
                         row.barcode,
+                        row.sellingPoint,
                     ]),
                 });
                 doc.save('tableData.pdf'); // Save PDF file
@@ -352,6 +380,7 @@ const State = () => {
                         placeholderText="Wybierz datę" // Polish: Select a date
                         className={`form-control xxxx ${styles.datePicker}`} // Apply custom styles
                         dateFormat="yyyy-MM-dd" // Ensure a valid date format
+                        locale="pl" // Set Polish locale
                         style={{
                             margin: '0',
                             padding: '5px',
@@ -360,8 +389,31 @@ const State = () => {
                             height: '38px', // Match default input height
                             lineHeight: '1.5', // Match default line height
                         }}
+                        onKeyDown={(e) => e.preventDefault()} // Prevent manual input
+                        readOnly // Make the input field read-only
                     />
                 </div>
+                <select
+                    style={{
+                        backgroundColor: 'black',
+                        color: 'white',
+                        border: '1px solid white',
+                        borderRadius: '4px',
+                        padding: '5px',
+                        height: '38px',
+                        marginLeft: '10px',
+                        width: '150px', // Set width to 150px
+                        outlineColor: 'rgb(13, 110, 253)', // Change focus color
+                    }}
+                    value={selectedSellingPoint}
+                    onChange={(e) => setSelectedSellingPoint(e.target.value)} // Update selectedSellingPoint on change
+                >
+                    {users.map((user) => (
+                        <option key={user._id} value={user.sellingPoint}>
+                            {user.sellingPoint || 'No Selling Point'}
+                        </option>
+                    ))}
+                </select>
                 <Downshift
                     inputValue={inputValue} // Bind inputValue to Downshift
                     onInputValueChange={(newInputValue) => {
@@ -385,7 +437,10 @@ const State = () => {
                                 {...getInputProps({
                                     placeholder: 'Wybierz pełną nazwę', // Polish: Select a full name
                                     className: 'form-control',
-                                    style: { minWidth: '200px' }, // Add min-width for responsiveness
+                                    style: {
+                                        minWidth: '200px', // Add min-width for responsiveness
+                                        outlineColor: 'rgb(13, 110, 253)', // Change focus color
+                                    },
                                 })}
                             />
                             <ul
@@ -412,7 +467,7 @@ const State = () => {
                                                         : styles.dropdownItem
                                                         }`,
                                                     style: {
-                                                        backgroundColor: highlightedIndex === index ? 'gray' : 'black', // Highlight active item
+                                                        backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
                                                         color: 'white', // White text
                                                     },
                                                 })}
@@ -492,7 +547,7 @@ const State = () => {
                                                         : styles.dropdownItem
                                                         }`,
                                                     style: {
-                                                        backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black', // Highlight active item
+                                                        backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
                                                         color: 'white', // White text
                                                     },
                                                 })}
@@ -593,7 +648,7 @@ const State = () => {
                                                                         : styles.dropdownItem
                                                                         }`,
                                                                     style: {
-                                                                        backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black', // Highlight active item
+                                                                        backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
                                                                         color: 'white', // White text
                                                                     },
                                                                 })}
@@ -624,6 +679,7 @@ const State = () => {
                                         placeholderText="Filtruj datę" // Polish: Filter date
                                         className="form-control"
                                         dateFormat="yyyy-MM-dd" // Ensure a valid date format
+                                        locale="pl" // Set Polish locale
                                         style={{
                                             margin: '0',
                                             padding: '0px',
@@ -697,7 +753,7 @@ const State = () => {
                                                                         : styles.dropdownItem
                                                                         }`,
                                                                     style: {
-                                                                        backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black', // Highlight active item
+                                                                        backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
                                                                         color: 'white', // White text
                                                                     },
                                                                 })}
@@ -709,6 +765,29 @@ const State = () => {
                                         </div>
                                     )}
                                 </Downshift>
+                            </div>
+                        </th>
+                        <th
+                            style={{ ...tableCellStyle, cursor: 'pointer' }}
+                            onClick={() => handleSort('sellingPoint')} // Enable sorting for "Punkt Sprzedaży"
+                        >
+                            <div>
+                                Punkt Sprzedaży <span>{getSortIcon('sellingPoint')}</span>
+                                <input
+                                    type="text"
+                                    placeholder="Filtruj punkt sprzedaży" // Polish: Filter selling point
+                                    className="form-control mt-2"
+                                    value={sellingPointFilter}
+                                    onChange={(e) => {
+                                        const newValue = e.target.value;
+                                        const matches = tableData.some((row) =>
+                                            row.sellingPoint.toLowerCase().startsWith(newValue.toLowerCase())
+                                        );
+                                        if (matches || newValue === '') {
+                                            setSellingPointFilter(newValue); // Update sellingPointFilter only if it matches
+                                        }
+                                    }}
+                                />
                             </div>
                         </th>
                         <th style={tableCellStyle}>Barcode</th>
@@ -724,6 +803,7 @@ const State = () => {
                                 {new Date(row.date).toLocaleDateString()}
                             </td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
+                            <td style={tableCellStyle} data-label="Punkt Sprzedaży">{row.sellingPoint}</td> {/* Display sellingPoint */}
                             <td style={tableCellStyle} data-label="Barcode">
                                 <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
                             </td>
@@ -786,7 +866,7 @@ const State = () => {
                                     <input
                                         {...getInputProps({
                                             placeholder: 'Wybierz pełną nazwę', // Polish: Select a full name
-                                            className: 'form-control sssss',
+                                            className: 'form-control',
                                         })}
                                     />
                                     <ul
@@ -813,7 +893,7 @@ const State = () => {
                                                                 : styles.dropdownItem
                                                                 }`,
                                                             style: {
-                                                                backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black', // Highlight active item
+                                                                backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
                                                                 color: 'white', // White text
                                                             },
                                                         })}
@@ -835,7 +915,9 @@ const State = () => {
                                 placeholderText="Wybierz datę" // Polish: Select a date
                                 className="form-control"
                                 dateFormat="yyyy-MM-dd" // Ensure a valid date format
+                                locale="pl" // Set Polish locale
                                 onKeyDown={(e) => e.preventDefault()} // Prevent manual input
+                                readOnly // Make the input field read-only
                             />
                         </div>
                     </FormGroup>
@@ -897,7 +979,7 @@ const State = () => {
                                                                 : styles.dropdownItem
                                                                 }`,
                                                             style: {
-                                                                backgroundColor: highlightedIndex === index ? '#0d6efd' : 'black', // Highlight active item
+                                                                backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
                                                                 color: 'white', // White text
                                                             },
                                                         })}

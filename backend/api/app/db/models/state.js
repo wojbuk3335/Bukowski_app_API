@@ -23,6 +23,12 @@ const stateSchema = mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Size',
         required: true // Ensure this field is required
+    },
+    sellingPoint:{
+        //relation Size
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true // Ensure this field is required
     }
 });
 

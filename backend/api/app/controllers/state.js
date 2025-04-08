@@ -19,16 +19,18 @@ class StatesController {
     async getAllStates(req, res, next) {
         try {
             const states = await State.find()
-                .populate('fullName', 'fullName') // Populate fullName with its value from Goods
-                .populate('size', 'Roz_Opis');   // Populate size with its value from Size
+                .populate('fullName', 'fullName') 
+                .populate('size', 'Roz_Opis')
+                .populate('sellingPoint', 'sellingPoint'); // Populate sellingPoint with its value from User
 
             res.status(200).json(states.map(state => ({
                 id: state._id,
                 fullName: state.fullName.fullName,
                 date: state.date,
                 size: state.size.Roz_Opis,
-                barcode: state.barcode // Include barcode in the response
-            }))); // Fixed missing closing parenthesis
+                barcode: state.barcode,
+                sellingPoint: state.sellingPoint.sellingPoint // Include sellingPoint in the response
+            })));
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -49,9 +51,14 @@ class StatesController {
                 return res.status(404).json({ message: 'Size not found' });
             }
 
+            // Find the ObjectId for sellingPoint in User
+            const user = await mongoose.models.User.findOne({ sellingPoint: req.body.sellingPoint });
+            if (!user) {
+                return res.status(404).json({ message: 'Selling point not found' });
+            }
+
             // Extract the code from Goods and update it with Roz_Kod
             let barcode = goods.code; // Assuming `code` is the field in Goods
-            console.log(barcode)
             const rozKod = size.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
             barcode = barcode.substring(0, 5) + rozKod + barcode.substring(7, 11);
 
@@ -65,7 +72,8 @@ class StatesController {
                 fullName: goods._id,
                 date: req.body.date,
                 size: size._id,
-                barcode // Save the updated barcode
+                barcode, // Save the updated barcode
+                sellingPoint: user._id // Save the sellingPoint
             });
 
             const newState = await state.save();
@@ -92,7 +100,7 @@ class StatesController {
     async updateStateById(req, res, next) {
         try {
             const { id } = req.params;
-            const { fullName, date, size } = req.body;
+            const { fullName, date, size, sellingPoint } = req.body;
 
             // Find the ObjectId for fullName in Goods
             const goods = await Goods.findOne({ fullName });
@@ -104,6 +112,12 @@ class StatesController {
             const sizeObj = await Size.findOne({ Roz_Opis: size });
             if (!sizeObj) {
                 return res.status(404).json({ message: 'Size not found' });
+            }
+
+            // Find the ObjectId for sellingPoint in User
+            const user = await mongoose.models.User.findOne({ sellingPoint });
+            if (!user) {
+                return res.status(404).json({ message: 'Selling point not found' });
             }
 
             // Update the barcode
@@ -121,6 +135,7 @@ class StatesController {
                     date,
                     size: sizeObj._id,
                     barcode,
+                    sellingPoint: user._id // Update the sellingPoint
                 },
                 { new: true } // Return the updated document
             );
@@ -153,14 +168,16 @@ class StatesController {
         try {
             const states = await State.find()
                 .populate('fullName', 'fullName') // Populate fullName with its value from Goods
-                .populate('size', 'Roz_Opis');   // Populate size with its value from Size
+                .populate('size', 'Roz_Opis')
+                .populate('sellingPoint', 'sellingPoint'); // Populate sellingPoint with its value from User
 
             // Format the data for the table
             const tableData = states.map(state => ({
                 id: state._id,
                 fullName: state.fullName.fullName, // Extract the fullName value
                 date: state.date,
-                size: state.size.Roz_Opis         // Extract the size value
+                size: state.size.Roz_Opis,         // Extract the size value
+                sellingPoint: state.sellingPoint.sellingPoint // Include sellingPoint in the response
             }));
 
             res.status(200).json(tableData);
