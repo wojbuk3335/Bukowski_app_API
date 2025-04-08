@@ -518,7 +518,7 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Cena (PLN)</th>
                             <th className={styles.tableHeader}>Cena promocyjna (PLN)</th>
                             <th className={styles.tableHeader}>Wyjątki</th>
-                            <th className={styles.tableHeader}>Płeć</th> {/* New column for sex */}
+                            <th className={styles.tableHeader}>Płeć</th> 
                             <th className={styles.tableHeader}>Akcje</th>
                         </tr>
                     </thead>
@@ -553,7 +553,7 @@ const Goods = () => {
                                         </span>
                                     ))}
                                 </td>
-                                <td className={styles.tableCell} data-label="Płeć">{good.sex}</td> {/* Display the sex value */}
+                                <td className={styles.tableCell} data-label="Płeć">{good.sex}</td> 
                                 <td className={styles.tableCell} data-label="Akcje">
                                     <Button color="warning" size="sm" className="edit" onClick={() => handleEditProduct(good)}>Edytuj</Button>
                                     <Button color="danger" size="sm" className="ml-2" onClick={() => handleDeleteProduct(good._id)}>Usuń</Button>

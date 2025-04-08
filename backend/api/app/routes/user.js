@@ -13,7 +13,7 @@ const jsonwebtoken = require('../config').jsonwebtoken;
 //signup a user
 router.post('/signup', UsersController.signup);
 router.post('/login', UsersController.login);
-router.get('/validate-token', UsersController.validateToken); // Added route for token validation
+router.get('/validate-token', UsersController.verifyToken); // Added route for token validation
 router.get('/', UsersController.getAllUsers);
 router.get('/verifyToken', UsersController.verifyToken); // Changed to GET method
 router.delete('/:userId', UsersController.deleteUser);
