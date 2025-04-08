@@ -365,14 +365,8 @@ const State = () => {
                 <Downshift
                     inputValue={inputValue} // Bind inputValue to Downshift
                     onInputValueChange={(newInputValue) => {
-                        // Check if the input value matches any item in the dropdown
-                        const matches = goods.some((item) =>
-                            item.fullName.toLowerCase().startsWith(newInputValue.toLowerCase())
-                        );
-                        if (matches || newInputValue === '') {
-                            setInputValue(newInputValue); // Update input value only if it matches
-                            setSizeInputValue(''); // Clear size input value when typing in the product input
-                        }
+                        setInputValue(newInputValue); // Allow typing freely
+                        setSizeInputValue(''); // Clear size input value when typing in the product input
                     }}
                     onChange={(selection) => {
                         sizeInputRef.current?.focus(); // Focus on the size input field
