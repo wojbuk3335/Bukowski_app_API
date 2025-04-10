@@ -82,6 +82,21 @@ class JacketsCoatsFursController {
             .then(() => res.status(200).json({ message: 'Item updated' }))
             .catch(err => res.status(500).json({ error: { message: err.message } }));
     }
+
+    updateMany(req, res, next) {
+        const updates = req.body;
+
+        const bulkOps = updates.map(update => ({
+            updateOne: {
+                filter: { _id: update._id },
+                update: { $set: update }
+            }
+        }));
+
+        JacketsCoatsFurs.bulkWrite(bulkOps)
+            .then(() => res.status(200).json({ message: 'Items updated successfully' }))
+            .catch(err => res.status(500).json({ error: { message: err.message } }));
+    }
 }
 
 module.exports = new JacketsCoatsFursController();

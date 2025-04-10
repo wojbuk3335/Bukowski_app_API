@@ -2,12 +2,12 @@
   "name": "kurs-node",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
-    "start": "nodemon app/index.js",
+    "start": "nodemon app/app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "watch": "nodemon app/index.js -e js,json,ejs",
-    "debug": "nodemon --inspect app/index.js -e js,json"
+    "watch": "nodemon app/app.js -e js,json,ejs",
+    "debug": "nodemon --inspect app/app.js -e js,json"
   },
   "author": "TworcaStron.pl",
   "license": "ISC",
@@ -23,6 +23,7 @@
     "express": "^4.17.1",
     "express-ejs-layouts": "^2.5.0",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.15.0",
     "mongoose": "^8.7.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1"

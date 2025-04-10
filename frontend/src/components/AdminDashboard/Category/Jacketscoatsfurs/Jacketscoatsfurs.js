@@ -84,7 +84,7 @@ const Jacketscoatsfurs = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const result = (await axios.get(`http://localhost:3001/api/excel/jacketscoatsfurs/get-all`)).data;
+            const result = (await axios.get(`/api/excel/jacketscoatsfurs/get-all`)).data;
             const sortedItems = Array.isArray(result.items) ? result.items.sort((a, b) => a.Kat_1_Kod_1.localeCompare(b.Kat_1_Kod_1)) : [];
             setRows(sortedItems);
         } catch (error) {
@@ -167,7 +167,7 @@ const Jacketscoatsfurs = () => {
 
     const insertOrUpdateItems = async (itemList) => {
         const items = excelRows.map((obj) => ({
-            _id: itemList.find((x) => x.Kat_1_Kod_1 === obj["Kat_1_Kod_1"])?._id,
+            _id: itemList.find((x) => x.Kat_1_Kod_1 === obj["Kat_1_Kod_1"])?._id || undefined,
             Kat_1_Kod_1: obj["Kat_1_Kod_1"] || "",
             Kat_1_Opis_1: obj["Kat_1_Opis_1"] || "",
             Plec: obj["Plec"] || "",

@@ -4,17 +4,16 @@ const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const path = require('path');
 const cors = require('cors');
+const { port } = require('./config'); // Import port configuration
 
 app.use(cors());
 
 const mongoose = require('./db/mongoose');
+const mongodb = require('mongodb');
 
 app.use(morgan('dev'));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-
-// One folder up from current file is public folder with images and make the folder public
-app.use('/', express.static(path.join(__dirname, '../public')));
 
 // Routes which should handle requests
 const jacketRoutes = require('./routes/jackets');
@@ -23,11 +22,10 @@ const stockRoutes = require('./routes/stock');
 const colorRoutes = require('./routes/colors');
 const sizeRoutes = require('./routes/sizes');
 const goodsRoutes = require('./routes/goods');
-const categoryRoutes = require('./routes/category'); // Ensure this line is correct
+const categoryRoutes = require('./routes/category');
 const configRoutes = require('./routes/config');
 const stateRoutes = require('./routes/state');
-const jacketscoatsfursRoutes = require('./routes/jacketscoatsfurs'); // Ensure this line is correct
-
+const jacketscoatsfursRoutes = require('./routes/jacketscoatsfurs');
 
 app.use('/api/jackets', jacketRoutes);
 app.use('/api/user', userRoutes);
@@ -35,11 +33,20 @@ app.use('/api/excel/stock', stockRoutes);
 app.use('/api/excel/color', colorRoutes);
 app.use('/api/excel/size', sizeRoutes);
 app.use('/api/excel/goods', goodsRoutes);
-app.use('/api/excel/category', categoryRoutes); // Ensure this line is correct
+app.use('/api/excel/category', categoryRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/state', stateRoutes);
-app.use('/api/excel/jacketscoatsfurs', jacketscoatsfursRoutes); // Ensure this line is correct
+app.use('/api/excel/jacketscoatsfurs', jacketscoatsfursRoutes);
 
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Catch-all route to serve React's index.html for unmatched routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public', 'index.html'));
+});
+
+// Error handling for unmatched API routes
 app.use((req, res, next) => {
     const error = new Error('Not Found');
     error.status = 404;
@@ -53,6 +60,11 @@ app.use((error, req, res, next) => {
             message: error.message
         }
     });
+});
+
+// Start the server
+app.listen(port, () => {
+    console.log(`Server uruchomiony na porcie: ${port}`);
 });
 
 module.exports = app;

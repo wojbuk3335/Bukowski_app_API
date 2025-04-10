@@ -1,3 +1,0 @@
-{
-    "mongoURI": "mongodb+srv://<username>:<password>@bukowskiapp-shard-00-00.emdzg.mongodb.net/<database>?retryWrites=true&w=majority"
-}

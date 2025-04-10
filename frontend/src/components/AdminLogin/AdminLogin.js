@@ -40,7 +40,7 @@ const AdminLogin = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const response = await axios.post('http://localhost:3000/api/user/login', { email, password });
+      const response = await axios.post('/api/user/login', { email, password });
       if (response.data.success) {
         localStorage.setItem('AdminRole', response.data.role); // Store role in localStorage
         localStorage.setItem('AdminEmail', email); // Store email in localStorage

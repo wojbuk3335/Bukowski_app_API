@@ -42,7 +42,7 @@ const State = () => {
         // Fetch data from the API
         const fetchGoods = async () => {
             try {
-                const response = await axios.get('http://localhost:3000/api/excel/goods/get-all-goods');
+                const response = await axios.get('/api/excel/goods/get-all-goods');
                 // Extract the goods array from the response
                 if (response.data && Array.isArray(response.data.goods)) {
                     setGoods(response.data.goods);
@@ -84,11 +84,16 @@ const State = () => {
         // Fetch user data from the API
         const fetchUsers = async () => {
             try {
-                const response = await axios.get('http://localhost:3000/api/user');
+                const response = await axios.get('/api/user');
+                console.log('API Response:', response.data); // Log the entire API response
+    
                 if (response.data && Array.isArray(response.data.users)) {
                     const filteredUsers = response.data.users.filter(user => user.role !== 'admin'); // Exclude admin users
+                    console.log('Filtered Users:', filteredUsers); // Log the filtered users
                     setUsers(filteredUsers); // Update users state
+    
                     if (filteredUsers.length > 0) {
+                        console.log('Default Selling Point:', filteredUsers[0].sellingPoint); // Log the default selling point
                         setSelectedSellingPoint(filteredUsers[0].sellingPoint); // Set the first sellingPoint as default
                     }
                 } else {
@@ -100,7 +105,7 @@ const State = () => {
                 setUsers([]); // Fallback to an empty array
             }
         };
-
+    
         fetchUsers();
     }, []);
 
