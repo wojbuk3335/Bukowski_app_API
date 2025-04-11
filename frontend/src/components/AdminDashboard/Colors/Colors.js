@@ -275,16 +275,18 @@ const Colors = () => {
                             </FormGroup>
                         </Col>
                         <Col md="6" className={styles.textRight}>
-                            <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
-                                {"Wczytaj dane z pliku"}
-                            </Button>
-                            <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
-                                {"Usuń dane z bazy danych"}
-                            </Button>
+                            <div className={styles.buttonGroup}>
+                                <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
+                                    {"Wczytaj dane z pliku"}
+                                </Button>
+                                <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
+                                    {"Usuń dane z bazy danych"}
+                                </Button>
+                                <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
+                            </div>
                         </Col>
                     </Row>
                     {loading && <progress className={styles.progress}></progress>}
-                    <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
                     {renderDataTable()}
                 </div>
             </Fragment>

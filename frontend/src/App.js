@@ -18,7 +18,7 @@ import Users from './components/AdminDashboard/Users/Users';
 import UserProfile from './components/UserDashboard/Profile/Profile';
 import Goods from './components/AdminDashboard/Goods/Goods';
 import State from './components/AdminDashboard/State/State';
-import Jacketscoatsfurs from './components/AdminDashboard/Category/Jacketscoatsfurs/Jacketscoatsfurs';
+import Category from './components/AdminDashboard/Category/Category';
 
 function App() {
   return (
@@ -36,7 +36,7 @@ function App() {
           <Route path='users' element={<Users />} />
           <Route path='goods' element={<Goods />} />
           <Route path="category">
-            <Route path="jacketscoatsfurs" element={<Jacketscoatsfurs />} />
+            <Route path="category" element={<Category />} />
           </Route>
           <Route path="state" element={<State />} />
         </Route>

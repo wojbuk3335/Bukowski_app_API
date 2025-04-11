@@ -5,11 +5,11 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const cors = require('cors');
 const { port } = require('./config'); // Import port configuration
+const { domain } = require('./config'); // Import domain configuration
 
 app.use(cors());
 
 const mongoose = require('./db/mongoose');
-const mongodb = require('mongodb');
 
 app.use(morgan('dev'));
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -22,10 +22,9 @@ const stockRoutes = require('./routes/stock');
 const colorRoutes = require('./routes/colors');
 const sizeRoutes = require('./routes/sizes');
 const goodsRoutes = require('./routes/goods');
-const categoryRoutes = require('./routes/category');
 const configRoutes = require('./routes/config');
 const stateRoutes = require('./routes/state');
-const jacketscoatsfursRoutes = require('./routes/jacketscoatsfurs');
+const categoryRoutes = require('./routes/category');
 
 app.use('/api/jackets', jacketRoutes);
 app.use('/api/user', userRoutes);
@@ -36,7 +35,7 @@ app.use('/api/excel/goods', goodsRoutes);
 app.use('/api/excel/category', categoryRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/state', stateRoutes);
-app.use('/api/excel/jacketscoatsfurs', jacketscoatsfursRoutes);
+app.use('/api/category', categoryRoutes);
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../public')));
@@ -64,7 +63,7 @@ app.use((error, req, res, next) => {
 
 // Start the server
 app.listen(port, () => {
-    console.log(`Server uruchomiony na porcie: ${port}`);
+    console.log(`Server uruchomiony na ${domain}`);
 });
 
 module.exports = app;
