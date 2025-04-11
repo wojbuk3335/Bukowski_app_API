@@ -79,16 +79,16 @@ const Goods = () => {
     }, []);
 
     useEffect(() => {
-        fetch('/api/excel/jacketscoatsfurs/get-all')
+        fetch('/api/category/get-all-categories')
             .then(response => response.json())
             .then(data => {
-                const filteredSubcategories = (data.items || []).filter(sub => sub.Kat_1_Opis_1 && sub.Kat_1_Opis_1.trim() !== '');
-                setSubcategories(filteredSubcategories);
-                if (filteredSubcategories.length > 0) {
-                    setSelectedSubcategory(filteredSubcategories[0]._id);
+                const filteredCategories = (data.categories || []).filter(cat => cat.Kat_1_Opis_1 && cat.Kat_1_Opis_1.trim() !== '');
+                setSubcategories(filteredCategories); // Use filtered categories
+                if (filteredCategories.length > 0) {
+                    setSelectedSubcategory(filteredCategories[0]._id); // Set the first category as default
                 }
             })
-            .catch(error => console.error('Error fetching subcategories:', error));
+            .catch(error => console.error('Error fetching categories:', error));
     }, []);
 
     useEffect(() => {
@@ -168,8 +168,6 @@ const Goods = () => {
 
     const handleAddProduct = () => {
         // Ensure selectedCategory is correctly set
-        console.log('Selected category:', selectedCategory);
-
         if (!selectedCategory) {
             alert('Kategoria nie została ustawiona!');
             return;
@@ -223,12 +221,6 @@ const Goods = () => {
         formData.append('sex', sex); // Append the sex value
         if (selectedImage) {
             formData.append('Picture', selectedImage);
-        }
-
-        // Log the formData values before sending to the backend
-        console.log('FormData being sent to the backend:');
-        for (let [key, value] of formData.entries()) {
-            console.log(`${key}: ${value}`);
         }
 
         const url = editingGood ? `/api/excel/goods/${editingGood._id}` : '/api/excel/goods/create-goods';
@@ -385,7 +377,9 @@ const Goods = () => {
                             onChange={(e) => setSelectedSubcategory(e.target.value)}
                         >
                             {subcategories.map(sub => (
-                                <option key={sub._id} value={sub._id} category={sub.Kat_1_Opis_1} sex={sub.Plec}>{sub.Kat_1_Opis_1}</option>
+                                <option key={sub._id} value={sub._id}>
+                                    {sub.Kat_1_Opis_1} 
+                                </option>
                             ))}
                         </Input>
                     </FormGroup>

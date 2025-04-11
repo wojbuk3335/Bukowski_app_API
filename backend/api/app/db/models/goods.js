@@ -22,7 +22,7 @@ const goodsSchema = mongoose.Schema({
     category: { type: String, required: true }, // Changed to string
     subcategory: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'JacketsCoatsFurs', // Reference to the subcategory model
+        ref: 'Category', // Reference to the subcategory model
         required: true
     },
     sex: { type: String, required: true }, // New field for sex

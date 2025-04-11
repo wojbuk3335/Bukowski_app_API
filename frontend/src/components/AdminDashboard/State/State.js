@@ -85,15 +85,11 @@ const State = () => {
         const fetchUsers = async () => {
             try {
                 const response = await axios.get('/api/user');
-                console.log('API Response:', response.data); // Log the entire API response
-    
                 if (response.data && Array.isArray(response.data.users)) {
                     const filteredUsers = response.data.users.filter(user => user.role !== 'admin'); // Exclude admin users
-                    console.log('Filtered Users:', filteredUsers); // Log the filtered users
                     setUsers(filteredUsers); // Update users state
-    
+
                     if (filteredUsers.length > 0) {
-                        console.log('Default Selling Point:', filteredUsers[0].sellingPoint); // Log the default selling point
                         setSelectedSellingPoint(filteredUsers[0].sellingPoint); // Set the first sellingPoint as default
                     }
                 } else {
@@ -105,7 +101,7 @@ const State = () => {
                 setUsers([]); // Fallback to an empty array
             }
         };
-    
+
         fetchUsers();
     }, []);
 
@@ -308,12 +304,11 @@ const State = () => {
 
     const handleSaveEdit = async () => {
         try {
-            const response = await axios.put(`/api/state/${editData.id}`, {
+            await axios.put(`/api/state/${editData.id}`, {
                 fullName: editData.fullName,
                 date: editData.date,
                 size: editData.size,
             });
-            console.log('Updated data:', response.data);
             fetchTableData(); // Refresh table data after successful update
             toggleEditModal(); // Close the modal
         } catch (error) {
@@ -367,7 +362,7 @@ const State = () => {
 
     return (
         <div>
-            {/* Export section */}
+     
             <div className="d-flex justify-content-center mb-3">
                 <div className="btn-group">
                     <Button color="success" className="me-2 btn btn-sm" onClick={() => handleExport('excel')}>Export to Excel</Button>
@@ -477,7 +472,7 @@ const State = () => {
                                                     },
                                                 })}
                                             >
-                                                {item.fullName} {/* Display fullName */}
+                                                {item.fullName} 
                                             </li>
                                         ))}
                             </ul>
@@ -658,7 +653,7 @@ const State = () => {
                                                                     },
                                                                 })}
                                                             >
-                                                                {item.fullName} {/* Display fullName */}
+                                                                {item.fullName}
                                                             </li>
                                                         ))}
                                             </ul>
@@ -727,7 +722,7 @@ const State = () => {
                                         isOpen,
                                         highlightedIndex,
                                     }) => (
-                                        <div className="position-relative w-70"> {/* Adjusted width to 70% */}
+                                        <div className="position-relative w-70"> 
                                             <input
                                                 {...getInputProps({
                                                     placeholder: 'Filtruj rozmiar', // Polish: Filter size
@@ -808,12 +803,12 @@ const State = () => {
                                 {new Date(row.date).toLocaleDateString()}
                             </td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
-                            <td style={tableCellStyle} data-label="Punkt Sprzedaży">{row.sellingPoint}</td> {/* Display sellingPoint */}
+                            <td style={tableCellStyle} data-label="Punkt Sprzedaży">{row.sellingPoint}</td> 
                             <td style={tableCellStyle} data-label="Barcode">
                                 <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
                             </td>
                             <td style={tableCellStyle} data-label="Akcje">
-                                <div className="d-flex gap-1"> {/* Adjust button spacing */}
+                                <div className="d-flex gap-1"> 
                                     <Button color="warning" size="sm" onClick={() => handleEditClick(row)}>Edytuj</Button>
                                     <Button color="danger" size="sm" onClick={() => {
                                         if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) { // Confirm before deleting
@@ -829,7 +824,7 @@ const State = () => {
                 </tbody>
             </Table>
 
-            {/* Edit Modal */}
+
             <Modal isOpen={isEditModalOpen} toggle={toggleEditModal} className={styles.customModal} innerRef={modalRef}>
                 <ModalHeader
                     style={{ cursor: 'grab' }}
@@ -903,7 +898,7 @@ const State = () => {
                                                             },
                                                         })}
                                                     >
-                                                        {item.fullName} {/* Display fullName */}
+                                                        {item.fullName} 
                                                     </li>
                                                 ))}
                                     </ul>
@@ -989,7 +984,7 @@ const State = () => {
                                                             },
                                                         })}
                                                     >
-                                                        {item.Roz_Opis} {/* Display Roz_Opis */}
+                                                        {item.Roz_Opis} 
                                                     </li>
                                                 ))}
                                     </ul>
@@ -1004,8 +999,7 @@ const State = () => {
                 </ModalFooter>
             </Modal>
 
-            {/* Pagination */}
-            <div className="d-flex justify-content-center mt-3">
+               <div className="d-flex justify-content-center mt-3">
                 <nav>
                     <ul className="pagination">
                         {Array.from({ length: totalPages }, (_, index) => (
