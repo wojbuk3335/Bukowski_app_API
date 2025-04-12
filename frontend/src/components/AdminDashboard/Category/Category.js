@@ -60,6 +60,14 @@ const Category = () => {
     const removeFile = async () => {
         try {
             setLoading(true);
+
+            // Check if there are any goods in the database
+            const goodsResult = (await axios.get("/api/excel/goods/get-all-goods")).data;
+            if (goodsResult.goods && goodsResult.goods.length > 0) {
+                alert("Nie można usunąć tabeli kategorii, ponieważ istnieją towary powiązane z kategoriami.");
+                return;
+            }
+
             await axios.delete("/api/excel/category/delete-all-categories");
             resetState();
             alert("Dane zostały usunięte poprawnie.");

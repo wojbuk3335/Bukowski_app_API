@@ -110,11 +110,11 @@ const State = () => {
             const response = await axios.get('/api/state'); // Fetch table data from backend
             const formattedData = response.data.map((row) => ({
                 id: row.id,
-                fullName: row.fullName?.fullName || row.fullName, // Ensure fullName is a string
+                fullName: row.fullName?.fullName || row.fullName || "Brak danych", // Ensure fullName is a string or fallback to "Brak danych"
                 date: row.date,
-                size: row.size?.Roz_Opis || row.size, // Ensure size is a string
-                barcode: row.barcode, // Ensure barcode is included
-                sellingPoint: row.sellingPoint, // Include sellingPoint
+                size: row.size?.Roz_Opis || row.size || "Brak danych", // Ensure size is a string or fallback to "Brak danych"
+                barcode: row.barcode || "Brak danych", // Ensure barcode is included or fallback to "Brak danych"
+                sellingPoint: row.sellingPoint || "Brak danych", // Include sellingPoint or fallback to "Brak danych"
             }));
             setTableData(formattedData); // Update table data state
         } catch (error) {
