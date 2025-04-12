@@ -359,7 +359,7 @@ const Goods = () => {
     return (
         <div>
             <Button color="primary" className={`${styles.addButton} ${styles.button} btn-sm`} onClick={toggle}>Dodaj produkt</Button>
-            <Modal isOpen={modal} toggle={toggle} className={styles.customModal} innerRef={modalRef}>
+            <Modal isOpen={modal} toggle={toggle} innerRef={modalRef}>
                 <ModalHeader
                     style={{ cursor: 'grab' }}
                     onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
@@ -368,7 +368,6 @@ const Goods = () => {
                     className={`modal-header draggable-header ${styles.modalHeader}`}
                 >
                     {editingGood ? 'Edytuj produkt' : 'Dodaj produkt'}
-                    <button className={styles.customCloseButton} onClick={toggle}></button>
                 </ModalHeader>
                 <ModalBody className={styles.modalBody}>
                     <FormGroup className={styles.formGroup}>

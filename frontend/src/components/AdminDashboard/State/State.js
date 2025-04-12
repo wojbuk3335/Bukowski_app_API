@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import DatePicker, { registerLocale } from 'react-datepicker';
-import Downshift from 'downshift';
+import Select from 'react-select';
 import 'react-datepicker/dist/react-datepicker.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import styles from './State.module.css'; // Import the CSS module
 import Barcode from 'react-barcode'; // Import the Barcode component
 import { saveAs } from 'file-saver'; // For exporting files
-import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, Input, ModalFooter } from 'reactstrap'; // Import reactstrap components
+import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, ModalFooter } from 'reactstrap'; // Import reactstrap components
 import * as XLSX from 'xlsx'; // Import XLSX for Excel export
 import jsPDF from 'jspdf'; // Import jsPDF for PDF export
 import autoTable from 'jspdf-autotable'; // Ensure correct import for autoTable
@@ -18,11 +18,8 @@ registerLocale('pl', pl); // Register Polish locale
 const State = () => {
     const [selectedDate, setSelectedDate] = useState(new Date()); // Default to today's date
     const [goods, setGoods] = useState([]);
-    const [inputValue, setInputValue] = useState(''); // Manage input value manually
     const [sizes, setSizes] = useState([]);
-    const [sizeInputValue, setSizeInputValue] = useState(''); // Manage size input value manually
     const [tableData, setTableData] = useState([]); // State to store table data
-    const sizeInputRef = useRef(null); // Ref for the size input field
     const [searchQuery, setSearchQuery] = useState(''); // State for search input
     const [filteredTableData, setFilteredTableData] = useState([]); // State for filtered table data
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }); // State for sorting configuration
@@ -37,6 +34,12 @@ const State = () => {
     const modalRef = useRef(null); // Ref for draggable modal
     const [users, setUsers] = useState([]); // State to store user data
     const [selectedSellingPoint, setSelectedSellingPoint] = useState(''); // State for selected selling point
+    const [input1Value, setInput1Value] = useState('');
+    const [input2Value, setInput2Value] = useState('');
+    const inputRefs = useRef([null, null]); // Array of refs for both inputs
+
+    const goodsOptions = goods.map((item) => ({ value: item.fullName, label: item.fullName })); // Map goods to Select options
+    const sizesOptions = sizes.map((item) => ({ value: item.Roz_Opis, label: item.Roz_Opis })); // Map sizes to Select options
 
     useEffect(() => {
         // Fetch data from the API
@@ -116,34 +119,48 @@ const State = () => {
                 barcode: row.barcode || "Brak danych", // Ensure barcode is included or fallback to "Brak danych"
                 sellingPoint: row.sellingPoint || "Brak danych", // Include sellingPoint or fallback to "Brak danych"
             }));
-            setTableData(formattedData); // Update table data state
+            setTableData(formattedData.reverse()); // Reverse the data to show the newest rows at the top
         } catch (error) {
             console.error('Error fetching table data:', error);
         }
     };
 
     const sendDataToBackend = async (selectedSize) => {
-        if (!inputValue.trim() || !selectedSize?.Roz_Opis || !selectedDate || !selectedSellingPoint) { // Ensure all fields are filled
+        if (!input1Value.trim() || !selectedSize || !selectedDate || !selectedSellingPoint) { // Ensure all fields are filled
             alert('Wszystkie dane muszą być uzupełnione'); // Alert if any field is empty
             return;
         }
 
-        try {
-            await axios.post('/api/state', {
-                fullName: inputValue.trim(), // Trim whitespace before sending
-                size: selectedSize.Roz_Opis,
-                date: selectedDate.toISOString(), // Ensure date is sent in ISO format
-                sellingPoint: selectedSellingPoint, // Include sellingPoint
-            });
-            fetchTableData(); // Refresh table data after successful save
+        const dataToSend = {
+            fullName: input1Value.trim(), // Trim whitespace before sending
+            size: selectedSize,
+            date: selectedDate.toISOString(), // Ensure date is sent in ISO format
+            sellingPoint: selectedSellingPoint, // Include sellingPoint
+        };
 
-            // Clear inputs
-            setInputValue('');
-            setSizeInputValue('');
+        console.log('Data being sent to the database:', dataToSend); // Log the data being sent
+
+        try {
+            const response = await axios.post('/api/state', dataToSend);
+            console.log('Backend response:', response.data); // Log the backend response
+
+            // Prepend the new row to the table data
+            const newRow = {
+                id: response.data.id,
+                fullName: dataToSend.fullName,
+                date: dataToSend.date,
+                size: dataToSend.size,
+                barcode: response.data.barcode || "Brak danych", // Include barcode from response or fallback
+                sellingPoint: dataToSend.sellingPoint,
+            };
+            setTableData((prevData) => [newRow, ...prevData]); // Add the new row to the top of the table
+
+            setInput1Value('');
+            setInput2Value('');
             setSelectedSellingPoint(users.length > 0 ? users[0].sellingPoint : ''); // Reset to the first sellingPoint
 
             // Move cursor to the product input field
-            document.querySelector('[placeholder="Wybierz pełną nazwę"]')?.focus();
+            inputRefs.current[0].focus();
         } catch (error) {
             console.error('Error sending data to backend:', error);
         }
@@ -197,7 +214,7 @@ const State = () => {
     const deleteRow = async (id) => {
         try {
             await axios.delete(`/api/state/${id}`); // Send delete request to the backend
-            fetchTableData(); // Refresh table data after deletion
+            await fetchTableData(); // Refresh table data after deletion
         } catch (error) {
             console.error('Error deleting row:', error);
         }
@@ -297,11 +314,6 @@ const State = () => {
         toggleEditModal(); // Open the modal
     };
 
-    const handleEditInputChange = (e) => {
-        const { id, value } = e.target;
-        setEditData({ ...editData, [id]: value }); // Update the edit data
-    };
-
     const handleSaveEdit = async () => {
         try {
             await axios.put(`/api/state/${editData.id}`, {
@@ -360,9 +372,25 @@ const State = () => {
         }
     }, [isEditModalOpen]);
 
+    const handleInputChange = (selectedOption, inputIndex) => {
+        if (inputIndex === 0) {
+            setInput1Value(selectedOption ? selectedOption.label : '');
+            if (selectedOption) {
+                inputRefs.current[1].focus(); // Automatically jump to second input
+            }
+        } else {
+            setInput2Value(selectedOption ? selectedOption.label : '');
+            if (selectedOption) {
+                sendDataToBackend(selectedOption.label); // Send data to backend
+                setInput1Value('');
+                setInput2Value('');
+                inputRefs.current[0].focus(); // Automatically jump to first input
+            }
+        }
+    };
+
     return (
         <div>
-     
             <div className="d-flex justify-content-center mb-3">
                 <div className="btn-group">
                     <Button color="success" className="me-2 btn btn-sm" onClick={() => handleExport('excel')}>Export to Excel</Button>
@@ -373,6 +401,83 @@ const State = () => {
             </div>
 
             <div className={`d-flex align-items-center gap-3 mb-4 ${styles.responsiveContainer}`}>
+                <Select
+                    ref={(el) => (inputRefs.current[0] = el)}
+                    value={goodsOptions.find((option) => option.label === input1Value) || null}
+                    onChange={(selectedOption) => handleInputChange(selectedOption, 0)}
+                    options={goodsOptions}
+                    placeholder="Wpisz pełną nazwę" // Polish: Enter full name
+                    isClearable
+                    isSearchable
+                    className="w-50"
+                    styles={{
+                        control: (base, state) => ({
+                            ...base,
+                            backgroundColor: 'black',
+                            color: 'white',
+                            borderColor: state.isFocused ? '#0d6efd' : base.borderColor, // Change focus border color to #0d6efd
+                            boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow, // Add blue outline on focus
+                        }),
+                        singleValue: (base) => ({
+                            ...base,
+                            color: 'white',
+                        }),
+                        input: (base) => ({
+                            ...base,
+                            color: 'white',
+                        }),
+                        menu: (base) => ({
+                            ...base,
+                            backgroundColor: 'black',
+                            color:'white',
+                            borderRadius: '4px',
+                            border: '1px solid white',
+                        }),
+                        option: (base, state) => ({
+                            ...base,
+                            backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor, // Change hover color to #0d6efd
+                            color: state.isFocused ? 'white' : base.color, // Ensure text is white on hover
+                        }),
+                    }}
+                />
+                <Select
+                    ref={(el) => (inputRefs.current[1] = el)}
+                    value={sizesOptions.find((option) => option.label === input2Value) || null}
+                    onChange={(selectedOption) => handleInputChange(selectedOption, 1)}
+                    options={sizesOptions}
+                    placeholder="Wybierz rozmiar" // Polish: Select size
+                    isClearable
+                    isSearchable
+                    className="w-25" // Adjusted width to be two times narrower
+                    styles={{
+                        control: (base, state) => ({
+                            ...base,
+                            backgroundColor: 'black',
+                            color: 'white',
+                            borderColor: state.isFocused ? '#0d6efd' : base.borderColor, // Change focus border color to #0d6efd
+                            boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow, // Add blue outline on focus
+                        }),
+                        singleValue: (base) => ({
+                            ...base,
+                            color: 'white',
+                        }),
+                        input: (base) => ({
+                            ...base,
+                            color: 'white',
+                        }),
+                        menu: (base) => ({
+                            ...base,
+                            backgroundColor: 'black',
+                            color:'white',
+                            border: '1px solid white',
+                        }),
+                        option: (base, state) => ({
+                            ...base,
+                            backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor, // Change hover color to #0d6efd
+                            color: state.isFocused ? 'white' : base.color, // Ensure text is white on hover
+                        }),
+                    }}
+                />
                 <div style={{ margin: '10px 0', padding: '5px', borderRadius: '4px' }}>
                     <DatePicker
                         selected={selectedDate}
@@ -388,9 +493,9 @@ const State = () => {
                             width: '100%', // Ensure consistent width
                             height: '38px', // Match default input height
                             lineHeight: '1.5', // Match default line height
+                            outlineColor: '#0d6efd', // Change focus outline color to #0d6efd
                         }}
                         onKeyDown={(e) => e.preventDefault()} // Prevent manual input
-                        readOnly // Make the input field read-only
                     />
                 </div>
                 <select
@@ -414,157 +519,16 @@ const State = () => {
                         </option>
                     ))}
                 </select>
-                <Downshift
-                    inputValue={inputValue} // Bind inputValue to Downshift
-                    onInputValueChange={(newInputValue) => {
-                        setInputValue(newInputValue); // Allow typing freely
-                        setSizeInputValue(''); // Clear size input value when typing in the product input
-                    }}
-                    onChange={(selection) => {
-                        sizeInputRef.current?.focus(); // Focus on the size input field
-                    }}
-                    itemToString={(item) => (item ? item.fullName : '')} // Use fullName for display
-                >
-                    {({
-                        getInputProps,
-                        getItemProps,
-                        getMenuProps,
-                        isOpen,
-                        highlightedIndex,
-                    }) => (
-                        <div className="w-50 position-relative">
-                            <input
-                                {...getInputProps({
-                                    placeholder: 'Wybierz pełną nazwę', // Polish: Select a full name
-                                    className: 'form-control',
-                                    style: {
-                                        minWidth: '200px', // Add min-width for responsiveness
-                                        outlineColor: 'rgb(13, 110, 253)', // Change focus color
-                                    },
-                                })}
-                            />
-                            <ul
-                                {...getMenuProps()}
-                                className={`list-group mt-1 position-absolute w-100 ${isOpen ? '' : 'd-none'} ${styles.dropdownMenu}`}
-                                style={{ backgroundColor: 'black', color: 'white', zIndex: 1050 }} // Black background and white text
-                            >
-                                {isOpen &&
-                                    goods
-                                        .filter((item) =>
-                                            item.fullName
-                                                .toLowerCase()
-                                                .includes(inputValue.toLowerCase())
-                                        )
-                                        .slice(0, 5)
-                                        .map((item, index) => (
-                                            <li
-                                                key={item._id || index} // Ensure unique key for each item
-                                                {...getItemProps({
-                                                    index,
-                                                    item,
-                                                    className: `list-group-item ${highlightedIndex === index
-                                                        ? styles.dropdownItemActive
-                                                        : styles.dropdownItem
-                                                        }`,
-                                                    style: {
-                                                        backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
-                                                        color: 'white', // White text
-                                                    },
-                                                })}
-                                            >
-                                                {item.fullName} 
-                                            </li>
-                                        ))}
-                            </ul>
-                        </div>
-                    )}
-                </Downshift>
-                <Downshift
-                    inputValue={sizeInputValue} // Bind sizeInputValue to Downshift
-                    onInputValueChange={(newInputValue) => {
-                        // Check if the input value matches any item in the dropdown
-                        const matches = sizes.some((item) =>
-                            item.Roz_Opis.toLowerCase().startsWith(newInputValue.toLowerCase())
-                        );
-                        if (matches || newInputValue === '') {
-                            setSizeInputValue(newInputValue); // Update input value only if it matches
-                        }
-                    }}
-                    onChange={(selection) => {
-                        if (selection) {
-                            sendDataToBackend(selection); // Send data to backend
-                            setSizeInputValue(''); // Clear size input value
-                        }
-                    }}
-                    itemToString={(item) => (item ? item.Roz_Opis : '')}
-                >
-                    {({
-                        getInputProps,
-                        getItemProps,
-                        getMenuProps,
-                        isOpen,
-                        highlightedIndex,
-                    }) => (
-                        <div className="w-70 position-relative">
-                            <input
-                                {...getInputProps({
-                                    placeholder: 'Wybierz rozmiar', // Polish: Select a size
-                                    className: 'form-control',
-                                    ref: sizeInputRef, // Attach ref to the size input field
-                                    onKeyDown: (e) => {
-                                        if (e.key === 'Enter' && sizes.length > 0) {
-                                            const matchedSize = sizes.find((item) =>
-                                                item.Roz_Opis.toLowerCase().startsWith(sizeInputValue.toLowerCase())
-                                            );
-                                            if (matchedSize) {
-                                                // Removed sendDataToBackend call here to avoid duplication
-                                            }
-                                        }
-                                    },
-                                })}
-                            />
-                            <ul
-                                {...getMenuProps()}
-                                className={`list-group mt-1 position-absolute w-100 ${isOpen ? '' : 'd-none'} ${styles.dropdownMenu}`}
-                                style={{ backgroundColor: 'black', color: 'white', zIndex: 1050 }} // Black background and white text
-                            >
-                                {isOpen &&
-                                    sizes
-                                        .filter((item) =>
-                                            item.Roz_Opis
-                                                .toLowerCase()
-                                                .includes(sizeInputValue.toLowerCase())
-                                        )
-                                        .slice(0, 5)
-                                        .map((item, index) => (
-                                            <li
-                                                key={item._id} // Pass key directly
-                                                {...getItemProps({
-                                                    index,
-                                                    item,
-                                                    className: `list-group-item ${highlightedIndex === index
-                                                        ? styles.dropdownItemActive
-                                                        : styles.dropdownItem
-                                                        }`,
-                                                    style: {
-                                                        backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
-                                                        color: 'white', // White text
-                                                    },
-                                                })}
-                                            >
-                                                {item.Roz_Opis}
-                                            </li>
-                                        ))}
-                            </ul>
-                        </div>
-                    )}
-                </Downshift>
                 <div className="d-flex align-items-center gap-2 rrr">
                     <input
                         type="text"
                         placeholder="Szukaj w tabeli" // Polish: Search in the table
                         className="form-control w-50"
-                        style={{ minWidth: '200px' }} // Add min-width for responsiveness
+                        style={{
+                            minWidth: '200px',
+                            backgroundColor: 'black',
+                            color: 'white',
+                        }} // Add min-width for responsiveness
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)} // Update search query on input change
                     />
@@ -593,73 +557,6 @@ const State = () => {
                         >
                             <div>
                                 Pełna nazwa <span>{getSortIcon('fullName')}</span>
-                                <Downshift
-                                    inputValue={nameFilter} // Bind nameFilter to Downshift
-                                    onInputValueChange={(newInputValue) => {
-                                        const matches = goods.some((item) =>
-                                            item.fullName.toLowerCase().startsWith(newInputValue.toLowerCase())
-                                        );
-                                        if (matches || newInputValue === '') {
-                                            setNameFilter(newInputValue); // Update nameFilter only if it matches
-                                        }
-                                    }}
-                                    onChange={(selection) => {
-                                        if (selection) {
-                                            setNameFilter(selection.fullName); // Set nameFilter to the selected suggestion
-                                        }
-                                    }}
-                                    itemToString={(item) => (item ? item.fullName : '')} // Use fullName for display
-                                >
-                                    {({
-                                        getInputProps,
-                                        getItemProps,
-                                        getMenuProps,
-                                        isOpen,
-                                        highlightedIndex,
-                                    }) => (
-                                        <div className="position-relative">
-                                            <input
-                                                {...getInputProps({
-                                                    placeholder: 'Filtruj pełną nazwę', // Polish: Filter full name
-                                                    className: 'form-control mt-2',
-                                                })}
-                                            />
-                                            <ul
-                                                {...getMenuProps()}
-                                                className={`list-group mt-1 position-absolute w-100 ${isOpen ? '' : 'd-none'} ${styles.dropdownMenu}`}
-                                                style={{ backgroundColor: 'black', color: 'white', zIndex: 1050 }} // Black background and white text
-                                            >
-                                                {isOpen &&
-                                                    goods
-                                                        .filter((item) =>
-                                                            item.fullName
-                                                                .toLowerCase()
-                                                                .includes(nameFilter.toLowerCase())
-                                                        )
-                                                        .slice(0, 5)
-                                                        .map((item, index) => (
-                                                            <li
-                                                                key={item._id || index} // Ensure unique key for each item
-                                                                {...getItemProps({
-                                                                    index,
-                                                                    item,
-                                                                    className: `list-group-item ${highlightedIndex === index
-                                                                        ? styles.dropdownItemActive
-                                                                        : styles.dropdownItem
-                                                                        }`,
-                                                                    style: {
-                                                                        backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
-                                                                        color: 'white', // White text
-                                                                    },
-                                                                })}
-                                                            >
-                                                                {item.fullName}
-                                                            </li>
-                                                        ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </Downshift>
                             </div>
                         </th>
                         <th
@@ -698,73 +595,6 @@ const State = () => {
                         >
                             <div>
                                 Rozmiar <span>{getSortIcon('size')}</span>
-                                <Downshift
-                                    inputValue={sizeFilter} // Bind sizeFilter to Downshift
-                                    onInputValueChange={(newInputValue) => {
-                                        const matches = sizes.some((item) =>
-                                            item.Roz_Opis.toLowerCase().startsWith(newInputValue.toLowerCase())
-                                        );
-                                        if (matches || newInputValue === '') {
-                                            setSizeFilter(newInputValue); // Update sizeFilter only if it matches
-                                        }
-                                    }}
-                                    onChange={(selection) => {
-                                        if (selection) {
-                                            setSizeFilter(selection.Roz_Opis); // Set sizeFilter to the selected suggestion
-                                        }
-                                    }}
-                                    itemToString={(item) => (item ? item.Roz_Opis : '')} // Use Roz_Opis for display
-                                >
-                                    {({
-                                        getInputProps,
-                                        getItemProps,
-                                        getMenuProps,
-                                        isOpen,
-                                        highlightedIndex,
-                                    }) => (
-                                        <div className="position-relative w-70"> 
-                                            <input
-                                                {...getInputProps({
-                                                    placeholder: 'Filtruj rozmiar', // Polish: Filter size
-                                                    className: 'form-control mt-2',
-                                                })}
-                                            />
-                                            <ul
-                                                {...getMenuProps()}
-                                                className={`list-group mt-1 position-absolute w-100 ${isOpen ? '' : 'd-none'} ${styles.dropdownMenu}`}
-                                                style={{ backgroundColor: 'black', color: 'white', zIndex: 1050 }} // Black background and white text
-                                            >
-                                                {isOpen &&
-                                                    sizes
-                                                        .filter((item) =>
-                                                            item.Roz_Opis
-                                                                .toLowerCase()
-                                                                .includes(sizeFilter.toLowerCase())
-                                                        )
-                                                        .slice(0, 5)
-                                                        .map((item, index) => (
-                                                            <li
-                                                                key={item._id || index} // Ensure unique key for each item
-                                                                {...getItemProps({
-                                                                    index,
-                                                                    item,
-                                                                    className: `list-group-item ${highlightedIndex === index
-                                                                        ? styles.dropdownItemActive
-                                                                        : styles.dropdownItem
-                                                                        }`,
-                                                                    style: {
-                                                                        backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
-                                                                        color: 'white', // White text
-                                                                    },
-                                                                })}
-                                                            >
-                                                                {item.Roz_Opis}
-                                                            </li>
-                                                        ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </Downshift>
                             </div>
                         </th>
                         <th
@@ -825,7 +655,7 @@ const State = () => {
             </Table>
 
 
-            <Modal isOpen={isEditModalOpen} toggle={toggleEditModal} className={styles.customModal} innerRef={modalRef}>
+            <Modal isOpen={isEditModalOpen} toggle={toggleEditModal} innerRef={modalRef}>
                 <ModalHeader
                     style={{ cursor: 'grab' }}
                     onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
@@ -838,73 +668,15 @@ const State = () => {
                 <ModalBody className={styles.modalBody}>
                     <FormGroup className={styles.formGroup}>
                         <Label for="fullName" className={styles.emailLabel}>Pełna nazwa:</Label>
-                        <Downshift
-                            inputValue={editData.fullName || ''} // Bind editData.fullName to Downshift
-                            onInputValueChange={(newInputValue) => {
-                                const matches = goods.some((item) =>
-                                    item.fullName.toLowerCase().startsWith(newInputValue.toLowerCase())
-                                );
-                                if (matches || newInputValue === '') {
-                                    setEditData({ ...editData, fullName: newInputValue }); // Update editData.fullName only if it matches
-                                }
-                            }}
-                            onChange={(selection) => {
-                                if (selection) {
-                                    setEditData({ ...editData, fullName: selection.fullName }); // Set editData.fullName to the selected suggestion
-                                }
-                            }}
-                            itemToString={(item) => (item ? item.fullName : '')} // Use fullName for display
-                        >
-                            {({
-                                getInputProps,
-                                getItemProps,
-                                getMenuProps,
-                                isOpen,
-                                highlightedIndex,
-                            }) => (
-                                <div className="position-relative">
-                                    <input
-                                        {...getInputProps({
-                                            placeholder: 'Wybierz pełną nazwę', // Polish: Select a full name
-                                            className: 'form-control',
-                                        })}
-                                    />
-                                    <ul
-                                        {...getMenuProps()}
-                                        className={`list-group mt-1 position-absolute w-100 ${isOpen ? '' : 'd-none'} ${styles.dropdownMenu}`}
-                                        style={{ backgroundColor: 'black', color: 'white', zIndex: 1050 }} // Black background and white text
-                                    >
-                                        {isOpen &&
-                                            goods
-                                                .filter((item) =>
-                                                    item.fullName
-                                                        .toLowerCase()
-                                                        .includes((editData.fullName || '').toLowerCase())
-                                                )
-                                                .slice(0, 5)
-                                                .map((item, index) => (
-                                                    <li
-                                                        key={item._id || index} // Ensure unique key for each item
-                                                        {...getItemProps({
-                                                            index,
-                                                            item,
-                                                            className: `list-group-item ${highlightedIndex === index
-                                                                ? styles.dropdownItemActive
-                                                                : styles.dropdownItem
-                                                                }`,
-                                                            style: {
-                                                                backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
-                                                                color: 'white', // White text
-                                                            },
-                                                        })}
-                                                    >
-                                                        {item.fullName} 
-                                                    </li>
-                                                ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </Downshift>
+                        <Select
+                            value={goodsOptions.find((option) => option.label === editData.fullName) || null}
+                            onChange={(selectedOption) => setEditData({ ...editData, fullName: selectedOption ? selectedOption.label : '' })}
+                            options={goodsOptions}
+                            placeholder="Wybierz pełną nazwę" // Polish: Select a full name
+                            isClearable
+                            isSearchable
+                            className="w-100"
+                        />
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
                         <Label for="date" className={styles.emailLabel}>Data:</Label>
@@ -923,74 +695,15 @@ const State = () => {
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
                         <Label for="size" className={styles.emailLabel}>Rozmiar:</Label>
-                        <Downshift
-                            inputValue={editData.size || ''} // Bind editData.size to Downshift
-                            onInputValueChange={(newInputValue) => {
-                                // Check if the input value matches any item in the dropdown
-                                const matches = sizes.some((item) =>
-                                    item.Roz_Opis.toLowerCase().startsWith(newInputValue.toLowerCase())
-                                );
-                                if (matches || newInputValue === '') {
-                                    setEditData({ ...editData, size: newInputValue }); // Update editData.size only if it matches
-                                }
-                            }}
-                            onChange={(selection) => {
-                                if (selection) {
-                                    setEditData({ ...editData, size: selection.Roz_Opis }); // Set editData.size to the selected suggestion
-                                }
-                            }}
-                            itemToString={(item) => (item ? item.Roz_Opis : '')} // Use Roz_Opis for display
-                        >
-                            {({
-                                getInputProps,
-                                getItemProps,
-                                getMenuProps,
-                                isOpen,
-                                highlightedIndex,
-                            }) => (
-                                <div className="position-relative">
-                                    <input
-                                        {...getInputProps({
-                                            placeholder: 'Wybierz rozmiar', // Polish: Select a size
-                                            className: 'form-control',
-                                        })}
-                                    />
-                                    <ul
-                                        {...getMenuProps()}
-                                        className={`list-group mt-1 position-absolute w-100 ${isOpen ? '' : 'd-none'} ${styles.dropdownMenu}`}
-                                        style={{ backgroundColor: 'black', color: 'white', zIndex: 1050 }} // Black background and white text
-                                    >
-                                        {isOpen &&
-                                            sizes
-                                                .filter((item) =>
-                                                    item.Roz_Opis
-                                                        .toLowerCase()
-                                                        .includes((editData.size || '').toLowerCase())
-                                                )
-                                                .slice(0, 5)
-                                                .map((item, index) => (
-                                                    <li
-                                                        key={item._id || index} // Ensure unique key for each item
-                                                        {...getItemProps({
-                                                            index,
-                                                            item,
-                                                            className: `list-group-item ${highlightedIndex === index
-                                                                ? styles.dropdownItemActive
-                                                                : styles.dropdownItem
-                                                                }`,
-                                                            style: {
-                                                                backgroundColor: highlightedIndex === index ? 'rgb(13, 110, 253)' : 'black', // Highlight active item with blue background
-                                                                color: 'white', // White text
-                                                            },
-                                                        })}
-                                                    >
-                                                        {item.Roz_Opis} 
-                                                    </li>
-                                                ))}
-                                    </ul>
-                                </div>
-                            )}
-                        </Downshift>
+                        <Select
+                            value={sizesOptions.find((option) => option.label === editData.size) || null}
+                            onChange={(selectedOption) => setEditData({ ...editData, size: selectedOption ? selectedOption.label : '' })}
+                            options={sizesOptions}
+                            placeholder="Wybierz rozmiar" // Polish: Select a size
+                            isClearable
+                            isSearchable
+                            className="w-100"
+                        />
                     </FormGroup>
                 </ModalBody>
                 <ModalFooter className="d-flex justify-content-end" style={{ gap: '10px' }}>
@@ -999,7 +712,7 @@ const State = () => {
                 </ModalFooter>
             </Modal>
 
-               <div className="d-flex justify-content-center mt-3">
+            <div className="d-flex justify-content-center mt-3">
                 <nav>
                     <ul className="pagination">
                         {Array.from({ length: totalPages }, (_, index) => (
