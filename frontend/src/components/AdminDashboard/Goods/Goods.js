@@ -241,24 +241,40 @@ const Goods = () => {
             });
     };
 
-    const handleDeleteProduct = (goodId) => {
-        if (window.confirm('Czy na pewno chcesz usunąć produkt?')) {
-            fetch(`/api/excel/goods/${goodId}`, {
-                method: 'DELETE'
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.message === 'Good deleted successfully') {
+    const handleDeleteProduct = async (goodId) => {
+        const goodToDelete = goods.find(good => good._id === goodId);
+        if (!goodToDelete) {
+            alert('Nie znaleziono produktu');
+            return;
+        }
 
-                        fetchGoods(); // Refresh the goods list
-                    } else {
-                        alert('Nie znaleziono produktu');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting product:', error);
-                    alert('Wystąpił błąd podczas usuwania produktu');
+        try {
+            // Fetch state data
+            const stateResponse = await fetch('/api/state/');
+            const stateData = await stateResponse.json();
+
+            // Check if the good's fullName exists in the state database
+            const existsInState = stateData.some(stateItem => stateItem.fullName === goodToDelete.fullName);
+            if (existsInState) {
+                alert('Nie można usunąć produktu ponieważ na stanie znajdują się fizycznie produkty o takiej samej nazwie... Odpisz najpierw ze statnu produkty i spróbuj ponownie.');
+                return;
+            }
+
+            if (window.confirm('Czy na pewno chcesz usunąć produkt?')) {
+                const response = await fetch(`/api/excel/goods/${goodId}`, {
+                    method: 'DELETE'
                 });
+                const data = await response.json();
+
+                if (data.message === 'Good deleted successfully') {
+                    fetchGoods(); // Refresh the goods list
+                } else {
+                    alert('Nie znaleziono produktu');
+                }
+            }
+        } catch (error) {
+            console.error('Error deleting product:', error);
+            alert('Wystąpił błąd podczas usuwania produktu');
         }
     };
 
