@@ -556,7 +556,48 @@ const State = () => {
                             onClick={() => handleSort('fullName')} // Enable sorting for "Pełna nazwa"
                         >
                             <div>
-                                Pełna nazwa <span>{getSortIcon('fullName')}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                    <label style={{ margin: 0 }}>Pełna nazwa</label>
+                                    <span>{getSortIcon('fullName')}</span>
+                                </div>
+                                <Select
+                                    options={[...new Set(tableData.map((row) => ({ value: row.fullName, label: row.fullName })))]}
+                                    placeholder="Filtruj pełną nazwę" // Polish: Filter full name
+                                    isClearable
+                                    isSearchable
+                                    onChange={(selectedOption) => {
+                                        setNameFilter(selectedOption ? selectedOption.value : ''); // Update nameFilter based on selection
+                                    }}
+                                    styles={{
+                                        control: (base, state) => ({
+                                            ...base,
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            borderColor: state.isFocused ? '#0d6efd' : base.borderColor, // Change focus border color to #0d6efd
+                                            boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow, // Add blue outline on focus
+                                        }),
+                                        singleValue: (base) => ({
+                                            ...base,
+                                            color: 'white',
+                                        }),
+                                        input: (base) => ({
+                                            ...base,
+                                            color: 'white',
+                                        }),
+                                        menu: (base) => ({
+                                            ...base,
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            borderRadius: '4px',
+                                            border: '1px solid white',
+                                        }),
+                                        option: (base, state) => ({
+                                            ...base,
+                                            backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor, // Change hover color to #0d6efd
+                                            color: state.isFocused ? 'white' : base.color, // Ensure text is white on hover
+                                        }),
+                                    }}
+                                />
                             </div>
                         </th>
                         <th
@@ -594,7 +635,48 @@ const State = () => {
                             onClick={() => handleSort('size')} // Enable sorting for "Rozmiar"
                         >
                             <div>
-                                Rozmiar <span>{getSortIcon('size')}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                    <label style={{ margin: 0 }}>Rozmiar</label>
+                                    <span>{getSortIcon('size')}</span>
+                                </div>
+                                <Select
+                                    options={[...new Set(tableData.map((row) => ({ value: row.size, label: row.size })))]}
+                                    placeholder="Filtruj rozmiar" // Polish: Filter size
+                                    isClearable
+                                    isSearchable
+                                    onChange={(selectedOption) => {
+                                        setSizeFilter(selectedOption ? selectedOption.value : ''); // Update sizeFilter based on selection
+                                    }}
+                                    styles={{
+                                        control: (base, state) => ({
+                                            ...base,
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            borderColor: state.isFocused ? '#0d6efd' : base.borderColor, // Change focus border color to #0d6efd
+                                            boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow, // Add blue outline on focus
+                                        }),
+                                        singleValue: (base) => ({
+                                            ...base,
+                                            color: 'white',
+                                        }),
+                                        input: (base) => ({
+                                            ...base,
+                                            color: 'white',
+                                        }),
+                                        menu: (base) => ({
+                                            ...base,
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            borderRadius: '4px',
+                                            border: '1px solid white',
+                                        }),
+                                        option: (base, state) => ({
+                                            ...base,
+                                            backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor, // Change hover color to #0d6efd
+                                            color: state.isFocused ? 'white' : base.color, // Ensure text is white on hover
+                                        }),
+                                    }}
+                                />
                             </div>
                         </th>
                         <th
@@ -602,25 +684,51 @@ const State = () => {
                             onClick={() => handleSort('sellingPoint')} // Enable sorting for "Punkt Sprzedaży"
                         >
                             <div>
-                                Punkt Sprzedaży <span>{getSortIcon('sellingPoint')}</span>
-                                <input
-                                    type="text"
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                                    <label style={{ margin: 0 }}>Punkt Sprzedaży</label>
+                                    <span>{getSortIcon('sellingPoint')}</span>
+                                </div>
+                                <Select
+                                    options={[...new Set(tableData.map((row) => ({ value: row.sellingPoint, label: row.sellingPoint })))]}
                                     placeholder="Filtruj punkt sprzedaży" // Polish: Filter selling point
-                                    className="form-control mt-2"
-                                    value={sellingPointFilter}
-                                    onChange={(e) => {
-                                        const newValue = e.target.value;
-                                        const matches = tableData.some((row) =>
-                                            row.sellingPoint.toLowerCase().startsWith(newValue.toLowerCase())
-                                        );
-                                        if (matches || newValue === '') {
-                                            setSellingPointFilter(newValue); // Update sellingPointFilter only if it matches
-                                        }
+                                    isClearable
+                                    isSearchable
+                                    onChange={(selectedOption) => {
+                                        setSellingPointFilter(selectedOption ? selectedOption.value : ''); // Update sellingPointFilter based on selection
+                                    }}
+                                    styles={{
+                                        control: (base, state) => ({
+                                            ...base,
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            borderColor: state.isFocused ? '#0d6efd' : base.borderColor, // Change focus border color to #0d6efd
+                                            boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow, // Add blue outline on focus
+                                        }),
+                                        singleValue: (base) => ({
+                                            ...base,
+                                            color: 'white',
+                                        }),
+                                        input: (base) => ({
+                                            ...base,
+                                            color: 'white',
+                                        }),
+                                        menu: (base) => ({
+                                            ...base,
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            borderRadius: '4px',
+                                            border: '1px solid white',
+                                        }),
+                                        option: (base, state) => ({
+                                            ...base,
+                                            backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor, // Change hover color to #0d6efd
+                                            color: state.isFocused ? 'white' : base.color, // Ensure text is white on hover
+                                        }),
                                     }}
                                 />
                             </div>
                         </th>
-                        <th style={tableCellStyle}>Barcode</th>
+                        <th style={tableCellStyle}>Kody kreskowe</th>
                         <th style={tableCellStyle}>Akcje</th>
                     </tr>
                 </thead>

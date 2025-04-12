@@ -12,8 +12,8 @@ function Navigaton() {
     <Navbar bg="dark" data-bs-theme="dark">
       <Container>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
-        <Navbar.Collapse id="basic-navbar-nav">
-          <Nav className="me-auto">
+        <Navbar.Collapse id="basic-navbar-nav" className="d-flex justify-content-center">
+          <Nav className="justify-content-center">
             <Nav.Link as={Link} to="/admin/dashboard/searchengine">Wyszukiwarka</Nav.Link>
             <NavDropdown title="Tabele" id="basic-nav-dropdown">
               <NavDropdown.Item as={Link} to="/admin/dashboard/stock">Tabela asortymentu</NavDropdown.Item>
@@ -46,6 +46,10 @@ function Navigaton() {
             <Nav.Link as={Link} to="/admin/dashboard/users">Użytkownicy</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/goods">Produkty</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/state">Stan</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/state">Sprzedaż</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/state">Historia</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/state">Raporty</Nav.Link>
+            
           </Nav>
         </Navbar.Collapse>
       </Container>
