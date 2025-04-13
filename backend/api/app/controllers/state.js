@@ -19,17 +19,19 @@ class StatesController {
     async getAllStates(req, res, next) {
         try {
             const states = await State.find()
-                .populate('fullName', 'fullName') 
+                .populate('fullName', 'fullName') // Correctly populate fullName
+                .populate('plec', 'Plec')        // Correctly populate plec
                 .populate('size', 'Roz_Opis')
-                .populate('sellingPoint', 'sellingPoint'); // Populate sellingPoint with its value from User
+                .populate('sellingPoint', 'symbol'); // Populate symbol instead of sellingPoint
 
             res.status(200).json(states.map(state => ({
                 id: state._id,
                 fullName: state.fullName.fullName,
                 date: state.date,
+                plec: state.plec, // Include Plec in the response
                 size: state.size.Roz_Opis,
                 barcode: state.barcode,
-                sellingPoint: state.sellingPoint.sellingPoint // Include sellingPoint in the response
+                symbol: state.sellingPoint.symbol // Return symbol instead of sellingPoint
             })));
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -39,10 +41,17 @@ class StatesController {
     // Create a new state
     async createState(req, res, next) {
         try {
+            console.log('Request body:', req.body); // Log the incoming request body
+
             // Find the ObjectId for fullName in Goods
             const goods = await Goods.findOne({ fullName: req.body.fullName });
             if (!goods) {
                 return res.status(404).json({ message: 'Goods not found' });
+            }
+
+            const plec = goods.Plec; // Assuming `Plec` is the field in Goods
+            if (!plec) {
+                return res.status(404).json({ message: 'Plec not found' });
             }
 
             // Find the ObjectId for size in Size
@@ -52,7 +61,7 @@ class StatesController {
             }
 
             // Find the ObjectId for sellingPoint in User
-            const user = await mongoose.models.User.findOne({ sellingPoint: req.body.sellingPoint });
+            const user = await mongoose.models.User.findOne({ symbol: req.body.sellingPoint });
             if (!user) {
                 return res.status(404).json({ message: 'Selling point not found' });
             }
@@ -71,6 +80,7 @@ class StatesController {
                 _id: new mongoose.Types.ObjectId(),
                 fullName: goods._id,
                 date: req.body.date,
+                plec: goods.Plec, // Save Plec
                 size: size._id,
                 barcode, // Save the updated barcode
                 sellingPoint: user._id // Save the sellingPoint
@@ -79,6 +89,7 @@ class StatesController {
             const newState = await state.save();
             res.status(201).json(newState);
         } catch (error) {
+            console.error('Error creating state:', error); // Log the error
             res.status(400).json({ error: error.message });
         }
     }
@@ -153,7 +164,14 @@ class StatesController {
     // Delete a state by ID
     async deleteState(req, res, next) {
         try {
-            const deletedState = await State.findByIdAndDelete(req.params.id);
+            const { id } = req.params;
+
+            // Check if the ID is valid
+            if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+                return res.status(400).json({ message: 'Invalid state ID' });
+            }
+
+            const deletedState = await State.findByIdAndDelete(id);
             if (!deletedState) {
                 return res.status(404).json({ message: 'State not found' });
             }
@@ -169,7 +187,7 @@ class StatesController {
             const states = await State.find()
                 .populate('fullName', 'fullName') // Populate fullName with its value from Goods
                 .populate('size', 'Roz_Opis')
-                .populate('sellingPoint', 'sellingPoint'); // Populate sellingPoint with its value from User
+                .populate('sellingPoint', 'symbol'); // Populate symbol instead of sellingPoint
 
             // Format the data for the table
             const tableData = states.map(state => ({
@@ -177,7 +195,7 @@ class StatesController {
                 fullName: state.fullName.fullName, // Extract the fullName value
                 date: state.date,
                 size: state.size.Roz_Opis,         // Extract the size value
-                sellingPoint: state.sellingPoint.sellingPoint // Include sellingPoint in the response
+                symbol: state.sellingPoint.symbol // Return symbol instead of sellingPoint
             }));
 
             res.status(200).json(tableData);

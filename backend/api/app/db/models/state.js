@@ -14,6 +14,10 @@ const stateSchema = mongoose.Schema({
         type: Date,
         required: true
     },
+    plec: {
+        type: String,
+        required: true // Ensure this field is required
+    },
     barcode: {
         type: String,
         required: true // Ensure this field is required
@@ -24,7 +28,7 @@ const stateSchema = mongoose.Schema({
         ref: 'Size',
         required: true // Ensure this field is required
     },
-    sellingPoint:{
+    sellingPoint: {
         //relation Size
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

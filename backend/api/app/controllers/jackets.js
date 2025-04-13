@@ -41,8 +41,8 @@ class JacketsController {
                 });
             });
     }
-    
-    createJacket(req, res, next){
+
+    createJacket(req, res, next) {
         console.log(req.file);
         const jacket = new Jacket({
             _id: new mongoose.Types.ObjectId(),
@@ -52,7 +52,7 @@ class JacketsController {
             colorID: req.body.colorID,
             size: req.body.size,
             sizeID: req.body.sizeID,
-            currentStall: req.body.currentStall,   
+            currentStall: req.body.currentStall,
             currentStallID: req.body.currentStallID,
             dateOfAdd: req.body.dateOfAdd,
             defaultPrice: req.body.defaultPrice,
@@ -94,11 +94,11 @@ class JacketsController {
 
     getOneJacket(req, res, next) {
         const id = req.params.jacketId;
-            Jacket.findById(id)
+        Jacket.findById(id)
             .select('_id name nameID color colorID size sizeID currentStall currentStallID dateOfAdd defaultPriceKrupowki defaultPriceGubalowka defaultPriceKarpacz')
             .then(jacket => {
                 console.log(jacket);
-                if(jacket) {
+                if (jacket) {
                     res.status(200).json({
                         jacket: jacket,
                         request: {
@@ -122,17 +122,17 @@ class JacketsController {
             });
     }
 
-    updateJacket(req, res, next){
+    updateJacket(req, res, next) {
         const id = req.params.jacketId;
         const updateOps = {};
-    
+
         // Assuming req.body is an object with key-value pairs
         for (const key in req.body) {
             if (req.body.hasOwnProperty(key)) {
                 updateOps[key] = req.body[key];
             }
         }
-    
+
         Jacket.updateOne({ _id: id }, { $set: updateOps })
             .then(result => {
                 res.status(200).json({
@@ -152,7 +152,7 @@ class JacketsController {
             });
     }
 
-    deleteJacket(req, res, next){
+    deleteJacket(req, res, next) {
         const id = req.params.jacketId;
         Jacket.deleteOne({ _id: id })
             .then(result => {
@@ -161,18 +161,20 @@ class JacketsController {
                     request: {
                         type: 'POST',
                         url: `${config.domain}/jackets`,
-                        body: {    name: { type: String, required: true },
-                        nameID: { type: String, required: true },
-                        color: { type: String, required: true },
-                        colorID: { type: String, required: true },
-                        size: { type: String, required: true },
-                        sizeID: { type: String, required: true },
-                        currentStall: { type: String, required: true },
-                        currentStallID: { type: String, required: true },
-                        dateOfAdd: { type: Date, required: true },
-                        defaultPriceKrupowki: { type: Number, required: true },
-                        defaultPriceGubalowka: { type: Number, required: true },
-                        defaultPriceKarpacz: { type: Number, required: true }}
+                        body: {
+                            name: { type: String, required: true },
+                            nameID: { type: String, required: true },
+                            color: { type: String, required: true },
+                            colorID: { type: String, required: true },
+                            size: { type: String, required: true },
+                            sizeID: { type: String, required: true },
+                            currentStall: { type: String, required: true },
+                            currentStallID: { type: String, required: true },
+                            dateOfAdd: { type: Date, required: true },
+                            defaultPriceKrupowki: { type: Number, required: true },
+                            defaultPriceGubalowka: { type: Number, required: true },
+                            defaultPriceKarpacz: { type: Number, required: true }
+                        }
                     }
                 });
             })

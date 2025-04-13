@@ -25,6 +25,7 @@ const goodsRoutes = require('./routes/goods');
 const configRoutes = require('./routes/config');
 const stateRoutes = require('./routes/state');
 const categoryRoutes = require('./routes/category');
+const printRoutes = require('./routes/print'); // Import print routes
 
 app.use('/api/jackets', jacketRoutes);
 app.use('/api/user', userRoutes);
@@ -36,6 +37,7 @@ app.use('/api/excel/category', categoryRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/category', categoryRoutes);
+app.use('/api', printRoutes); // Use print routes
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../public')));

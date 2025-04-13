@@ -43,6 +43,15 @@ const Category = () => {
 
     const handleUpdateSubmit = async () => {
         try {
+            // Check if Kat_1_Opis_1 is unique
+            const isDuplicate = rows.some(
+                (row) => row.Kat_1_Opis_1 === currentCategory.Kat_1_Opis_1 && row._id !== currentCategory._id
+            );
+            if (isDuplicate) {
+                alert(`Wartość "${currentCategory.Kat_1_Opis_1}" już istnieje. Proszę użyć unikalnej wartości.`);
+                return;
+            }
+
             setLoading(true);
             await axios.patch(`/api/excel/category/update-category/${currentCategory._id}`, {
                 Kat_1_Opis_1: currentCategory.Kat_1_Opis_1,
@@ -82,7 +91,6 @@ const Category = () => {
         try {
             setLoading(true);
             const result = (await axios.get("/api/excel/category/get-all-categories")).data;
-            console.log("Fetched categories:", result.categories); // Log fetched data for debugging
             const sortedCategories = Array.isArray(result.categories) ? result.categories.sort((a, b) => a.Kat_1_Kod_1.localeCompare(b.Kat_1_Kod_1)) : [];
             setRows(sortedCategories);
         } catch (error) {
@@ -107,7 +115,7 @@ const Category = () => {
             }
 
             // Filter out rows with missing required fields
-            const validRows = excelRows.filter(row => 
+            const validRows = excelRows.filter(row =>
                 row.Kat_1_Kod_1 && row.Kat_1_Opis_1 && row.Plec
             );
 
@@ -116,8 +124,6 @@ const Category = () => {
                 setLoading(false);
                 return;
             }
-
-            console.log("Uploading valid data:", validRows); // Log valid rows being sent to the backend
 
             const response = await axios.post("/api/excel/category/insert-many-categories", validRows);
             if (response.status === 201) {

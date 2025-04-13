@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import Select from 'react-select';
@@ -37,8 +37,9 @@ const State = () => {
     const [input1Value, setInput1Value] = useState('');
     const [input2Value, setInput2Value] = useState('');
     const inputRefs = useRef([null, null]); // Array of refs for both inputs
+    const [selectedBarcodes, setSelectedBarcodes] = useState([]); // New state for selected barcodes
 
-    const goodsOptions = goods.map((item) => ({ value: item.fullName, label: item.fullName })); // Map goods to Select options
+    const goodsOptions = goods.map((item) => ({ value: item, label: item.fullName })); // Map goods to include the entire object
     const sizesOptions = sizes.map((item) => ({ value: item.Roz_Opis, label: item.Roz_Opis })); // Map sizes to Select options
 
     useEffect(() => {
@@ -89,19 +90,19 @@ const State = () => {
             try {
                 const response = await axios.get('/api/user');
                 if (response.data && Array.isArray(response.data.users)) {
-                    const filteredUsers = response.data.users.filter(user => user.role !== 'admin'); // Exclude admin users
-                    setUsers(filteredUsers); // Update users state
+                    const filteredUsers = response.data.users.filter(user => user.role !== 'admin');
+                    setUsers(filteredUsers);
 
                     if (filteredUsers.length > 0) {
-                        setSelectedSellingPoint(filteredUsers[0].sellingPoint); // Set the first sellingPoint as default
+                        setSelectedSellingPoint(filteredUsers[0].symbol); // Use symbol instead of sellingPoint
                     }
                 } else {
                     console.error('Unexpected API response format:', response.data);
-                    setUsers([]); // Fallback to an empty array
+                    setUsers([]);
                 }
             } catch (error) {
                 console.error('Error fetching users:', error);
-                setUsers([]); // Fallback to an empty array
+                setUsers([]);
             }
         };
 
@@ -110,59 +111,58 @@ const State = () => {
 
     const fetchTableData = async () => {
         try {
-            const response = await axios.get('/api/state'); // Fetch table data from backend
+            const response = await axios.get('/api/state');
             const formattedData = response.data.map((row) => ({
                 id: row.id,
-                fullName: row.fullName?.fullName || row.fullName || "Brak danych", // Ensure fullName is a string or fallback to "Brak danych"
+                fullName: row.fullName?.fullName || row.fullName || "Brak danych",
+                plec: row.Plec || "Brak danych",
                 date: row.date,
-                size: row.size?.Roz_Opis || row.size || "Brak danych", // Ensure size is a string or fallback to "Brak danych"
-                barcode: row.barcode || "Brak danych", // Ensure barcode is included or fallback to "Brak danych"
-                sellingPoint: row.sellingPoint || "Brak danych", // Include sellingPoint or fallback to "Brak danych"
+                size: row.size?.Roz_Opis || row.size || "Brak danych",
+                barcode: row.barcode || "Brak danych",
+                symbol: row.symbol || "Brak danych" // Use symbol instead of sellingPoint
             }));
-            setTableData(formattedData.reverse()); // Reverse the data to show the newest rows at the top
+            setTableData(formattedData.reverse());
         } catch (error) {
             console.error('Error fetching table data:', error);
         }
     };
 
-    const sendDataToBackend = async (selectedSize) => {
-        if (!input1Value.trim() || !selectedSize || !selectedDate || !selectedSellingPoint) { // Ensure all fields are filled
-            alert('Wszystkie dane muszą być uzupełnione'); // Alert if any field is empty
+    const sendDataToBackend = async (selectedSize, selectedPlec) => {
+        if (!input1Value.trim() || !selectedSize || !selectedDate || !selectedSellingPoint) {
+            alert('Wszystkie dane muszą być uzupełnione');
             return;
         }
 
         const dataToSend = {
-            fullName: input1Value.trim(), // Trim whitespace before sending
+            fullName: input1Value.trim(),
             size: selectedSize,
-            date: selectedDate.toISOString(), // Ensure date is sent in ISO format
-            sellingPoint: selectedSellingPoint, // Include sellingPoint
+            plec: selectedPlec,
+            date: selectedDate.toISOString(),
+            sellingPoint: selectedSellingPoint,
         };
 
-        console.log('Data being sent to the database:', dataToSend); // Log the data being sent
+        console.log('Sending data to backend:', dataToSend); // Log the payload
 
         try {
             const response = await axios.post('/api/state', dataToSend);
-            console.log('Backend response:', response.data); // Log the backend response
+            console.log('Response from backend:', response.data); // Log the response
 
-            // Prepend the new row to the table data
             const newRow = {
-                id: response.data.id,
+                id: response.data._id,
                 fullName: dataToSend.fullName,
                 date: dataToSend.date,
                 size: dataToSend.size,
-                barcode: response.data.barcode || "Brak danych", // Include barcode from response or fallback
-                sellingPoint: dataToSend.sellingPoint,
+                barcode: response.data.barcode || "Brak danych",
+                symbol: dataToSend.sellingPoint,
             };
-            setTableData((prevData) => [newRow, ...prevData]); // Add the new row to the top of the table
+            setTableData((prevData) => [newRow, ...prevData]);
 
             setInput1Value('');
             setInput2Value('');
-            setSelectedSellingPoint(users.length > 0 ? users[0].sellingPoint : ''); // Reset to the first sellingPoint
-
-            // Move cursor to the product input field
+            setSelectedSellingPoint(users.length > 0 ? users[0].symbol : '');
             inputRefs.current[0].focus();
         } catch (error) {
-            console.error('Error sending data to backend:', error);
+            console.error('Error sending data to backend:', error); // Log the error
         }
     };
 
@@ -212,6 +212,11 @@ const State = () => {
     }, [nameFilter, sizeFilter, dateFilter, sellingPointFilter, tableData]); // Update filtered data when filters or tableData change
 
     const deleteRow = async (id) => {
+        if (!id) {
+            console.error('Invalid ID: Cannot delete row');
+            return;
+        }
+
         try {
             await axios.delete(`/api/state/${id}`); // Send delete request to the backend
             await fetchTableData(); // Refresh table data after deletion
@@ -240,14 +245,14 @@ const State = () => {
             case 'pdf':
                 const doc = new jsPDF(); // Create a new jsPDF instance
                 autoTable(doc, {
-                    head: [['Nr zamówienia', 'Pełna nazwa', 'Data', 'Rozmiar', 'Barcode', 'Punkt Sprzedaży']],
+                    head: [['Nr zamówienia', 'Pełna nazwa', 'Data', 'Rozmiar', 'Barcode', 'Symbol']],
                     body: tableData.map((row, index) => [
                         index + 1,
                         row.fullName,
                         new Date(row.date).toLocaleDateString(),
                         row.size,
                         row.barcode,
-                        row.sellingPoint,
+                        row.symbol,
                     ]),
                 });
                 doc.save('tableData.pdf'); // Save PDF file
@@ -381,11 +386,51 @@ const State = () => {
         } else {
             setInput2Value(selectedOption ? selectedOption.label : '');
             if (selectedOption) {
-                sendDataToBackend(selectedOption.label); // Send data to backend
+                const selectedSize = selectedOption.label;
+                const selectedPlec = selectedOption.value.Plec; // Extract 'Plec' from the selected object
+                sendDataToBackend(selectedSize, selectedPlec); // Pass 'Plec' to the backend
                 setInput1Value('');
                 setInput2Value('');
                 inputRefs.current[0].focus(); // Automatically jump to first input
             }
+        }
+    };
+
+    const handleCheckboxChange = useCallback((event, barcode) => {
+        if (event.target.checked) {
+            setSelectedBarcodes(prevSelectedBarcodes => {
+                if (prevSelectedBarcodes.includes(barcode)) {
+                    return prevSelectedBarcodes; // If already selected, don't add again
+                }
+                return [...prevSelectedBarcodes, barcode]; // Add barcode if not already in the array
+            });
+        } else {
+            setSelectedBarcodes(prevSelectedBarcodes =>
+                prevSelectedBarcodes.filter((b) => b !== barcode) // Remove barcode if unchecked
+            );
+        }
+    }, []);
+
+    const handlePrint = async () => {
+        if (selectedBarcodes.length === 0) {
+            alert('Proszę wybrać kody kreskowe do wydrukowania.');
+            return;
+        }
+
+        try {
+            const response = await axios.post('/api/print-barcodes', {
+                barcodes: selectedBarcodes,
+            });
+
+            if (response.status === 200) {
+                alert('Wysłano do druku!');
+                setSelectedBarcodes([]); // Clear selected barcodes after printing
+            } else {
+                alert('Błąd podczas wysyłania do druku.');
+            }
+        } catch (error) {
+            console.error('Error sending barcodes to print:', error);
+            alert('Wystąpił błąd podczas drukowania.');
         }
     };
 
@@ -406,9 +451,7 @@ const State = () => {
                     value={goodsOptions.find((option) => option.label === input1Value) || null}
                     onChange={(selectedOption) => handleInputChange(selectedOption, 0)}
                     options={goodsOptions}
-                    placeholder="Wpisz pełną nazwę" // Polish: Enter full name
-                    isClearable
-                    isSearchable
+                    placeholder="Wpisz nazwę produktu" // Dodano placeholder
                     className="w-50"
                     styles={{
                         control: (base, state) => ({
@@ -429,7 +472,7 @@ const State = () => {
                         menu: (base) => ({
                             ...base,
                             backgroundColor: 'black',
-                            color:'white',
+                            color: 'white',
                             borderRadius: '4px',
                             border: '1px solid white',
                         }),
@@ -468,7 +511,7 @@ const State = () => {
                         menu: (base) => ({
                             ...base,
                             backgroundColor: 'black',
-                            color:'white',
+                            color: 'white',
                             border: '1px solid white',
                         }),
                         option: (base, state) => ({
@@ -514,8 +557,8 @@ const State = () => {
                     onChange={(e) => setSelectedSellingPoint(e.target.value)} // Update selectedSellingPoint on change
                 >
                     {users.map((user) => (
-                        <option key={user._id} value={user.sellingPoint}>
-                            {user.sellingPoint || 'No Selling Point'}
+                        <option key={user._id} value={user.symbol}>
+                            {user.symbol || 'No Symbol'}
                         </option>
                     ))}
                 </select>
@@ -551,184 +594,16 @@ const State = () => {
                 <thead style={{ backgroundColor: 'black', color: 'white' }}>
                     <tr>
                         <th style={tableCellStyle}>Lp</th>
-                        <th
-                            style={{ ...tableCellStyle, cursor: 'pointer' }}
-                            onClick={() => handleSort('fullName')} // Enable sorting for "Pełna nazwa"
-                        >
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                                    <label style={{ margin: 0 }}>Pełna nazwa</label>
-                                    <span>{getSortIcon('fullName')}</span>
-                                </div>
-                                <Select
-                                    options={[...new Set(tableData.map((row) => ({ value: row.fullName, label: row.fullName })))]}
-                                    placeholder="Filtruj pełną nazwę" // Polish: Filter full name
-                                    isClearable
-                                    isSearchable
-                                    onChange={(selectedOption) => {
-                                        setNameFilter(selectedOption ? selectedOption.value : ''); // Update nameFilter based on selection
-                                    }}
-                                    styles={{
-                                        control: (base, state) => ({
-                                            ...base,
-                                            backgroundColor: 'black',
-                                            color: 'white',
-                                            borderColor: state.isFocused ? '#0d6efd' : base.borderColor, // Change focus border color to #0d6efd
-                                            boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow, // Add blue outline on focus
-                                        }),
-                                        singleValue: (base) => ({
-                                            ...base,
-                                            color: 'white',
-                                        }),
-                                        input: (base) => ({
-                                            ...base,
-                                            color: 'white',
-                                        }),
-                                        menu: (base) => ({
-                                            ...base,
-                                            backgroundColor: 'black',
-                                            color: 'white',
-                                            borderRadius: '4px',
-                                            border: '1px solid white',
-                                        }),
-                                        option: (base, state) => ({
-                                            ...base,
-                                            backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor, // Change hover color to #0d6efd
-                                            color: state.isFocused ? 'white' : base.color, // Ensure text is white on hover
-                                        }),
-                                    }}
-                                />
-                            </div>
+                        <th style={tableCellStyle}>Pełna nazwa</th>
+                        <th style={tableCellStyle}>Data</th>
+                        <th style={tableCellStyle}>Rozmiar</th>
+                        <th style={tableCellStyle}>Symbol</th> 
+                        <th style={tableCellStyle}>
+                            Kody kreskowe
+                            <Button color="primary" onClick={handlePrint} style={{ marginLeft: '5px' }}>
+                                Drukuj
+                            </Button>
                         </th>
-                        <th
-                            style={{ ...tableCellStyle, cursor: 'pointer' }}
-                            onClick={() => handleSort('date')} // Enable sorting for "Data"
-                        >
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                                    <label style={{ margin: 0 }}>Data</label>
-                                    <span>{getSortIcon('date')}</span>
-                                </div>
-                                <div style={{ margin: '0', padding: '0', borderRadius: '4px' }}>
-
-                                    <DatePicker
-                                        selected={dateFilter}
-                                        onChange={(date) => setDateFilter(date)} // Update dateFilter on change
-                                        placeholderText="Filtruj datę" // Polish: Filter date
-                                        className="form-control"
-                                        dateFormat="yyyy-MM-dd" // Ensure a valid date format
-                                        locale="pl" // Set Polish locale
-                                        style={{
-                                            margin: '0',
-                                            padding: '0px',
-                                            boxSizing: 'border-box',
-                                            width: '100%', // Ensure consistent width
-                                            height: '38px', // Match default input height
-                                            lineHeight: '1.5', // Match default line height
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </th>
-                        <th
-                            style={{ ...tableCellStyle, cursor: 'pointer' }}
-                            onClick={() => handleSort('size')} // Enable sorting for "Rozmiar"
-                        >
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                                    <label style={{ margin: 0 }}>Rozmiar</label>
-                                    <span>{getSortIcon('size')}</span>
-                                </div>
-                                <Select
-                                    options={[...new Set(tableData.map((row) => ({ value: row.size, label: row.size })))]}
-                                    placeholder="Filtruj rozmiar" // Polish: Filter size
-                                    isClearable
-                                    isSearchable
-                                    onChange={(selectedOption) => {
-                                        setSizeFilter(selectedOption ? selectedOption.value : ''); // Update sizeFilter based on selection
-                                    }}
-                                    styles={{
-                                        control: (base, state) => ({
-                                            ...base,
-                                            backgroundColor: 'black',
-                                            color: 'white',
-                                            borderColor: state.isFocused ? '#0d6efd' : base.borderColor, // Change focus border color to #0d6efd
-                                            boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow, // Add blue outline on focus
-                                        }),
-                                        singleValue: (base) => ({
-                                            ...base,
-                                            color: 'white',
-                                        }),
-                                        input: (base) => ({
-                                            ...base,
-                                            color: 'white',
-                                        }),
-                                        menu: (base) => ({
-                                            ...base,
-                                            backgroundColor: 'black',
-                                            color: 'white',
-                                            borderRadius: '4px',
-                                            border: '1px solid white',
-                                        }),
-                                        option: (base, state) => ({
-                                            ...base,
-                                            backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor, // Change hover color to #0d6efd
-                                            color: state.isFocused ? 'white' : base.color, // Ensure text is white on hover
-                                        }),
-                                    }}
-                                />
-                            </div>
-                        </th>
-                        <th
-                            style={{ ...tableCellStyle, cursor: 'pointer' }}
-                            onClick={() => handleSort('sellingPoint')} // Enable sorting for "Punkt Sprzedaży"
-                        >
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                                    <label style={{ margin: 0 }}>Punkt Sprzedaży</label>
-                                    <span>{getSortIcon('sellingPoint')}</span>
-                                </div>
-                                <Select
-                                    options={[...new Set(tableData.map((row) => ({ value: row.sellingPoint, label: row.sellingPoint })))]}
-                                    placeholder="Filtruj punkt sprzedaży" // Polish: Filter selling point
-                                    isClearable
-                                    isSearchable
-                                    onChange={(selectedOption) => {
-                                        setSellingPointFilter(selectedOption ? selectedOption.value : ''); // Update sellingPointFilter based on selection
-                                    }}
-                                    styles={{
-                                        control: (base, state) => ({
-                                            ...base,
-                                            backgroundColor: 'black',
-                                            color: 'white',
-                                            borderColor: state.isFocused ? '#0d6efd' : base.borderColor, // Change focus border color to #0d6efd
-                                            boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow, // Add blue outline on focus
-                                        }),
-                                        singleValue: (base) => ({
-                                            ...base,
-                                            color: 'white',
-                                        }),
-                                        input: (base) => ({
-                                            ...base,
-                                            color: 'white',
-                                        }),
-                                        menu: (base) => ({
-                                            ...base,
-                                            backgroundColor: 'black',
-                                            color: 'white',
-                                            borderRadius: '4px',
-                                            border: '1px solid white',
-                                        }),
-                                        option: (base, state) => ({
-                                            ...base,
-                                            backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor, // Change hover color to #0d6efd
-                                            color: state.isFocused ? 'white' : base.color, // Ensure text is white on hover
-                                        }),
-                                    }}
-                                />
-                            </div>
-                        </th>
-                        <th style={tableCellStyle}>Kody kreskowe</th>
                         <th style={tableCellStyle}>Akcje</th>
                     </tr>
                 </thead>
@@ -741,12 +616,18 @@ const State = () => {
                                 {new Date(row.date).toLocaleDateString()}
                             </td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
-                            <td style={tableCellStyle} data-label="Punkt Sprzedaży">{row.sellingPoint}</td> 
+                            <td style={tableCellStyle} data-label="Symbol">{row.symbol}</td> 
                             <td style={tableCellStyle} data-label="Barcode">
                                 <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
+                                <input
+                                    type="checkbox"
+                                    key={row.barcode}
+                                    checked={selectedBarcodes.includes(row.barcode)}
+                                    onChange={(e) => handleCheckboxChange(e, row.barcode)}
+                                />
                             </td>
                             <td style={tableCellStyle} data-label="Akcje">
-                                <div className="d-flex gap-1"> 
+                                <div className="d-flex gap-1">
                                     <Button color="warning" size="sm" onClick={() => handleEditClick(row)}>Edytuj</Button>
                                     <Button color="danger" size="sm" onClick={() => {
                                         if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) { // Confirm before deleting

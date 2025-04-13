@@ -83,9 +83,13 @@ const Goods = () => {
             .then(response => response.json())
             .then(data => {
                 const filteredCategories = (data.categories || []).filter(cat => cat.Kat_1_Opis_1 && cat.Kat_1_Opis_1.trim() !== '');
-                setSubcategories(filteredCategories); // Use filtered categories
-                if (filteredCategories.length > 0) {
-                    setSelectedSubcategory(filteredCategories[0]._id); // Set the first category as default
+                const updatedCategories = filteredCategories.map(cat => ({
+                    ...cat,
+                    Płeć: cat.Plec || '' // Ensure Płeć is included and defaults to an empty string if missing
+                }));
+                setSubcategories(updatedCategories); // Use updated categories
+                if (updatedCategories.length > 0) {
+                    setSelectedSubcategory(updatedCategories[0]._id); // Set the first category as default
                 }
             })
             .catch(error => console.error('Error fetching categories:', error));
@@ -204,7 +208,7 @@ const Goods = () => {
         }
 
         const subcategoryElement = document.querySelector(`#subcategorySelect option[value="${selectedSubcategory}"]`);
-        const sex = subcategoryElement ? subcategoryElement.getAttribute('sex') : '';
+        const Plec = subcategoryElement ? subcategoryElement.getAttribute('plec') : ''; // Extract Plec from the subcategory
 
         const formData = new FormData();
         formData.append('stock', stock ? stock._id : '');
@@ -218,7 +222,7 @@ const Goods = () => {
         formData.append('priceExceptions', JSON.stringify(priceExceptions));
         formData.append('sellingPoint', ''); // Default value for sellingPoint
         formData.append('barcode', ''); // Default value for barcode
-        formData.append('sex', sex); // Append the sex value
+        formData.append('Plec', Plec); // Append Plec to the form data
         if (selectedImage) {
             formData.append('Picture', selectedImage);
         }
@@ -379,7 +383,7 @@ const Goods = () => {
                             value={selectedCategory}
                             disabled // Disable the select input as it will have only one option
                         >
-                            <option value="Kurtki kożuchy futra">Kurtki kożuchy futra</option> 
+                            <option value="Kurtki kożuchy futra">Kurtki kożuchy futra</option>
                         </Input>
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
@@ -392,8 +396,13 @@ const Goods = () => {
                             onChange={(e) => setSelectedSubcategory(e.target.value)}
                         >
                             {subcategories.map(sub => (
-                                <option key={sub._id} value={sub._id}>
-                                    {sub.Kat_1_Opis_1} 
+                                <option
+                                    key={sub._id}
+                                    value={sub._id}
+                                    name={sub.Kat_1_Opis_1} // Add Kat_1_Opis_1 as an attribute
+                                    plec={sub.Płeć} // Add Płeć as a hidden attribute
+                                >
+                                    {sub.Kat_1_Opis_1} {/* Display only Kat_1_Opis_1 */}
                                 </option>
                             ))}
                         </Input>
@@ -527,7 +536,7 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Cena (PLN)</th>
                             <th className={styles.tableHeader}>Cena promocyjna (PLN)</th>
                             <th className={styles.tableHeader}>Wyjątki</th>
-                            <th className={styles.tableHeader}>Płeć</th> 
+                            <th className={styles.tableHeader}>Płeć</th>
                             <th className={styles.tableHeader}>Akcje</th>
                         </tr>
                     </thead>
@@ -539,7 +548,7 @@ const Goods = () => {
                                 <td className={styles.tableCell} data-label="Kolor">{good.color.Kol_Opis}</td>
                                 <td className={styles.tableCell} data-label="Nazwa produktu">{good.fullName}</td>
                                 <td className={styles.tableCell} data-label="Kod produktu">{good.code}</td>
-                                <td className={styles.tableCell} data-label="Kategoria">{good.category}</td> 
+                                <td className={styles.tableCell} data-label="Kategoria">{good.category}</td>
                                 <td className={styles.tableCell} data-label="Podkategoria">{good.subcategory ? good.subcategory.Kat_1_Opis_1 : ''}</td>
                                 <td className={styles.tableCell} data-label="Zdjęcie">
                                     <img
@@ -562,7 +571,9 @@ const Goods = () => {
                                         </span>
                                     ))}
                                 </td>
-                                <td className={styles.tableCell} data-label="Płeć">{good.sex}</td> 
+                                <td className={styles.tableCell} data-label="Płeć">
+                                    {good.subcategory ? subcategories.find(sub => sub._id === good.subcategory._id)?.Płeć || '' : ''}
+                                </td>
                                 <td className={styles.tableCell} data-label="Akcje">
                                     <Button color="warning" size="sm" className="edit" onClick={() => handleEditProduct(good)}>Edytuj</Button>
                                     <Button color="danger" size="sm" className="ml-2" onClick={() => handleDeleteProduct(good._id)}>Usuń</Button>

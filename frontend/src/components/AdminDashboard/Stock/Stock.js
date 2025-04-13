@@ -31,6 +31,43 @@ const Stock = () => {
         fetchData();
     }, []);
 
+    useEffect(() => {
+        const matchFullNames = async () => {
+            try {
+                const goodsResponse = await axios.get('/api/excel/goods/get-all-goods');
+                const stateResponse = await axios.get('/api/state');
+
+                if (goodsResponse.data && stateResponse.data) {
+                    const goodsFullNames = goodsResponse.data.goods.map((item) => ({
+                        fullName: item.fullName.trim().toLowerCase(), // Normalize fullName
+                        plec: item.Plec || "Brak danych", // Include Plec if available
+                    }));
+
+                    const matchingValues = stateResponse.data.filter((stateItem) =>
+                        goodsFullNames.some((goodsItem) => goodsItem.fullName === stateItem.fullName.trim().toLowerCase())
+                    );
+
+                    if (matchingValues.length > 0) {
+                        // const alertMessages = matchingValues.map((match) => {
+                        //     const matchedGoods = goodsFullNames.find((goodsItem) => goodsItem.fullName === match.fullName.trim().toLowerCase());
+                        //     return `Matching Value: ${match.fullName}, Data-Plec: ${matchedGoods.plec}`;
+                        // });
+
+                        // alert(alertMessages.join('\n')); // Display all matches in an alert
+                    } else {
+                        // console.log('No matching values found.');
+                    }
+                } else {
+                    console.error('Unexpected API response format.');
+                }
+            } catch (error) {
+                console.error('Error matching full names:', error);
+            }
+        };
+
+        matchFullNames();
+    }, []); // Run once on component mount
+
     const toggleModal = () => setModal(!modal);
 
     const handleUpdateClick = (stock) => {
@@ -94,7 +131,6 @@ const Stock = () => {
             setLoading(true);
             const result = (await axios.get(`/api/excel/stock/get-all-stocks`)).data;
             setRows(Array.isArray(result.stocks) ? result.stocks : []);
-            console.log(result);
         } catch (error) {
             console.log(error);
         } finally {
@@ -154,7 +190,6 @@ const Stock = () => {
                     const worksheet = workbook.Sheets[sheetName];
                     const json = utils.sheet_to_json(worksheet);
                     setExcelRows(json);
-                    console.log(json);
                 } catch (error) {
                     handleFileReadError(error);
                 }
@@ -251,7 +286,7 @@ const Stock = () => {
                         <Col md="6" className={styles.textLeft}>
                             <FormGroup>
                                 <div>
-                                <input className={styles.inputFile}
+                                    <input className={styles.inputFile}
                                         id="inputEmpGroupFile"
                                         name="file"
                                         type="file"

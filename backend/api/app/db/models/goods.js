@@ -25,7 +25,7 @@ const goodsSchema = mongoose.Schema({
         ref: 'Category', // Reference to the subcategory model
         required: true
     },
-    sex: { type: String, required: true }, // New field for sex
+    Plec: { type: String, required: true }, // Rename from 'sex' to 'Plec'
     picture: { type: String, default: "" },
     priceExceptions: {
         type: [{
@@ -34,8 +34,9 @@ const goodsSchema = mongoose.Schema({
         }],
         default: []
     },
+    symbol: { type: String, required: false, default: '' },
     sellingPoint: { type: String, required: false, default: '' }, // Default to an empty string
-barcode: { type: String, required: false, default: '' }, // Default to an empty string
+    barcode: { type: String, required: false, default: '' }, // Default to an empty string
 });
 
 goodsSchema.post('save', function (error, doc, next) {

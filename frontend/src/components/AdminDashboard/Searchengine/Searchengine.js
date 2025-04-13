@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Outlet } from 'react-router-dom';
 
-const Searchengine = ({ onSearch }) => {
-
+const Searchengine = () => {
     return (
         <div>
-            <h1>Search Engine</h1>
+            <Outlet />
         </div>
     );
 };

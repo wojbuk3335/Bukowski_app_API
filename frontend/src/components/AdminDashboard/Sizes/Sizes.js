@@ -95,7 +95,6 @@ const Sizes = () => {
             const result = (await axios.get("/api/excel/size/get-all-sizes")).data;
             const sortedSizes = Array.isArray(result.sizes) ? result.sizes.sort((a, b) => a.Roz_Kod.localeCompare(b.Roz_Kod)) : [];
             setRows(sortedSizes);
-            console.log(result);
         } catch (error) {
             console.log(error);
         } finally {
@@ -155,7 +154,6 @@ const Sizes = () => {
                     const worksheet = workbook.Sheets[sheetName];
                     const json = utils.sheet_to_json(worksheet);
                     setExcelRows(json);
-                    console.log(json);
                 } catch (error) {
                     handleFileReadError(error);
                 }
@@ -175,7 +173,6 @@ const Sizes = () => {
     const getSizeList = async () => {
         try {
             const url = "/api/excel/size/get-all-sizes";
-            console.log(`Requesting URL: ${url}`);
             const sizeResponse = (await axios.get(url)).data;
             return Array.isArray(sizeResponse.sizes) ? sizeResponse.sizes : [];
         } catch (error) {

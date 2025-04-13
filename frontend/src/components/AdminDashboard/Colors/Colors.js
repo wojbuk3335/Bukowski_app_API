@@ -95,7 +95,6 @@ const Colors = () => {
             const result = (await axios.get(`/api/excel/color/get-all-colors`)).data;
             const sortedColors = Array.isArray(result.colors) ? result.colors.sort((a, b) => a.Kol_Kod.localeCompare(b.Kol_Kod)) : [];
             setRows(sortedColors);
-            console.log(result);
         } catch (error) {
             console.log(error);
         } finally {
@@ -155,7 +154,6 @@ const Colors = () => {
                     const worksheet = workbook.Sheets[sheetName];
                     const json = utils.sheet_to_json(worksheet);
                     setExcelRows(json);
-                    console.log(json);
                 } catch (error) {
                     handleFileReadError(error);
                 }
@@ -175,7 +173,6 @@ const Colors = () => {
     const getColorList = async () => {
         try {
             const url = `/api/excel/color/get-all-colors`;
-            console.log(`Requesting URL: ${url}`);
             const colorResponse = (await axios.get(url)).data;
             return Array.isArray(colorResponse.colors) ? colorResponse.colors : [];
         } catch (error) {
@@ -259,7 +256,7 @@ const Colors = () => {
                         <Col md="6" className={styles.textLeft}>
                             <FormGroup>
                                 <div>
-                                <input className={styles.inputFile}
+                                    <input className={styles.inputFile}
                                         id="inputEmpGroupFile"
                                         name="file"
                                         type="file"

@@ -6,7 +6,7 @@ const config = require('../config');
 
 class GoodsController {
     async createGood(req, res, next) {
-        const { stock, color, fullName, code, category, subcategory, price, discount_price, sellingPoint, barcode, sex } = req.body;
+        const { stock, color, fullName, code, category, subcategory, price, discount_price, sellingPoint, barcode, Plec } = req.body; // Use Plec instead of sex
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
 
@@ -23,9 +23,9 @@ class GoodsController {
             priceExceptions,
             sellingPoint,
             barcode,
-            sex
+            Plec // Log Plec
         });
-        
+
         // Validate stock value
         if (stock === 'NIEOKREŚLONY') {
             return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
@@ -54,7 +54,7 @@ class GoodsController {
             code,
             category: category.replace(/_/g, ' '), // Replace underscores with spaces
             subcategory,
-            sex, // Save the sex value
+            Plec, // Save Plec
             price,
             discount_price,
             picture,
@@ -75,7 +75,7 @@ class GoodsController {
                         code: result.code,
                         category: result.category,
                         subcategory: result.subcategory,
-                        sex: result.sex, // Include sex in the response
+                        Plec: result.Plec, // Include Plec in the response
                         price: result.price,
                         discount_price: result.discount_price,
                         picture: result.picture,
@@ -94,7 +94,7 @@ class GoodsController {
 
     async getAllGoods(req, res, next) {
         Goods.find()
-            .select('_id stock color fullName code category subcategory sex price discount_price picture priceExceptions sellingPoint barcode')
+            .select('_id stock color fullName code category subcategory Plec price discount_price picture priceExceptions sellingPoint barcode')
             .populate('stock', 'Tow_Opis Tow_Kod')
             .populate('color', 'Kol_Opis Kol_Kod')
             .populate('subcategory', 'Kat_1_Opis_1') // Populate subcategory with its description
@@ -110,7 +110,7 @@ class GoodsController {
                         code: good.code,
                         category: good.category.replace(/_/g, ' '), // Replace underscores with spaces
                         subcategory: good.subcategory,
-                        sex: good.sex, // Include sex in the response
+                        Plec: good.Plec, // Include Plec in the response
                         price: good.price,
                         discount_price: good.discount_price,
                         picture: good.picture,
@@ -138,7 +138,7 @@ class GoodsController {
             code: req.body.code,
             category: req.body.category.replace(/_/g, ' '), // Replace underscores with spaces
             subcategory: req.body.subcategory,
-            sex: req.body.sex, // Update the sex value
+            Plec: req.body.Plec, // Update Plec
             price: req.body.price,
             discount_price: req.body.discount_price || 0,
             priceExceptions: JSON.parse(req.body.priceExceptions || '[]'),

@@ -1,5 +1,5 @@
 import React from 'react';
-import '../node_modules/bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminLogin from './components/AdminLogin/AdminLogin';
@@ -19,6 +19,8 @@ import UserProfile from './components/UserDashboard/Profile/Profile';
 import Goods from './components/AdminDashboard/Goods/Goods';
 import State from './components/AdminDashboard/State/State';
 import Category from './components/AdminDashboard/Category/Category';
+import SeachEngineList from './components/AdminDashboard/Searchengine/SeachEngineList/SeachEngineList';
+import SeachEngineTable from './components/AdminDashboard/Searchengine/SeachEngineTable/SeachEngineTable';
 
 function App() {
   return (
@@ -32,7 +34,10 @@ function App() {
           <Route path="profile" element={<Profile />} />
           <Route path='colors' element={<Colors />} />
           <Route path='sizes' element={<Sizes />} />
-          <Route path='searchengine' element={<Searchengine />} />
+          <Route path='searchengine' element={<Searchengine />}>
+            <Route path='list' element={<SeachEngineList />} />
+            <Route path='table' element={<SeachEngineTable />} />
+          </Route>
           <Route path='users' element={<Users />} />
           <Route path='goods' element={<Goods />} />
           <Route path="category">
