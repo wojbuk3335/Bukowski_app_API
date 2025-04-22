@@ -20,7 +20,6 @@ class StatesController {
         try {
             const states = await State.find()
                 .populate('fullName', 'fullName') // Correctly populate fullName
-                .populate('plec', 'Plec')        // Correctly populate plec
                 .populate('size', 'Roz_Opis')
                 .populate('sellingPoint', 'symbol'); // Populate symbol instead of sellingPoint
 
@@ -31,7 +30,7 @@ class StatesController {
                 plec: state.plec, // Include Plec in the response
                 size: state.size.Roz_Opis,
                 barcode: state.barcode,
-                symbol: state.sellingPoint.symbol // Return symbol instead of sellingPoint
+                symbol: state.sellingPoint ? state.sellingPoint.symbol : null // Return symbol instead of sellingPoint
             })));
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -41,29 +40,27 @@ class StatesController {
     // Create a new state
     async createState(req, res, next) {
         try {
-            console.log('Request body:', req.body); // Log the incoming request body
-
             // Find the ObjectId for fullName in Goods
             const goods = await Goods.findOne({ fullName: req.body.fullName });
             if (!goods) {
-                return res.status(404).json({ message: 'Goods not found' });
+                return res.status(404).send('Goods not found');
             }
 
             const plec = goods.Plec; // Assuming `Plec` is the field in Goods
             if (!plec) {
-                return res.status(404).json({ message: 'Plec not found' });
+                return res.status(404).send('Plec not found');
             }
 
             // Find the ObjectId for size in Size
             const size = await Size.findOne({ Roz_Opis: req.body.size });
             if (!size) {
-                return res.status(404).json({ message: 'Size not found' });
+                return res.status(404).send('Size not found');
             }
 
             // Find the ObjectId for sellingPoint in User
             const user = await mongoose.models.User.findOne({ symbol: req.body.sellingPoint });
             if (!user) {
-                return res.status(404).json({ message: 'Selling point not found' });
+                return res.status(404).send('Selling point not found');
             }
 
             // Extract the code from Goods and update it with Roz_Kod
@@ -116,19 +113,19 @@ class StatesController {
             // Find the ObjectId for fullName in Goods
             const goods = await Goods.findOne({ fullName });
             if (!goods) {
-                return res.status(404).json({ message: 'Goods not found' });
+                return res.status(404).send('Goods not found');
             }
 
             // Find the ObjectId for size in Size
             const sizeObj = await Size.findOne({ Roz_Opis: size });
             if (!sizeObj) {
-                return res.status(404).json({ message: 'Size not found' });
+                return res.status(404).send('Size not found');
             }
 
             // Find the ObjectId for sellingPoint in User
             const user = await mongoose.models.User.findOne({ sellingPoint });
             if (!user) {
-                return res.status(404).json({ message: 'Selling point not found' });
+                return res.status(404).send('Selling point not found');
             }
 
             // Update the barcode

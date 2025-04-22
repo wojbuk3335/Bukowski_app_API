@@ -1,11 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const StockController = require('../controllers/stock');
+const historyLogger = require('../middleware/historyLogger');
 
 router.get('/get-all-stocks', StockController.getAllStocks);
-router.post('/insert-many-stocks', StockController.insertManyStocks);
-router.delete('/delete-all-stocks', StockController.deleteAllStocks);
+router.post('/insert-many-stocks', historyLogger('stock'), StockController.insertManyStocks);
+router.delete('/delete-all-stocks', historyLogger('stock'), StockController.deleteAllStocks);
 router.get('/:stockId', StockController.getStockById);
-router.patch('/update-stock/:stockId', StockController.updateStockById);
+router.patch('/update-stock/:stockId', historyLogger('stock'), StockController.updateStockById);
 
 module.exports = router;

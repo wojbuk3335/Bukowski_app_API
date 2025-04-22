@@ -6,7 +6,7 @@ const path = require('path');
 const cors = require('cors');
 const { port } = require('./config'); // Import port configuration
 const { domain } = require('./config'); // Import domain configuration
-
+app.use(express.json()); // Add this line
 app.use(cors());
 
 const mongoose = require('./db/mongoose');
@@ -26,7 +26,9 @@ const configRoutes = require('./routes/config');
 const stateRoutes = require('./routes/state');
 const categoryRoutes = require('./routes/category');
 const printRoutes = require('./routes/print'); // Import print routes
+const historyRoutes = require('./routes/history'); // Import history routes
 
+app.use('/api/history', historyRoutes); // Use history routes
 app.use('/api/jackets', jacketRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/excel/stock', stockRoutes);

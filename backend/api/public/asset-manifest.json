@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.d1a11ffb.css",
-    "main.js": "/static/js/main.a94539c6.js",
+    "main.css": "/static/css/main.b0764093.css",
+    "main.js": "/static/js/main.1db8151d.js",
     "static/js/239.dfdb0d71.chunk.js": "/static/js/239.dfdb0d71.chunk.js",
     "static/js/977.c3d99690.chunk.js": "/static/js/977.c3d99690.chunk.js",
     "static/js/455.ec63873d.chunk.js": "/static/js/455.ec63873d.chunk.js",
@@ -9,15 +9,15 @@
     "static/media/close-button.png": "/static/media/close-button.f843456695bfc6df73a0.png",
     "static/media/bukowski_logo.png": "/static/media/bukowski_logo.08a8af366c2792b804af.png",
     "index.html": "/index.html",
-    "main.d1a11ffb.css.map": "/static/css/main.d1a11ffb.css.map",
-    "main.a94539c6.js.map": "/static/js/main.a94539c6.js.map",
+    "main.b0764093.css.map": "/static/css/main.b0764093.css.map",
+    "main.1db8151d.js.map": "/static/js/main.1db8151d.js.map",
     "239.dfdb0d71.chunk.js.map": "/static/js/239.dfdb0d71.chunk.js.map",
     "977.c3d99690.chunk.js.map": "/static/js/977.c3d99690.chunk.js.map",
     "455.ec63873d.chunk.js.map": "/static/js/455.ec63873d.chunk.js.map",
     "453.d855a71b.chunk.js.map": "/static/js/453.d855a71b.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.d1a11ffb.css",
-    "static/js/main.a94539c6.js"
+    "static/css/main.b0764093.css",
+    "static/js/main.1db8151d.js"
   ]
 }

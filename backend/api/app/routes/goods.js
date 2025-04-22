@@ -4,6 +4,7 @@ const GoodsController = require('../controllers/goods');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const historyLogger = require('../middleware/historyLogger');
 
 const { createGood, getAllGoods, updateGood, deleteGood } = GoodsController;
 
@@ -23,9 +24,9 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 } // Limit file size to 5MB
 });
 
-router.post('/create-goods', upload.single('Picture'), createGood);
+router.post('/create-goods', upload.single('Picture'),historyLogger('goods'), createGood);
 router.get('/get-all-goods', getAllGoods);
-router.put('/:goodId', upload.single('Picture'), updateGood);
-router.delete('/:goodId', deleteGood);
+router.put('/:goodId', upload.single('Picture'),historyLogger('goods'), updateGood);
+router.delete('/:goodId',historyLogger('goods'), deleteGood);
 
 module.exports = router;

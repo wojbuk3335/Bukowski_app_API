@@ -43,7 +43,6 @@ class JacketsController {
     }
 
     createJacket(req, res, next) {
-        console.log(req.file);
         const jacket = new Jacket({
             _id: new mongoose.Types.ObjectId(),
             name: req.body.name,
@@ -97,7 +96,6 @@ class JacketsController {
         Jacket.findById(id)
             .select('_id name nameID color colorID size sizeID currentStall currentStallID dateOfAdd defaultPriceKrupowki defaultPriceGubalowka defaultPriceKarpacz')
             .then(jacket => {
-                console.log(jacket);
                 if (jacket) {
                     res.status(200).json({
                         jacket: jacket,

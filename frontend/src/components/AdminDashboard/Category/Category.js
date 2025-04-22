@@ -132,7 +132,28 @@ const Category = () => {
             }
         } catch (error) {
             console.error("Error uploading data:", error); // Log errors for debugging
-            alert("Wystąpił błąd podczas przesyłania danych. Proszę spróbować ponownie.");
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                console.log("Data:", error.response.data);
+                console.log("Status:", error.response.status);
+                console.log("Headers:", error.response.headers);
+
+                if (error.response.status === 400 && error.response.data && error.response.data.message === "Duplicate Kat_1_Kod_1 values in database") {
+                    alert("Wykryto duplikaty w kolumnie 'Kat_1_Kod_1'. Proszę poprawić dane w pliku Excel i spróbować ponownie.");
+                } else {
+                    alert(`Wystąpił błąd podczas przesyłania danych. Status: ${error.response.status}. Szczegóły w konsoli.`);
+                }
+
+            } else if (error.request) {
+                // The request was made but no response was received
+                console.log(error.request);
+                alert("Wystąpił błąd podczas przesyłania danych. Brak odpowiedzi z serwera.");
+            } else {
+                // Something happened in setting up the request that triggered an Error
+                console.log('Error', error.message);
+                alert(`Wystąpił błąd podczas przesyłania danych. Błąd: ${error.message}`);
+            }
         } finally {
             setLoading(false);
         }
@@ -200,6 +221,32 @@ const Category = () => {
         </Table>
     );
 
+    if (loading) {
+        return (
+            <div
+                className="spinner-container"
+                style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'black',
+                }}
+            >
+                <div
+                    className="spinner-border"
+                    role="status"
+                    style={{
+                        color: 'white',
+                        width: '3rem',
+                        height: '3rem',
+                    }}
+                >
+                    <span className="sr-only"></span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div>
             <Fragment>
@@ -235,7 +282,6 @@ const Category = () => {
                             </Button>
                         </Col>
                     </Row>
-                    {loading && <progress className={styles.progress}></progress>}
                     <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
                     {renderDataTable()}
                 </div>

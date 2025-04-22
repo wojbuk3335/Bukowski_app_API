@@ -9,23 +9,6 @@ class GoodsController {
         const { stock, color, fullName, code, category, subcategory, price, discount_price, sellingPoint, barcode, Plec } = req.body; // Use Plec instead of sex
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
-
-        console.log('Received data:', {
-            stock,
-            color,
-            fullName,
-            code,
-            category,
-            subcategory,
-            price,
-            discount_price,
-            picture,
-            priceExceptions,
-            sellingPoint,
-            barcode,
-            Plec // Log Plec
-        });
-
         // Validate stock value
         if (stock === 'NIEOKREŚLONY') {
             return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
@@ -136,7 +119,7 @@ class GoodsController {
             color: req.body.color,
             fullName: req.body.fullName,
             code: req.body.code,
-            category: req.body.category.replace(/_/g, ' '), // Replace underscores with spaces
+            category: req.body.category ? req.body.category.replace(/_/g, ' ') : null, // Replace underscores with spaces
             subcategory: req.body.subcategory,
             Plec: req.body.Plec, // Update Plec
             price: req.body.price,
@@ -173,17 +156,17 @@ class GoodsController {
         Goods.updateOne({ _id: id }, { $set: updateData })
             .then(result => {
                 if (result.nModified > 0) {
-                    res.status(200).json({
+                    return res.status(200).json({
                         message: 'Good updated successfully'
                     });
                 } else {
-                    res.status(404).json({
+                    return res.status(404).json({
                         message: 'Good not found or no changes made'
                     });
                 }
             })
             .catch(error => {
-                res.status(500).json({
+                return res.status(500).json({
                     error
                 });
             });

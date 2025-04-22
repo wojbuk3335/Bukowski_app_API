@@ -19,7 +19,6 @@ import styles from './Colors.module.css';
 const requiredFields = ["Kol_Kod", "Kol_Opis"];
 
 const Colors = () => {
-
     const [loading, setLoading] = useState(false);
     const [excelRows, setExcelRows] = useState([]);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -245,6 +244,32 @@ const Colors = () => {
         </Table>
     );
 
+    if (loading) {
+        return (
+            <div
+                className="spinner-container"
+                style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'black',
+                }}
+            >
+                <div
+                    className="spinner-border"
+                    role="status"
+                    style={{
+                        color: 'white',
+                        width: '3rem',
+                        height: '3rem',
+                    }}
+                >
+                    <span className="sr-only"></span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div>
             <Fragment>
@@ -283,7 +308,6 @@ const Colors = () => {
                             </div>
                         </Col>
                     </Row>
-                    {loading && <progress className={styles.progress}></progress>}
                     {renderDataTable()}
                 </div>
             </Fragment>

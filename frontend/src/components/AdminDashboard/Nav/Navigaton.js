@@ -49,9 +49,9 @@ function Navigaton() {
             <Nav.Link as={Link} to="/admin/dashboard/users">Użytkownicy</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/goods">Produkty</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/state">Stan</Nav.Link>
-            <Nav.Link as={Link} to="/admin/dashboard/state">Sprzedaż</Nav.Link>
-            <Nav.Link as={Link} to="/admin/dashboard/state">Historia</Nav.Link>
-            <Nav.Link as={Link} to="/admin/dashboard/state">Raporty</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/sales">Sprzedaż</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/history">Historia</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/raports">Raporty</Nav.Link>
 
           </Nav>
         </Navbar.Collapse>

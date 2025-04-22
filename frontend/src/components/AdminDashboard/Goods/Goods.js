@@ -4,6 +4,7 @@ import { Modal, ModalHeader, ModalBody, FormGroup, Label, Input, Button, Table, 
 import defaultPicture from '../../../assets/images/default_image_2.png'; // Import the default picture icon
 
 const Goods = () => {
+    const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState(false);
     const [stocks, setStocks] = useState([]);
     const [colors, setColors] = useState([]);
@@ -31,6 +32,7 @@ const Goods = () => {
     };
 
     const fetchGoods = () => {
+        setLoading(true);
         fetch('/api/excel/goods/get-all-goods')
             .then(response => response.json())
             .then(data => {
@@ -40,10 +42,12 @@ const Goods = () => {
                 }));
                 setGoods(updatedGoods);
             })
-            .catch(error => console.error('Error fetching goods:', error));
+            .catch(error => console.error('Error fetching goods:', error))
+            .finally(() => setLoading(false));
     };
 
     useEffect(() => {
+        fetchGoods();
         fetch('/api/excel/stock/get-all-stocks')
             .then(response => response.json())
             .then(data => {
@@ -67,8 +71,6 @@ const Goods = () => {
                 }
             })
             .catch(error => console.error('Error fetching colors:', error));
-
-        fetchGoods();
     }, []);
 
     useEffect(() => {
@@ -360,6 +362,32 @@ const Goods = () => {
         header.addEventListener('mousedown', onMouseDown);
     };
 
+    if (loading) {
+        return (
+            <div
+                className="spinner-container"
+                style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'black',
+                }}
+            >
+                <div
+                    className="spinner-border"
+                    role="status"
+                    style={{
+                        color: 'white',
+                        width: '3rem',
+                        height: '3rem',
+                    }}
+                >
+                    <span className="sr-only"></span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div>
             <Button color="primary" className={`${styles.addButton} ${styles.button} btn-sm`} onClick={toggle}>Dodaj produkt</Button>
@@ -475,7 +503,7 @@ const Goods = () => {
                         />
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
-                        <Label for="discountPrice" className={styles.label}>Cena promocyjna (PLN):</Label>
+                        <Label for="discountPrice" className={styles.label}>Promocyjna (PLN):</Label>
                         <Input
                             type="number"
                             id="discountPrice"

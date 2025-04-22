@@ -5,6 +5,7 @@ import styles from './Users.module.css';
 
 const Users = () => {
     const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
     const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false);
@@ -15,6 +16,8 @@ const Users = () => {
     const [editPassword, setEditPassword] = useState('');
     const [editConfirmPassword, setEditConfirmPassword] = useState('');
     const [initialRole, setInitialRole] = useState('');
+    const [oldUser, setOldUser] = useState(null);
+    const [updatedUser, setUpdatedUser] = useState(null);
 
     const modalRef = useRef(null);
 
@@ -31,12 +34,20 @@ const Users = () => {
     }, [isAddUserModalOpen, isModalOpen, isDeleteConfirmModalOpen]);
 
     const fetchUsers = () => {
-        axios.get('/api/user')
+        setLoading(true);
+        axios.get('/api/user', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+            }
+        })
             .then(response => {
                 setUsers(response.data.users);
             })
             .catch(error => {
                 console.error('There was an error fetching the users!', error);
+            })
+            .finally(() => {
+                setLoading(false);
             });
     };
 
@@ -131,7 +142,17 @@ const Users = () => {
             return;
         }
 
-        axios.post('/api/user/signup', newUser)
+        const payload = {
+            ...newUser,
+            userLoggedInId: localStorage.getItem('AdminEmail') // Add userLoggedInId to the payload
+        };
+        console.log("Payload wysyłany na backend:", payload);
+
+        axios.post('/api/user/signup', payload, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+            }
+        })
             .then(response => {
                 toggleAddUserModal();
                 fetchUsers(); // Refresh the user list
@@ -145,7 +166,11 @@ const Users = () => {
     };
 
     const handleEditUser = (userId) => {
-        axios.get(`/api/user/${userId}`)
+        axios.get(`/api/user/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+            }
+        })
             .then(response => {
                 const user = response.data.user;
                 setEditUser({
@@ -216,7 +241,11 @@ const Users = () => {
 
         // Check if changing from admin to user and if this is the last admin
         if (initialRole === 'admin' && updatedUser.role !== 'admin') {
-            axios.get('/api/user')
+            axios.get('/api/user', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+                }
+            })
                 .then(response => {
                     const adminUsers = response.data.users.filter(user => user.role === 'admin');
                     if (adminUsers.length <= 1) {
@@ -235,10 +264,19 @@ const Users = () => {
     };
 
     const updateUserInDatabase = (updatedUser) => {
-        axios.put(`/api/user/${updatedUser._id}`, updatedUser)
+        axios.put(`/api/user/${updatedUser._id}`, updatedUser, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+            }
+        })
             .then(response => {
                 toggleModal();
                 fetchUsers(); // Refresh the user list
+                setOldUser(response.data.oldUser);
+                setUpdatedUser(response.data.updatedUser);
+
+                console.log('Old User:', response.data.oldUser);
+                console.log('Updated User:', response.data.updatedUser);
             })
             .catch(error => {
                 console.error('There was an error updating the user!', error);
@@ -248,7 +286,11 @@ const Users = () => {
     const handleDeleteUser = (userId) => {
         const userToDelete = users.find(user => user._id === userId);
         if (userToDelete.role === 'admin') {
-            axios.get('/api/user')
+            axios.get('/api/user', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+                }
+            })
                 .then(response => {
                     const adminUsers = response.data.users.filter(user => user.role === 'admin');
                     if (adminUsers.length <= 1) {
@@ -269,7 +311,11 @@ const Users = () => {
     };
 
     const confirmDeleteUser = () => {
-        axios.delete(`/api/user/${userIdToDelete}`)
+        axios.delete(`/api/user/${userIdToDelete}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+            }
+        })
             .then(response => {
                 toggleDeleteConfirmModal();
                 fetchUsers(); // Refresh the user list
@@ -314,6 +360,32 @@ const Users = () => {
 
         header.addEventListener('mousedown', onMouseDown);
     };
+
+    if (loading) {
+        return (
+            <div
+                className="spinner-container"
+                style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'black',
+                }}
+            >
+                <div
+                    className="spinner-border"
+                    role="status"
+                    style={{
+                        color: 'white',
+                        width: '3rem',
+                        height: '3rem',
+                    }}
+                >
+                    <span className="sr-only"></span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -446,6 +518,18 @@ const Users = () => {
                     <button className={styles.customCloseButton} onClick={toggleModal}></button>
                 </ModalHeader>
                 <ModalBody className={styles.modalBody}>
+                    {/* Display oldUser and updatedUser data */}
+                    {oldUser && updatedUser && (
+                        <div>
+                            <p><b>Dane przed aktualizacją:</b></p>
+                            <pre>{JSON.stringify(oldUser, null, 2)}</pre>
+                            <p><b>Dane po aktualizacji:</b></p>
+                            <pre>{JSON.stringify(updatedUser, null, 2)}</pre>
+                            {/* Display userLoggedInId */}
+                            <p><b>User Logged In ID:</b></p>
+                            <pre>{localStorage.getItem('AdminEmail')}</pre>
+                        </div>
+                    )}
                     <FormGroup className={styles.formGroup}>
                         <Label for="email" className={styles.emailLabel}>Email:</Label>
                         <Input

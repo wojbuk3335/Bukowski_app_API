@@ -1,5 +1,6 @@
 const { json } = require('body-parser');
-require('dotenv').config();
+const dotenv = require('dotenv');
+dotenv.config({path: '../.env'});
 
 module.exports = {
   port: process.env.PORT || 3000,

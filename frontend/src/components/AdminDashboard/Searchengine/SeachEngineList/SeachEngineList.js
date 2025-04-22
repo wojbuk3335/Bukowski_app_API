@@ -5,6 +5,9 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import pl from 'date-fns/locale/pl';
 import styles from './SeachEngineList.module.css'; // Import CSS module for responsive styles
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 registerLocale('pl', pl);
 
@@ -23,6 +26,7 @@ const SeachEngineList = () => {
     const [globalSearch, setGlobalSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const recordsPerPage = 15;
+    const [loading, setLoading] = useState(true);
 
     const formatDate = (isoDate) => {
         if (!isoDate) return ''; // Return an empty string if the date is invalid or undefined
@@ -35,6 +39,7 @@ const SeachEngineList = () => {
     };
 
     const refreshComponent = async () => {
+        setLoading(true);
         setFilters({
             id: '',
             fullName: '',
@@ -54,6 +59,8 @@ const SeachEngineList = () => {
             setFilteredData(result);
         } catch (error) {
             console.error('Błąd podczas odświeżania danych:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -177,51 +184,77 @@ const SeachEngineList = () => {
                     style={{ maxWidth: '300px' }}
                 />
             </div>
-            <table className={`table table-bordered table-dark text-center ${styles.responsiveTable}`}>
-                <thead className={styles.hideOnMobile}>
-                    <tr>
-                        <th>#</th>
-                        <th>ID</th>
-                        <th>Nazwa Towaru</th>
-                        <th>Data</th>
-                        <th>Rozmiar</th>
-                        <th>Kod kreskowy</th>
-                        <th>Punkt sprzedaży</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {currentRecords.map((item, index) => (
-                        <tr key={item.id} className={styles.row}>
-                            <td data-label="#"> {indexOfFirstRecord + index + 1} </td>
-                            <td data-label="ID"> {item.id} </td>
-                            <td data-label="Nazwa Towaru"> {item.fullName} </td>
-                            <td data-label="Data"> {formatDate(item.date)} </td>
-                            <td data-label="Rozmiar"> {item.size} </td>
-                            <td data-label="Kod kreskowy"> {item.barcode} </td>
-                            <td data-label="Punkt sprzedaży"> {item.symbol} </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            <div className="d-flex justify-content-center mt-3">
-                <nav>
-                    <ul className="pagination">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
-                            <li
-                                key={pageNumber}
-                                className={`page-item ${pageNumber === currentPage ? 'active' : ''}`}
-                            >
-                                <button
-                                    className="page-link"
-                                    onClick={() => handlePageChange(pageNumber)}
-                                >
-                                    {pageNumber}
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                </nav>
-            </div>
+            {loading ? (
+                <div
+                    className="spinner-container"
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: 'black',
+                    }}
+                >
+                    <div
+                        className="spinner-border"
+                        role="status"
+                        style={{
+                            color: 'white',
+                            width: '3rem',
+                            height: '3rem',
+                        }}
+                    >
+                        <span className="sr-only"></span>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <table className={`table table-bordered table-dark text-center ${styles.responsiveTable}`}>
+                        <thead className={styles.hideOnMobile}>
+                            <tr>
+                                <th>#</th>
+                                <th>ID</th>
+                                <th>Nazwa Towaru</th>
+                                <th>Data</th>
+                                <th>Rozmiar</th>
+                                <th>Kod kreskowy</th>
+                                <th>Punkt sprzedaży</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {currentRecords.map((item, index) => (
+                                <tr key={item.id} className={styles.row}>
+                                    <td data-label="#"> {indexOfFirstRecord + index + 1} </td>
+                                    <td data-label="ID"> {item.id} </td>
+                                    <td data-label="Nazwa Towaru"> {item.fullName} </td>
+                                    <td data-label="Data"> {formatDate(item.date)} </td>
+                                    <td data-label="Rozmiar"> {item.size} </td>
+                                    <td data-label="Kod kreskowy"> {item.barcode} </td>
+                                    <td data-label="Punkt sprzedaży"> {item.symbol} </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <div className="d-flex justify-content-center mt-3">
+                        <nav>
+                            <ul className="pagination">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                                    <li
+                                        key={pageNumber}
+                                        className={`page-item ${pageNumber === currentPage ? 'active' : ''}`}
+                                    >
+                                        <button
+                                            className="page-link"
+                                            onClick={() => handlePageChange(pageNumber)}
+                                        >
+                                            {pageNumber}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </nav>
+                    </div>
+                </>
+            )}
         </div>
     );
 };

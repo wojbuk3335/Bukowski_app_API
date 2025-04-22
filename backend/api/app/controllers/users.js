@@ -67,31 +67,24 @@ class UsersController {
     }
 
     login(req, res, next) {
-        console.log("Login request received with email:", req.body.email); // Log the email from the request
-
         User.findOne({ email: req.body.email })
             .exec()
             .then(user => {
                 if (!user) {
-                    console.log("No user found with email:", req.body.email); // Log if no user is found
                     return res.status(401).json({
                         message: 'Auth failed'
                     });
                 }
-                console.log("User found:", user); // Log the user object if found
 
                 argon2.verify(user.password, req.body.password) // Replaced bcrypt.compare with argon2.verify
                     .then(result => {
                         if (result) {
-                            console.log("Password verification successful for user:", user.email); // Log successful password verification
-
                             const token = jwt.sign({
                                 email: user.email,
                                 userId: user._id
                             }, jsonwebtoken, {
                                 expiresIn: '1h'
                             });
-                            console.log("Generated token:", token); // Log the generated token
 
                             return res.status(200).json({
                                 message: 'Auth successful',
@@ -104,20 +97,17 @@ class UsersController {
                                 sellingPoint: user.sellingPoint
                             });
                         }
-                        console.log("Password verification failed for user:", user.email); // Log failed password verification
                         res.status(401).json({
                             message: 'Auth failed'
                         });
                     })
                     .catch(err => {
-                        console.error("Error during password verification:", err); // Log any error during password verification
                         res.status(401).json({
                             message: 'Auth failed'
                         });
                     });
             })
             .catch(error => {
-                console.error("Error during user lookup:", error); // Log any error during user lookup
                 res.status(500).json({
                     error: error
                 });

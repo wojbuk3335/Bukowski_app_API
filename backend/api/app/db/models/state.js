@@ -14,10 +14,6 @@ const stateSchema = mongoose.Schema({
         type: Date,
         required: true
     },
-    plec: {
-        type: String,
-        required: true // Ensure this field is required
-    },
     barcode: {
         type: String,
         required: true // Ensure this field is required

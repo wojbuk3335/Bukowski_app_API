@@ -30,23 +30,18 @@ class PrintController {
                 return `^XA^FO20,20^BCN,100,Y,N,N,A^FD${barcode}^FS^XZ`;
             }).join('');
 
-            console.log('Generated ZPL Commands:', zplCommands); // Log the ZPL commands
-
             // 2. Send ZPL to the printer using TCP/IP socket
             const client = new net.Socket();
 
             client.connect(printerPort, printerAddress, () => {
-                console.log('Connected to printer.');
                 client.write(zplCommands);
                 client.end();
             });
 
             client.on('data', (data) => {
-                console.log('Received: ' + data);
             });
 
             client.on('close', () => {
-                console.log('Connection closed.');
                 if (!responseSent) {
                     res.status(200).json({
                         message: 'Barcodes sent to printer.',

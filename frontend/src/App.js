@@ -21,6 +21,7 @@ import State from './components/AdminDashboard/State/State';
 import Category from './components/AdminDashboard/Category/Category';
 import SeachEngineList from './components/AdminDashboard/Searchengine/SeachEngineList/SeachEngineList';
 import SeachEngineTable from './components/AdminDashboard/Searchengine/SeachEngineTable/SeachEngineTable';
+import History from './components/AdminDashboard/History/History';
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
             <Route path="category" element={<Category />} />
           </Route>
           <Route path="state" element={<State />} />
+          <Route path="history" element={<History />} />
         </Route>
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />
         <Route path="/user/dashboard/*" element={<UserPrivateRoute element={UserDashboard} allowedRoles={['user']} />}>
