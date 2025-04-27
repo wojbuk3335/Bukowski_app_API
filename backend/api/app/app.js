@@ -27,7 +27,10 @@ const stateRoutes = require('./routes/state');
 const categoryRoutes = require('./routes/category');
 const printRoutes = require('./routes/print'); // Import print routes
 const historyRoutes = require('./routes/history'); // Import history routes
+const salesRoutes = require('./routes/sales'); // Import sales routes
 
+
+app.use('/api/sales', salesRoutes); // Use sales routes
 app.use('/api/history', historyRoutes); // Use history routes
 app.use('/api/jackets', jacketRoutes);
 app.use('/api/user', userRoutes);

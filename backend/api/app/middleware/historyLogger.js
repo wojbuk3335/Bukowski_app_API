@@ -12,108 +12,45 @@ const historyLogger = (collectionName) => {
         const userloggedinId = req.user ? req.user._id : null;
         let historyEntry;
 
-        if(collectionName==='stock'){
-            const operation = req.method;
+        const mapOperationToPolish = (method) => {
+            if (method === 'PUT' || method === 'PATCH') return 'Aktualizacja';
+            if (method === 'DELETE') return 'Usunięcie';
+            if (method === 'POST') return 'Utworzenie';
+            return method;
+        };
+
+        const mapCollectionToPolish = (collection) => {
+            if (collection === 'stock') return 'Asortyment';
+            if (collection === 'goods') return 'Produkty';
+            if (collection === 'sizes') return 'Rozmiary';
+            if (collection === 'state') return 'Stan';
+            if (collection === 'color') return 'Kolory';
+            if (collection === 'category') return 'Kategoria';
+            return collection;
+        };
+
+        const operation = mapOperationToPolish(req.method);
+        const collectionNamePolish = mapCollectionToPolish(collectionName);
+
+        if (collectionName === 'stock') {
             let details = '';
-            if(operation === 'PATCH'){
+            if (operation === 'Aktualizacja') {
                 try {
                     const stockId = req.params.stockId;
                     const updatedStock = req.body;
                     const oldStock = await Stock.findById(stockId).lean();
-                    details = `Zaaktualizowano produkt o ID: ${stockId} z ${oldStock.Tow_Opis} na ${updatedStock.Tow_Opis}`;
+                    details = `Aktualizacja asortymentu: Zaaktualizowano asortyment o ID: ${stockId} z ${oldStock.Tow_Opis} na ${updatedStock.Tow_Opis}`;
                 } catch (error) {
-                    console.error('Error logging update stock:', error);
-                    details = `Błąd podczas aktualizowania stocku.`;
+                    console.error('Aktualizacja asortymentu: Error logging update stock:', error);
+                    details = `Aktualizacja asortymentu: Błąd podczas aktualizowania asortymentu.`;
                 }
-            } else if (operation === 'DELETE') {
-                details = `Usunięto całą tabelę asortymentu.`;
-            } else if (operation === 'POST') {
-                details = `Wgrano całą tabelę asortymentu.`;
+            } else if (operation === 'Usunięcie') {
+                details = `Usunięcie asortymentu: Usunięto całą tabelę asortymentu.`;
+            } else if (operation === 'Utworzenie') {
+                details = `Utworzenie asortymentu: Wgrano całą tabelę asortymentu.`;
             }
             historyEntry = new History({
-                collectionName: collectionName,
-                operation: operation,
-                details: details,
-                userloggedinId: userloggedinId
-            });
-        }
-
-        if(collectionName === 'colors') {
-            const operation = req.method;
-            let details = '';
-
-            if(operation === 'PATCH') {
-                try {
-                    const colorId = req.params.colorId;
-                    const updatedColor = req.body;
-                    const oldColor = await Color.findById(colorId).lean();
-                    details = `Zaktualizowano kolor o ID: ${colorId} z ${oldColor.Kol_Opis} na ${updatedColor.Kol_Opis}`;
-                } catch (error) {
-                    console.error('Error logging update color:', error);
-                    details = `Błąd podczas aktualizowania koloru.`;
-                }
-            } else if (operation === 'DELETE') {
-                details = `Usunięto całą tabelę kolorów.`;
-            } else if (operation === 'POST') {
-                details = `Wgrano całą tabelę kolorów.`;
-            }
-            historyEntry = new History({
-                collectionName: collectionName,
-                operation: operation,
-                details: details,
-                userloggedinId: userloggedinId
-            });
-        }
-
-        if(collectionName === 'sizes') {
-            const operation = req.method;
-            let details = '';
-
-            if(operation === 'PATCH') {
-                try {
-                    const sizeId = req.params.sizeId;
-                    const updatedSize = req.body;
-                    const oldSize = await Size.findById(sizeId).lean();
-                    details = `Zaktualizowano rozmiar o ID: ${sizeId} z ${oldSize.Roz_Opis} na ${updatedSize.Roz_Opis}`;
-                } catch (error) {
-                    console.error('Error logging update size:', error);
-                    console.error('Error object:', error); // Log the error object
-                    details = `Błąd podczas aktualizowania rozmiaru.`;
-                }
-            } else if (operation === 'DELETE') {
-                details = `Usunięto całą tabelę rozmiarów.`;
-            } else if (operation === 'POST') {
-                details = `Wgrano całą tabelę rozmiarów.`;
-            }
-            historyEntry = new History({
-                collectionName: collectionName,
-                operation: operation,
-                details: details,
-                userloggedinId: userloggedinId
-            });
-        }
-
-        if(collectionName === 'category') {
-            const operation = req.method;
-            let details = '';
-
-            if(operation === 'PATCH') {
-                try {
-                    const categoryId = req.params.categoryId;
-                    const updatedCategory = req.body;
-                    const oldCategory = await Category.findById(categoryId).lean();
-                    details = `Zaktualizowano kategorię o ID: ${categoryId} z ${oldCategory.Kat_1_Opis_1} na ${updatedCategory.Kat_1_Opis_1}`;
-                } catch (error) {
-                    console.error('Error logging update category:', error);
-                    details = `Błąd podczas aktualizowania kategorii.`;
-                }
-            } else if (operation === 'DELETE') {
-                details = `Usunięto całą tabelę kategorii.`;
-            } else if (operation === 'POST') {
-                details = `Wgrano całą tabelę kategorii.`;
-            }
-            historyEntry = new History({
-                collectionName: collectionName,
+                collectionName: collectionNamePolish,
                 operation: operation,
                 details: details,
                 userloggedinId: userloggedinId
@@ -121,10 +58,8 @@ const historyLogger = (collectionName) => {
         }
 
         if (collectionName === 'goods') {
-            const operation = req.method;
             let details = '';
-
-            if (operation === 'POST') {
+            if (operation === 'Utworzenie') {
                 try {
                     const newGood = req.body;
                     console.log('New good being added:', newGood); // Log the new product details
@@ -135,7 +70,7 @@ const historyLogger = (collectionName) => {
                 }
             }
 
-            if (operation === 'PUT') {
+            if (operation === 'Aktualizacja') {
                 try {
                     const goodId = req.params.goodId;
                     const oldGood = await Goods.findById(goodId)
@@ -226,7 +161,7 @@ const historyLogger = (collectionName) => {
                 }
             }
 
-            if (operation === 'DELETE') {
+            if (operation === 'Usunięcie') {
                 try {
                     const goodId = req.params.goodId;
                     const oldGood = await Goods.findById(goodId).lean();
@@ -243,7 +178,60 @@ const historyLogger = (collectionName) => {
             }
 
             historyEntry = new History({
-                collectionName: collectionName,
+                collectionName: collectionNamePolish,
+                operation: operation,
+                details: details,
+                userloggedinId: userloggedinId
+            });
+        }
+
+        if (collectionName === 'sizes') {
+            let details = '';
+
+            if (operation === 'Aktualizacja') {
+                try {
+                    const sizeId = req.params.sizeId;
+                    const updatedSize = req.body;
+                    const oldSize = await Size.findById(sizeId).lean();
+                    details = `Zaktualizowano rozmiar o ID: ${sizeId} z ${oldSize.Roz_Opis} na ${updatedSize.Roz_Opis}`;
+                } catch (error) {
+                    console.error('Error logging update size:', error);
+                    console.error('Error object:', error); // Log the error object
+                    details = `Błąd podczas aktualizowania rozmiaru.`;
+                }
+            } else if (operation === 'DELETE') {
+                details = `Usunięto całą tabelę rozmiarów.`;
+            } else if (operation === 'POST') {
+                details = `Wgrano całą tabelę rozmiarów.`;
+            }
+            historyEntry = new History({
+                collectionName: collectionNamePolish,
+                operation: operation,
+                details: details,
+                userloggedinId: userloggedinId
+            });
+        }
+
+        if (collectionName === 'category') {
+            let details = '';
+
+            if (operation === 'Aktualizacja') {
+                try {
+                    const categoryId = req.params.categoryId;
+                    const updatedCategory = req.body;
+                    const oldCategory = await Category.findById(categoryId).lean();
+                    details = `Zaktualizowano kategorię o ID: ${categoryId} z ${oldCategory.Kat_1_Opis_1} na ${updatedCategory.Kat_1_Opis_1}`;
+                } catch (error) {
+                    console.error('Error logging update category:', error);
+                    details = `Błąd podczas aktualizowania kategorii.`;
+                }
+            } else if (operation === 'DELETE') {
+                details = `Usunięto całą tabelę kategorii.`;
+            } else if (operation === 'POST') {
+                details = `Wgrano całą tabelę kategorii.`;
+            }
+            historyEntry = new History({
+                collectionName: collectionNamePolish,
                 operation: operation,
                 details: details,
                 userloggedinId: userloggedinId
@@ -251,14 +239,13 @@ const historyLogger = (collectionName) => {
         }
 
         if (collectionName === 'users') {
-            const operation = req.method;
             let details = '';
 
-            if (operation === 'POST') {
+            if (operation === 'Utworzenie') {
                 details = `Utworzono użytkownika: ${req.body.email}`;
             }
 
-            if (operation === 'PUT') {
+            if (operation === 'Aktualizacja') {
                 try {
                     const userId = req.params.userId;
                     const oldUser = await User.findById(userId).lean();
@@ -294,7 +281,7 @@ const historyLogger = (collectionName) => {
                 }
             }
 
-            if (operation === 'DELETE') {
+            if (operation === 'Usunięcie') {
                 try {
                     const user = await User.findById(req.params.userId);
                     if (user) {
@@ -309,20 +296,19 @@ const historyLogger = (collectionName) => {
             }
 
             historyEntry = new History({
-                collectionName: collectionName,
+                collectionName: collectionNamePolish,
                 operation: operation,
                 details: details,
                 userloggedinId: userloggedinId // Include user ID
             });
         } else if (collectionName === 'states') {
-            const operation = req.method;
             let details = '';
 
-            if (operation === 'POST') {
+            if (operation === 'Utworzenie') {
                 details = `Utworzono produkt: ${req.body.fullName} rozmiar ${req.body.size}`;
             }
 
-            if (operation === 'PUT') {
+            if (operation === 'Aktualizacja') {
                 try {
                     const stateId = req.params.id;
                     const oldState = await State.findById(stateId).populate('size').populate('sellingPoint').populate('fullName').lean();
@@ -365,7 +351,7 @@ const historyLogger = (collectionName) => {
                 }
             }
 
-            if (operation === 'DELETE') {
+            if (operation === 'Usunięcie') {
                 try {
                     const state = await State.findById(req.params.id).populate('fullName').populate('size');
                     if (state) {
@@ -380,10 +366,38 @@ const historyLogger = (collectionName) => {
             }
 
             historyEntry = new History({
-                collectionName: collectionName,
+                collectionName: collectionNamePolish,
                 operation: operation,
                 details: details,
                 userloggedinId: userloggedinId // Include user ID
+            });
+        }
+
+        if (collectionName === 'colors') {
+            const operation = mapOperationToPolish(req.method);
+            let details = '';
+
+            if (operation === 'Aktualizacja') {
+                try {
+                    const colorId = req.params.colorId;
+                    const updatedColor = req.body;
+                    const oldColor = await Color.findById(colorId).lean();
+                    details = `Zaktualizowano kolor o ID: ${colorId} z ${oldColor.Kol_Opis} na ${updatedColor.Kol_Opis}`;
+                } catch (error) {
+                    console.error('Error logging update color:', error);
+                    details = `Błąd podczas aktualizowania koloru.`;
+                }
+            } else if (operation === 'Usunięcie') {
+                details = `Usunięto całą tabelę kolorów.`;
+            } else if (operation === 'Utworzenie') {
+                details = `Wgrano całą tabelę kolorów.`;
+            }
+
+            historyEntry = new History({
+                collectionName: 'Kolory', // Use "Kolory" instead of "colors"
+                operation: operation,
+                details: details,
+                userloggedinId: userloggedinId
             });
         }
 
