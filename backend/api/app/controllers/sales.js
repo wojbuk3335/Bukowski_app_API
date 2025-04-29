@@ -5,55 +5,37 @@ class SalesController {
 
     static async saveSales(req, res) {
         try {
-            console.log("WOTJEK ")
-            const salesData = req.body;
+            const { fullName, timestamp, barcode, sizeId, sellingPoint, from, cash, card } = req.body;
 
-            // Validate and convert required fields to ObjectId
-            if (!mongoose.Types.ObjectId.isValid(salesData.sizeId)) {
-                return res.status(400).json({ error: 'Invalid sizeId ObjectId' });
-            }
+            // Parse the timestamp from the provided format
+            const parsedTimestamp = new Date(
+                timestamp.replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}):(\d{2}):(\d{2})/, '$3-$2-$1T$4:$5:$6')
+            );
 
-            const sizeId = new mongoose.Types.ObjectId(salesData.sizeId);
-            const date = salesData.date ? new Date(salesData.date) : new Date(); // Ensure date is provided or use the current date
-
-            // Create a new Sales document
-            const newSales = new Sales({
+            const sales = new Sales({
                 _id: new mongoose.Types.ObjectId(),
-                fullName: salesData.fullName, // Ensure fullName is a String
-                timestamp: new Date(salesData.timestamp), // Convert to Date
-                barcode: salesData.barcode, // String
-                sizeId: sizeId, // ObjectId
-                sellingPoint: salesData.sellingPoint, // Ensure sellingPoint is a String
-                from: salesData.from, // String
-                cash: salesData.cash.map(c => ({
-                    price: parseFloat(c.price), // Convert price to Number
-                    currency: c.currency // String
-                })),
-                card: salesData.card.map(c => ({
-                    price: parseFloat(c.price), // Convert price to Number
-                    currency: c.currency // String
-                })),
-                date: date, // Ensure date is set
-                size: salesData.size // Ensure size is included
+                fullName,
+                timestamp: parsedTimestamp,
+                barcode,
+                sizeId, // Correctly use sizeId
+                sellingPoint,
+                from,
+                cash,
+                card,
+                date: new Date() // Current date
             });
 
-            // Save to the database
-            const savedSales = await newSales.save();
-
-            // Log success message
-            console.log('Sales record saved successfully:', savedSales);
-
-            res.status(201).json(savedSales);
+            await sales.save();
+            res.status(201).json({ message: 'Sales saved successfully', sales });
         } catch (error) {
-            console.log('Error saving sales record:', error.message); // Log error message
-            res.status(500).json({ message: 'Error saving sales', error: error.message });
+            console.error('Error saving sales:', error.message);
+            res.status(500).json({ error: error.message });
         }
     }
 
     static async getAllSales(req, res) {
         try {
-            const sales = await Sales.find({})
-                .populate('sizeId'); // Populate sizeId to fetch related Size document
+            const sales = await Sales.find({}); // Removed .populate('sizeId')
             res.status(200).json(sales);
         } catch (error) {
             console.log('Error fetching all sales:', error.message);

@@ -15,8 +15,7 @@ const salesSchema = mongoose.Schema({
         required: true
     },
     sizeId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Size',
+        type: String,
         required: true
     },
     sellingPoint: {

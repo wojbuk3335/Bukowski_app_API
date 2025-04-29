@@ -14,11 +14,16 @@
     color: black;
 }
 
+.tableContainer {
+    overflow-x: auto;
+}
+
 .table {
     color: var(--bs-table-color);
     /* Use the overridden variable */
     text-decoration: none;
-    width: 50%;
+    width: 100%;
+    table-layout: fixed;
     border: 1px solid white;
     margin: 0 auto;
     background-color: black;
@@ -35,15 +40,12 @@
     /* Use the overridden variable */
     color: var(--bs-table-color);
     /* Use the overridden variable */
+    white-space: nowrap;
 }
 
 .tableCell {
-    border: 1px solid white;
-    padding: 8px;
-    background-color: var(--bs-table-bg);
-    /* Use the overridden variable */
-    color: var(--bs-table-color);
-    /* Use the overridden variable */
+    text-align: center !important; /* Force horizontal centering */
+    vertical-align: middle !important; /* Force vertical centering */
 }
 
 .custom-modal .modal-content {
@@ -93,37 +95,9 @@
     /* Hide the default close button */
 }
 
-.customCloseButton {
-    background: url('../../../assets/images/close-button.png') no-repeat center center;
-    /* Correct the path to the close-button.png icon */
-    background-size: contain;
-    /* Ensure the icon fits within the button */
-    background-color: black;
-    /* Set background color to black */
-    border: none;
-    /* Remove default border */
-    border-radius: 50%;
-    /* Make it oval */
-    position: absolute;
-    /* Position it absolutely */
-    top: 10px;
-    /* Adjust top position */
-    right: 10px;
-    /* Adjust right position */
-    cursor: pointer;
-    /* Change cursor to pointer */
-    z-index: 1050;
-    /* Ensure it is above other elements */
-    width: 30px;
-    /* Adjust width */
-    height: 30px;
-    /* Adjust height */
-}
+.customCloseButton {}
 
-.customCloseButton:hover {
-    background-color: white;
-    /* Change background color to white on hover */
-}
+.customCloseButton:hover {}
 
 .modalBody {
     position: relative;
@@ -140,7 +114,7 @@
     flex-wrap: wrap;
     flex-shrink: 0;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     padding: var(--bs-modal-footer-padding);
     border-top: var(--bs-modal-footer-border-width) solid var(--bs-modal-footer-border-color);
     background-color: black;
@@ -151,13 +125,18 @@
 .formGroup {
     display: flex;
     align-items: center;
+    margin-bottom: 10px;
+    /* Add margin between the label and input/select */
 }
 
 .emailLabel {
-    margin-right: 10px;
+    margin-right: 20px;
+    /* Increase margin-right for better spacing */
     color: white;
     min-width: 80px;
     /* Adjust the width as needed */
+    margin-bottom: 0;
+    /* Ensure no margin at the bottom */
 }
 
 .inputField {
@@ -166,6 +145,8 @@
     /* Set background color to black */
     color: white;
     /* Set font color to white */
+    margin-bottom: 0;
+    /* Ensure no margin at the bottom */
 }
 
 .buttonGroup {
@@ -278,6 +259,10 @@
     cursor: move !important;
 }
 
+.noWrapLabel {
+    white-space: nowrap;
+}
+
 @media (max-width: 768px) {
 
     .table {
@@ -334,126 +319,541 @@
         margin-right: 10px;
     }
 
-    .btn-warning.btn {
+    .btn-warning {
+        --bs-btn-color: #000000;
+        --bs-btn-hover-color: #ffffff;
         margin-right: 10px;
-        /* Add margin-right to .btn-warning */
     }
 }
 
-@media(max-width:768px) {
+@media (max-width: 2150px) {
+
+    .tableHeader,
+    .tableCell {
+        font-size: 0.875rem;
+        /* Smaller font size */
+    }
+
+    .button,
+    .btn {
+        font-size: 0.75rem;
+        /* Smaller button size */
+        padding: 5px 10px;
+        /* Adjust padding for smaller buttons */
+    }
+
+    .addButton,
+    .addExceptionButton {
+        font-size: 0.75rem;
+        /* Smaller button size */
+        padding: 5px 10px;
+        /* Adjust padding for smaller buttons */
+    }
+}
+
+@media (max-width: 1900px) {
+
+    .tableHeader,
+    .tableCell {
+        font-size: 0.75rem;
+        /* Even smaller font size */
+    }
+
+    .button,
+    .btn {
+        font-size: 0.625rem;
+        /* Even smaller button size */
+        padding: 4px 8px;
+        /* Adjust padding for even smaller buttons */
+    }
+
+    .addButton,
+    .addExceptionButton {
+        font-size: 0.625rem;
+        /* Even smaller button size */
+        padding: 4px 8px;
+        /* Adjust padding for even smaller buttons */
+    }
+}
+
+@media (max-width: 1660px) {
+    .table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid white;
+        /* Ensure table border remains white */
+    }
+
     .table thead {
         display: none;
     }
+
+    .table tbody,
+    .table tr,
+    .table td,
+    .table th {
+        display: block;
+        width: 100%;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+    }
+
+    .table tr {
+        margin-bottom: 15px;
+        background-color: white;
+        /* Set background color to white */
+    }
+
+    .table td,
+    .table th {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+        min-height: 30px;
+        /* Set a minimum height for cells */
+        display: flex;
+        align-items: center;
+        /* Center text vertically */
+        justify-content: flex-end;
+        /* Align text to the right */
+        background-color: black;
+        /* Set background color to black */
+    }
+
+    .table td::before,
+    .table th::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 50%;
+        padding-left: 15px;
+        font-weight: bold;
+        text-align: left;
+    }
+
+    .table td[data-label="Lp"]::before {
+        content: "Lp";
+        position: absolute;
+        top: -20px;
+        /* Adjust this value to center the title vertically */
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        width: 100%;
+    }
+
+    .table td[data-label="Lp"] {
+        width: 100%;
+        /* Make the width 100% */
+    }
+
+    .table td[data-label="Produkt"]::before {
+        content: "Produkt";
+    }
+
+    .table td[data-label="Kolor"]::before {
+        content: "Kolor";
+    }
+
+    .table td[data-label="Nazwa produktu"]::before {
+        content: "Nazwa produktu";
+    }
+
+    .table td[data-label="Kod produktu"]::before {
+        content: "Kod produktu";
+    }
+
+    .table td[data-label="Kategoria"]::before {
+        content: "Kategoria";
+    }
+
+    .table td[data-label="Zdjęcie"]::before {
+        content: "Zdjęcie";
+    }
+
+    .table td[data-label="Cena (PLN)"]::before {
+        content: "Cena (PLN)";
+    }
+
+    .table td[data-label="Cena promocyjna (PLN)"]::before {
+        content: "Cena promocyjna (PLN)";
+    }
+
+    .table td[data-label="Wyjątki"]::before {
+        content: "Wyjątki";
+    }
+
+    .table td[data-label="Akcje"]::before {
+        content: "Akcje";
+    }
+
 }
 
-.responsiveTable {
-    width: 100%;
-    border-collapse: collapse;
-}
+@media (max-width: 1660px) {
+    .table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid white;
+        /* Ensure table border remains white */
+    }
 
-.responsiveTable th,
-.responsiveTable td {
-    padding: 8px;
-    text-align: left;
-    border: 1px solid #ddd;
-}
-
-@media (max-width: 768px) {
-    .responsiveTable thead {
+    .table thead {
         display: none;
     }
 
-    .responsiveTable tr {
+    .table tbody,
+    .table tr,
+    .table td,
+    .table th {
         display: block;
-        margin-bottom: 10px;
+        width: 100%;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
     }
 
-    .responsiveTable td {
+    .table tr {
+        margin-bottom: 15px;
+        background-color: white;
+        /* Set background color to white */
+    }
+
+    .table td,
+    .table th {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+        min-height: 30px;
+        /* Set a minimum height for cells */
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        padding: 10px;
-        border: 1px solid #ddd;
+        /* Center text vertically */
+        justify-content: flex-end;
+        /* Align text to the right */
+        background-color: black;
+        /* Set background color to black */
     }
 
-    .responsiveTable td::before {
+    .table td::before,
+    .table th::before {
         content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 50%;
+        padding-left: 15px;
         font-weight: bold;
-        margin-right: 10px;
-    }
-}
-
-.table>:not(caption)>*>* {
-    padding: .5rem .5rem;
-    color: var(--bs-table-color-state, var(--bs-table-color-type, var(--bs-table-color)));
-    background-color: var(--bs-table-bg);
-    border-bottom-width: var(--bs-border-width);
-    box-shadow: inset 0 0 0 9999px var(--bs-table-bg-state, var(--bs-table-bg-type, var(--bs-table-accent-bg)));
-    background: black;
-    color: white;
-}
-
-
-
-@media (max-width: 746px) {
-    .responsiveContainer {
-        flex-wrap: wrap;
-        /* Allow wrapping of child elements */
+        text-align: left;
     }
 
-    .responsiveContainer>div {
-        width: 100%;
-        /* Make each child take up 100% width */
-        margin-bottom: 10px;
-        /* Add spacing between stacked elements */
-    }
-
-    .responsiveContainer {
-        gap: 0;
-        /* Remove horizontal gap when stacked */
-    }
-
-    .sssss {
-        background-color: #ffc107;
-    }
-}
-
-@media (max-width: 746px) {
-    .responsiveContainer {
-        display: flex;
-        flex-wrap: wrap;
-        /* Allow wrapping of child elements */
+    .table td[data-label="Lp"]::before {
+        content: "Lp";
+        position: absolute;
+        top: -20px;
+        /* Adjust this value to center the title vertically */
+        left: 50%;
+        transform: translateX(-50%);
         text-align: center;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .responsiveContainer>div {
         width: 100%;
-        /* Make each child take up 100% width */
-        margin-bottom: 10px;
-        /* Add spacing between stacked elements */
     }
 
-    .responsiveContainer {
-        gap: 0;
-        /* Remove horizontal gap when stacked */
+    .table td[data-label="Lp"] {
+        width: 100%;
+        /* Make the width 100% */
     }
 
-    .sssss {
-        background-color: #ffc107;
+    .table td[data-label="Produkt"]::before {
+        content: "Produkt";
     }
 
-    .RRR {
-        display: flex;
-        justify-content: center;
-        align-items: center;
+    .table td[data-label="Kolor"]::before {
+        content: "Kolor";
     }
 
+    .table td[data-label="Nazwa produktu"]::before {
+        content: "Nazwa produktu";
+    }
+
+    .table td[data-label="Kod produktu"]::before {
+        content: "Kod produktu";
+    }
+
+    .table td[data-label="Kategoria"]::before {
+        content: "Kategoria";
+    }
+
+    .table td[data-label="Zdjęcie"]::before {
+        content: "Zdjęcie";
+    }
+
+    .table td[data-label="Cena (PLN)"]::before {
+        content: "Cena (PLN)";
+    }
+
+    .table td[data-label="Cena promocyjna (PLN)"]::before {
+        content: "Cena promocyjna (PLN)";
+    }
+
+    .table td[data-label="Wyjątki"]::before {
+        content: "Wyjątki";
+    }
+
+    .table td[data-label="Akcje"]::before {
+        content: "Akcje";
+    }
+
+    /* Style for the <tbody> element in the table */
+    .table tbody {
+        background-color: #f8f9fa;
+        /* Set the background color */
+        color: #212529;
+        /* Set the text color */
+    }
+
+    /* Style for the <td> elements within the <tbody> */
+    .table tbody td {
+        background-color: #000000;
+        /* Set the background color for table cells */
+        color: #ffffff;
+        /* Set the text color */
+        padding: 10px;
+        /* Add padding */
+        border: 1px solid #ddd;
+        /* Add border */
+    }
 }
 
-.noWrap {
-    white-space: nowrap; /* Prevent text wrapping */
-    overflow: hidden; /* Hide overflow if text is too long */
-    text-overflow: ellipsis; /* Add ellipsis for overflowing text */
+.button {
+    font-size: 0.875rem;
+    /* Small button size */
+}
+
+.buttonRefresh {
+    background-color: #ffc107;
+    /* Bootstrap yellow */
+    border-color: #ffc107;
+    color: #212529;
+    margin-bottom: 10px;
+}
+
+.buttonRefresh:hover {
+    background-color: #ffe066;
+    /* Lighter yellow */
+    border-color: #ffe066;
+    color: #212529;
+}
+
+.UploadButton {
+    margin-right: 5px;
+}
+
+.inputFile {
+    display: inline-block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.2;
+    color: #fff;
+    /* Set text color to white */
+    background-color: #000;
+    /* Set background color to black */
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.3rem;
+    /* Bootstrap-like border radius */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: pointer;
+    /* Add pointer cursor on hover */
+}
+
+.inputFile:focus {
+    color: #fff;
+    /* Ensure text color remains white on focus */
+    background-color: #000;
+    /* Ensure background color remains black on focus */
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.inputFile:hover {
+    border-color: #fff;
+    /* Change border color to white on hover */
+}
+
+.inputFile::file-selector-button {
+    cursor: pointer;
+    /* Ensure the cursor is a pointer for the file input button */
+    color: #000000;
+}
+
+.inputFile::file-selector-button:hover {
+    color: #ffffff;
+    background-color: #df480c;
+    /* Darken background color on hover */
+    border-color: #da1919;
+    /* Darken border color on hover */
+}
+
+.priceExceptionRow {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    /* Add margin between rows */
+}
+
+.priceExceptionInput {
+    margin-right: 10px;
+    /* Add margin between inputs */
+}
+
+.removeButton {
+    margin-left: 10px;
+    /* Add margin to the left of the remove button */
+}
+
+.addExceptionButtonContainer {
+    text-align: center;
+    /* Center the button */
+    margin-top: 10px;
+    /* Add margin to the top of the container */
+    width: 100%;
+    /* Ensure it takes the full width */
+}
+
+.addExceptionButton {
+    margin-top: 0;
+    /* Remove margin from the button itself */
+}
+
+.addExceptionButton,
+.addButton {
+    color: black;
+    /* Set font color to black */
+}
+
+.addExceptionButton:hover,
+.addButton:hover {
+    color: white;
+    /* Set font color to white on hover */
+}
+
+span {
+    /* font-weight: 500; */
+    font-family: var(--bs-body-font-family);
+    font-weight: 400;
+}
+
+.btn-primary {
+    --bs-btn-color: #000000;
+}
+
+.inputFile::file-selector-button:hover {
+    color: #000000;
+    background-color: #df480c;
+    /* Darken background color on hover */
+    border-color: #da1919;
+    /* Darken border color on hover */
+}
+
+.btn-success {
+    --bs-btn-color: #000000;
+}
+
+.red {
+    color: red;
+}
+
+.yellow {
+    color: yellow;
+}
+
+.blue {
+    color: blue;
+}
+
+.green {
+    color: green;
+}
+
+.inputWrapper {
+    position: relative;
+    width: 100%;
+}
+
+.hiddenInput {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    z-index: 1;
+}
+
+.styledCode {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+.redLetters {
+    color: red;
+}
+
+.digit-color::placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.digit-color {
+    color: black;
+    /* Default color for non-digit characters */
+}
+
+.digit-color::-webkit-input-placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.digit-color::-moz-placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.digit-color:-ms-input-placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.digit-color:-moz-placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.text-center {
+    text-align: center;
+}
+
+.tableContainer{
+    text-align: center;
 }
