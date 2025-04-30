@@ -12,5 +12,6 @@ router.delete('/delete-all-sales', SalesController.deleteAllSales);
 // Define dynamic routes after specific ones
 router.get('/:salesId', SalesController.getSalesById);
 router.patch('/update-sales/:salesId', SalesController.updateSalesById);
+router.delete('/delete-sale/:salesId', SalesController.deleteSalesById);
 
 module.exports = router;

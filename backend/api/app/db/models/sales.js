@@ -14,7 +14,7 @@ const salesSchema = mongoose.Schema({
         type: String,
         required: true
     },
-    sizeId: {
+    size: {
         type: String,
         required: true
     },

@@ -5,7 +5,7 @@ class SalesController {
 
     static async saveSales(req, res) {
         try {
-            const { fullName, timestamp, barcode, sizeId, sellingPoint, from, cash, card } = req.body;
+            const { fullName, timestamp, barcode, size, sellingPoint, from, cash, card } = req.body;
 
             // Parse the timestamp from the provided format
             const parsedTimestamp = new Date(
@@ -17,7 +17,7 @@ class SalesController {
                 fullName,
                 timestamp: parsedTimestamp,
                 barcode,
-                sizeId, // Correctly use sizeId
+                size, // Correctly use sizeId
                 sellingPoint,
                 from,
                 cash,
@@ -80,6 +80,18 @@ class SalesController {
                 return res.status(404).json({ message: 'Sales not found' });
             }
             res.status(200).json(updatedSales);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    static async deleteSalesById(req, res) {
+        try {
+            const deletedSale = await Sales.findByIdAndDelete(req.params.salesId);
+            if (!deletedSale) {
+                return res.status(404).json({ message: 'Sale not found' });
+            }
+            res.status(200).json({ message: 'Sale deleted successfully', deletedSale });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
