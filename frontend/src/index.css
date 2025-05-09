@@ -206,3 +206,142 @@ html,
 .text-center {
   text-align: center;
 }
+
+
+.rdrStaticRangeLabel {
+  display: block;
+  outline: 0;
+  line-height: 18px;
+  padding: 10px 20px;
+  text-align: left;
+  background-color: black;
+}
+
+.rdrInputRange {
+  align-items: center;
+  padding: 5px 20px;
+  background-color: black;
+}
+
+.rdrMonthAndYearWrapper {
+  align-items: center;
+  height: 60px;
+  padding-top: 10px;
+  background-color: black;
+}
+
+.rdrWeekDay {
+  font-weight: 400;
+  line-height: 2.667em;
+  color: rgb(249 253 255);
+  background-color: black;
+}
+
+.rdrMonth {
+  padding: 0 0.833em 1.666em 0.833em;
+  background-color: black;
+}
+
+.rdrInputRanges {
+  padding: 10px 0;
+  background-color: black;
+}
+
+.rdrDateDisplayItemActive input {
+  color: #7d888d;
+  background-color: black;
+}
+.rdrDateDisplayItem input {
+  cursor: pointer;
+  height: 2.5em;
+  line-height: 2.5em;
+  border: 0px;
+  background: transparent;
+  width: 100%;
+  color: #849095;
+  background-color: black;
+}
+
+.rdrDateDisplayWrapper {
+  background-color: rgb(0 0 0);
+}
+
+.rdrDateDisplayWrapper:hover {
+  background-color: #000000 !important; /* Use !important to ensure your styles take precedence */
+}
+
+.rdrDateDisplayWrapper {
+  background-color: rgb(11 11 11) !important;
+}
+
+.rdrDateDisplayItemActive input {
+  color: #7d888d;
+  background-color: black;
+}
+
+.rdrInputRangeInput {
+  width: 30px;
+  height: 30px;
+  line-height: 30px;
+  border-radius: 4px;
+  text-align: center;
+  border: solid 1px rgb(74 90 97);
+  margin-right: 10px;
+  color: rgb(108, 118, 122);
+  background-color: black;
+}
+
+.rdrDefinedRangesWrapper {
+  font-size: 12px;
+  width: 226px;
+  border-right: solid 1px #eff2f7;
+  background: #000000;
+}
+
+.rdrDefinedRangesWrapper:hover {
+  background: #000000 !important; /* Use !important to ensure your styles take precedence */
+}
+
+.rdrDefinedRangesWrapper {
+  background: #000000 !important; /* Use !important to ensure your styles take precedence */
+}
+
+.rdrStaticRangeLabel:active {
+  background-color: #000000;
+}
+
+.rdrDefinedRangesWrapper:hover {
+  background-color: #000000;
+}
+.rdrDefinedRangeLabel:hover {
+  background-color: #000000;
+}
+
+.rdrStaticRange:hover .rdrStaticRangeLabel, .rdrStaticRange:focus .rdrStaticRangeLabel {
+  background: #000000;
+}
+
+.rdrStaticRangeLabel:hover {
+  background: #000000;
+}
+
+.rdrDateDisplayWrapper {
+  background-color: rgb(0 0 0);
+}
+
+/* filepath: c:\Users\wbuko\OneDrive\Pulpit\Bukowski_app_API\Bukowski_app_API\frontend\src\App.css */
+.rdrStaticRange:hover .rdrStaticRangeLabel, 
+.rdrStaticRange:focus .rdrStaticRangeLabel {
+    background: #0c64f6 !important; /* Use !important to ensure your styles take precedence */
+}
+
+.rdrDateDisplayItem input {
+  cursor: pointer;
+  height: 2.5em;
+  line-height: 2.5em;
+  border: 0px;
+  background: transparent;
+  width: 100%;
+  color: #849095;
+  background-color: black !important; /* Use !important to ensure your styles take precedence */
+}

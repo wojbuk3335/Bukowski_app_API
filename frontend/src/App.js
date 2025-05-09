@@ -26,42 +26,6 @@ import Raports from './components/AdminDashboard/Raports/Raports';
 import Sales from './components/AdminDashboard/Sales/Sales';
 
 function App() {
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = `${process.env.PUBLIC_URL}/BrowserPrint-Zebra-1.1.250.min.js`;
-    script.async = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      const checkBrowserPrint = () => {
-        if (window.BrowserPrint) {
-          window.BrowserPrint.getDefaultDevice('printer', (device) => {
-            if (device && device.name) {
-              console.log(`Available printer: ${device.name}`);
-            } else {
-              console.log('No printer available.');
-            }
-          }, (error) => {
-            console.error('Error fetching printer:', error);
-          });
-        } else {
-          console.error('BrowserPrint is not loaded. Retrying...');
-          setTimeout(checkBrowserPrint, 500); // Retry after 500ms
-        }
-      };
-
-      checkBrowserPrint();
-    };
-
-    script.onerror = () => {
-      console.error('Failed to load BrowserPrint script.');
-    };
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
   return (
     <div className="App">
       <Routes>

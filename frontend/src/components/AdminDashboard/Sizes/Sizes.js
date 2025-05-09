@@ -66,6 +66,23 @@ const Sizes = () => {
         }
     };
 
+    const fixGoodsReferences = async () => {
+        try {
+            const sizesResponse = await axios.get("/api/excel/size/get-all-sizes");
+            const sizes = sizesResponse.data.sizes;
+
+            for (const size of sizes) {
+                await axios.patch(`/api/excel/goods/update-goods-references`, {
+                    Roz_Kod: size.Roz_Kod,
+                    size_id: size._id,
+                });
+            }
+            console.log("Referencje w tabeli 'towary' zostały zaktualizowane.");
+        } catch (error) {
+            console.error("Błąd podczas aktualizacji referencji w tabeli 'towary':", error);
+        }
+    };
+
     const removeFile = async () => {
         try {
             setLoading(true);
@@ -81,6 +98,9 @@ const Sizes = () => {
             await axios.delete("/api/excel/size/delete-all-sizes");
             resetState();
             alert("Dane zostały usunięte poprawnie.");
+
+            // Napraw referencje w tabeli "towary"
+            await fixGoodsReferences();
         } catch (error) {
             console.log(error);
         } finally {

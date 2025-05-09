@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import Select from 'react-select';
+import { DateRangePicker, defaultStaticRanges as originalStaticRanges, defaultInputRanges as originalInputRanges } from 'react-date-range'; // Import updated default ranges
 import 'react-datepicker/dist/react-datepicker.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'react-date-range/dist/styles.css'; // Import DateRangePicker styles
+import 'react-date-range/dist/theme/default.css'; // Import default theme
 import styles from './State.module.css'; // Import the CSS module
 import Barcode from 'react-barcode'; // Import the Barcode component
 import { saveAs } from 'file-saver'; // For exporting files
@@ -12,6 +15,7 @@ import * as XLSX from 'xlsx'; // Import XLSX for Excel export
 import jsPDF from 'jspdf'; // Import jsPDF for PDF export
 import autoTable from 'jspdf-autotable'; // Ensure correct import for autoTable
 import pl from 'date-fns/locale/pl'; // Import Polish locale
+
 
 registerLocale('pl', pl); // Register Polish locale
 
@@ -37,7 +41,46 @@ const State = () => {
     const [input1Value, setInput1Value] = useState('');
     const [input2Value, setInput2Value] = useState('');
     const inputRefs = useRef([null, null]); // Array of refs for both inputs
-    const [selectedBarcodes, setSelectedBarcodes] = useState([]); // New state for selected barcodes
+    const [printer, setPrinter] = useState(null); // State for Zebra printer
+    const [printerError, setPrinterError] = useState(null); // State for printer errors
+    const [selectedIds, setSelectedIds] = useState([]); // State for selected row IDs
+    const [columnFilters, setColumnFilters] = useState({}); // State for column filters
+    const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]); // State for date range
+    const [isDateRangePickerVisible, setIsDateRangePickerVisible] = useState(false); // State to toggle date range picker visibility
+
+    // Nadpisanie etykiet w defaultStaticRanges
+    const customStaticRanges = originalStaticRanges.map((range) => {
+        if (range.label === 'Today') {
+            return { ...range, label: 'Dzisiaj' }; // Polish: Today
+        }
+        if (range.label === 'Yesterday') {
+            return { ...range, label: 'Wczoraj' }; // Polish: Yesterday
+        }
+        if (range.label === 'This Week') {
+            return { ...range, label: 'Ten tydzień' }; // Polish: This Week
+        }
+        if (range.label === 'Last Week') {
+            return { ...range, label: 'Poprzedni tydzień' }; // Polish: Last Week
+        }
+        if (range.label === 'This Month') {
+            return { ...range, label: 'Ten miesiąc' }; // Polish: This Month
+        }
+        if (range.label === 'Last Month') {
+            return { ...range, label: 'Poprzedni miesiąc' }; // Polish: Last Month
+        }
+        return range;
+    });
+
+    // Nadpisanie etykiet w defaultInputRanges
+    const customInputRanges = originalInputRanges.map((range) => {
+        if (range.label === 'days up to today') {
+            return { ...range, label: 'dni do dzisiaj' }; // Polish: Days up to today
+        }
+        if (range.label === 'days starting today') {
+            return { ...range, label: 'dni od dzisiaj' }; // Polish: Days starting today
+        }
+        return range;
+    });
 
     const goodsOptions = goods.map((item) => ({ value: item, label: item.fullName })); // Map goods to include the entire object
     const sizesOptions = sizes.map((item) => ({ value: item.Roz_Opis, label: item.Roz_Opis })); // Map sizes to Select options
@@ -211,6 +254,51 @@ const State = () => {
         setFilteredTableData(filteredData);
     }, [nameFilter, sizeFilter, dateFilter, sellingPointFilter, tableData]); // Update filtered data when filters or tableData change
 
+    useEffect(() => {
+        // Apply column filters to the table data
+        let filteredData = [...tableData];
+
+        if (columnFilters.lp) {
+            filteredData = filteredData.filter((row, index) =>
+                (index + 1).toString().includes(columnFilters.lp)
+            );
+        }
+
+        if (columnFilters.fullName) {
+            filteredData = filteredData.filter((row) =>
+                row.fullName.toLowerCase().includes(columnFilters.fullName.toLowerCase())
+            );
+        }
+
+        if (columnFilters.size) {
+            filteredData = filteredData.filter((row) =>
+                row.size.toLowerCase().includes(columnFilters.size.toLowerCase())
+            );
+        }
+
+        if (columnFilters.symbol) {
+            filteredData = filteredData.filter((row) =>
+                row.symbol.toLowerCase().includes(columnFilters.symbol.toLowerCase())
+            );
+        }
+
+        setFilteredTableData(filteredData);
+    }, [tableData, columnFilters]);
+
+    useEffect(() => {
+        // Filter table data based on the selected date range
+        let filteredData = tableData;
+
+        if (dateRange[0].startDate && dateRange[0].endDate) {
+            filteredData = filteredData.filter((row) => {
+                const rowDate = new Date(row.date);
+                return rowDate >= dateRange[0].startDate && rowDate <= dateRange[0].endDate;
+            });
+        }
+
+        setFilteredTableData(filteredData);
+    }, [dateRange, tableData]); // Update filtered data when dateRange or tableData changes
+
     const deleteRow = async (id) => {
         if (!id) {
             console.error('Invalid ID: Cannot delete row');
@@ -266,30 +354,36 @@ const State = () => {
         let direction = 'asc';
         if (sortConfig.key === key && sortConfig.direction === 'asc') {
             direction = 'desc';
+        } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+            // Reset to original order if clicked again
+            setFilteredTableData([...tableData]);
+            setSortConfig({ key: null, direction: 'asc' });
+            return;
         }
         setSortConfig({ key, direction });
 
         const sortedData = [...filteredTableData].sort((a, b) => {
-            if (key === 'date') {
-                // Special handling for date sorting
-                const dateA = new Date(a[key]);
-                const dateB = new Date(b[key]);
-                return direction === 'asc' ? dateA - dateB : dateB - dateA;
-            } else {
-                // General sorting for strings
-                if (a[key].toLowerCase() < b[key].toLowerCase()) return direction === 'asc' ? -1 : 1;
-                if (a[key].toLowerCase() > b[key].toLowerCase()) return direction === 'asc' ? 1 : -1;
-                return 0;
+            if (key === 'lp') {
+                // Sort by index-based Lp (reverse order based on index)
+                return direction === 'asc'
+                    ? (a.index || 0) - (b.index || 0)
+                    : (b.index || 0) - (a.index || 0);
             }
+            if (typeof a[key] === 'string' && typeof b[key] === 'string') {
+                return direction === 'asc'
+                    ? a[key].localeCompare(b[key])
+                    : b[key].localeCompare(a[key]);
+            }
+            return direction === 'asc' ? a[key] - b[key] : b[key] - a[key];
         });
         setFilteredTableData(sortedData);
     };
 
     const getSortIcon = (key) => {
         if (sortConfig.key === key) {
-            return sortConfig.direction === 'asc' ? '▲' : '▼'; // Use arrows for sorting direction
+            return sortConfig.direction === 'asc' ? '▲' : '▼';
         }
-        return '⇅'; // Default icon when no sorting is applied
+        return '⇅';
     };
 
     const tableCellStyle = {
@@ -396,42 +490,103 @@ const State = () => {
         }
     };
 
-    const handleCheckboxChange = useCallback((event, barcode) => {
-        if (event.target.checked) {
-            setSelectedBarcodes(prevSelectedBarcodes => {
-                if (prevSelectedBarcodes.includes(barcode)) {
-                    return prevSelectedBarcodes; // If already selected, don't add again
-                }
-                return [...prevSelectedBarcodes, barcode]; // Add barcode if not already in the array
-            });
-        } else {
-            setSelectedBarcodes(prevSelectedBarcodes =>
-                prevSelectedBarcodes.filter((b) => b !== barcode) // Remove barcode if unchecked
+    useEffect(() => {
+        // Initialize Zebra printer
+        if (window.BrowserPrint) {
+            window.BrowserPrint.getDefaultDevice(
+                "printer",
+                (device) => setPrinter(device),
+                (err) => setPrinterError("Nie znaleziono drukarki: " + err)
             );
+        } else {
+            setPrinterError("Nie załadowano biblioteki BrowserPrint.");
         }
     }, []);
 
+    const toggleRowSelection = (id) => {
+        setSelectedIds((prevSelectedIds) => {
+            if (prevSelectedIds.includes(id)) {
+                // Remove the ID if it's already selected
+                return prevSelectedIds.filter((selectedId) => selectedId !== id);
+            } else {
+                // Add the ID if it's not already selected
+                return [...prevSelectedIds, id];
+            }
+        });
+    };
+
     const handlePrint = async () => {
-        if (selectedBarcodes.length === 0) {
-            alert('Proszę wybrać kody kreskowe do wydrukowania.');
+        if (!printer) {
+            alert("Brak drukarki");
             return;
         }
 
-        try {
-            const response = await axios.post('/api/print-barcodes', {
-                barcodes: selectedBarcodes,
-            });
-
-            if (response.status === 200) {
-                alert('Wysłano do druku!');
-                setSelectedBarcodes([]); // Clear selected barcodes after printing
-            } else {
-                alert('Błąd podczas wysyłania do druku.');
-            }
-        } catch (error) {
-            console.error('Error sending barcodes to print:', error);
-            alert('Wystąpił błąd podczas drukowania.');
+        if (selectedIds.length === 0) {
+            alert("Proszę wybrać wiersze do wydrukowania.");
+            return;
         }
+
+        // Generate ZPL for each selected row
+        const zplCommands = selectedIds.map((id) => {
+            const row = tableData.find((item) => item.id === id);
+            const jacketName = row?.fullName || "Brak nazwy";
+            const size = row?.size || "Brak rozmiaru";
+            const barcode = row?.barcode || "Brak kodu";
+
+            return `
+            ^CI28
+^XA
+^PW700
+^LL1000
+^FO70,30
+^A0N,40,40
+^FD${jacketName} - ${size}^FS
+^FO70,80
+^BY3,3,120
+^BCN,120,Y,N,N
+^FD${barcode}^FS
+^XZ
+            `;
+        }).join('');
+
+        // Send ZPL commands to the printer
+        printer.send(
+            zplCommands,
+            () => setSelectedIds([]), // Clear selected IDs after printing
+            (err) => alert("Błąd drukowania: " + err)
+        );
+    };
+
+    const handleLpFilterChange = (e) => {
+        const input = e.target.value;
+        const nextValidChar = tableData
+            .map((_, index) => (index + 1).toString())
+            .find((lp) => lp.startsWith(input));
+
+        if (nextValidChar || input === '') {
+            setColumnFilters((prevFilters) => ({
+                ...prevFilters,
+                lp: input,
+            }));
+        }
+    };
+
+    const handleFullNameFilterChange = (e) => {
+        const input = e.target.value.toLowerCase();
+        const nextValidChar = tableData
+            .map((row) => row.fullName.toLowerCase())
+            .find((name) => name.startsWith(input));
+
+        if (nextValidChar || input === '') {
+            setColumnFilters((prevFilters) => ({
+                ...prevFilters,
+                fullName: input,
+            }));
+        }
+    };
+
+    const toggleDateRangePicker = () => {
+        setIsDateRangePickerVisible((prev) => !prev); // Toggle visibility
     };
 
     return (
@@ -442,6 +597,7 @@ const State = () => {
                     <Button color="primary" className="me-2 btn btn-sm" onClick={() => handleExport('json')}>Export to JSON</Button>
                     <Button color="info" className="me-2 btn btn-sm" onClick={() => handleExport('csv')}>Export to CSV</Button>
                     <Button color="danger" className="me-2 btn btn-sm" onClick={() => handleExport('pdf')}>Export to PDF</Button>
+                    <Button color="primary" className="btn btn-sm" onClick={handlePrint}>Drukuj zaznaczone kody</Button>
                 </div>
             </div>
 
@@ -593,41 +749,168 @@ const State = () => {
             <Table className={`table ${styles.responsiveTable}`} styles={styles.table}>
                 <thead style={{ backgroundColor: 'black', color: 'white' }}>
                     <tr>
-                        <th style={tableCellStyle}>Lp</th>
-                        <th style={tableCellStyle}>Pełna nazwa</th>
-                        <th style={tableCellStyle}>Data</th>
-                        <th style={tableCellStyle}>Rozmiar</th>
-                        <th style={tableCellStyle}>Symbol</th> 
-                        <th style={tableCellStyle}>
-                            Kody kreskowe
-                            <Button color="primary" onClick={handlePrint} style={{ marginLeft: '5px' }}>
-                                Drukuj
-                            </Button>
+                        <th
+                            style={{ ...tableCellStyle, maxWidth: '270px', width: '130px' }}
+                            onClick={() => handleSort('lp')}
+                        >
+                            Lp {getSortIcon('lp')}
                         </th>
-                        <th style={tableCellStyle}>Akcje</th>
+                        <th
+                            style={{ ...tableCellStyle }}
+                            onClick={() => handleSort('fullName')}
+                        >
+                            Pełna nazwa {getSortIcon('fullName')}
+                            <input
+                                type="text"
+                                className="form-control form-control-sm mt-1"
+                                placeholder="Filter"
+                                style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                }}
+                                value={columnFilters.fullName || ''}
+                                onChange={handleFullNameFilterChange}
+                            />
+                        </th>
+                        <th style={tableCellStyle}>
+                            <div className="d-flex flex-column align-items-center" style={{ position: 'relative' }}>
+                                <span onClick={toggleDateRangePicker} style={{ cursor: 'pointer' }}>
+                                    Data dobrania {getSortIcon('date')}
+                                </span>
+                                {isDateRangePickerVisible && (
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            zIndex: 10,
+                                            backgroundColor: 'black',
+                                            border: '1px solid #ccc',
+                                            borderRadius: '4px',
+                                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                                            padding: '10px',
+                                            color: 'white',
+                                        }}
+                                    >
+                                        <DateRangePicker
+                                            ranges={dateRange}
+                                            onChange={(ranges) => setDateRange([ranges.selection])} // Update date range on change
+                                            locale={pl} // Apply Polish locale
+                                            rangeColors={['#0d6efd']} // Set custom range color
+                                            staticRanges={customStaticRanges} // Use custom static ranges
+                                            inputRanges={customInputRanges} // Use custom input ranges
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </th>
+                        <th
+                            style={{ ...tableCellStyle }}
+                            onClick={() => handleSort('size')}
+                        >
+                            Rozmiar {getSortIcon('size')}
+                            <input
+                                type="text"
+                                className="form-control form-control-sm mt-1"
+                                placeholder="Filter"
+                                style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                }}
+                                value={columnFilters.size || ''}
+                                onChange={(e) => {
+                                    const input = e.target.value.toLowerCase();
+                                    const nextValidChar = tableData
+                                        .map((row) => row.size.toLowerCase())
+                                        .find((size) => size.startsWith(input));
+
+                                    if (nextValidChar || input === '') {
+                                        setColumnFilters((prevFilters) => ({
+                                            ...prevFilters,
+                                            size: input,
+                                        }));
+                                    }
+                                }}
+                            />
+                        </th>
+                        <th
+                            style={{ ...tableCellStyle }}
+                            onClick={() => handleSort('symbol')}
+                        >
+                            Symbol {getSortIcon('symbol')}
+                            <input
+                                type="text"
+                                className="form-control form-control-sm mt-1"
+                                placeholder="Filter"
+                                style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                }}
+                                value={columnFilters.symbol || ''}
+                                onChange={(e) => {
+                                    const input = e.target.value.toLowerCase();
+                                    const nextValidChar = tableData
+                                        .map((row) => row.symbol.toLowerCase())
+                                        .find((symbol) => symbol.startsWith(input));
+
+                                    if (nextValidChar || input === '') {
+                                        setColumnFilters((prevFilters) => ({
+                                            ...prevFilters,
+                                            symbol: input,
+                                        }));
+                                    }
+                                }}
+                            />
+                        </th>
+                        <th style={{ ...tableCellStyle, textAlign: 'center' }}> {/*  the header */}
+                            <div className="d-flex align-items-center justify-content-center gap-2">
+                                Kody kreskowe
+                                <input
+                                    type="checkbox"
+                                    style={{ width: '20px', height: '20px' }} // Larger checkbox
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setSelectedIds(filteredTableData.map((row) => row.id)); // Select only filtered rows
+                                        } else {
+                                            setSelectedIds([]); // Deselect all rows
+                                        }
+                                    }}
+                                    checked={
+                                        filteredTableData.length > 0 &&
+                                        filteredTableData.every((row) => selectedIds.includes(row.id)) // Check if all filtered rows are selected
+                                    }
+                                />
+                            </div>
+                        </th>
+                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>Akcje</th> {/* Center the header */}
                     </tr>
                 </thead>
                 <tbody>
                     {currentRecords.map((row, index) => (
                         <tr key={row.id || index} style={{ backgroundColor: 'black', color: 'white' }}>
-                            <td style={tableCellStyle} data-label="Nr zamówienia">{indexOfFirstRecord + index + 1}</td>
+                            <td style={tableCellStyle} data-label="Nr zamówienia">
+                                {indexOfFirstRecord + index + 1}
+                            </td>
                             <td style={tableCellStyle} data-label="Pełna nazwa">{row.fullName}</td>
                             <td style={tableCellStyle} data-label="Data">
                                 {new Date(row.date).toLocaleDateString()}
                             </td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
-                            <td style={tableCellStyle} data-label="Symbol">{row.symbol}</td> 
-                            <td style={tableCellStyle} data-label="Barcode">
-                                <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
-                                <input
-                                    type="checkbox"
-                                    key={row.barcode}
-                                    checked={selectedBarcodes.includes(row.barcode)}
-                                    onChange={(e) => handleCheckboxChange(e, row.barcode)}
-                                />
+                            <td style={tableCellStyle} data-label="Symbol">{row.symbol}</td>
+                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode"> {/* Center the content */}
+                                <div className="d-flex align-items-center justify-content-center gap-2">
+                                    <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
+                                    <input
+                                        type="checkbox"
+                                        style={{ width: '20px', height: '20px' }} // Larger checkbox
+                                        checked={selectedIds.includes(row.id)}
+                                        onChange={() => toggleRowSelection(row.id)}
+                                    />
+                                </div>
                             </td>
-                            <td style={tableCellStyle} data-label="Akcje">
-                                <div className="d-flex gap-1">
+                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Akcje"> {/* Center the content */}
+                                <div className="d-flex justify-content-center gap-1">
                                     <Button color="warning" size="sm" onClick={() => handleEditClick(row)}>Edytuj</Button>
                                     <Button color="danger" size="sm" onClick={() => {
                                         if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) { // Confirm before deleting

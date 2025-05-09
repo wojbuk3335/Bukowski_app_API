@@ -29,7 +29,7 @@ const salesSchema = mongoose.Schema({
     cash: {
         type: [
             {
-                price: { type: Number, required: true },
+                price: { type: Number, required: false, default: 0 },
                 currency: { type: String, required: true }
             }
         ],
@@ -39,7 +39,7 @@ const salesSchema = mongoose.Schema({
     card: {
         type: [
             {
-                price: { type: Number, required: true },
+                price: { type: Number, required: false, default: 0 },
                 currency: { type: String, required: true }
             }
         ],

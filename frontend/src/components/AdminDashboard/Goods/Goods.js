@@ -294,16 +294,43 @@ const Goods = () => {
 
     const handleEditProduct = (good) => {
         setEditingGood(good);
-        setSelectedStock(good.stock._id);
-        setSelectedColor(good.color._id);
+
+        // Walidacja dla stock i color
+        const stock = stocks.find(stock => stock._id === good.stock._id);
+        const color = colors.find(color => color._id === good.color._id);
+
+        if (!stock) {
+            alert('Nie znaleziono powiązanego produktu (stock).');
+            return;
+        }
+
+        if (!color) {
+            alert('Nie znaleziono powiązanego koloru.');
+            return;
+        }
+
+        setSelectedStock(stock._id);
+        setSelectedColor(color._id);
+
+        // Walidacja dla rozmiarów w priceExceptions
+        const validPriceExceptions = good.priceExceptions.map(exception => {
+            const size = sizes.find(size => size._id === exception.size?._id);
+            if (!size) {
+                console.warn(`Nie znaleziono rozmiaru dla exception: ${exception.size?._id}`);
+                return null; // Ignoruj nieprawidłowe wyjątki
+            }
+            return {
+                size: size._id,
+                value: exception.value
+            };
+        }).filter(exception => exception !== null); // Usuń nieprawidłowe wyjątki
+
+        setPriceExceptions(validPriceExceptions);
+
         setSelectedCategory(good.category); // Set category directly as a string
         setSelectedSubcategory(good.subcategory ? good.subcategory._id : ''); // Set subcategory for editing
         setPrice(good.price);
         setDiscountPrice(good.discount_price);
-        setPriceExceptions(good.priceExceptions.map(exception => ({
-            size: exception.size._id,
-            value: exception.value
-        })));
         setProductName(good.fullName); // Set product name for editing
         setSelectedImage(null); // Reset image selection for editing
         setModal(true);
@@ -594,13 +621,13 @@ const Goods = () => {
                                 <td className={styles.tableCell} data-label="Wyjątki">
                                     {good.priceExceptions.map((exception, i) => (
                                         <span key={i}>
-                                            {exception.size.Roz_Opis}={exception.value}
+                                            {exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru'}={exception.value}
                                             {i < good.priceExceptions.length - 1 && ', '}
                                         </span>
                                     ))}
                                 </td>
                                 <td className={styles.tableCell} data-label="Płeć">
-                                    {good.subcategory ? subcategories.find(sub => sub._id === good.subcategory._id)?.Płeć || '' : ''}
+                                    {good.subcategory ? subcategories.find(sub => sub._id === good.subcategory._id)?.Płeć || 'Nieokreślona' : 'Nieokreślona'}
                                 </td>
                                 <td className={styles.tableCell} data-label="Akcje">
                                     <Button color="warning" size="sm" className="edit" onClick={() => handleEditProduct(good)}>Edytuj</Button>
