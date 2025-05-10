@@ -29,6 +29,10 @@ const stateSchema = mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true // Ensure this field is required
+    },
+    price: {
+        type: Number,
+        required: true // Ensure this field is required
     }
 });
 

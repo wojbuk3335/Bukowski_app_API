@@ -19,19 +19,28 @@ class StatesController {
     async getAllStates(req, res, next) {
         try {
             const states = await State.find()
-                .populate('fullName', 'fullName') // Correctly populate fullName
+                .populate('fullName', 'fullName price priceExceptions') // Include price and priceExceptions
                 .populate('size', 'Roz_Opis')
                 .populate('sellingPoint', 'symbol'); // Populate symbol instead of sellingPoint
 
-            res.status(200).json(states.map(state => ({
-                id: state._id,
-                fullName: state.fullName.fullName,
-                date: state.date,
-                plec: state.plec, // Include Plec in the response
-                size: state.size.Roz_Opis,
-                barcode: state.barcode,
-                symbol: state.sellingPoint ? state.sellingPoint.symbol : null // Return symbol instead of sellingPoint
-            })));
+            res.status(200).json(states.map(state => {
+                const basePrice = state.fullName.price || 0;
+                const exception = state.fullName.priceExceptions.find(
+                    (ex) => ex.size.toString() === state.size._id.toString()
+                );
+                const price = exception ? exception.value : basePrice;
+
+                return {
+                    id: state._id,
+                    fullName: state.fullName.fullName,
+                    date: state.date,
+                    plec: state.plec,
+                    size: state.size.Roz_Opis,
+                    barcode: state.barcode,
+                    symbol: state.sellingPoint ? state.sellingPoint.symbol : null,
+                    price // Include price in the response
+                };
+            }));
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
@@ -41,7 +50,7 @@ class StatesController {
     async createState(req, res, next) {
         try {
             // Find the ObjectId for fullName in Goods
-            const goods = await Goods.findOne({ fullName: req.body.fullName });
+            const goods = await Goods.findOne({ fullName: req.body.fullName }).populate('priceExceptions.size');
             if (!goods) {
                 return res.status(404).send('Goods not found');
             }
@@ -72,7 +81,14 @@ class StatesController {
             const checksum = calculateChecksum(barcode);
             barcode = barcode.substring(0, 12) + checksum; // Append checksum to barcode
 
-            // Create a new State with the updated barcode
+            // Calculate the price
+            const basePrice = goods.price || 0;
+            const exception = goods.priceExceptions.find(
+                (ex) => ex.size && ex.size._id.toString() === size._id.toString()
+            );
+            const price = exception ? exception.value : basePrice;
+
+            // Create a new State with the updated barcode and price
             const state = new State({
                 _id: new mongoose.Types.ObjectId(),
                 fullName: goods._id,
@@ -80,7 +96,8 @@ class StatesController {
                 plec: goods.Plec, // Save Plec
                 size: size._id,
                 barcode, // Save the updated barcode
-                sellingPoint: user._id // Save the sellingPoint
+                sellingPoint: user._id, // Save the sellingPoint
+                price // Save the calculated price
             });
 
             const newState = await state.save();

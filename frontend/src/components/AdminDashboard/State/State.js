@@ -47,6 +47,20 @@ const State = () => {
     const [columnFilters, setColumnFilters] = useState({}); // State for column filters
     const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]); // State for date range
     const [isDateRangePickerVisible, setIsDateRangePickerVisible] = useState(false); // State to toggle date range picker visibility
+    const calendarRef = useRef(null); // Ref for the calendar container
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+                setIsDateRangePickerVisible(false); // Close the calendar if clicked outside
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     // Nadpisanie etykiet w defaultStaticRanges
     const customStaticRanges = originalStaticRanges.map((range) => {
@@ -162,7 +176,8 @@ const State = () => {
                 date: row.date,
                 size: row.size?.Roz_Opis || row.size || "Brak danych",
                 barcode: row.barcode || "Brak danych",
-                symbol: row.symbol || "Brak danych" // Use symbol instead of sellingPoint
+                symbol: row.symbol || "Brak danych", // Use symbol instead of sellingPoint
+                price: row.price || "Brak danych" // Add price field
             }));
             setTableData(formattedData.reverse());
         } catch (error) {
@@ -176,27 +191,42 @@ const State = () => {
             return;
         }
 
-        const dataToSend = {
-            fullName: input1Value.trim(),
-            size: selectedSize,
-            plec: selectedPlec,
-            date: selectedDate.toISOString(),
-            sellingPoint: selectedSellingPoint,
-        };
-
-        console.log('Sending data to backend:', dataToSend); // Log the payload
-
         try {
+            // Fetch the selected good to check for price exceptions
+            const selectedGood = goods.find((good) => good.fullName === input1Value.trim());
+            if (!selectedGood) {
+                alert('Wybrany produkt nie istnieje w bazie danych.');
+                return;
+            }
+
+            // Check if the selected size exists in the price exceptions
+            const exception = selectedGood.priceExceptions.find(
+                (ex) => ex.size && ex.size.Roz_Opis === selectedSize
+            );
+            const price = exception ? exception.value : selectedGood.price; // Use exception price if available
+
+            const dataToSend = {
+                fullName: input1Value.trim(),
+                size: selectedSize,
+                plec: selectedPlec,
+                date: selectedDate.toISOString(),
+                sellingPoint: selectedSellingPoint,
+                price, // Include the calculated price
+            };
+
+            console.log('Sending data to backend:', dataToSend); // Log the payload
+
             const response = await axios.post('/api/state', dataToSend);
             console.log('Response from backend:', response.data); // Log the response
 
             const newRow = {
                 id: response.data._id,
-                fullName: dataToSend.fullName,
-                date: dataToSend.date,
-                size: dataToSend.size,
+                fullName: input1Value.trim(),
+                date: selectedDate.toISOString(),
+                size: selectedSize,
                 barcode: response.data.barcode || "Brak danych",
-                symbol: dataToSend.sellingPoint,
+                symbol: selectedSellingPoint,
+                price: response.data.price || "Brak danych", // Display the price immediately
             };
             setTableData((prevData) => [newRow, ...prevData]);
 
@@ -333,7 +363,7 @@ const State = () => {
             case 'pdf':
                 const doc = new jsPDF(); // Create a new jsPDF instance
                 autoTable(doc, {
-                    head: [['Nr zamówienia', 'Pełna nazwa', 'Data', 'Rozmiar', 'Barcode', 'Symbol']],
+                    head: [['Nr zamówienia', 'Pełna nazwa', 'Data', 'Rozmiar', 'Barcode', 'Symbol', 'Cena (PLN)']],
                     body: tableData.map((row, index) => [
                         index + 1,
                         row.fullName,
@@ -341,6 +371,7 @@ const State = () => {
                         row.size,
                         row.barcode,
                         row.symbol,
+                        row.price,
                     ]),
                 });
                 doc.save('tableData.pdf'); // Save PDF file
@@ -532,6 +563,8 @@ const State = () => {
             const jacketName = row?.fullName || "Brak nazwy";
             const size = row?.size || "Brak rozmiaru";
             const barcode = row?.barcode || "Brak kodu";
+            const symbol = row?.symbol || "Brak symbolu";
+            const price = row?.price ? `${row.price} PLN` : "Brak ceny";
 
             return `
             ^CI28
@@ -540,11 +573,17 @@ const State = () => {
 ^LL1000
 ^FO70,30
 ^A0N,40,40
-^FD${jacketName} - ${size}^FS
+^FD${jacketName}  ${size}^FS
+^FO600,30
+^A0N,30,30
+^FD${symbol}^FS
 ^FO70,80
 ^BY3,3,120
 ^BCN,120,Y,N,N
 ^FD${barcode}^FS
+^FO230,250
+^A0N,60,60
+^FD${price}^FS
 ^XZ
             `;
         }).join('');
@@ -779,6 +818,7 @@ const State = () => {
                                 </span>
                                 {isDateRangePickerVisible && (
                                     <div
+                                        ref={calendarRef} // Attach the ref to the calendar container
                                         style={{
                                             position: 'absolute',
                                             top: '100%',
@@ -863,6 +903,9 @@ const State = () => {
                                 }}
                             />
                         </th>
+                        <th style={tableCellStyle} onClick={() => handleSort('price')}>
+                            Cena (PLN) {getSortIcon('price')}
+                        </th>
                         <th style={{ ...tableCellStyle, textAlign: 'center' }}> {/*  the header */}
                             <div className="d-flex align-items-center justify-content-center gap-2">
                                 Kody kreskowe
@@ -898,6 +941,9 @@ const State = () => {
                             </td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
                             <td style={tableCellStyle} data-label="Symbol">{row.symbol}</td>
+                            <td style={tableCellStyle} data-label="Cena (PLN)">
+                                {row.price}
+                            </td>
                             <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode"> {/* Center the content */}
                                 <div className="d-flex align-items-center justify-content-center gap-2">
                                     <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
