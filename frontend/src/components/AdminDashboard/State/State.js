@@ -10,7 +10,7 @@ import 'react-date-range/dist/theme/default.css'; // Import default theme
 import styles from './State.module.css'; // Import the CSS module
 import Barcode from 'react-barcode'; // Import the Barcode component
 import { saveAs } from 'file-saver'; // For exporting files
-import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, ModalFooter } from 'reactstrap'; // Import reactstrap components
+import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, ModalFooter, Spinner } from 'reactstrap'; // Import reactstrap components
 import * as XLSX from 'xlsx'; // Import XLSX for Excel export
 import jsPDF from 'jspdf'; // Import jsPDF for PDF export
 import autoTable from 'jspdf-autotable'; // Ensure correct import for autoTable
@@ -48,6 +48,7 @@ const State = () => {
     const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]); // State for date range
     const [isDateRangePickerVisible, setIsDateRangePickerVisible] = useState(false); // State to toggle date range picker visibility
     const calendarRef = useRef(null); // Ref for the calendar container
+    const [loading, setLoading] = useState(false); // Loading state
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -167,6 +168,7 @@ const State = () => {
     }, []);
 
     const fetchTableData = async () => {
+        setLoading(true);
         try {
             const response = await axios.get('/api/state');
             const formattedData = response.data.map((row) => ({
@@ -176,12 +178,14 @@ const State = () => {
                 date: row.date,
                 size: row.size?.Roz_Opis || row.size || "Brak danych",
                 barcode: row.barcode || "Brak danych",
-                symbol: row.symbol || "Brak danych", // Use symbol instead of sellingPoint
-                price: row.price || "Brak danych" // Add price field
+                symbol: row.symbol || "Brak danych",
+                price: row.price || "Brak danych"
             }));
             setTableData(formattedData.reverse());
         } catch (error) {
             console.error('Error fetching table data:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -191,32 +195,15 @@ const State = () => {
             return;
         }
 
+        setLoading(true);
         try {
             // Fetch the selected good to check for price exceptions
             const selectedGood = goods.find((good) => good.fullName === input1Value.trim());
             if (!selectedGood) {
                 alert('Wybrany produkt nie istnieje w bazie danych.');
+                setLoading(false);
                 return;
             }
-
-            // Prepare price info for alert
-            let priceInfo = `Ceny dla produktu "${selectedGood.fullName}":\n`;
-            priceInfo += `- Cena bazowa (PLN): ${selectedGood.price ?? 'Brak'}\n`;
-            priceInfo += `- Cena promocyjna (PLN): ${
-                selectedGood.discount_price !== undefined &&
-                selectedGood.discount_price !== null &&
-                selectedGood.discount_price !== "" &&
-                Number(selectedGood.discount_price) !== 0
-                    ? selectedGood.discount_price
-                    : 'Brak'
-            }\n`;
-            if (Array.isArray(selectedGood.priceExceptions) && selectedGood.priceExceptions.length > 0) {
-                priceInfo += `- Wyjątki cenowe:\n`;
-                selectedGood.priceExceptions.forEach((ex, idx) => {
-                    priceInfo += `   • Rozmiar: ${ex.size?.Roz_Opis ?? 'Brak'} - Cena: ${ex.value}\n`;
-                });
-            }
-            alert(priceInfo);
 
             // Check if the selected size exists in the price exceptions
             const exception = selectedGood.priceExceptions.find(
@@ -242,13 +229,13 @@ const State = () => {
                 plec: selectedPlec,
                 date: selectedDate.toISOString(),
                 sellingPoint: selectedSellingPoint,
-                price, // Now price is a string as required
+                price,
             };
 
-            console.log('Sending data to backend:', dataToSend); // Log the payload
+            console.log('Sending data to backend:', dataToSend);
 
             const response = await axios.post('/api/state', dataToSend);
-            console.log('Response from backend:', response.data); // Log the response
+            console.log('Response from backend:', response.data);
 
             const newRow = {
                 id: response.data._id,
@@ -257,7 +244,7 @@ const State = () => {
                 size: selectedSize,
                 barcode: response.data.barcode || "Brak danych",
                 symbol: selectedSellingPoint,
-                price: price, // Use the formatted price string
+                price: price,
             };
             setTableData((prevData) => [newRow, ...prevData]);
 
@@ -266,7 +253,9 @@ const State = () => {
             setSelectedSellingPoint(users.length > 0 ? users[0].symbol : '');
             inputRefs.current[0].focus();
         } catch (error) {
-            console.error('Error sending data to backend:', error); // Log the error
+            console.error('Error sending data to backend:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -659,6 +648,32 @@ const State = () => {
         setIsDateRangePickerVisible((prev) => !prev); // Toggle visibility
     };
 
+    if (loading) {
+        return (
+            <div
+                className="spinner-container"
+                style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'black',
+                }}
+            >
+                <div
+                    className="spinner-border"
+                    role="status"
+                    style={{
+                        color: 'white',
+                        width: '3rem',
+                        height: '3rem',
+                    }}
+                >
+                    <span className="sr-only"></span>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div>
             <div className="d-flex justify-content-center mb-3">
@@ -997,10 +1012,38 @@ const State = () => {
                             value={goodsOptions.find((option) => option.label === editData.fullName) || null}
                             onChange={(selectedOption) => setEditData({ ...editData, fullName: selectedOption ? selectedOption.label : '' })}
                             options={goodsOptions}
-                            placeholder="Wybierz pełną nazwę" // Polish: Select a full name
+                            placeholder="Wybierz pełną nazwę"
                             isClearable
                             isSearchable
                             className="w-100"
+                            styles={{
+                                control: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: 'black',
+                                    color: 'white',
+                                    borderColor: state.isFocused ? '#0d6efd' : base.borderColor,
+                                    boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow,
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    color: 'white',
+                                }),
+                                input: (base) => ({
+                                    ...base,
+                                    color: 'white',
+                                }),
+                                menu: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'black',
+                                    color: 'white',
+                                    border: '1px solid white',
+                                }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor,
+                                    color: state.isFocused ? 'white' : base.color,
+                                }),
+                            }}
                         />
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
@@ -1024,10 +1067,38 @@ const State = () => {
                             value={sizesOptions.find((option) => option.label === editData.size) || null}
                             onChange={(selectedOption) => setEditData({ ...editData, size: selectedOption ? selectedOption.label : '' })}
                             options={sizesOptions}
-                            placeholder="Wybierz rozmiar" // Polish: Select a size
+                            placeholder="Wybierz rozmiar"
                             isClearable
                             isSearchable
                             className="w-100"
+                            styles={{
+                                control: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: 'black',
+                                    color: 'white',
+                                    borderColor: state.isFocused ? '#0d6efd' : base.borderColor,
+                                    boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow,
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    color: 'white',
+                                }),
+                                input: (base) => ({
+                                    ...base,
+                                    color: 'white',
+                                }),
+                                menu: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'black',
+                                    color: 'white',
+                                    border: '1px solid white',
+                                }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor,
+                                    color: state.isFocused ? 'white' : base.color,
+                                }),
+                            }}
                         />
                     </FormGroup>
                 </ModalBody>
