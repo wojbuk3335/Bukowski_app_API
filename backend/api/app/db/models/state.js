@@ -33,6 +33,10 @@ const stateSchema = mongoose.Schema({
     price: {
         type: Number,
         required: true // Ensure this field is required
+    },
+    discount_price: {
+        type: Number,
+        required: false // Not always present
     }
 });
 

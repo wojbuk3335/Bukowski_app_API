@@ -199,11 +199,42 @@ const State = () => {
                 return;
             }
 
+            // Prepare price info for alert
+            let priceInfo = `Ceny dla produktu "${selectedGood.fullName}":\n`;
+            priceInfo += `- Cena bazowa (PLN): ${selectedGood.price ?? 'Brak'}\n`;
+            priceInfo += `- Cena promocyjna (PLN): ${
+                selectedGood.discount_price !== undefined &&
+                selectedGood.discount_price !== null &&
+                selectedGood.discount_price !== "" &&
+                Number(selectedGood.discount_price) !== 0
+                    ? selectedGood.discount_price
+                    : 'Brak'
+            }\n`;
+            if (Array.isArray(selectedGood.priceExceptions) && selectedGood.priceExceptions.length > 0) {
+                priceInfo += `- Wyjątki cenowe:\n`;
+                selectedGood.priceExceptions.forEach((ex, idx) => {
+                    priceInfo += `   • Rozmiar: ${ex.size?.Roz_Opis ?? 'Brak'} - Cena: ${ex.value}\n`;
+                });
+            }
+            alert(priceInfo);
+
             // Check if the selected size exists in the price exceptions
             const exception = selectedGood.priceExceptions.find(
                 (ex) => ex.size && ex.size.Roz_Opis === selectedSize
             );
-            const price = exception ? exception.value : selectedGood.price; // Use exception price if available
+            let price;
+            if (exception) {
+                price = exception.value;
+            } else if (
+                selectedGood.discount_price !== undefined &&
+                selectedGood.discount_price !== null &&
+                selectedGood.discount_price !== "" &&
+                Number(selectedGood.discount_price) !== 0
+            ) {
+                price = `${selectedGood.price},${selectedGood.discount_price}`;
+            } else {
+                price = selectedGood.price;
+            }
 
             const dataToSend = {
                 fullName: input1Value.trim(),
@@ -211,7 +242,7 @@ const State = () => {
                 plec: selectedPlec,
                 date: selectedDate.toISOString(),
                 sellingPoint: selectedSellingPoint,
-                price, // Include the calculated price
+                price, // Now price is a string as required
             };
 
             console.log('Sending data to backend:', dataToSend); // Log the payload
@@ -226,7 +257,7 @@ const State = () => {
                 size: selectedSize,
                 barcode: response.data.barcode || "Brak danych",
                 symbol: selectedSellingPoint,
-                price: response.data.price || "Brak danych", // Display the price immediately
+                price: price, // Use the formatted price string
             };
             setTableData((prevData) => [newRow, ...prevData]);
 
@@ -859,19 +890,7 @@ const State = () => {
                                     boxSizing: 'border-box',
                                 }}
                                 value={columnFilters.size || ''}
-                                onChange={(e) => {
-                                    const input = e.target.value.toLowerCase();
-                                    const nextValidChar = tableData
-                                        .map((row) => row.size.toLowerCase())
-                                        .find((size) => size.startsWith(input));
-
-                                    if (nextValidChar || input === '') {
-                                        setColumnFilters((prevFilters) => ({
-                                            ...prevFilters,
-                                            size: input,
-                                        }));
-                                    }
-                                }}
+                                onChange={e => setColumnFilters({ ...columnFilters, size: e.target.value })}
                             />
                         </th>
                         <th
@@ -888,19 +907,7 @@ const State = () => {
                                     boxSizing: 'border-box',
                                 }}
                                 value={columnFilters.symbol || ''}
-                                onChange={(e) => {
-                                    const input = e.target.value.toLowerCase();
-                                    const nextValidChar = tableData
-                                        .map((row) => row.symbol.toLowerCase())
-                                        .find((symbol) => symbol.startsWith(input));
-
-                                    if (nextValidChar || input === '') {
-                                        setColumnFilters((prevFilters) => ({
-                                            ...prevFilters,
-                                            symbol: input,
-                                        }));
-                                    }
-                                }}
+                                onChange={e => setColumnFilters({ ...columnFilters, symbol: e.target.value })}
                             />
                         </th>
                         <th style={tableCellStyle} onClick={() => handleSort('price')}>

@@ -19,16 +19,22 @@ class StatesController {
     async getAllStates(req, res, next) {
         try {
             const states = await State.find()
-                .populate('fullName', 'fullName price priceExceptions') // Include price and priceExceptions
+                .populate('fullName', 'fullName price priceExceptions discount_price') // Include discount_price
                 .populate('size', 'Roz_Opis')
-                .populate('sellingPoint', 'symbol'); // Populate symbol instead of sellingPoint
+                .populate('sellingPoint', 'symbol');
 
             res.status(200).json(states.map(state => {
                 const basePrice = state.fullName.price || 0;
+                const discountPrice = state.fullName.discount_price || 0;
                 const exception = state.fullName.priceExceptions.find(
                     (ex) => ex.size.toString() === state.size._id.toString()
                 );
                 const price = exception ? exception.value : basePrice;
+                // If exception, only show exception price. If not, show price and discount_price if discount_price exists and is not 0.
+                let priceDisplay = price;
+                if (!exception && discountPrice && Number(discountPrice) !== 0) {
+                    priceDisplay = `${price},${discountPrice}`;
+                }
 
                 return {
                     id: state._id,
@@ -38,7 +44,9 @@ class StatesController {
                     size: state.size.Roz_Opis,
                     barcode: state.barcode,
                     symbol: state.sellingPoint ? state.sellingPoint.symbol : null,
-                    price // Include price in the response
+                    price: priceDisplay,
+                    price_raw: price,
+                    discount_price: discountPrice
                 };
             }));
         } catch (error) {
@@ -83,21 +91,23 @@ class StatesController {
 
             // Calculate the price
             const basePrice = goods.price || 0;
+            const discountPrice = goods.discount_price || 0;
             const exception = goods.priceExceptions.find(
                 (ex) => ex.size && ex.size._id.toString() === size._id.toString()
             );
             const price = exception ? exception.value : basePrice;
 
-            // Create a new State with the updated barcode and price
+            // Save both price and discount_price
             const state = new State({
                 _id: new mongoose.Types.ObjectId(),
                 fullName: goods._id,
                 date: req.body.date,
-                plec: goods.Plec, // Save Plec
+                plec: goods.Plec,
                 size: size._id,
-                barcode, // Save the updated barcode
-                sellingPoint: user._id, // Save the sellingPoint
-                price // Save the calculated price
+                barcode,
+                sellingPoint: user._id,
+                price: price,
+                discount_price: !exception && discountPrice && Number(discountPrice) !== 0 ? discountPrice : undefined
             });
 
             const newState = await state.save();
