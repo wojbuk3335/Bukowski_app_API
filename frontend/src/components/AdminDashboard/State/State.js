@@ -250,8 +250,12 @@ const State = () => {
 
             setInput1Value('');
             setInput2Value('');
-            setSelectedSellingPoint(users.length > 0 ? users[0].symbol : '');
-            inputRefs.current[0].focus();
+            // Do not reset selectedSellingPoint
+            setTimeout(() => {
+                if (inputRefs.current[0] && inputRefs.current[0].focus) {
+                    inputRefs.current[0].focus();
+                }
+            }, 0);
         } catch (error) {
             console.error('Error sending data to backend:', error);
         } finally {
