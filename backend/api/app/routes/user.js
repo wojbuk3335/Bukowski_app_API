@@ -6,7 +6,6 @@ const historyLogger = require('../middleware/historyLogger'); // Adjusted path
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
 const User = require('../db/models/user'); // Ensure this path is correct
 const jwt = require('jsonwebtoken');
 const { route } = require('./jackets');
