@@ -46,6 +46,10 @@ const salesSchema = mongoose.Schema({
         required: false,
         default: []
     },
+    symbol: {
+        type: String, // Ensure symbol is a String
+        required: true
+    },
     date: {
         type: Date,
         required: true

@@ -5,7 +5,7 @@ class SalesController {
 
     static async saveSales(req, res) {
         try {
-            const { fullName, timestamp, barcode, size, sellingPoint, from, cash, card } = req.body;
+            const { fullName, timestamp, barcode, size, sellingPoint, from, cash, card, symbol } = req.body;
 
             // Parse the timestamp from the provided format
             const parsedTimestamp = new Date(
@@ -17,11 +17,12 @@ class SalesController {
                 fullName,
                 timestamp: parsedTimestamp,
                 barcode,
-                size, // Correctly use sizeId
+                size,
                 sellingPoint,
                 from,
                 cash,
                 card,
+                symbol, // Add symbol field
                 date: new Date() // Current date
             });
 
@@ -35,7 +36,7 @@ class SalesController {
 
     static async getAllSales(req, res) {
         try {
-            const sales = await Sales.find({}); // Removed .populate('sizeId')
+            const sales = await Sales.find({});
             res.status(200).json(sales);
         } catch (error) {
             console.log('Error fetching all sales:', error.message);
