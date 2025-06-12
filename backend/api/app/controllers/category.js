@@ -2,88 +2,95 @@ const Category = require('../db/models/category');
 const mongoose = require('mongoose');
 const config = require('../config');
 
-exports.getAllCategories = async (req, res) => {
-    try {
-        const categories = await Category.find();
-        res.status(200).json({ categories });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error fetching categories", error: error.message });
+class CategoryController {
+    getAllCategories(req, res, next) {
+        Category.find()
+            .select('_id Kat_1_Kod_1 Kat_1_Opis_1 Plec')
+            .then(categories => {
+                const response = {
+                    count: categories.length,
+                    categories: categories.map(category => ({
+                        _id: category._id,
+                        Kat_1_Kod_1: category.Kat_1_Kod_1,
+                        Kat_1_Opis_1: category.Kat_1_Opis_1,
+                        Plec: category.Plec,
+                        request: {
+                            type: 'GET',
+                            url: `${config.domain}/api/excel/category/${category._id}`
+                        }
+                    }))
+                };
+                res.status(200).json(response);
+            })
+            .catch(err => {
+                res.status(500).json({ error: { message: err.message } });
+            });
     }
-};
 
-exports.insertManyCategories = async (req, res) => {
-    try {
-        const categoriesData = req.body;
+    insertManyCategories(req, res, next) {
+        const categories = req.body;
 
-        // Validate the data
-        if (!Array.isArray(categoriesData)) {
-            return res.status(400).json({ message: "Invalid input: Expected an array of categories" });
+        const katKodSet = new Set();
+        for (const category of categories) {
+            if (katKodSet.has(category.Kat_1_Kod_1)) {
+                return res.status(400).json({
+                    error: { message: 'Duplicate Kat_1_Kod_1 values in request body' }
+                });
+            }
+            katKodSet.add(category.Kat_1_Kod_1);
         }
 
-        for (const categoryData of categoriesData) {
-            if (!categoryData.Kat_1_Kod_1 || !categoryData.Kat_1_Opis_1 || !categoryData.Plec) {
-                return res.status(400).json({ message: "Invalid input: Missing required fields" });
+        Category.insertMany(categories)
+            .then(result => {
+                res.status(201).json({ message: 'Categories inserted', categories: result });
+            })
+            .catch(err => {
+                if (err.code === 11000) {
+                    res.status(400).json({ error: { message: 'Duplicate Kat_1_Kod_1 values' } });
+                } else {
+                    res.status(500).json({ error: { message: err.message } });
+                }
+            });
+    }
+
+    deleteAllCategories(req, res, next) {
+        Category.deleteMany()
+            .then(() => res.status(200).json({ message: 'All categories deleted' }))
+            .catch(err => res.status(500).json({ error: { message: err.message } }));
+    }
+
+    getCategoryById(req, res, next) {
+        const id = req.params.categoryId;
+        Category.findById(id)
+            .select('_id Kat_1_Kod_1 Kat_1_Opis_1 Plec')
+            .then(category => {
+                if (category) {
+                    res.status(200).json({
+                        category,
+                        request: { type: 'GET', url: `${config.domain}/api/excel/category/get-all-categories` }
+                    });
+                } else {
+                    res.status(404).json({ error: { message: 'Category not found' } });
+                }
+            })
+            .catch(err => res.status(500).json({ error: { message: err.message } }));
+    }
+
+    updateCategoryById(req, res, next) {
+        const id = req.params.categoryId;
+        const updateOps = {};
+        for (const key in req.body) {
+            if (req.body.hasOwnProperty(key)) {
+                updateOps[key] = req.body[key];
             }
         }
-
-        // Check for duplicate Kat_1_Kod_1 values
-        const kat1Kod1Values = categoriesData.map(cat => cat.Kat_1_Kod_1);
-        const duplicateKat1Kod1 = kat1Kod1Values.filter((value, index) => kat1Kod1Values.indexOf(value) !== index);
-
-        if (duplicateKat1Kod1.length > 0) {
-            return res.status(400).json({ message: "Duplicate Kat_1_Kod_1 values in database", duplicates: duplicateKat1Kod1 });
-        }
-
-        const categories = await Category.insertMany(categoriesData.map(cat => ({ ...cat, _id: new mongoose.Types.ObjectId() })));
-        res.status(201).json({ categories });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error inserting categories", error: error.message });
+        Category.findByIdAndUpdate(id, { $set: updateOps }, { new: true })
+            .then(() => res.status(200).json({
+                message: 'Category updated',
+                request: { type: 'GET', url: `${config.domain}/api/excel/category/${id}` }
+            }))
+            .catch(err => res.status(500).json({ error: { message: err.message } }));
     }
-};
+}
 
-exports.deleteAllCategories = async (req, res) => {
-    try {
-        await Category.deleteMany({});
-        res.status(200).json({ message: "All categories deleted" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error deleting categories", error: error.message });
-    }
-};
-
-exports.getCategoryById = async (req, res) => {
-    try {
-        const categoryId = req.params.categoryId;
-        const category = await Category.findById(categoryId);
-        if (!category) {
-            return res.status(404).json({ message: "Category not found" });
-        }
-        res.status(200).json(category);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error fetching category", error: error.message });
-    }
-};
-
-exports.updateCategoryById = async (req, res) => {
-    try {
-        const categoryId = req.params.categoryId;
-        const updateData = req.body;
-
-        // Validate the data
-        if (updateData.Kat_1_Opis_1 === undefined || updateData.Plec === undefined) {
-            return res.status(400).json({ message: "Invalid input: Missing required fields" });
-        }
-
-        const category = await Category.findByIdAndUpdate(categoryId, updateData, { new: true });
-        if (!category) {
-            return res.status(404).json({ message: "Category not found" });
-        }
-        res.status(200).json(category);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error updating category", error: error.message });
-    }
-};
+module.exports = new CategoryController();
