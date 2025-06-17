@@ -9,6 +9,14 @@ const historySchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    from: {
+        type: String, // Store "Skąd" as a String
+        default: '-' // Ensure default value is "-"
+    },
+    to: {
+        type: String, // Store "Dokąd" as a String
+        default: '-' // Ensure default value is "-"
+    },
     timestamp: {
         type: Date,
         default: Date.now

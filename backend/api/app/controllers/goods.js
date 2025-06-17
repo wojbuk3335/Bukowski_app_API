@@ -29,6 +29,17 @@ class GoodsController {
             return res.status(400).json({ message: 'Nie może być dwóch wyjątków z tym samym rozmiarem' });
         }
 
+        // Check for duplicate fullName and code
+        const existingGood = await Goods.findOne({ $or: [{ fullName }, { code }] });
+        if (existingGood) {
+            if (existingGood.fullName === fullName) {
+                return res.status(400).json({ message: 'Podana nazwa produktu już znajduje się w bazie danych!' });
+            }
+            if (existingGood.code === code) {
+                return res.status(400).json({ message: 'Produkt o tym kodzie już znajduje się w bazie danych!' });
+            }
+        }
+
         const newGood = new Goods({
             _id: new mongoose.Types.ObjectId(),
             stock,

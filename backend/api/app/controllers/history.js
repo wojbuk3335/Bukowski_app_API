@@ -3,7 +3,9 @@ const History = require('../db/models/history');
 class HistoryController {
     getAllHistory = async (req, res, next) => {
         try {
-            const history = await History.find().populate('userloggedinId', 'username');
+            const history = await History.find()
+                .populate('userloggedinId', 'username')
+                .select('collectionName operation from to timestamp userloggedinId details'); // Ensure "from" is included
             res.status(200).json(history);
         } catch (err) {
             console.log(err);

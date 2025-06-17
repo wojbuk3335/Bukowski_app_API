@@ -23,34 +23,23 @@ class StatesController {
                 .populate('size', 'Roz_Opis')
                 .populate('sellingPoint', 'symbol');
 
-            res.status(200).json(states.map(state => {
-                const basePrice = state.fullName.price || 0;
-                const discountPrice = state.fullName.discount_price || 0;
-                const exception = state.fullName.priceExceptions.find(
-                    (ex) => ex.size.toString() === state.size._id.toString()
-                );
-                const price = exception ? exception.value : basePrice;
-                // If exception, only show exception price. If not, show price and discount_price if discount_price exists and is not 0.
-                let priceDisplay = price;
-                if (!exception && discountPrice && Number(discountPrice) !== 0) {
-                    priceDisplay = `${price},${discountPrice}`;
-                }
-
-                return {
-                    id: state._id,
-                    fullName: state.fullName.fullName,
-                    date: state.date,
-                    plec: state.plec,
-                    size: state.size.Roz_Opis,
-                    barcode: state.barcode,
-                    symbol: state.sellingPoint ? state.sellingPoint.symbol : null,
-                    price: priceDisplay,
-                    price_raw: price,
-                    discount_price: discountPrice
-                };
+            const sanitizedStates = states.map(state => ({
+                id: state._id,
+                fullName: state.fullName ? state.fullName.fullName : 'Nieznany produkt', // Handle null fullName
+                date: state.date,
+                plec: state.plec,
+                size: state.size ? state.size.Roz_Opis : 'Nieznany rozmiar', // Handle null size
+                barcode: state.barcode,
+                symbol: state.sellingPoint ? state.sellingPoint.symbol : 'Nieznany punkt sprzedaży', // Handle null sellingPoint
+                price: state.fullName ? state.fullName.price : 0, // Handle null price
+                price_raw: state.fullName ? state.fullName.price : 0,
+                discount_price: state.fullName ? state.fullName.discount_price : 0
             }));
+
+            res.status(200).json(sanitizedStates);
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            console.error('Error fetching states:', error); // Log the error for debugging
+            res.status(500).json({ message: 'Failed to fetch states', error: error.message });
         }
     }
 
@@ -114,7 +103,7 @@ class StatesController {
             res.status(201).json(newState);
         } catch (error) {
             console.error('Error creating state:', error); // Log the error
-            res.status(400).json({ error: error.message });
+            res.status(500).json({ message: 'Failed to create state', error: error.message });
         }
     }
 
@@ -170,7 +159,9 @@ class StatesController {
                     date,
                     size: sizeObj._id,
                     barcode,
-                    sellingPoint: user._id // Update the sellingPoint
+                    sellingPoint: user._id, // Update the sellingPoint
+                    from: "-", // Explicitly set "from" to "-"
+                    to: "-"   // Explicitly set "to" to "-"
                 },
                 { new: true } // Return the updated document
             );
@@ -201,7 +192,8 @@ class StatesController {
             }
             res.status(200).json({ message: 'State deleted successfully' });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            console.error('Error deleting state:', error); // Log the error for debugging
+            res.status(500).json({ message: 'Failed to delete state', error: error.message });
         }
     }
 
@@ -216,10 +208,10 @@ class StatesController {
             // Format the data for the table
             const tableData = states.map(state => ({
                 id: state._id,
-                fullName: state.fullName.fullName, // Extract the fullName value
+                fullName: state.fullName ? state.fullName.fullName : 'Nieznany produkt', // Handle null fullName
                 date: state.date,
-                size: state.size.Roz_Opis,         // Extract the size value
-                symbol: state.sellingPoint.symbol // Return symbol instead of sellingPoint
+                size: state.size ? state.size.Roz_Opis : 'Nieznany rozmiar',         // Handle null size
+                symbol: state.sellingPoint ? state.sellingPoint.symbol : 'Nieznany punkt sprzedaży' // Handle null sellingPoint
             }));
 
             res.status(200).json(tableData);
