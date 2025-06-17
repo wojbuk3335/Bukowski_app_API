@@ -1,18 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { DateRangePicker, defaultStaticRanges as originalStaticRanges, defaultInputRanges as originalInputRanges } from 'react-date-range';
+import 'react-date-range/dist/styles.css';
+import 'react-date-range/dist/theme/default.css';
+import pl from 'date-fns/locale/pl'; // Import Polish locale
 import styles from './History.module.css';
 import tableStyles from '../History/History.module.css';
 
 const History = () => {
     const [historyData, setHistoryData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [operationFilter, setOperationFilter] = useState(''); // State for filtering by "Operacja"
-    const [fromFilter, setFromFilter] = useState(''); // State for filtering by "Skąd"
-    const [toFilter, setToFilter] = useState(''); // State for filtering by "Dokąd"
-    const [productFilter, setProductFilter] = useState(''); // State for filtering by "Produkt"
-    const [userFilter, setUserFilter] = useState(''); // State for filtering by "User"
-    const [collectionFilter, setCollectionFilter] = useState(''); // State for filtering by "Kolekcja"
-    const [dateFilter, setDateFilter] = useState(''); // State for filtering by "Czas"
+    const [filters, setFilters] = useState({
+        collectionName: '',
+        operation: '',
+        from: '',
+        to: '',
+        userloggedinId: '',
+        details: '',
+    });
+    const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]); // State for date range
+    const [isDateRangePickerVisible, setIsDateRangePickerVisible] = useState(false); // State to toggle date range picker visibility
+    const calendarRef = useRef(null); // Ref for the calendar container
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -30,103 +38,85 @@ const History = () => {
         fetchHistory();
     }, []);
 
-    const handleRemoveHistory = async () => {
-        if (window.confirm('Czy na pewno chcesz usunąć historię?')) {
-            try {
-                await axios.delete('/api/history/remove');
-                setHistoryData([]); // Clear the history data in the state
-                alert('Historia została usunięta!'); // Notify the user about the success
-            } catch (error) {
-                console.error('Error clearing history:', error);
-                alert('Failed to clear history.'); // Notify the user about the failure
+    const handleFilterChange = (field, value) => {
+        setFilters((prevFilters) => ({
+            ...prevFilters,
+            [field]: value,
+        }));
+    };
+
+    const handleTextFilterChange = (field, value) => {
+        const validValues = [...new Set(historyData.map((item) => {
+            if (field === 'userloggedinId') {
+                // Handle both username and localStorage value for admin
+                const username = item.userloggedinId?.username?.toLowerCase() || ''; // Extract username if available
+                const adminEmail = localStorage.getItem('AdminEmail')?.toLowerCase() || ''; // Get admin email from localStorage
+                return username || adminEmail; // Return either username or admin email
             }
+            return item[field]?.toString().toLowerCase() || ''; // Ensure undefined values are replaced with an empty string
+        }))];
+        const matches = validValues.some((validValue) => validValue.includes(value.toLowerCase())); // Match anywhere in the word
+
+        if (matches || value === '') {
+            handleFilterChange(field, value);
         }
     };
 
-    // Extract unique values for the "Operacja", "Skąd", "Dokąd", and "Produkt" columns
-    const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL']; // Define size order
+    const filteredHistoryData = historyData.filter((item) => {
+        const matchesDateRange =
+            dateRange[0].startDate && dateRange[0].endDate
+                ? new Date(item.timestamp) >= dateRange[0].startDate && new Date(item.timestamp) <= dateRange[0].endDate
+                : true;
 
-    const sortByNameAndSize = (items) => {
-        return items.sort((a, b) => {
-            const [nameA, sizeA] = a.split(' ');
-            const [nameB, sizeB] = b.split(' ');
+        return (
+            matchesDateRange &&
+            Object.keys(filters).every((key) => {
+                if (key === 'userloggedinId') {
+                    const username = item.userloggedinId?.username?.toLowerCase() || '';
+                    const adminEmail = localStorage.getItem('AdminEmail')?.toLowerCase() || '';
+                    const valueToMatch = username || adminEmail; // Combine both username and admin email
+                    return filters[key] ? valueToMatch.includes(filters[key].toLowerCase()) : true;
+                }
+                return filters[key]
+                    ? item[key]?.toString().toLowerCase().includes(filters[key].toLowerCase())
+                    : true;
+            })
+        );
+    });
 
-            if (nameA === nameB) {
-                const indexA = sizeOrder.indexOf(sizeA);
-                const indexB = sizeOrder.indexOf(sizeB);
-
-                return (indexA !== -1 ? indexA : Infinity) - (indexB !== -1 ? indexB : Infinity);
-            }
-
-            return nameA.localeCompare(nameB);
-        });
+    const toggleDateRangePicker = () => {
+        setIsDateRangePickerVisible((prev) => !prev); // Toggle visibility
     };
-
-    const uniqueOperations = sortByNameAndSize([...new Set(historyData.map((item) => item.operation))]);
-    const uniqueFromValues = sortByNameAndSize([...new Set(historyData.map((item) => item.from))]);
-    const uniqueToValues = sortByNameAndSize([...new Set(historyData.map((item) => item.to))]);
-    const uniqueProducts = sortByNameAndSize([...new Set(historyData.map((item) => item.details))]);
-    const uniqueUsers = [...new Set(historyData.map((item) => item.userloggedinId?.username || localStorage.getItem('AdminEmail')))];
-    const uniqueCollections = [...new Set(historyData.map((item) => item.collectionName))];
-
-    const handleOperationFilterChange = (event) => {
-        setOperationFilter(event.target.value); // Update the filter state
-    };
-
-    const handleFromFilterChange = (event) => {
-        setFromFilter(event.target.value); // Update the "Skąd" filter state
-    };
-
-    const handleToFilterChange = (event) => {
-        setToFilter(event.target.value); // Update the "Dokąd" filter state
-    };
-
-    const handleProductFilterChange = (event) => {
-        setProductFilter(event.target.value); // Update the "Produkt" filter state
-    };
-
-    const handleUserFilterChange = (event) => {
-        setUserFilter(event.target.value); // Update the "User" filter state
-    };
-
-    const handleCollectionFilterChange = (event) => {
-        setCollectionFilter(event.target.value); // Update the "Kolekcja" filter state
-    };
-
-    const handleDateFilterChange = (event) => {
-        setDateFilter(event.target.value); // Update the "Czas" filter state
-    };
-
-    const filteredHistoryData = historyData.filter((item) =>
-        (operationFilter ? item.operation === operationFilter : true) &&
-        (fromFilter ? item.from === fromFilter : true) &&
-        (toFilter ? item.to === toFilter : true) &&
-        (productFilter ? item.details === productFilter : true) &&
-        (userFilter ? (item.userloggedinId?.username || localStorage.getItem('AdminEmail')) === userFilter : true) &&
-        (collectionFilter ? item.collectionName === collectionFilter : true) &&
-        (dateFilter ? new Date(item.timestamp).toLocaleDateString() === new Date(dateFilter).toLocaleDateString() : true) // Apply filter for "Czas"
-    );
 
     useEffect(() => {
-        const adjustSelectWidth = () => {
-            const operations = historyData.map((item) => item.operation);
-            const longestOperation = operations.reduce((a, b) => (a.length > b.length ? a : b), '');
-            const tempElement = document.createElement('span');
-            tempElement.style.visibility = 'hidden';
-            tempElement.style.whiteSpace = 'nowrap';
-            tempElement.style.fontSize = '14px';
-            tempElement.textContent = longestOperation;
-            document.body.appendChild(tempElement);
-            const width = tempElement.offsetWidth + 20; // Add padding
-            document.body.removeChild(tempElement);
-            return width;
+        const handleClickOutside = (event) => {
+            if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+                setIsDateRangePickerVisible(false); // Close the calendar if clicked outside
+            }
         };
 
-        const selectElement = document.querySelector('.form-select');
-        if (selectElement) {
-            selectElement.style.width = `${adjustSelectWidth()}px`;
-        }
-    }, [historyData]);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    // Customize static and input ranges
+    const customStaticRanges = originalStaticRanges.map((range) => {
+        if (range.label === 'Today') return { ...range, label: 'Dzisiaj' };
+        if (range.label === 'Yesterday') return { ...range, label: 'Wczoraj' };
+        if (range.label === 'This Week') return { ...range, label: 'Ten tydzień' };
+        if (range.label === 'Last Week') return { ...range, label: 'Poprzedni tydzień' };
+        if (range.label === 'This Month') return { ...range, label: 'Ten miesiąc' };
+        if (range.label === 'Last Month') return { ...range, label: 'Poprzedni miesiąc' };
+        return range;
+    });
+
+    const customInputRanges = originalInputRanges.map((range) => {
+        if (range.label === 'days up to today') return { ...range, label: 'dni do dzisiaj' };
+        if (range.label === 'days starting today') return { ...range, label: 'dni od dzisiaj' };
+        return range;
+    });
 
     if (loading) {
         return (
@@ -158,9 +148,6 @@ const History = () => {
         <div className={tableStyles.container}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '10px' }}>
                 <h1 className={tableStyles.title} style={{ marginRight: '10px' }}>Historia</h1>
-                <button onClick={handleRemoveHistory} className="btn btn-danger">
-                    Wyczyść Historię
-                </button>
             </div>
             <div className={tableStyles.tableContainer} style={{ width: '100%' }}>
                 <table className={`${tableStyles.table} ${tableStyles.responsiveTable}`}>
@@ -168,172 +155,101 @@ const History = () => {
                         <tr>
                             <th className={tableStyles.tableHeader} style={{ maxWidth: '50px', width: '50px', textAlign: 'center' }}>Lp.</th>
                             <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-                                    Kolekcja
-                                    <select
-                                        className="form-select form-select-sm mt-1"
-                                        value={collectionFilter}
-                                        onChange={handleCollectionFilterChange}
-                                        style={{
-                                            maxWidth: '140px',
-                                            width: '100%',
-                                            whiteSpace: 'nowrap',
-                                            textAlign: 'center',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                    >
-                                        <option value="">Wszystkie</option>
-                                        {uniqueCollections.map((collection) => (
-                                            <option key={collection} value={collection}>
-                                                {collection}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                Kolekcja
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.collectionName}
+                                    onChange={(e) => handleTextFilterChange('collectionName', e.target.value)}
+                                />
                             </th>
                             <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-                                    Operacja
-                                    <select
-                                        className="form-select form-select-sm mt-1"
-                                        value={operationFilter}
-                                        onChange={handleOperationFilterChange}
-                                        style={{
-                                            maxWidth: '180px',
-                                            width: '100%',
-                                            whiteSpace: 'nowrap',
-                                            textAlign: 'center',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                    >
-                                        <option value="">Wszystkie</option>
-                                        {uniqueOperations.map((operation) => (
-                                            <option key={operation} value={operation}>
-                                                {operation}
-                                            </option>
-                                        ))}
-                                    </select>
+                                Operacja
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.operation}
+                                    onChange={(e) => handleTextFilterChange('operation', e.target.value)}
+                                />
+                            </th>
+                            <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
+                                Skąd
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.from}
+                                    onChange={(e) => handleTextFilterChange('from', e.target.value)}
+                                />
+                            </th>
+                            <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
+                                Dokąd
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.to}
+                                    onChange={(e) => handleTextFilterChange('to', e.target.value)}
+                                />
+                            </th>
+                            <th className={tableStyles.tableHeader} style={{ maxWidth: '300px', width: '300px', textAlign: 'center' }}>
+                                <div className="d-flex flex-column align-items-center">
+                                    <span onClick={toggleDateRangePicker} style={{ cursor: 'pointer' }}>
+                                        Czas
+                                    </span>
+                                    {isDateRangePickerVisible && (
+                                        <div
+                                            ref={calendarRef}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '50px', // Adjust position relative to the table header
+                                                left: '50%',
+                                                transform: 'translateX(-50%)',
+                                                zIndex: 10,
+                                                backgroundColor: 'black',
+                                                border: '1px solid #ccc',
+                                                borderRadius: '4px',
+                                                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+                                                padding: '10px',
+                                                color: 'white',
+                                            }}
+                                        >
+                                            <DateRangePicker
+                                                ranges={dateRange}
+                                                onChange={(ranges) => setDateRange([ranges.selection])}
+                                                locale={pl}
+                                                rangeColors={['#0d6efd']}
+                                                staticRanges={customStaticRanges}
+                                                inputRanges={customInputRanges}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </th>
                             <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-                                    Skąd
-                                    <select
-                                        className="form-select form-select-sm mt-1"
-                                        value={fromFilter}
-                                        onChange={handleFromFilterChange}
-                                        style={{
-                                            maxWidth: '140px',
-                                            width: '100%',
-                                            whiteSpace: 'nowrap',
-                                            textAlign: 'center',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                    >
-                                        <option value="">Wszystkie</option>
-                                        {uniqueFromValues.map((from) => (
-                                            <option key={from} value={from}>
-                                                {from}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </th>
-                            <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-                                    Dokąd
-                                    <select
-                                        className="form-select form-select-sm mt-1"
-                                        value={toFilter}
-                                        onChange={handleToFilterChange}
-                                        style={{
-                                            maxWidth: '140px',
-                                            width: '100%',
-                                            whiteSpace: 'nowrap',
-                                            textAlign: 'center',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                    >
-                                        <option value="">Wszystkie</option>
-                                        {uniqueToValues.map((to) => (
-                                            <option key={to} value={to}>
-                                                {to}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </th>
-                            <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-                                    Czas
-                                    <input
-                                        type="date"
-                                        className="form-control form-control-sm mt-1 date-picker"
-                                        value={dateFilter}
-                                        onChange={handleDateFilterChange}
-                                        onClick={(e) => e.target.showPicker()} // Ensure the calendar popup opens when clicked
-                                        style={{
-                                            maxWidth: '140px',
-                                            width: '100%',
-                                            textAlign: 'center',
-                                            cursor: 'pointer', // Add pointer cursor on hover
-                                        }}
-                                    />
-                                </div>
-                            </th>
-                            <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-                                    Użytkownik
-                                    <select
-                                        className="form-select form-select-sm mt-1"
-                                        value={userFilter}
-                                        onChange={handleUserFilterChange}
-                                        style={{
-                                            maxWidth: '140px',
-                                            width: '100%',
-                                            whiteSpace: 'nowrap',
-                                            textAlign: 'center',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                    >
-                                        <option value="">Wszystkie</option>
-                                        {uniqueUsers.map((user) => (
-                                            <option key={user} value={user}>
-                                                {user}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                Użytkownik
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.userloggedinId}
+                                    onChange={(e) => handleTextFilterChange('userloggedinId', e.target.value)}
+                                />
                             </th>
                             <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-                                    Produkt
-                                    <select
-                                        className="form-select form-select-sm mt-1"
-                                        value={productFilter}
-                                        onChange={handleProductFilterChange}
-                                        style={{
-                                            maxWidth: '180px',
-                                            width: '100%',
-                                            whiteSpace: 'nowrap',
-                                            textAlign: 'center',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                        }}
-                                    >
-                                        <option value="">Wszystkie</option>
-                                        {uniqueProducts.map((product) => (
-                                            <option key={product} value={product}>
-                                                {product}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                Produkt
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.details}
+                                    onChange={(e) => handleTextFilterChange('details', e.target.value)}
+                                />
+                            </th>
+                            <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
+                                Szczegóły
                             </th>
                         </tr>
                     </thead>
@@ -344,14 +260,19 @@ const History = () => {
                                 <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Kolekcja">{item.collectionName}</td>
                                 <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }} data-label="Operacja">{item.operation}</td>
                                 <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Skąd">
-                                    {item.from === "" ? "-" : item.from} {/* Replace empty values with "-" */}
+                                    {item.from === "" ? "-" : item.from}
                                 </td>
                                 <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Dokąd">
-                                    {item.to === "" ? "-" : item.to} {/* Replace empty values with "-" */}
+                                    {item.to === "" ? "-" : item.to}
                                 </td>
                                 <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Czas">{new Date(item.timestamp).toLocaleString()}</td>
                                 <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Użytkownik">{item.userloggedinId ? item.userloggedinId.username : localStorage.getItem('AdminEmail')}</td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }} data-label="Produkt">{item.details}</td>
+                                <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }} data-label="Produkt">
+                                    {item.product || '-'} {/* Display product */}
+                                </td>
+                                <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }} data-label="Szczegóły">
+                                    {item.details || '-'} {/* Display details */}
+                                </td>
                             </tr>
                         ))}
                     </tbody>

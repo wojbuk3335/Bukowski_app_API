@@ -21,12 +21,16 @@ const historySchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    product: {
+        type: String, // Store product as a String
+        default: 'Nieznany produkt' // Ensure default value is "Nieznany produkt"
+    },
     details: {
         type: String // Store details as a String
     },
-    userloggedinId:{
+    userloggedinId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User' // Reference to the User model
+        ref: 'User' // Ensure reference to the User model
     }
 });
 

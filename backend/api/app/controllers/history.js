@@ -4,8 +4,8 @@ class HistoryController {
     getAllHistory = async (req, res, next) => {
         try {
             const history = await History.find()
-                .populate('userloggedinId', 'username')
-                .select('collectionName operation from to timestamp userloggedinId details'); // Ensure "from" is included
+                .populate('userloggedinId', 'username') // Ensure username is populated correctly
+                .select('collectionName operation from to timestamp userloggedinId product details'); // Include "product" in the response
             res.status(200).json(history);
         } catch (err) {
             console.log(err);

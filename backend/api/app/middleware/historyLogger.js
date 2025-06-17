@@ -317,12 +317,14 @@ const historyLogger = (collectionName) => {
         } 
         if (collectionName === 'states') {
             let details = '';
+            let product = ''; // Add product field
             let from = '-'; // Default "Skąd" value
             let to = req.body.sellingPoint || '-'; // Default "Dokąd" value
 
             if (operation === 'Dodano do stanu') {
                 from = 'Produkcja'; // Set "Skąd" to "Produkcja" for this operation
-                details = `${req.body.fullName || 'Nieznany produkt'} ${req.body.size || 'Nieznany rozmiar'}`;
+                product = req.body.fullName +" "+req.body.size || 'Nieznany produkt'; // Ensure product is set to fullName
+                details = 'Dodano produkt do stanu: ' + (req.body.fullName +" "+req.body.size || 'Nieznany rozmiar'); // Set details to size
             }
 
             if (operation === 'Aktualizacja') {
@@ -334,6 +336,7 @@ const historyLogger = (collectionName) => {
                     if (!oldState) {
                         details = `Nie znaleziono produktu o ID: ${stateId}`;
                     } else {
+                        product = oldState.fullName?.fullName || 'Nieznany produkt'; // Set product
                         let changes = [];
 
                         if (updatedState.date && oldState.date.toISOString() !== new Date(updatedState.date).toISOString()) {
@@ -346,16 +349,18 @@ const historyLogger = (collectionName) => {
 
                         if (updatedState.size && oldState.size.Roz_Opis !== updatedState.size) {
                             changes.push(`Rozmiar został zmieniony z ${oldState.size.Roz_Opis} na ${updatedState.size}`);
+                            from = '-'; // Ensure "Skąd" is "-"
+                            to = '-';   // Ensure "Dokąd" is "-"
                         }
 
-                        if (updatedState.sellingPoint && oldState.sellingPoint !== updatedState.sellingPoint) {
-                            changes.push(`Punkt sprzedaży został zmieniony z ${oldState.sellingPoint} na ${updatedState.sellingPoint}`);
+                        if (updatedState.sellingPoint && oldState.sellingPoint.symbol !== updatedState.sellingPoint) {
+                            changes.push(`Punkt sprzedaży został zmieniony z ${oldState.sellingPoint.symbol} na ${updatedState.sellingPoint}`);
                         }
 
                         if (updatedState.fullName && oldState.fullName.fullName !== updatedState.fullName) {
                             changes.push(`Zmiana z ${oldState.fullName.fullName} na ${updatedState.fullName}`);
-                            from = '-'; // Set "Skąd" to "-" when fullName is updated
-                            to = '-';   // Set "Dokąd" to "-" when fullName is updated
+                            from = '-'; // Ensure "Skąd" is "-"
+                            to = '-';   // Ensure "Dokąd" is "-"
                         }
 
                         if (changes.length > 0) {
@@ -374,7 +379,8 @@ const historyLogger = (collectionName) => {
                 try {
                     const state = await State.findById(req.params.id).populate('fullName').populate('size').populate('sellingPoint');
                     if (state) {
-                        details = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`;
+                        product = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`; // Set product
+                        details = `Usunięto produkt ze stanu ${product}`;
                         from = state.sellingPoint?.symbol || '-'; // Set "Skąd" to the previous "Dokąd" value
                         to = '-'; // Set "Dokąd" to "-"
                     } else {
@@ -389,6 +395,7 @@ const historyLogger = (collectionName) => {
             historyEntry = new History({
                 collectionName: collectionNamePolish,
                 operation: operation,
+                product: product, // Include product field
                 details: details || 'Brak szczegółów', // Fallback to "Brak szczegółów" if details are empty
                 userloggedinId: userloggedinId, // Include user ID
                 from: from, // Ensure "Skąd" field stores correct value

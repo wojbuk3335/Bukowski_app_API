@@ -126,42 +126,61 @@ class StatesController {
             const { id } = req.params;
             const { fullName, date, size, sellingPoint } = req.body;
 
+            console.log('Updating state:', { fullName, date, size, sellingPoint }); // Log the update data
+
             // Find the ObjectId for fullName in Goods
-            const goods = await Goods.findOne({ fullName });
-            if (!goods) {
+            const goods = fullName ? await Goods.findOne({ fullName }) : null;
+            if (fullName && !goods) {
                 return res.status(404).send('Goods not found');
             }
 
             // Find the ObjectId for size in Size
-            const sizeObj = await Size.findOne({ Roz_Opis: size });
-            if (!sizeObj) {
+            const sizeObj = size ? await Size.findOne({ Roz_Opis: size }) : null;
+            if (size && !sizeObj) {
                 return res.status(404).send('Size not found');
             }
 
             // Find the ObjectId for sellingPoint in User
-            const user = await mongoose.models.User.findOne({ sellingPoint });
-            if (!user) {
+            const user = sellingPoint ? await mongoose.models.User.findOne({ symbol: sellingPoint }) : null;
+            if (sellingPoint && !user) {
                 return res.status(404).send('Selling point not found');
             }
 
-            // Update the barcode
-            let barcode = goods.code; // Assuming `code` is the field in Goods
-            const rozKod = sizeObj.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
-            barcode = barcode.substring(0, 5) + rozKod + barcode.substring(7, 11);
-            const checksum = calculateChecksum(barcode);
-            barcode = barcode.substring(0, 12) + checksum;
+            // Fetch the current state to determine the "from" and "to" values
+            const currentState = await State.findById(id).populate('sellingPoint');
+            if (!currentState) {
+                return res.status(404).json({ message: 'State not found' });
+            }
+
+            let from = currentState.sellingPoint?.symbol || '-'; // Default "from" value
+            let to = sellingPoint || '-'; // Default "to" value
+
+            // Explicitly set "from" and "to" to "-" when only the size is updated
+            if (size && !fullName && !sellingPoint) {
+                from = '-';
+                to = '-';
+            }
+
+            // Update the barcode if fullName and size are provided
+            let barcode = currentState.barcode;
+            if (goods && sizeObj) {
+                const rozKod = sizeObj.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
+                barcode = goods.code.substring(0, 5) + rozKod + goods.code.substring(7, 11);
+                const checksum = calculateChecksum(barcode);
+                barcode = barcode.substring(0, 12) + checksum;
+            }
 
             // Update the state
             const updatedState = await State.findByIdAndUpdate(
                 id,
                 {
-                    fullName: goods._id,
-                    date,
-                    size: sizeObj._id,
+                    fullName: goods ? goods._id : currentState.fullName,
+                    date: date || currentState.date,
+                    size: sizeObj ? sizeObj._id : currentState.size,
                     barcode,
-                    sellingPoint: user._id, // Update the sellingPoint
-                    from: "-", // Explicitly set "from" to "-"
-                    to: "-"   // Explicitly set "to" to "-"
+                    sellingPoint: user ? user._id : currentState.sellingPoint,
+                    from, // Explicitly set "from"
+                    to    // Explicitly set "to"
                 },
                 { new: true } // Return the updated document
             );
@@ -172,6 +191,7 @@ class StatesController {
 
             res.status(200).json(updatedState);
         } catch (error) {
+            console.error('Error updating state:', error); // Log the error for debugging
             res.status(400).json({ error: error.message });
         }
     }
