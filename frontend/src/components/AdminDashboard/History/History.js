@@ -244,12 +244,19 @@ const History = () => {
                                     type="text"
                                     className="form-control form-control-sm mt-1"
                                     placeholder="Filtruj"
-                                    value={filters.details}
-                                    onChange={(e) => handleTextFilterChange('details', e.target.value)}
+                                    value={filters.product} // Use filters.product for the "Produkt" filter
+                                    onChange={(e) => handleTextFilterChange('product', e.target.value)} // Update filters.product
                                 />
                             </th>
                             <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
                                 Szczegóły
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.details} // Use filters.details for the "Szczegóły" filter
+                                    onChange={(e) => handleTextFilterChange('details', e.target.value)} // Update filters.details
+                                />
                             </th>
                         </tr>
                     </thead>

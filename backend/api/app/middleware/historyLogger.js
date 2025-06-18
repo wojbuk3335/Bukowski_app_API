@@ -319,12 +319,13 @@ const historyLogger = (collectionName) => {
             let details = '';
             let product = ''; // Add product field
             let from = '-'; // Default "Skąd" value
-            let to = req.body.sellingPoint || '-'; // Default "Dokąd" value
+            let to = '-'; // Default "Dokąd" value
 
             if (operation === 'Dodano do stanu') {
                 from = 'Produkcja'; // Set "Skąd" to "Produkcja" for this operation
-                product = req.body.fullName +" "+req.body.size || 'Nieznany produkt'; // Ensure product is set to fullName
-                details = 'Dodano produkt do stanu: ' + (req.body.fullName +" "+req.body.size || 'Nieznany rozmiar'); // Set details to size
+                to = req.body.sellingPoint || '-'; // Set "Dokąd" to sellingPoint or "-" if not provided
+                product = req.body.fullName + " " + req.body.size || 'Nieznany produkt'; // Ensure product is set to fullName
+                details = 'Dodano produkt do stanu: ' + (req.body.fullName + " " + req.body.size || 'Nieznany rozmiar'); // Set details to size
             }
 
             if (operation === 'Aktualizacja') {
@@ -349,8 +350,6 @@ const historyLogger = (collectionName) => {
 
                         if (updatedState.size && oldState.size.Roz_Opis !== updatedState.size) {
                             changes.push(`Rozmiar został zmieniony z ${oldState.size.Roz_Opis} na ${updatedState.size}`);
-                            from = '-'; // Ensure "Skąd" is "-"
-                            to = '-';   // Ensure "Dokąd" is "-"
                         }
 
                         if (updatedState.sellingPoint && oldState.sellingPoint.symbol !== updatedState.sellingPoint) {
@@ -359,15 +358,20 @@ const historyLogger = (collectionName) => {
 
                         if (updatedState.fullName && oldState.fullName.fullName !== updatedState.fullName) {
                             changes.push(`Zmiana z ${oldState.fullName.fullName} na ${updatedState.fullName}`);
-                            from = '-'; // Ensure "Skąd" is "-"
-                            to = '-';   // Ensure "Dokąd" is "-"
                         }
 
                         if (changes.length > 0) {
                             details = changes.join(', ');
                         } else {
                             details = "Zaktualizowano produkt - brak zmian";
+                                // Always set "Skąd" and "Dokąd" to "-"
+                                from = '-';
+                                to = '-';
                         }
+
+                        // Always set "Skąd" and "Dokąd" to "-"
+                        from = '-';
+                        to = '-';
                     }
                 } catch (error) {
                     console.error('Error fetching state:', error);
