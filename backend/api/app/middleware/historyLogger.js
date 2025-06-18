@@ -69,11 +69,13 @@ const historyLogger = (collectionName) => {
             let details = '';
             let from = '-'; // Explicitly set "from" to "-"
             let to = '-';   // Explicitly set "to" to "-"
+            let product = 'Nieznany produkt'; // Default value for product
 
             if (operation === 'Dodano produkt') {
                 try {
                     const newGood = req.body;
                     console.log('New good being added:', newGood); // Log the new product details
+                    product = newGood.fullName || 'Nieznany produkt'; // Set product to fullName or default value
                     details = newGood.fullName || 'Unknown'; // Ensure details is explicitly set to fullName
                 } catch (error) {
                     console.error('Error logging create good:', error);
@@ -94,18 +96,19 @@ const historyLogger = (collectionName) => {
                     if (!oldGood) {
                         details = `Nie znaleziono produktu o ID: ${goodId}`;
                     } else {
+                        product = oldGood.fullName || 'Nieznany produkt'; // Set product to oldGood's fullName
                         let changes = [];
 
-                        details = `Produkt o ID: ${goodId}, `;
+                        details = ``;
 
                         // Compare stock
                         if (updatedGood.stock && oldGood.stock._id.toString() !== updatedGood.stock) {
                             try {
                                 const newStock = await Stock.findById(updatedGood.stock);
                                 if (newStock) {
-                                    changes.push(`Produkt został zmieniony z ${oldGood.stock.Tow_Opis} na ${newStock.Tow_Opis}`);
+                                    changes.push(`Zmiana z  ${oldGood.stock.Tow_Opis} na ${newStock.Tow_Opis}`);
                                 } else {
-                                    changes.push(`Produkt został zmieniony z ${oldGood.stock.Tow_Opis} na nieznany produkt`);
+                                    changes.push(`Zmiana z  ${oldGood.stock.Tow_Opis} na nieznany produkt`);
                                 }
                             } catch (error) {
                                 console.error('Error fetching newStock:', error);
@@ -180,6 +183,7 @@ const historyLogger = (collectionName) => {
                     if (!oldGood) {
                         details = `Nie znaleziono produktu o ID: ${goodId}`;
                     } else {
+                        product = oldGood.fullName || 'Nieznany produkt'; // Set product to oldGood's fullName
                         details = `Produkt o nazwie ${oldGood.fullName} został usunięty.`;
                     }
                 } catch (error) {
@@ -191,6 +195,7 @@ const historyLogger = (collectionName) => {
             historyEntry = new History({
                 collectionName: collectionNamePolish,
                 operation: operation,
+                product: product, // Include product field
                 details: details, // Ensure details is explicitly set
                 userloggedinId: userloggedinId,
                 from: from, // Ensure "from" is "-"
@@ -337,41 +342,21 @@ const historyLogger = (collectionName) => {
                     if (!oldState) {
                         details = `Nie znaleziono produktu o ID: ${stateId}`;
                     } else {
-                        product = oldState.fullName?.fullName || 'Nieznany produkt'; // Set product
+                        // Include both fullName and size in product
+                        product = `${oldState.fullName?.fullName || 'Nieznany produkt'} ${oldState.size?.Roz_Opis || 'Nieznany rozmiar'}`;
                         let changes = [];
 
-                        if (updatedState.date && oldState.date.toISOString() !== new Date(updatedState.date).toISOString()) {
-                            changes.push(`Data została zmieniona z ${oldState.date} na ${new Date(updatedState.date)}`);
-                        }
-
-                        if (updatedState.barcode && oldState.barcode !== updatedState.barcode) {
-                            changes.push(`Barcode został zmieniony z ${oldState.barcode} na ${updatedState.barcode}`);
-                        }
-
-                        if (updatedState.size && oldState.size.Roz_Opis !== updatedState.size) {
-                            changes.push(`Rozmiar został zmieniony z ${oldState.size.Roz_Opis} na ${updatedState.size}`);
-                        }
-
                         if (updatedState.sellingPoint && oldState.sellingPoint.symbol !== updatedState.sellingPoint) {
-                            changes.push(`Punkt sprzedaży został zmieniony z ${oldState.sellingPoint.symbol} na ${updatedState.sellingPoint}`);
-                        }
-
-                        if (updatedState.fullName && oldState.fullName.fullName !== updatedState.fullName) {
-                            changes.push(`Zmiana z ${oldState.fullName.fullName} na ${updatedState.fullName}`);
+                            from = oldState.sellingPoint.symbol || '-'; // Set "Skąd" to the old symbol
+                            to = updatedState.sellingPoint || '-'; // Set "Dokąd" to the new symbol
+                            changes.push(`Punkt sprzedaży został zmieniony z ${from} na ${to}`);
                         }
 
                         if (changes.length > 0) {
                             details = changes.join(', ');
                         } else {
                             details = "Zaktualizowano produkt - brak zmian";
-                                // Always set "Skąd" and "Dokąd" to "-"
-                                from = '-';
-                                to = '-';
                         }
-
-                        // Always set "Skąd" and "Dokąd" to "-"
-                        from = '-';
-                        to = '-';
                     }
                 } catch (error) {
                     console.error('Error fetching state:', error);

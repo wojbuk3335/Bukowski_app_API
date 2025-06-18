@@ -11,7 +11,7 @@ import styles from './State.module.css'; // Import the CSS module
 import Barcode from 'react-barcode'; // Import the Barcode component
 import { saveAs } from 'file-saver'; // For exporting files
 import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, ModalFooter, Spinner } from 'reactstrap'; // Import reactstrap components
-import * as XLSX from 'xlsx'; // Corrected import syntax for XLSX
+import * as XLSX from 'xlsx'; // Import XLSX for Excel export
 import jsPDF from 'jspdf'; // Import jsPDF for PDF export
 import autoTable from 'jspdf-autotable'; // Ensure correct import for autoTable
 import pl from 'date-fns/locale/pl'; // Import Polish locale
@@ -104,7 +104,7 @@ const State = () => {
         // Fetch data from the API
         const fetchGoods = async () => {
             try {
-                const response = await axios.get('/api/excel/goods/get-all-goods');
+                const response = await axios.get('http://localhost:5000/api/excel/goods/get-all-goods'); // Full URL for backend
                 // Extract the goods array from the response
                 if (response.data && Array.isArray(response.data.goods)) {
                     setGoods(response.data.goods);
@@ -125,7 +125,7 @@ const State = () => {
         // Fetch sizes from the API
         const fetchSizes = async () => {
             try {
-                const response = await axios.get('/api/excel/size/get-all-sizes');
+                const response = await axios.get('http://localhost:5000/api/excel/size/get-all-sizes'); // Full URL for backend
                 // Extract the sizes array from the response
                 if (response.data && Array.isArray(response.data.sizes)) {
                     setSizes(response.data.sizes);
@@ -135,7 +135,7 @@ const State = () => {
                 }
             } catch (error) {
                 console.error('Error fetching sizes:', error);
-                setSizes([]); // Fallback to an empty array
+                setSizes([{ Roz_Opis: 'Rozmiar domyślny' }]); // Fallback to default size
             }
         };
 
@@ -172,7 +172,7 @@ const State = () => {
     const fetchTableData = async () => {
         setLoading(true);
         try {
-            const response = await axios.get('/api/state');
+            const response = await axios.get('http://localhost:5000/api/state'); // Full URL for backend
             const formattedData = response.data.map((row) => ({
                 id: row.id,
                 fullName: row.fullName?.fullName || row.fullName || "Brak danych",
@@ -181,13 +181,23 @@ const State = () => {
                 size: row.size?.Roz_Opis || row.size || "Brak danych",
                 barcode: row.barcode || "Brak danych",
                 symbol: row.symbol || "Brak danych",
-                price: row.discount_price 
-                    ? `${row.price}, ${row.discount_price}` // Display both prices separated by a comma
-                    : row.price, // Display only price if discount_price is not available
+                price: row.price || "Brak danych"
             }));
             setTableData(formattedData.reverse());
         } catch (error) {
             console.error('Error fetching table data:', error);
+            setTableData([
+                {
+                    id: '1',
+                    fullName: 'Domyślny produkt',
+                    plec: 'Brak danych',
+                    date: new Date().toISOString(),
+                    size: 'Rozmiar domyślny',
+                    barcode: 'Brak kodu',
+                    symbol: 'Brak symbolu',
+                    price: 'Brak ceny',
+                },
+            ]); // Fallback to default data
         } finally {
             setLoading(false);
         }
@@ -969,7 +979,7 @@ const State = () => {
                             </td>
                             <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode">
                                 <div className="d-flex align-items-center justify-content-center gap-2">
-                                    <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} font="monospace" /> {/* Ensure font is set */}
+                                    <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
                                     <input
                                         type="checkbox"
                                         style={{ width: '20px', height: '20px' }}

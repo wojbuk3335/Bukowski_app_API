@@ -5,8 +5,8 @@
   "main": "app.js",
   "scripts": {
     "start": "nodemon app/app.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "watch": "nodemon app/app.js -e js,json,ejs",
+    "test": "jest",
+    "watch": "nodemon --exec \"npm test\" -e js,json,ejs",
     "debug": "nodemon --inspect app/app.js -e js,json"
   },
   "author": "TworcaStron.pl",
@@ -30,6 +30,7 @@
     "node-zpl": "^1.0.5"
   },
   "devDependencies": {
+    "jest": "^30.0.1",
     "nodemon": "^3.1.9"
   }
 }
