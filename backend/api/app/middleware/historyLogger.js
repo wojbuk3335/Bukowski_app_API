@@ -12,10 +12,17 @@ const historyLogger = (collectionName) => {
         const userloggedinId = req.user ? req.user._id : null;
         let historyEntry;
 
-        const mapOperationToPolish = (method) => {
+        const mapOperationToPolish = (method, collection) => {
             if (method === 'PUT' || method === 'PATCH') return 'Aktualizacja';
-            if (method === 'DELETE') return 'Usunięcie';
-            if (method === 'POST') return 'Utworzenie';
+            if (method === 'DELETE') {
+                if (collection === 'states') return 'Usunięto ze stanu'; // Special case for states
+                return 'Usunięcie';
+            }
+            if (method === 'POST') {
+                if (collection === 'states') return 'Dodano do stanu'; // Special case for states
+                if (collection === 'goods') return 'Dodano produkt'; // Special case for goods
+                return 'Utworzenie';
+            }
             return method;
         };
 
@@ -26,10 +33,11 @@ const historyLogger = (collectionName) => {
             if (collection === 'state') return 'Stan';
             if (collection === 'color') return 'Kolory';
             if (collection === 'category') return 'Kategoria';
+            if (collection === 'states') return 'Stan'; // Correct translation for "states"
             return collection;
         };
 
-        const operation = mapOperationToPolish(req.method);
+        const operation = mapOperationToPolish(req.method, collectionName);
         const collectionNamePolish = mapCollectionToPolish(collectionName);
 
         if (collectionName === 'stock') {
@@ -59,11 +67,14 @@ const historyLogger = (collectionName) => {
 
         if (collectionName === 'goods') {
             let details = '';
-            if (operation === 'Utworzenie') {
+            let from = '-'; // Explicitly set "from" to "-"
+            let to = '-';   // Explicitly set "to" to "-"
+
+            if (operation === 'Dodano produkt') {
                 try {
                     const newGood = req.body;
                     console.log('New good being added:', newGood); // Log the new product details
-                    details = `Produkt o nazwie ${newGood && newGood.fullName ? newGood.fullName : 'Unknown'} został dodany.`;
+                    details = newGood.fullName || 'Unknown'; // Ensure details is explicitly set to fullName
                 } catch (error) {
                     console.error('Error logging create good:', error);
                     details = `Błąd podczas dodawania produktu.`;
@@ -180,8 +191,10 @@ const historyLogger = (collectionName) => {
             historyEntry = new History({
                 collectionName: collectionNamePolish,
                 operation: operation,
-                details: details,
-                userloggedinId: userloggedinId
+                details: details, // Ensure details is explicitly set
+                userloggedinId: userloggedinId,
+                from: from, // Ensure "from" is "-"
+                to: to     // Ensure "to" is "-"
             });
         }
 
@@ -301,11 +314,18 @@ const historyLogger = (collectionName) => {
                 details: details,
                 userloggedinId: userloggedinId // Include user ID
             });
-        } else if (collectionName === 'states') {
+        } 
+        if (collectionName === 'states') {
             let details = '';
+            let product = ''; // Add product field
+            let from = '-'; // Default "Skąd" value
+            let to = '-'; // Default "Dokąd" value
 
-            if (operation === 'Utworzenie') {
-                details = `Utworzono produkt: ${req.body.fullName} rozmiar ${req.body.size}`;
+            if (operation === 'Dodano do stanu') {
+                from = 'Produkcja'; // Set "Skąd" to "Produkcja" for this operation
+                to = req.body.sellingPoint || '-'; // Set "Dokąd" to sellingPoint or "-" if not provided
+                product = req.body.fullName + " " + req.body.size || 'Nieznany produkt'; // Ensure product is set to fullName
+                details = 'Dodano produkt do stanu: ' + (req.body.fullName + " " + req.body.size || 'Nieznany rozmiar'); // Set details to size
             }
 
             if (operation === 'Aktualizacja') {
@@ -317,6 +337,7 @@ const historyLogger = (collectionName) => {
                     if (!oldState) {
                         details = `Nie znaleziono produktu o ID: ${stateId}`;
                     } else {
+                        product = oldState.fullName?.fullName || 'Nieznany produkt'; // Set product
                         let changes = [];
 
                         if (updatedState.date && oldState.date.toISOString() !== new Date(updatedState.date).toISOString()) {
@@ -331,19 +352,26 @@ const historyLogger = (collectionName) => {
                             changes.push(`Rozmiar został zmieniony z ${oldState.size.Roz_Opis} na ${updatedState.size}`);
                         }
 
-                        if (updatedState.sellingPoint && oldState.sellingPoint !== updatedState.sellingPoint) {
-                            changes.push(`Punkt sprzedaży został zmieniony z ${oldState.sellingPoint} na ${updatedState.sellingPoint}`);
+                        if (updatedState.sellingPoint && oldState.sellingPoint.symbol !== updatedState.sellingPoint) {
+                            changes.push(`Punkt sprzedaży został zmieniony z ${oldState.sellingPoint.symbol} na ${updatedState.sellingPoint}`);
                         }
 
                         if (updatedState.fullName && oldState.fullName.fullName !== updatedState.fullName) {
-                            changes.push(`Nazwa została zmieniona z ${oldState.fullName.fullName} na ${updatedState.fullName}`);
+                            changes.push(`Zmiana z ${oldState.fullName.fullName} na ${updatedState.fullName}`);
                         }
 
                         if (changes.length > 0) {
                             details = changes.join(', ');
                         } else {
                             details = "Zaktualizowano produkt - brak zmian";
+                                // Always set "Skąd" and "Dokąd" to "-"
+                                from = '-';
+                                to = '-';
                         }
+
+                        // Always set "Skąd" and "Dokąd" to "-"
+                        from = '-';
+                        to = '-';
                     }
                 } catch (error) {
                     console.error('Error fetching state:', error);
@@ -351,16 +379,19 @@ const historyLogger = (collectionName) => {
                 }
             }
 
-            if (operation === 'Usunięcie') {
+            if (operation === 'Usunięto ze stanu') {
                 try {
-                    const state = await State.findById(req.params.id).populate('fullName').populate('size');
+                    const state = await State.findById(req.params.id).populate('fullName').populate('size').populate('sellingPoint');
                     if (state) {
-                        details = `Usunięto produkt: ${state.fullName.fullName} rozmiar ${state.size.Roz_Opis}`;
+                        product = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`; // Set product
+                        details = `Usunięto produkt ze stanu ${product}`;
+                        from = state.sellingPoint?.symbol || '-'; // Set "Skąd" to the previous "Dokąd" value
+                        to = '-'; // Set "Dokąd" to "-"
                     } else {
                         details = `Nie znaleziono produktu o ID: ${req.params.id}`;
                     }
                 } catch (error) {
-                    console.error('Error fetching user:', error);
+                    console.error('Error fetching state:', error);
                     details = `Błąd podczas usuwania produktu o ID: ${req.params.id}`;
                 }
             }
@@ -368,36 +399,11 @@ const historyLogger = (collectionName) => {
             historyEntry = new History({
                 collectionName: collectionNamePolish,
                 operation: operation,
-                details: details,
-                userloggedinId: userloggedinId // Include user ID
-            });
-        }
-
-        if (collectionName === 'colors') {
-            const operation = mapOperationToPolish(req.method);
-            let details = '';
-
-            if (operation === 'Aktualizacja') {
-                try {
-                    const colorId = req.params.colorId;
-                    const updatedColor = req.body;
-                    const oldColor = await Color.findById(colorId).lean();
-                    details = `Zaktualizowano kolor o ID: ${colorId} z ${oldColor.Kol_Opis} na ${updatedColor.Kol_Opis}`;
-                } catch (error) {
-                    console.error('Error logging update color:', error);
-                    details = `Błąd podczas aktualizowania koloru.`;
-                }
-            } else if (operation === 'Usunięcie') {
-                details = `Usunięto całą tabelę kolorów.`;
-            } else if (operation === 'Utworzenie') {
-                details = `Wgrano całą tabelę kolorów.`;
-            }
-
-            historyEntry = new History({
-                collectionName: 'Kolory', // Use "Kolory" instead of "colors"
-                operation: operation,
-                details: details,
-                userloggedinId: userloggedinId
+                product: product, // Include product field
+                details: details || 'Brak szczegółów', // Fallback to "Brak szczegółów" if details are empty
+                userloggedinId: userloggedinId, // Include user ID
+                from: from, // Ensure "Skąd" field stores correct value
+                to: to, // Ensure "Dokąd" field stores correct value
             });
         }
 

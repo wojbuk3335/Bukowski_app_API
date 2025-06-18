@@ -147,6 +147,8 @@ const State = () => {
         const fetchUsers = async () => {
             try {
                 const response = await axios.get('/api/user');
+                console.log('Fetched users:', response.data.users); // Log the fetched users
+
                 if (response.data && Array.isArray(response.data.users)) {
                     const filteredUsers = response.data.users.filter(user => user.role !== 'admin');
                     setUsers(filteredUsers);
@@ -197,7 +199,6 @@ const State = () => {
 
         setLoading(true);
         try {
-            // Fetch the selected good to check for price exceptions
             const selectedGood = goods.find((good) => good.fullName === input1Value.trim());
             if (!selectedGood) {
                 alert('Wybrany produkt nie istnieje w bazie danych.');
@@ -205,7 +206,6 @@ const State = () => {
                 return;
             }
 
-            // Check if the selected size exists in the price exceptions
             const exception = selectedGood.priceExceptions.find(
                 (ex) => ex.size && ex.size.Roz_Opis === selectedSize
             );
@@ -224,7 +224,7 @@ const State = () => {
             }
 
             const dataToSend = {
-                fullName: input1Value.trim(),
+                fullName: input1Value.trim(), // Ensure fullName is sent correctly
                 size: selectedSize,
                 plec: selectedPlec,
                 date: selectedDate.toISOString(),
@@ -250,7 +250,6 @@ const State = () => {
 
             setInput1Value('');
             setInput2Value('');
-            // Do not reset selectedSellingPoint
             setTimeout(() => {
                 if (inputRefs.current[0] && inputRefs.current[0].focus) {
                     inputRefs.current[0].focus();
@@ -467,10 +466,18 @@ const State = () => {
         setEditData(row); // Ustaw dane wiersza do edycji
         setSelectedSellingPoint(row.symbol); // Ustaw symbol w modalu
         toggleEditModal(); // Otwórz modal
+        setEditData({
+            ...row,
+            sellingPoint: row.symbol || '', // Ensure sellingPoint is set to the symbol value
+        });
+        toggleEditModal(); // Open the modal
     };
 
     const handleSaveEdit = async () => {
         try {
+            console.log('Edit data:', editData); // Loguj dane edycji
+            console.log('Selling point:', selectedSellingPoint); // Loguj punkt sprzedaży
+
             await axios.put(`/api/state/${editData.id}`, {
                 fullName: editData.fullName,
                 date: editData.date,
@@ -480,7 +487,7 @@ const State = () => {
             fetchTableData(); // Odśwież dane tabeli po udanej aktualizacji
             toggleEditModal(); // Zamknij modal
         } catch (error) {
-            console.error('Błąd podczas aktualizacji stanu:', error);
+            console.error('Błąd podczas aktualizacji stanu:', error); // Loguj błąd
         }
     };
 
@@ -840,16 +847,10 @@ const State = () => {
             <Table className={`table ${styles.responsiveTable}`} styles={styles.table}>
                 <thead style={{ backgroundColor: 'black', color: 'white' }}>
                     <tr>
-                        <th
-                            style={{ ...tableCellStyle, maxWidth: '270px', width: '130px' }}
-                            onClick={() => handleSort('lp')}
-                        >
+                        <th style={{ ...tableCellStyle, maxWidth: '270px', width: '130px' }} onClick={() => handleSort('lp')}>
                             Lp {getSortIcon('lp')}
                         </th>
-                        <th
-                            style={{ ...tableCellStyle }}
-                            onClick={() => handleSort('fullName')}
-                        >
+                        <th style={{ ...tableCellStyle }} onClick={() => handleSort('fullName')}>
                             Pełna nazwa {getSortIcon('fullName')}
                             <input
                                 type="text"
@@ -870,7 +871,7 @@ const State = () => {
                                 </span>
                                 {isDateRangePickerVisible && (
                                     <div
-                                        ref={calendarRef} // Attach the ref to the calendar container
+                                        ref={calendarRef}
                                         style={{
                                             position: 'absolute',
                                             top: '100%',
@@ -887,20 +888,17 @@ const State = () => {
                                     >
                                         <DateRangePicker
                                             ranges={dateRange}
-                                            onChange={(ranges) => setDateRange([ranges.selection])} // Update date range on change
-                                            locale={pl} // Apply Polish locale
-                                            rangeColors={['#0d6efd']} // Set custom range color
-                                            staticRanges={customStaticRanges} // Use custom static ranges
-                                            inputRanges={customInputRanges} // Use custom input ranges
+                                            onChange={(ranges) => setDateRange([ranges.selection])}
+                                            locale={pl}
+                                            rangeColors={['#0d6efd']}
+                                            staticRanges={customStaticRanges}
+                                            inputRanges={customInputRanges}
                                         />
                                     </div>
                                 )}
                             </div>
                         </th>
-                        <th
-                            style={{ ...tableCellStyle }}
-                            onClick={() => handleSort('size')}
-                        >
+                        <th style={{ ...tableCellStyle }} onClick={() => handleSort('size')}>
                             Rozmiar {getSortIcon('size')}
                             <input
                                 type="text"
@@ -911,13 +909,10 @@ const State = () => {
                                     boxSizing: 'border-box',
                                 }}
                                 value={columnFilters.size || ''}
-                                onChange={e => setColumnFilters({ ...columnFilters, size: e.target.value })}
+                                onChange={(e) => setColumnFilters({ ...columnFilters, size: e.target.value })}
                             />
                         </th>
-                        <th
-                            style={{ ...tableCellStyle }}
-                            onClick={() => handleSort('symbol')}
-                        >
+                        <th style={{ ...tableCellStyle }} onClick={() => handleSort('symbol')}>
                             Symbol {getSortIcon('symbol')}
                             <input
                                 type="text"
@@ -928,7 +923,7 @@ const State = () => {
                                     boxSizing: 'border-box',
                                 }}
                                 value={columnFilters.symbol || ''}
-                                onChange={e => setColumnFilters({ ...columnFilters, symbol: e.target.value })}
+                                onChange={(e) => setColumnFilters({ ...columnFilters, symbol: e.target.value })}
                             />
                         </th>
                         <th style={tableCellStyle} onClick={() => handleSort('price')}>
@@ -939,17 +934,17 @@ const State = () => {
                                 Kody kreskowe
                                 <input
                                     type="checkbox"
-                                    style={{ width: '20px', height: '20px' }} // Larger checkbox
+                                    style={{ width: '20px', height: '20px' }}
                                     onChange={(e) => {
                                         if (e.target.checked) {
-                                            setSelectedIds(filteredTableData.map((row) => row.id)); // Select only filtered rows
+                                            setSelectedIds(filteredTableData.map((row) => row.id));
                                         } else {
-                                            setSelectedIds([]); // Deselect all rows
+                                            setSelectedIds([]);
                                         }
                                     }}
                                     checked={
                                         filteredTableData.length > 0 &&
-                                        filteredTableData.every((row) => selectedIds.includes(row.id)) // Check if all filtered rows are selected
+                                        filteredTableData.every((row) => selectedIds.includes(row.id))
                                     }
                                 />
                             </div>
@@ -966,6 +961,9 @@ const State = () => {
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
                             <td style={tableCellStyle} data-label="Symbol">{row.symbol}</td>
                             <td style={tableCellStyle} data-label="Cena (PLN)">{row.price}</td>
+                            <td style={tableCellStyle} data-label="Cena (PLN)">
+                                {row.price}
+                            </td>
                             <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode">
                                 <div className="d-flex align-items-center justify-content-center gap-2">
                                     <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
