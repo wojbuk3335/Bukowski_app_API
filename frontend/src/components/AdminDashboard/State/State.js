@@ -464,8 +464,9 @@ const State = () => {
     const toggleEditModal = () => setIsEditModalOpen(!isEditModalOpen);
 
     const handleEditClick = (row) => {
-        setEditData(row); // Set the row data to edit
-        toggleEditModal(); // Open the modal
+        setEditData(row); // Ustaw dane wiersza do edycji
+        setSelectedSellingPoint(row.symbol); // Ustaw symbol w modalu
+        toggleEditModal(); // Otwórz modal
     };
 
     const handleSaveEdit = async () => {
@@ -474,11 +475,12 @@ const State = () => {
                 fullName: editData.fullName,
                 date: editData.date,
                 size: editData.size,
+                sellingPoint: selectedSellingPoint, // Przesyłaj symbol jako sellingPoint
             });
-            fetchTableData(); // Refresh table data after successful update
-            toggleEditModal(); // Close the modal
+            fetchTableData(); // Odśwież dane tabeli po udanej aktualizacji
+            toggleEditModal(); // Zamknij modal
         } catch (error) {
-            console.error('Error updating state:', error);
+            console.error('Błąd podczas aktualizacji stanu:', error);
         }
     };
 
@@ -932,7 +934,7 @@ const State = () => {
                         <th style={tableCellStyle} onClick={() => handleSort('price')}>
                             Cena (PLN) {getSortIcon('price')}
                         </th>
-                        <th style={{ ...tableCellStyle, textAlign: 'center' }}> {/*  the header */}
+                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>
                             <div className="d-flex align-items-center justify-content-center gap-2">
                                 Kody kreskowe
                                 <input
@@ -952,45 +954,37 @@ const State = () => {
                                 />
                             </div>
                         </th>
-                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>Akcje</th> {/* Center the header */}
+                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>Akcje</th>
                     </tr>
                 </thead>
                 <tbody>
                     {currentRecords.map((row, index) => (
                         <tr key={row.id || index} style={{ backgroundColor: 'black', color: 'white' }}>
-                            <td style={tableCellStyle} data-label="Nr zamówienia">
-                                {indexOfFirstRecord + index + 1}
-                            </td>
+                            <td style={tableCellStyle} data-label="Nr zamówienia">{indexOfFirstRecord + index + 1}</td>
                             <td style={tableCellStyle} data-label="Pełna nazwa">{row.fullName}</td>
-                            <td style={tableCellStyle} data-label="Data">
-                                {new Date(row.date).toLocaleDateString()}
-                            </td>
+                            <td style={tableCellStyle} data-label="Data">{new Date(row.date).toLocaleDateString()}</td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
                             <td style={tableCellStyle} data-label="Symbol">{row.symbol}</td>
-                            <td style={tableCellStyle} data-label="Cena (PLN)">
-                                {row.price}
-                            </td>
-                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode"> {/* Center the content */}
+                            <td style={tableCellStyle} data-label="Cena (PLN)">{row.price}</td>
+                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode">
                                 <div className="d-flex align-items-center justify-content-center gap-2">
                                     <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
                                     <input
                                         type="checkbox"
-                                        style={{ width: '20px', height: '20px' }} // Larger checkbox
+                                        style={{ width: '20px', height: '20px' }}
                                         checked={selectedIds.includes(row.id)}
                                         onChange={() => toggleRowSelection(row.id)}
                                     />
                                 </div>
                             </td>
-                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Akcje"> {/* Center the content */}
+                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Akcje">
                                 <div className="d-flex justify-content-center gap-1">
                                     <Button color="warning" size="sm" onClick={() => handleEditClick(row)}>Edytuj</Button>
                                     <Button color="danger" size="sm" onClick={() => {
-                                        if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) { // Confirm before deleting
+                                        if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) {
                                             deleteRow(row.id);
                                         }
-                                    }}>
-                                        Usuń
-                                    </Button>
+                                    }}>Usuń</Button>
                                 </div>
                             </td>
                         </tr>
@@ -1054,14 +1048,14 @@ const State = () => {
                         <Label for="date" className={styles.emailLabel}>Data:</Label>
                         <div style={{ margin: '10px 0', padding: '5px', borderRadius: '4px' }}>
                             <DatePicker
-                                selected={editData.date ? new Date(editData.date) : null} // Bind editData.date to DatePicker
-                                onChange={(date) => setEditData({ ...editData, date: date.toISOString() })} // Update editData.date on change
-                                placeholderText="Wybierz datę" // Polish: Select a date
+                                selected={editData.date ? new Date(editData.date) : null}
+                                onChange={(date) => setEditData({ ...editData, date: date.toISOString() })}
+                                placeholderText="Wybierz datę"
                                 className="form-control"
-                                dateFormat="yyyy-MM-dd" // Ensure a valid date format
-                                locale="pl" // Set Polish locale
-                                onKeyDown={(e) => e.preventDefault()} // Prevent manual input
-                                readOnly // Make the input field read-only
+                                dateFormat="yyyy-MM-dd"
+                                locale="pl"
+                                onKeyDown={(e) => e.preventDefault()}
+                                readOnly
                             />
                         </div>
                     </FormGroup>
@@ -1104,6 +1098,27 @@ const State = () => {
                                 }),
                             }}
                         />
+                    </FormGroup>
+                    <FormGroup className={styles.formGroup}>
+                        <Label for="symbol" className={styles.emailLabel}>Symbol:</Label>
+                        <select
+                            value={selectedSellingPoint}
+                            onChange={(e) => setSelectedSellingPoint(e.target.value)}
+                            className="form-control"
+                            style={{
+                                backgroundColor: 'black',
+                                color: 'white',
+                                border: '1px solid white',
+                                borderRadius: '4px',
+                                padding: '5px',
+                            }}
+                        >
+                            {users.map((user) => (
+                                <option key={user._id} value={user.symbol}>
+                                    {user.symbol || 'Brak symbolu'}
+                                </option>
+                            ))}
+                        </select>
                     </FormGroup>
                 </ModalBody>
                 <ModalFooter className="d-flex justify-content-end" style={{ gap: '10px' }}>

@@ -137,32 +137,32 @@ class StatesController {
             const { id } = req.params;
             const { fullName, date, size, sellingPoint } = req.body;
 
-            // Find the ObjectId for fullName in Goods
+            // Znajdź obiekt Goods na podstawie pełnej nazwy
             const goods = await Goods.findOne({ fullName });
             if (!goods) {
                 return res.status(404).send('Goods not found');
             }
 
-            // Find the ObjectId for size in Size
+            // Znajdź obiekt Size na podstawie Roz_Opis
             const sizeObj = await Size.findOne({ Roz_Opis: size });
             if (!sizeObj) {
                 return res.status(404).send('Size not found');
             }
 
-            // Find the ObjectId for sellingPoint in User
-            const user = await mongoose.models.User.findOne({ sellingPoint });
+            // Znajdź użytkownika na podstawie symbolu
+            const user = await mongoose.models.User.findOne({ symbol: sellingPoint }); // Poprawione wyszukiwanie
             if (!user) {
                 return res.status(404).send('Selling point not found');
             }
 
-            // Update the barcode
-            let barcode = goods.code; // Assuming `code` is the field in Goods
-            const rozKod = sizeObj.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
+            // Zaktualizuj kod kreskowy
+            let barcode = goods.code;
+            const rozKod = sizeObj.Roz_Kod;
             barcode = barcode.substring(0, 5) + rozKod + barcode.substring(7, 11);
             const checksum = calculateChecksum(barcode);
             barcode = barcode.substring(0, 12) + checksum;
 
-            // Update the state
+            // Zaktualizuj stan
             const updatedState = await State.findByIdAndUpdate(
                 id,
                 {
@@ -170,9 +170,9 @@ class StatesController {
                     date,
                     size: sizeObj._id,
                     barcode,
-                    sellingPoint: user._id // Update the sellingPoint
+                    sellingPoint: user._id // Zaktualizuj punkt sprzedaży na podstawie ID użytkownika
                 },
-                { new: true } // Return the updated document
+                { new: true } // Zwróć zaktualizowany dokument
             );
 
             if (!updatedState) {
