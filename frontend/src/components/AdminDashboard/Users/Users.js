@@ -515,7 +515,6 @@ const Users = () => {
                     className={`modal-header draggable-header ${styles.modalHeader}`}
                 >
                     Edytuj użytkownika
-                    <button className={styles.customCloseButton} onClick={toggleModal}></button>
                 </ModalHeader>
                 <ModalBody className={styles.modalBody}>
                     {/* Display oldUser and updatedUser data */}

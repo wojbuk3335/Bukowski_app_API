@@ -224,7 +224,7 @@ const Sales = () => {
 
     return (
         <div>
-            <h1 className={styles.title}>Sprzedaż</h1> {/* Polish: Sales */}
+            <h1 className={styles.title}>Sprzedaż</h1> 
             <div className="d-flex flex-column align-items-center mb-3">
                 <div className="d-flex justify-content-center mb-3">
                     <div className="me-3">
@@ -264,12 +264,12 @@ const Sales = () => {
                 </div>
             </div>
             <div className="mb-3">
-                <label>Punkt sprzedaży:</label> {/* Polish: Selling Point */}
+                <label>Punkt sprzedaży:</label> 
                 <select
                     className="form-select"
                     onChange={(e) => handleDropdownFilterChange('sellingPoint', e.target.value)}
                 >
-                    <option value="">Wszystkie</option> {/* Polish: All */}
+                    <option value="">Wszystkie</option>
                     {uniqueSellingPoints.map((point, index) => (
                         <option key={index} value={point}>
                             {point}
@@ -307,12 +307,12 @@ const Sales = () => {
             </div>
             <div className="d-flex justify-content-center mb-3">
                 <button className="btn btn-danger" onClick={handleRemoveAllData}>
-                    Usuń Wszystkie Dane {/* Polish: Remove All Data */}
+                    Usuń Wszystkie Dane
                 </button>
             </div>
             <div className={styles.tableContainer}>
                 <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
-                    <caption className={styles.caption}>Tabela przedstawiająca dane sprzedaży w systemie</caption> {/* Polish: Sales data table */}
+                    <caption className={styles.caption}>Tabela przedstawiająca dane sprzedaży w systemie</caption>
                     <thead>
                         <tr>
                             <th className={`${styles.tableHeader} ${styles.noWrap}`} onClick={() => handleSort('lp')}>
@@ -405,7 +405,7 @@ const Sales = () => {
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.fullName}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{new Date(sale.timestamp).toLocaleDateString()}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.barcode}</td>
-                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.sizeId}</td> {/* Display sizeId as a plain string */}
+                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.sizeId}</td> 
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.sellingPoint}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.from}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
@@ -423,7 +423,7 @@ const Sales = () => {
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colSpan="7"></td> {/* Empty cells for the first 7 columns */}
+                            <td colSpan="7"></td>
                             <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                                 <strong>Karta:</strong>
                                 {Object.entries(cardSummary).map(([currency, total], index) => (

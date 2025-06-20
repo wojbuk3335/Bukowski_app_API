@@ -49,6 +49,7 @@ const State = () => {
     const [isDateRangePickerVisible, setIsDateRangePickerVisible] = useState(false); // State to toggle date range picker visibility
     const calendarRef = useRef(null); // Ref for the calendar container
     const [loading, setLoading] = useState(false); // Loading state
+    const [magazynCount, setMagazynCount] = useState(0); // State to store the count of "MAGAZYN"
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -664,6 +665,13 @@ const State = () => {
         setIsDateRangePickerVisible((prev) => !prev); // Toggle visibility
     };
 
+    const handleSellingPointChange = (value) => {
+        setSelectedSellingPoint(value); // Update selected selling point
+        const normalizedValue = value.trim().toLowerCase(); // Normalize the selected value
+        const count = tableData.filter((row) => row.symbol?.trim().toLowerCase() === normalizedValue).length; // Count rows matching the normalized value
+        setMagazynCount(count); // Update the count
+    };
+
     if (loading) {
         return (
             <div
@@ -811,7 +819,7 @@ const State = () => {
                         outlineColor: 'rgb(13, 110, 253)', // Change focus color
                     }}
                     value={selectedSellingPoint}
-                    onChange={(e) => setSelectedSellingPoint(e.target.value)} // Update selectedSellingPoint on change
+                    onChange={(e) => handleSellingPointChange(e.target.value)} // Update selectedSellingPoint and count
                 >
                     {users.map((user) => (
                         <option key={user._id} value={user.symbol}>
@@ -844,6 +852,16 @@ const State = () => {
                         <option value={10}>10</option>
                         <option value={20}>20</option>
                     </select>
+                </div>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    {selectedSellingPoint && (
+                        <span style={{ color: 'white', fontWeight: 'bold' }}>
+                            Liczba produktów w "{selectedSellingPoint}": {magazynCount}
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -944,7 +962,7 @@ const State = () => {
                         <th style={tableCellStyle} onClick={() => handleSort('price')}>
                             Cena (PLN) {getSortIcon('price')}
                         </th>
-                        <th style={{ ...tableCellStyle, textAlign: 'center' }}> {/*  the header */}
+                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>
                             <div className="d-flex align-items-center justify-content-center gap-2">
                                 Kody kreskowe
                                 <input
@@ -964,7 +982,7 @@ const State = () => {
                                 />
                             </div>
                         </th>
-                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>Akcje</th> {/* Center the header */}
+                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>Akcje</th> 
                     </tr>
                 </thead>
                 <tbody>
@@ -982,7 +1000,7 @@ const State = () => {
                             <td style={tableCellStyle} data-label="Cena (PLN)">
                                 {row.price}
                             </td>
-                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode"> {/* Center the content */}
+                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode"> 
                                 <div className="d-flex align-items-center justify-content-center gap-2">
                                     <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
                                     <input
@@ -993,7 +1011,7 @@ const State = () => {
                                     />
                                 </div>
                             </td>
-                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Akcje"> {/* Center the content */}
+                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Akcje"> 
                                 <div className="d-flex justify-content-center gap-1">
                                     <Button color="warning" size="sm" onClick={() => handleEditClick(row)}>Edytuj</Button>
                                     <Button color="danger" size="sm" onClick={() => {
@@ -1187,5 +1205,6 @@ const State = () => {
         </div>
     );
 };
+
 
 export default State;

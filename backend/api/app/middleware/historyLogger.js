@@ -34,6 +34,8 @@ const historyLogger = (collectionName) => {
             if (collection === 'color') return 'Kolory';
             if (collection === 'category') return 'Kategoria';
             if (collection === 'states') return 'Stan'; // Correct translation for "states"
+            if (collection === 'users') return 'Użytkownicy'; // Replace "Users" with "Użytkownicy"
+            if (collection === 'colors') return 'Kolory'; // Translate "colors" to "Kolory"
             return collection;
         };
 
@@ -42,24 +44,37 @@ const historyLogger = (collectionName) => {
 
         if (collectionName === 'stock') {
             let details = '';
+            let product = 'Nieznany produkt'; // Default value for product
+
             if (operation === 'Aktualizacja') {
                 try {
                     const stockId = req.params.stockId;
                     const updatedStock = req.body;
                     const oldStock = await Stock.findById(stockId).lean();
-                    details = `Aktualizacja asortymentu: Zaaktualizowano asortyment o ID: ${stockId} z ${oldStock.Tow_Opis} na ${updatedStock.Tow_Opis}`;
+                    const oldDescription = oldStock.Tow_Opis || '-'; // Replace empty value with "-"
+                    const newDescription = updatedStock.Tow_Opis || '-'; // Replace empty value with "-"
+                    product = newDescription; // Use updated Tow_Opis for product
+                    details = `Zaaktualizowano asortyment z ${oldDescription} na ${newDescription}`;
                 } catch (error) {
                     console.error('Aktualizacja asortymentu: Error logging update stock:', error);
                     details = `Aktualizacja asortymentu: Błąd podczas aktualizowania asortymentu.`;
                 }
+            } else if (operation === 'Utworzenie') {
+                try {
+                    const newStock = req.body;
+                    product = newStock.Tow_Opis || 'Nieznany produkt'; // Use Tow_Opis for the new product
+                    details = `Dodano nowy produkt: ${product}`;
+                } catch (error) {
+                    console.error('Utworzenie asortymentu: Error logging new stock:', error);
+                    details = `Utworzenie asortymentu: Błąd podczas dodawania nowego produktu.`;
+                }
             } else if (operation === 'Usunięcie') {
                 details = `Usunięcie asortymentu: Usunięto całą tabelę asortymentu.`;
-            } else if (operation === 'Utworzenie') {
-                details = `Utworzenie asortymentu: Wgrano całą tabelę asortymentu.`;
             }
             historyEntry = new History({
                 collectionName: collectionNamePolish,
                 operation: operation,
+                product: product, // Include product field
                 details: details,
                 userloggedinId: userloggedinId
             });
@@ -205,26 +220,36 @@ const historyLogger = (collectionName) => {
 
         if (collectionName === 'sizes') {
             let details = '';
+            let product = '-'; // Always set product to "-" for sizes
 
             if (operation === 'Aktualizacja') {
                 try {
                     const sizeId = req.params.sizeId;
                     const updatedSize = req.body;
                     const oldSize = await Size.findById(sizeId).lean();
-                    details = `Zaktualizowano rozmiar o ID: ${sizeId} z ${oldSize.Roz_Opis} na ${updatedSize.Roz_Opis}`;
+                    const oldDescription = oldSize.Roz_Opis || '-'; // Replace empty value with "-"
+                    const newDescription = updatedSize.Roz_Opis || '-'; // Replace empty value with "-"
+                    details = `Zaaktualizowano rozmiar z ${oldDescription} na ${newDescription}`;
                 } catch (error) {
-                    console.error('Error logging update size:', error);
-                    console.error('Error object:', error); // Log the error object
-                    details = `Błąd podczas aktualizowania rozmiaru.`;
+                    console.error('Aktualizacja rozmiaru: Error logging update size:', error);
+                    details = `Aktualizacja rozmiaru: Błąd podczas aktualizowania rozmiaru.`;
                 }
-            } else if (operation === 'DELETE') {
-                details = `Usunięto całą tabelę rozmiarów.`;
-            } else if (operation === 'POST') {
-                details = `Wgrano całą tabelę rozmiarów.`;
+            } else if (operation === 'Utworzenie') {
+                try {
+                    const newSize = req.body;
+                    product = '-'; // Always set product to "-"
+                    details = `Dodano nowy rozmiar: ${newSize.Roz_Opis || '-'}`;
+                } catch (error) {
+                    console.error('Utworzenie rozmiaru: Error logging new size:', error);
+                    details = `Utworzenie rozmiaru: Błąd podczas dodawania nowego rozmiaru.`;
+                }
+            } else if (operation === 'Usunięcie') {
+                details = `Usunięcie rozmiaru: Usunięto całą tabelę rozmiarów.`;
             }
             historyEntry = new History({
                 collectionName: collectionNamePolish,
                 operation: operation,
+                product: product, // Always set product to "-"
                 details: details,
                 userloggedinId: userloggedinId
             });
@@ -232,25 +257,36 @@ const historyLogger = (collectionName) => {
 
         if (collectionName === 'category') {
             let details = '';
+            let product = '-'; // Always set product to "-" for category
 
             if (operation === 'Aktualizacja') {
                 try {
                     const categoryId = req.params.categoryId;
                     const updatedCategory = req.body;
                     const oldCategory = await Category.findById(categoryId).lean();
-                    details = `Zaktualizowano kategorię o ID: ${categoryId} z ${oldCategory.Kat_1_Opis_1} na ${updatedCategory.Kat_1_Opis_1}`;
+                    const oldDescription = oldCategory.Kat_1_Opis_1 || '-'; // Replace empty value with "-"
+                    const newDescription = updatedCategory.Kat_1_Opis_1 || '-'; // Replace empty value with "-"
+                    details = `Zaaktualizowano kategorię z ${oldDescription} na ${newDescription}`;
                 } catch (error) {
-                    console.error('Error logging update category:', error);
-                    details = `Błąd podczas aktualizowania kategorii.`;
+                    console.error('Aktualizacja kategorii: Error logging update category:', error);
+                    details = `Aktualizacja kategorii: Błąd podczas aktualizowania kategorii.`;
                 }
-            } else if (operation === 'DELETE') {
-                details = `Usunięto całą tabelę kategorii.`;
-            } else if (operation === 'POST') {
-                details = `Wgrano całą tabelę kategorii.`;
+            } else if (operation === 'Utworzenie') {
+                try {
+                    const newCategory = req.body;
+                    product = '-'; // Always set product to "-"
+                    details = `Dodano nową kategorię: ${newCategory.Kat_1_Opis_1 || '-'}`;
+                } catch (error) {
+                    console.error('Utworzenie kategorii: Error logging new category:', error);
+                    details = `Utworzenie kategorii: Błąd podczas dodawania nowej kategorii.`;
+                }
+            } else if (operation === 'Usunięcie') {
+                details = `Usunięcie kategorii: Usunięto całą tabelę kategorii.`;
             }
             historyEntry = new History({
                 collectionName: collectionNamePolish,
                 operation: operation,
+                product: product, // Always set product to "-"
                 details: details,
                 userloggedinId: userloggedinId
             });
@@ -258,10 +294,7 @@ const historyLogger = (collectionName) => {
 
         if (collectionName === 'users') {
             let details = '';
-
-            if (operation === 'Utworzenie') {
-                details = `Utworzono użytkownika: ${req.body.email}`;
-            }
+            let product = '-'; // Ensure product is set to '-'
 
             if (operation === 'Aktualizacja') {
                 try {
@@ -279,9 +312,8 @@ const historyLogger = (collectionName) => {
                             }
                             if (key === 'password') {
                                 changes.push(`Hasło zostało zmienione`);
-                            } else if (key === 'sellingPoint' && oldUser.role === 'admin') {
-                                // Skip logging sellingPoint change for admin users
-                                continue;
+                            } else if (key === 'sellingPoint' && oldUser.role !== 'admin' && oldUser.sellingPoint !== updatedUser.sellingPoint) {
+                                changes.push(`Punkt sprzedaży został zmieniony z ${oldUser.sellingPoint || '-'} na ${updatedUser.sellingPoint || '-'}`);
                             } else if (oldUser[key] !== String(updatedUser[key])) {
                                 changes.push(`${key} został zmieniony z ${oldUser[key]} na ${updatedUser[key]}`);
                             }
@@ -297,6 +329,10 @@ const historyLogger = (collectionName) => {
                     console.error('Error fetching user:', error);
                     details = `Błąd podczas aktualizowania użytkownika o ID: ${req.params.userId}`;
                 }
+            }
+
+            if (operation === 'Utworzenie') {
+                details = `Utworzono użytkownika: ${req.body.email}`;
             }
 
             if (operation === 'Usunięcie') {
@@ -316,6 +352,7 @@ const historyLogger = (collectionName) => {
             historyEntry = new History({
                 collectionName: collectionNamePolish,
                 operation: operation,
+                product: product, // Ensure product is set to '-'
                 details: details,
                 userloggedinId: userloggedinId // Include user ID
             });
@@ -350,7 +387,7 @@ const historyLogger = (collectionName) => {
                         if (updatedState.sellingPoint && oldState.sellingPoint.symbol !== updatedState.sellingPoint) {
                             from = oldState.sellingPoint.symbol || '-'; // Set "Skąd" to the old symbol
                             to = updatedState.sellingPoint || '-'; // Set "Dokąd" to the new symbol
-                            changes.push(`Punkt sprzedaży został zmieniony z ${from} na ${to}`);
+                            changes.push(`Punkt sprzedaży został zmieniony z ${from} na ${to}`); // Use "punkt sprzedaży" instead of "sellingPoint"
                         }
 
                         // Handle size changes separately without affecting "Skąd" and "Dokąd"
@@ -400,6 +437,43 @@ const historyLogger = (collectionName) => {
                 userloggedinId: userloggedinId, // Include user ID
                 from: from, // Ensure "Skąd" field stores correct value
                 to: to, // Ensure "Dokąd" field stores correct value
+            });
+        }
+
+        if (collectionName === 'colors') {
+            let details = '';
+            let product = '-'; // Always set product to "-" for colors
+
+            if (operation === 'Aktualizacja') {
+                try {
+                    const colorId = req.params.colorId;
+                    const updatedColor = req.body;
+                    const oldColor = await Color.findById(colorId).lean();
+                    const oldDescription = oldColor.Kol_Opis || '-'; // Replace empty value with "-"
+                    const newDescription = updatedColor.Kol_Opis || '-'; // Replace empty value with "-"
+                    details = `Zaaktualizowano kolor z ${oldDescription} na ${newDescription}`;
+                } catch (error) {
+                    console.error('Aktualizacja koloru: Error logging update color:', error);
+                    details = `Aktualizacja koloru: Błąd podczas aktualizowania koloru.`;
+                }
+            } else if (operation === 'Utworzenie') {
+                try {
+                    const newColor = req.body;
+                    product = '-'; // Always set product to "-"
+                    details = `Dodano nowy kolor: ${newColor.Kol_Opis || '-'}`;
+                } catch (error) {
+                    console.error('Utworzenie koloru: Error logging new color:', error);
+                    details = `Utworzenie koloru: Błąd podczas dodawania nowego koloru.`;
+                }
+            } else if (operation === 'Usunięcie') {
+                details = `Usunięcie koloru: Usunięto całą tabelę kolorów.`;
+            }
+            historyEntry = new History({
+                collectionName: collectionNamePolish,
+                operation: operation,
+                product: product, // Always set product to "-"
+                details: details,
+                userloggedinId: userloggedinId
             });
         }
 
