@@ -346,10 +346,21 @@ const historyLogger = (collectionName) => {
                         product = `${oldState.fullName?.fullName || 'Nieznany produkt'} ${oldState.size?.Roz_Opis || 'Nieznany rozmiar'}`;
                         let changes = [];
 
+                        // Handle sellingPoint changes
                         if (updatedState.sellingPoint && oldState.sellingPoint.symbol !== updatedState.sellingPoint) {
                             from = oldState.sellingPoint.symbol || '-'; // Set "Skąd" to the old symbol
                             to = updatedState.sellingPoint || '-'; // Set "Dokąd" to the new symbol
                             changes.push(`Punkt sprzedaży został zmieniony z ${from} na ${to}`);
+                        }
+
+                        // Handle size changes separately without affecting "Skąd" and "Dokąd"
+                        if (updatedState.size && oldState.size.Roz_Opis !== updatedState.size) {
+                            changes.push(`Rozmiar został zmieniony z ${oldState.size.Roz_Opis} na ${updatedState.size}`);
+                        }
+
+                        // Handle fullName changes separately
+                        if (updatedState.fullName && oldState.fullName.fullName !== updatedState.fullName) {
+                            changes.push(`Nazwa produktu została zmieniona z ${oldState.fullName.fullName} na ${updatedState.fullName}`);
                         }
 
                         if (changes.length > 0) {

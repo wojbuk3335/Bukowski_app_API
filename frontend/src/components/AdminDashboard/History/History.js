@@ -20,6 +20,11 @@ const History = () => {
     });
     const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]); // State for date range
     const [isDateRangePickerVisible, setIsDateRangePickerVisible] = useState(false); // State to toggle date range picker visibility
+    const [popupContent, setPopupContent] = useState(null); // State for popup content
+    const [isPopupVisible, setIsPopupVisible] = useState(false); // State for popup visibility
+    const [hoverContent, setHoverContent] = useState(null); // State for hover content
+    const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 }); // State for hover position
+    const [isHoverVisible, setIsHoverVisible] = useState(false); // State for hover visibility
     const calendarRef = useRef(null); // Ref for the calendar container
 
     useEffect(() => {
@@ -118,6 +123,30 @@ const History = () => {
         return range;
     });
 
+    const showPopup = (content) => {
+        setPopupContent(content);
+        setIsPopupVisible(true);
+    };
+
+    const hidePopup = () => {
+        setIsPopupVisible(false);
+        setPopupContent(null);
+    };
+
+    const showHover = (content, event) => {
+        const target = event.target;
+        if (target.scrollWidth > target.clientWidth) { // Check if text is truncated
+            setHoverContent(content);
+            setHoverPosition({ x: event.clientX + 10, y: event.clientY + 10 }); // Position near the cursor
+            setIsHoverVisible(true);
+        }
+    };
+
+    const hideHover = () => {
+        setIsHoverVisible(false);
+        setHoverContent(null);
+    };
+
     if (loading) {
         return (
             <div
@@ -194,6 +223,36 @@ const History = () => {
                                     onChange={(e) => handleTextFilterChange('to', e.target.value)}
                                 />
                             </th>
+                            <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
+                                Użytkownik
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.userloggedinId}
+                                    onChange={(e) => handleTextFilterChange('userloggedinId', e.target.value)}
+                                />
+                            </th>
+                            <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
+                                Produkt
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.product}
+                                    onChange={(e) => handleTextFilterChange('product', e.target.value)}
+                                />
+                            </th>
+                            <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
+                                Szczegóły
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mt-1"
+                                    placeholder="Filtruj"
+                                    value={filters.details}
+                                    onChange={(e) => handleTextFilterChange('details', e.target.value)}
+                                />
+                            </th>
                             <th className={tableStyles.tableHeader} style={{ maxWidth: '300px', width: '300px', textAlign: 'center' }}>
                                 <div className="d-flex flex-column align-items-center">
                                     <span onClick={toggleDateRangePicker} style={{ cursor: 'pointer' }}>
@@ -228,63 +287,126 @@ const History = () => {
                                     )}
                                 </div>
                             </th>
-                            <th className={tableStyles.tableHeader} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
-                                Użytkownik
-                                <input
-                                    type="text"
-                                    className="form-control form-control-sm mt-1"
-                                    placeholder="Filtruj"
-                                    value={filters.userloggedinId}
-                                    onChange={(e) => handleTextFilterChange('userloggedinId', e.target.value)}
-                                />
-                            </th>
-                            <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
-                                Produkt
-                                <input
-                                    type="text"
-                                    className="form-control form-control-sm mt-1"
-                                    placeholder="Filtruj"
-                                    value={filters.product} // Use filters.product for the "Produkt" filter
-                                    onChange={(e) => handleTextFilterChange('product', e.target.value)} // Update filters.product
-                                />
-                            </th>
-                            <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
-                                Szczegóły
-                                <input
-                                    type="text"
-                                    className="form-control form-control-sm mt-1"
-                                    placeholder="Filtruj"
-                                    value={filters.details} // Use filters.details for the "Szczegóły" filter
-                                    onChange={(e) => handleTextFilterChange('details', e.target.value)} // Update filters.details
-                                />
-                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredHistoryData.map((item, index) => (
                             <tr key={item._id}>
                                 <td className={tableStyles.tableCell} style={{ maxWidth: '50px', width: '50px', textAlign: 'center' }} data-label="Lp.">{index + 1}</td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Kolekcja">{item.collectionName}</td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }} data-label="Operacja">{item.operation}</td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Skąd">
+                                <td
+                                    className={tableStyles.tableCell}
+                                    style={{ maxWidth: '150px', width: '150px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    data-label="Kolekcja"
+                                    onMouseEnter={(e) => showHover(item.collectionName, e)}
+                                    onMouseLeave={hideHover}
+                                >
+                                    {item.collectionName}
+                                </td>
+                                <td
+                                    className={tableStyles.tableCell}
+                                    style={{ maxWidth: '200px', width: '200px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    data-label="Operacja"
+                                    onMouseEnter={(e) => showHover(item.operation, e)}
+                                    onMouseLeave={hideHover}
+                                >
+                                    {item.operation}
+                                </td>
+                                <td
+                                    className={tableStyles.tableCell}
+                                    style={{ maxWidth: '150px', width: '150px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    data-label="Skąd"
+                                    onMouseEnter={(e) => showHover(item.from === "" ? "-" : item.from, e)}
+                                    onMouseLeave={hideHover}
+                                >
                                     {item.from === "" ? "-" : item.from}
                                 </td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Dokąd">
+                                <td
+                                    className={tableStyles.tableCell}
+                                    style={{ maxWidth: '150px', width: '150px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    data-label="Dokąd"
+                                    onMouseEnter={(e) => showHover(item.to === "" ? "-" : item.to, e)}
+                                    onMouseLeave={hideHover}
+                                >
                                     {item.to === "" ? "-" : item.to}
                                 </td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Czas">{new Date(item.timestamp).toLocaleString()}</td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }} data-label="Użytkownik">{item.userloggedinId ? item.userloggedinId.username : localStorage.getItem('AdminEmail')}</td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }} data-label="Produkt">
-                                    {item.product || '-'} {/* Display product */}
+                                <td
+                                    className={tableStyles.tableCell}
+                                    style={{ maxWidth: '150px', width: '150px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    data-label="Użytkownik"
+                                    onMouseEnter={(e) => showHover(item.userloggedinId ? item.userloggedinId.username : localStorage.getItem('AdminEmail'), e)}
+                                    onMouseLeave={hideHover}
+                                >
+                                    {item.userloggedinId ? item.userloggedinId.username : localStorage.getItem('AdminEmail')}
                                 </td>
-                                <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }} data-label="Szczegóły">
-                                    {item.details || '-'} {/* Display details */}
+                                <td
+                                    className={tableStyles.tableCell}
+                                    style={{ maxWidth: '200px', width: '200px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    data-label="Produkt"
+                                    onMouseEnter={(e) => showHover(item.product || '-', e)}
+                                    onMouseLeave={hideHover}
+                                >
+                                    {item.product || '-'}
+                                </td>
+                                <td
+                                    className={tableStyles.tableCell}
+                                    style={{ maxWidth: '200px', width: '200px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    data-label="Szczegóły"
+                                    onMouseEnter={(e) => showHover(item.details || '-', e)}
+                                    onMouseLeave={hideHover}
+                                >
+                                    {item.details || '-'}
+                                </td>
+                                <td
+                                    className={tableStyles.tableCell}
+                                    style={{ maxWidth: '150px', width: '150px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                    data-label="Czas"
+                                    onMouseEnter={(e) => showHover(new Date(item.timestamp).toLocaleString(), e)}
+                                    onMouseLeave={hideHover}
+                                >
+                                    {new Date(item.timestamp).toLocaleString()}
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+            {isPopupVisible && (
+                <div
+                    className={styles.popup}
+                    style={{
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 1000,
+                        backgroundColor: 'white',
+                        padding: '20px',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                    }}
+                >
+                    <div style={{ marginBottom: '10px' }}>{popupContent}</div>
+                    <button onClick={hidePopup} style={{ cursor: 'pointer' }}>Zamknij</button>
+                </div>
+            )}
+            {isHoverVisible && (
+                <div
+                    className={styles.hoverPopup}
+                    style={{
+                        position: 'absolute',
+                        top: hoverPosition.y,
+                        left: hoverPosition.x,
+                        zIndex: 1000,
+                        backgroundColor: 'white',
+                        padding: '10px',
+                        borderRadius: '4px',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                        pointerEvents: 'none', // Prevent interference with mouse events
+                    }}
+                >
+                    {hoverContent}
+                </div>
+            )}
         </div>
     );
 };

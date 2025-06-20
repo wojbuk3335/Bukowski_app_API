@@ -11,7 +11,7 @@ import styles from './State.module.css'; // Import the CSS module
 import Barcode from 'react-barcode'; // Import the Barcode component
 import { saveAs } from 'file-saver'; // For exporting files
 import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, ModalFooter, Spinner } from 'reactstrap'; // Import reactstrap components
-import * as XLSX from 'xlsx'; // Corrected import syntax for XLSX
+import * as XLSX from 'xlsx'; // Import XLSX for Excel export
 import jsPDF from 'jspdf'; // Import jsPDF for PDF export
 import autoTable from 'jspdf-autotable'; // Ensure correct import for autoTable
 import pl from 'date-fns/locale/pl'; // Import Polish locale
@@ -147,8 +147,6 @@ const State = () => {
         const fetchUsers = async () => {
             try {
                 const response = await axios.get('/api/user');
-                console.log('Fetched users:', response.data.users); // Log the fetched users
-
                 if (response.data && Array.isArray(response.data.users)) {
                     const filteredUsers = response.data.users.filter(user => user.role !== 'admin');
                     setUsers(filteredUsers);
@@ -173,18 +171,21 @@ const State = () => {
         setLoading(true);
         try {
             const response = await axios.get('/api/state');
-            const formattedData = response.data.map((row) => ({
-                id: row.id,
-                fullName: row.fullName?.fullName || row.fullName || "Brak danych",
-                plec: row.Plec || "Brak danych",
-                date: row.date,
-                size: row.size?.Roz_Opis || row.size || "Brak danych",
-                barcode: row.barcode || "Brak danych",
-                symbol: row.symbol || "Brak danych",
-                price: row.discount_price 
-                    ? `${row.price}, ${row.discount_price}` // Display both prices separated by a comma
-                    : row.price, // Display only price if discount_price is not available
-            }));
+            const formattedData = response.data.map((row) => {
+                const combinedPrice = row.discount_price && Number(row.discount_price) !== 0
+                    ? `${row.price},${row.discount_price}` // Combine price and discount_price
+                    : row.price; // Use only price if discount_price is not valid
+                return {
+                    id: row.id,
+                    fullName: row.fullName?.fullName || row.fullName || "Brak danych",
+                    plec: row.Plec || "Brak danych",
+                    date: row.date,
+                    size: row.size?.Roz_Opis || row.size || "Brak danych",
+                    barcode: row.barcode || "Brak danych",
+                    symbol: row.symbol || "Brak danych",
+                    price: combinedPrice, // Set combined price
+                };
+            });
             setTableData(formattedData.reverse());
         } catch (error) {
             console.error('Error fetching table data:', error);
@@ -201,6 +202,7 @@ const State = () => {
 
         setLoading(true);
         try {
+            // Fetch the selected good to check for price exceptions
             const selectedGood = goods.find((good) => good.fullName === input1Value.trim());
             if (!selectedGood) {
                 alert('Wybrany produkt nie istnieje w bazie danych.');
@@ -208,6 +210,7 @@ const State = () => {
                 return;
             }
 
+            // Check if the selected size exists in the price exceptions
             const exception = selectedGood.priceExceptions.find(
                 (ex) => ex.size && ex.size.Roz_Opis === selectedSize
             );
@@ -226,7 +229,7 @@ const State = () => {
             }
 
             const dataToSend = {
-                fullName: input1Value.trim(), // Ensure fullName is sent correctly
+                fullName: input1Value.trim(),
                 size: selectedSize,
                 plec: selectedPlec,
                 date: selectedDate.toISOString(),
@@ -252,6 +255,7 @@ const State = () => {
 
             setInput1Value('');
             setInput2Value('');
+            // Do not reset selectedSellingPoint
             setTimeout(() => {
                 if (inputRefs.current[0] && inputRefs.current[0].focus) {
                     inputRefs.current[0].focus();
@@ -465,31 +469,28 @@ const State = () => {
     const toggleEditModal = () => setIsEditModalOpen(!isEditModalOpen);
 
     const handleEditClick = (row) => {
-        setEditData(row); // Ustaw dane wiersza do edycji
-        setSelectedSellingPoint(row.symbol); // Ustaw symbol w modalu
-        toggleEditModal(); // Otwórz modal
         setEditData({
-            ...row,
-            sellingPoint: row.symbol || '', // Ensure sellingPoint is set to the symbol value
+            id: row.id, // Include ID for saving changes
+            fullName: row.fullName,
+            date: row.date,
+            size: row.size,
+            symbol: row.symbol || '', // Ensure symbol is included and defaults to an empty string if null
         });
         toggleEditModal(); // Open the modal
     };
 
     const handleSaveEdit = async () => {
         try {
-            console.log('Edit data:', editData); // Loguj dane edycji
-            console.log('Selling point:', selectedSellingPoint); // Loguj punkt sprzedaży
-
             await axios.put(`/api/state/${editData.id}`, {
                 fullName: editData.fullName,
                 date: editData.date,
                 size: editData.size,
-                sellingPoint: selectedSellingPoint, // Przesyłaj symbol jako sellingPoint
+                sellingPoint: editData.symbol, // Send updated symbol as sellingPoint
             });
-            fetchTableData(); // Odśwież dane tabeli po udanej aktualizacji
-            toggleEditModal(); // Zamknij modal
+            fetchTableData(); // Refresh table data after successful update
+            toggleEditModal(); // Close the modal
         } catch (error) {
-            console.error('Błąd podczas aktualizacji stanu:', error); // Loguj błąd
+            console.error('Error updating state:', error);
         }
     };
 
@@ -849,10 +850,16 @@ const State = () => {
             <Table className={`table ${styles.responsiveTable}`} styles={styles.table}>
                 <thead style={{ backgroundColor: 'black', color: 'white' }}>
                     <tr>
-                        <th style={{ ...tableCellStyle, maxWidth: '270px', width: '130px' }} onClick={() => handleSort('lp')}>
+                        <th
+                            style={{ ...tableCellStyle, maxWidth: '270px', width: '130px' }}
+                            onClick={() => handleSort('lp')}
+                        >
                             Lp {getSortIcon('lp')}
                         </th>
-                        <th style={{ ...tableCellStyle }} onClick={() => handleSort('fullName')}>
+                        <th
+                            style={{ ...tableCellStyle }}
+                            onClick={() => handleSort('fullName')}
+                        >
                             Pełna nazwa {getSortIcon('fullName')}
                             <input
                                 type="text"
@@ -873,7 +880,7 @@ const State = () => {
                                 </span>
                                 {isDateRangePickerVisible && (
                                     <div
-                                        ref={calendarRef}
+                                        ref={calendarRef} // Attach the ref to the calendar container
                                         style={{
                                             position: 'absolute',
                                             top: '100%',
@@ -890,17 +897,20 @@ const State = () => {
                                     >
                                         <DateRangePicker
                                             ranges={dateRange}
-                                            onChange={(ranges) => setDateRange([ranges.selection])}
-                                            locale={pl}
-                                            rangeColors={['#0d6efd']}
-                                            staticRanges={customStaticRanges}
-                                            inputRanges={customInputRanges}
+                                            onChange={(ranges) => setDateRange([ranges.selection])} // Update date range on change
+                                            locale={pl} // Apply Polish locale
+                                            rangeColors={['#0d6efd']} // Set custom range color
+                                            staticRanges={customStaticRanges} // Use custom static ranges
+                                            inputRanges={customInputRanges} // Use custom input ranges
                                         />
                                     </div>
                                 )}
                             </div>
                         </th>
-                        <th style={{ ...tableCellStyle }} onClick={() => handleSort('size')}>
+                        <th
+                            style={{ ...tableCellStyle }}
+                            onClick={() => handleSort('size')}
+                        >
                             Rozmiar {getSortIcon('size')}
                             <input
                                 type="text"
@@ -911,10 +921,13 @@ const State = () => {
                                     boxSizing: 'border-box',
                                 }}
                                 value={columnFilters.size || ''}
-                                onChange={(e) => setColumnFilters({ ...columnFilters, size: e.target.value })}
+                                onChange={e => setColumnFilters({ ...columnFilters, size: e.target.value })}
                             />
                         </th>
-                        <th style={{ ...tableCellStyle }} onClick={() => handleSort('symbol')}>
+                        <th
+                            style={{ ...tableCellStyle }}
+                            onClick={() => handleSort('symbol')}
+                        >
                             Symbol {getSortIcon('symbol')}
                             <input
                                 type="text"
@@ -925,67 +938,71 @@ const State = () => {
                                     boxSizing: 'border-box',
                                 }}
                                 value={columnFilters.symbol || ''}
-                                onChange={(e) => setColumnFilters({ ...columnFilters, symbol: e.target.value })}
+                                onChange={e => setColumnFilters({ ...columnFilters, symbol: e.target.value })}
                             />
                         </th>
                         <th style={tableCellStyle} onClick={() => handleSort('price')}>
                             Cena (PLN) {getSortIcon('price')}
                         </th>
-                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>
+                        <th style={{ ...tableCellStyle, textAlign: 'center' }}> {/*  the header */}
                             <div className="d-flex align-items-center justify-content-center gap-2">
                                 Kody kreskowe
                                 <input
                                     type="checkbox"
-                                    style={{ width: '20px', height: '20px' }}
+                                    style={{ width: '20px', height: '20px' }} // Larger checkbox
                                     onChange={(e) => {
                                         if (e.target.checked) {
-                                            setSelectedIds(filteredTableData.map((row) => row.id));
+                                            setSelectedIds(filteredTableData.map((row) => row.id)); // Select only filtered rows
                                         } else {
-                                            setSelectedIds([]);
+                                            setSelectedIds([]); // Deselect all rows
                                         }
                                     }}
                                     checked={
                                         filteredTableData.length > 0 &&
-                                        filteredTableData.every((row) => selectedIds.includes(row.id))
+                                        filteredTableData.every((row) => selectedIds.includes(row.id)) // Check if all filtered rows are selected
                                     }
                                 />
                             </div>
                         </th>
-                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>Akcje</th>
+                        <th style={{ ...tableCellStyle, textAlign: 'center' }}>Akcje</th> {/* Center the header */}
                     </tr>
                 </thead>
                 <tbody>
                     {currentRecords.map((row, index) => (
                         <tr key={row.id || index} style={{ backgroundColor: 'black', color: 'white' }}>
-                            <td style={tableCellStyle} data-label="Nr zamówienia">{indexOfFirstRecord + index + 1}</td>
+                            <td style={tableCellStyle} data-label="Nr zamówienia">
+                                {indexOfFirstRecord + index + 1}
+                            </td>
                             <td style={tableCellStyle} data-label="Pełna nazwa">{row.fullName}</td>
-                            <td style={tableCellStyle} data-label="Data">{new Date(row.date).toLocaleDateString()}</td>
+                            <td style={tableCellStyle} data-label="Data">
+                                {new Date(row.date).toLocaleDateString()}
+                            </td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
                             <td style={tableCellStyle} data-label="Symbol">{row.symbol}</td>
                             <td style={tableCellStyle} data-label="Cena (PLN)">
-                                {row.discount_price 
-                                    ? `${row.price}, ${row.discount_price}` // Display both prices separated by a comma
-                                    : row.price}
+                                {row.price}
                             </td>
-                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode">
+                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Barcode"> {/* Center the content */}
                                 <div className="d-flex align-items-center justify-content-center gap-2">
-                                    <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} font="monospace" /> {/* Ensure font is set */}
+                                    <Barcode value={row.barcode} width={0.8} height={30} fontSize={10} />
                                     <input
                                         type="checkbox"
-                                        style={{ width: '20px', height: '20px' }}
+                                        style={{ width: '20px', height: '20px' }} // Larger checkbox
                                         checked={selectedIds.includes(row.id)}
                                         onChange={() => toggleRowSelection(row.id)}
                                     />
                                 </div>
                             </td>
-                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Akcje">
+                            <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Akcje"> {/* Center the content */}
                                 <div className="d-flex justify-content-center gap-1">
                                     <Button color="warning" size="sm" onClick={() => handleEditClick(row)}>Edytuj</Button>
                                     <Button color="danger" size="sm" onClick={() => {
-                                        if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) {
+                                        if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) { // Confirm before deleting
                                             deleteRow(row.id);
                                         }
-                                    }}>Usuń</Button>
+                                    }}>
+                                        Usuń
+                                    </Button>
                                 </div>
                             </td>
                         </tr>
@@ -1049,14 +1066,14 @@ const State = () => {
                         <Label for="date" className={styles.emailLabel}>Data:</Label>
                         <div style={{ margin: '10px 0', padding: '5px', borderRadius: '4px' }}>
                             <DatePicker
-                                selected={editData.date ? new Date(editData.date) : null}
-                                onChange={(date) => setEditData({ ...editData, date: date.toISOString() })}
-                                placeholderText="Wybierz datę"
+                                selected={editData.date ? new Date(editData.date) : null} // Bind editData.date to DatePicker
+                                onChange={(date) => setEditData({ ...editData, date: date.toISOString() })} // Update editData.date on change
+                                placeholderText="Wybierz datę" // Polish: Select a date
                                 className="form-control"
-                                dateFormat="yyyy-MM-dd"
-                                locale="pl"
-                                onKeyDown={(e) => e.preventDefault()}
-                                readOnly
+                                dateFormat="yyyy-MM-dd" // Ensure a valid date format
+                                locale="pl" // Set Polish locale
+                                onKeyDown={(e) => e.preventDefault()} // Prevent manual input
+                                readOnly // Make the input field read-only
                             />
                         </div>
                     </FormGroup>
@@ -1102,24 +1119,44 @@ const State = () => {
                     </FormGroup>
                     <FormGroup className={styles.formGroup}>
                         <Label for="symbol" className={styles.emailLabel}>Symbol:</Label>
-                        <select
-                            value={selectedSellingPoint}
-                            onChange={(e) => setSelectedSellingPoint(e.target.value)}
-                            className="form-control"
-                            style={{
-                                backgroundColor: 'black',
-                                color: 'white',
-                                border: '1px solid white',
-                                borderRadius: '4px',
-                                padding: '5px',
+                        <Select
+                            value={users.map((user) => ({ value: user.symbol, label: user.symbol }))
+                                .find((option) => option.value === editData.symbol) || null} // Match the structure of options
+                            onChange={(selectedOption) => setEditData({ ...editData, symbol: selectedOption ? selectedOption.value : '' })}
+                            options={users.map((user) => ({ value: user.symbol, label: user.symbol }))}
+                            placeholder="Wybierz symbol"
+                            isClearable
+                            isSearchable
+                            className="w-100"
+                            styles={{
+                                control: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: 'black',
+                                    color: 'white',
+                                    borderColor: state.isFocused ? '#0d6efd' : base.borderColor,
+                                    boxShadow: state.isFocused ? '0 0 0 1px #0d6efd' : base.boxShadow,
+                                }),
+                                singleValue: (base) => ({
+                                    ...base,
+                                    color: 'white',
+                                }),
+                                input: (base) => ({
+                                    ...base,
+                                    color: 'white',
+                                }),
+                                menu: (base) => ({
+                                    ...base,
+                                    backgroundColor: 'black',
+                                    color: 'white',
+                                    border: '1px solid white',
+                                }),
+                                option: (base, state) => ({
+                                    ...base,
+                                    backgroundColor: state.isFocused ? '#0d6efd' : base.backgroundColor,
+                                    color: state.isFocused ? 'white' : base.color,
+                                }),
                             }}
-                        >
-                            {users.map((user) => (
-                                <option key={user._id} value={user.symbol}>
-                                    {user.symbol || 'Brak symbolu'}
-                                </option>
-                            ))}
-                        </select>
+                        />
                     </FormGroup>
                 </ModalBody>
                 <ModalFooter className="d-flex justify-content-end" style={{ gap: '10px' }}>

@@ -31,8 +31,8 @@ class StatesController {
                 size: state.size ? state.size.Roz_Opis : 'Nieznany rozmiar', // Handle null size
                 barcode: state.barcode,
                 symbol: state.sellingPoint ? state.sellingPoint.symbol : 'Nieznany punkt sprzedaży', // Handle null sellingPoint
-                price: state.price, // Use the saved price
-                discount_price: state.discount_price || null, // Include discount_price if available
+                price: state.fullName ? state.fullName.price : 0, // Handle null price
+                discount_price: state.fullName ? state.fullName.discount_price : 0 // Include discount_price
             }));
 
             res.status(200).json(sanitizedStates);
@@ -125,61 +125,44 @@ class StatesController {
             const { id } = req.params;
             const { fullName, date, size, sellingPoint } = req.body;
 
-            // Znajdź obiekt Goods na podstawie pełnej nazwy
+            console.log('Updating state:', { fullName, date, size, sellingPoint }); // Log the update data
+
+            // Find Goods by fullName
             const goods = fullName ? await Goods.findOne({ fullName }) : null;
             if (fullName && !goods) {
                 return res.status(404).send('Goods not found');
             }
 
-            // Znajdź obiekt Size na podstawie Roz_Opis
+            // Find Size by Roz_Opis
             const sizeObj = size ? await Size.findOne({ Roz_Opis: size }) : null;
             if (size && !sizeObj) {
                 return res.status(404).send('Size not found');
             }
 
-            // Znajdź użytkownika na podstawie symbolu
+            // Find User by symbol
             const user = sellingPoint ? await mongoose.models.User.findOne({ symbol: sellingPoint }) : null;
             if (sellingPoint && !user) {
                 return res.status(404).send('Selling point not found');
             }
 
-            // Pobierz aktualny stan, aby określić wartości "from" i "to"
-            const currentState = await State.findById(id).populate('sellingPoint');
-            if (!currentState) {
-                return res.status(404).json({ message: 'State not found' });
-            }
-
-            let from = currentState.sellingPoint?.symbol || '-'; // Domyślna wartość "from"
-            let to = sellingPoint || '-'; // Domyślna wartość "to"
-
-            // Ustaw "from" i "to" na "-" tylko wtedy, gdy aktualizowany jest rozmiar
-            if (size && !fullName && !sellingPoint) {
-                from = '-';
-                to = '-';
-            }
-
-            // Zaktualizuj kod kreskowy, jeśli podano fullName i size
-            let barcode = currentState.barcode;
-            if (goods && sizeObj) {
-                const rozKod = sizeObj.Roz_Kod; // Zakładamy, że `Roz_Kod` jest polem w Size
-                barcode = goods.code.substring(0, 5) + rozKod + goods.code.substring(7, 11);
+            // Update barcode if fullName and size are provided
+            let barcode = goods && sizeObj ? goods.code.substring(0, 5) + sizeObj.Roz_Kod + goods.code.substring(7, 11) : undefined;
+            if (barcode) {
                 const checksum = calculateChecksum(barcode);
                 barcode = barcode.substring(0, 12) + checksum;
             }
 
-            // Zaktualizuj stan
+            // Update state
             const updatedState = await State.findByIdAndUpdate(
                 id,
                 {
-                    fullName: goods ? goods._id : currentState.fullName,
-                    date: date || currentState.date,
-                    size: sizeObj ? sizeObj._id : currentState.size,
-                    barcode,
-                    sellingPoint: user ? user._id : currentState.sellingPoint,
-                    from, // Ustaw "from"
-                    to    // Ustaw "to"
+                    fullName: goods ? goods._id : undefined,
+                    date: date || undefined,
+                    size: sizeObj ? sizeObj._id : undefined,
+                    barcode: barcode || undefined,
+                    sellingPoint: user ? user._id : undefined, // Update sellingPoint
                 },
-                { new: true } // Zwróć zaktualizowany dokument
+                { new: true } // Return the updated document
             );
 
             if (!updatedState) {
@@ -188,7 +171,7 @@ class StatesController {
 
             res.status(200).json(updatedState);
         } catch (error) {
-            console.error('Error updating state:', error); // Loguj błąd dla debugowania
+            console.error('Error updating state:', error); // Log the error for debugging
             res.status(400).json({ error: error.message });
         }
     }
