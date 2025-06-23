@@ -62,14 +62,23 @@ const Sales = () => {
                     String(value).toLowerCase().includes(searchQuery.toLowerCase())
                 )
             );
-        }
-
-        // Filter by column filters
+        }        // Filter by column filters
         Object.keys(columnFilters).forEach((key) => {
             if (columnFilters[key]) {
                 console.log(`Filtering column: ${key}, Filter value: ${columnFilters[key]}`); // Debugging log
                 filtered = filtered.filter((sale) => {
-                    const saleValue = String(sale[key === 'sizeId' ? 'size' : key] || '').trim().toLowerCase(); // Map 'sizeId' to 'size'
+                    let saleValue;
+                    
+                    // Special handling for timestamp to match the displayed format
+                    if (key === 'timestamp') {
+                        saleValue = new Date(sale.timestamp).toLocaleDateString();
+                    } else if (key === 'sizeId') {
+                        saleValue = String(sale.size || ''); // Map 'sizeId' to 'size'
+                    } else {
+                        saleValue = String(sale[key] || '');
+                    }
+                    
+                    saleValue = saleValue.trim().toLowerCase();
                     const filterValue = columnFilters[key].trim().toLowerCase();
                     console.log(`Sale value: ${saleValue}, Matches: ${saleValue.includes(filterValue)}`); // Debugging log
                     return saleValue.includes(filterValue);
@@ -202,15 +211,28 @@ const Sales = () => {
         });
 
         doc.save('sales_data_with_summary.pdf');
-    };
-
-    const handleRemoveAllData = () => {
+    };    const handleRemoveAllData = async () => {
         const confirmationWord = 'REMOVE';
         const userInput = prompt(`To confirm removing all data, type "${confirmationWord}"`);
         if (userInput === confirmationWord) {
-            setSales([]); // Clear all sales data
-            setFilteredSales([]); // Clear filtered sales data
-            alert('All data has been removed.');
+            try {
+                const response = await axios.delete('/api/sales/delete-all-sales', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    },
+                });
+
+                if (response.status === 200) {
+                    setSales([]); // Clear all sales data from state
+                    setFilteredSales([]); // Clear filtered sales data
+                    alert('All data has been removed from database.');
+                } else {
+                    alert(`Error removing data: ${response.data?.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error removing all sales data:', error);
+                alert('Error removing data from database.');
+            }
         } else {
             alert('Data removal canceled.');
         }
@@ -264,22 +286,7 @@ const Sales = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                </div>
-            </div>
-            <div className="mb-3">
-                <label>Punkt sprzedaży:</label> 
-                <select
-                    className="form-select"
-                    onChange={(e) => handleDropdownFilterChange('sellingPoint', e.target.value)}
-                >
-                    <option value="">Wszystkie</option>
-                    {uniqueSellingPoints.map((point, index) => (
-                        <option key={index} value={point}>
-                            {point}
-                        </option>
-                    ))}
-                </select>
-            </div>
+                </div>            </div>
             <div className="d-flex justify-content-center mb-3">
                 <button className="btn btn-primary me-2" onClick={handleExportPDF}>
                     Eksportuj PDF (Tylko Dane)
