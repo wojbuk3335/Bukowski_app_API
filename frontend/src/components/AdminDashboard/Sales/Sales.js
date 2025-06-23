@@ -42,6 +42,8 @@ const Sales = () => {
     }, []);
 
     useEffect(() => {
+        console.log('Applying filters:', { sales, startDate, endDate, searchQuery, columnFilters }); // Debugging log
+
         // Apply all filters (date range, search query, and column filters)
         let filtered = [...sales];
 
@@ -65,16 +67,17 @@ const Sales = () => {
         // Filter by column filters
         Object.keys(columnFilters).forEach((key) => {
             if (columnFilters[key]) {
+                console.log(`Filtering column: ${key}, Filter value: ${columnFilters[key]}`); // Debugging log
                 filtered = filtered.filter((sale) => {
-                    if (key === 'sizeId') {
-                        // Handle filtering for sizeId.Roz_Opis
-                        return sale.sizeId?.Roz_Opis?.toLowerCase().includes(columnFilters[key].toLowerCase());
-                    }
-                    return String(sale[key]).toLowerCase().includes(columnFilters[key].toLowerCase());
+                    const saleValue = String(sale[key === 'sizeId' ? 'size' : key] || '').trim().toLowerCase(); // Map 'sizeId' to 'size'
+                    const filterValue = columnFilters[key].trim().toLowerCase();
+                    console.log(`Sale value: ${saleValue}, Matches: ${saleValue.includes(filterValue)}`); // Debugging log
+                    return saleValue.includes(filterValue);
                 });
             }
         });
 
+        console.log('Filtered sales:', filtered); // Debugging log
         setFilteredSales(filtered);
     }, [sales, startDate, endDate, searchQuery, columnFilters]);
 
@@ -110,7 +113,7 @@ const Sales = () => {
                 sale.fullName,
                 new Date(sale.timestamp).toLocaleDateString(),
                 sale.barcode,
-                sale.sizeId || 'N/A', // Use plain string value of sizeId
+                sale.size || 'N/A', // Use plain string value of sizeId
                 sale.sellingPoint,
                 sale.from,
                 sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
@@ -127,7 +130,7 @@ const Sales = () => {
                 'Pełna nazwa': sale.fullName,
                 Data: new Date(sale.timestamp).toLocaleDateString(),
                 'Kod kreskowy': sale.barcode,
-                Rozmiar: sale.sizeId || 'N/A', // Use plain string value of sizeId
+                Rozmiar: sale.size || 'N/A', // Use plain string value of sizeId
                 'Punkt sprzedaży': sale.sellingPoint,
                 Skąd: sale.from,
                 Karta: sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
@@ -146,7 +149,7 @@ const Sales = () => {
     const handleColumnFilterChange = (key, value) => {
         setColumnFilters((prevFilters) => ({
             ...prevFilters,
-            [key]: value,
+            [key]: value.toLowerCase(), // Ensure case-insensitive filtering
         }));
     };
 
@@ -180,7 +183,7 @@ const Sales = () => {
                 sale.fullName,
                 new Date(sale.timestamp).toLocaleDateString(),
                 sale.barcode,
-                sale.sizeId || 'N/A', // Use plain string value of sizeId
+                sale.size || 'N/A', // Use plain string value of sizeId
                 sale.sellingPoint,
                 sale.from,
                 sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
@@ -290,7 +293,7 @@ const Sales = () => {
                         'Pełna nazwa': sale.fullName,
                         Data: new Date(sale.timestamp).toLocaleDateString(),
                         'Kod kreskowy': sale.barcode,
-                        Rozmiar: sale.sizeId || 'N/A', // Use plain string value of sizeId
+                        Rozmiar: sale.size || 'N/A', // Use plain string value of sizeId
                         'Punkt sprzedaży': sale.sellingPoint,
                         Skąd: sale.from,
                         Karta: sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
@@ -405,7 +408,7 @@ const Sales = () => {
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.fullName}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{new Date(sale.timestamp).toLocaleDateString()}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.barcode}</td>
-                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.sizeId}</td> 
+                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.size}</td> 
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.sellingPoint}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.from}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>

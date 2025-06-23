@@ -304,3 +304,10 @@ button:focus {
 .rdrDateDisplayWrapper {
   background-color: rgb(0 0 0);
 }
+
+
+@media (min-width: 576px) {
+    .container, .container-sm {
+        max-width: 100% !important;
+    }
+}

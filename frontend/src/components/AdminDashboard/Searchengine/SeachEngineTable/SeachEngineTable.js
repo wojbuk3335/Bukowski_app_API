@@ -7,20 +7,39 @@ const SeachEngineTable = () => {
     const [tableArray, setTableArray] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [symbols, setSymbols] = useState([]); // State for unique symbols
+    const [selectedSymbols, setSelectedSymbols] = useState([]); // State for selected symbols
 
     const fetchProducts = async () => {
         try {
-            const response = await axios.get('/api/excel/goods/get-all-goods');
-            const productData = response.data.goods.map((item) => ({
+            const goodsResponse = await axios.get('/api/excel/goods/get-all-goods');
+            const productData = goodsResponse.data.goods.map((item) => ({
                 fullName: item.fullName,
                 plec: item.Plec,
             }));
             setProducts(productData);
 
-            // Create a 2D array
+            const stateResponse = await axios.get('/api/state');
+            const stateData = stateResponse.data.map(async (stateItem) => {
+                const fullName = await axios.get(`/api/excel/goods/${stateItem.fullName}`);
+                const size = await axios.get(`/api/excel/sizes/${stateItem.size}`);
+                return {
+                    ...stateItem,
+                    fullName: fullName.data.fullName || stateItem.fullName,
+                    size: size.data.Roz_Opis || stateItem.size,
+                    sellingPoint: stateItem.sellingPoint, // Include sellingPoint
+                };
+            });
+
+            const resolvedStateData = await Promise.all(stateData);
+
+            // Extract unique symbols from state data
+            const uniqueSymbols = [...new Set(resolvedStateData.map((item) => item.symbol))];
+            setSymbols(uniqueSymbols);
+
             const columns = 14; // Number of table columns + 1 for product name
             const rows = productData.length;
-            const tableArray = Array.from({ length: rows }, (_, rowIndex) => 
+            const tableArray = Array.from({ length: rows }, (_, rowIndex) =>
                 Array.from({ length: columns }, (_, colIndex) => {
                     if (colIndex === 0) return productData[rowIndex].fullName;
                     if (colIndex === 1) return productData[rowIndex].plec; // Keep Plec in the array
@@ -28,215 +47,82 @@ const SeachEngineTable = () => {
                 })
             );
 
-            console.log('Generated Table Array:', tableArray);
-
-            // Fetch data from /api/state
-            const stateResponse = await axios.get('/api/state');
-            const stateData = stateResponse.data;
-
-            // Match fullName from /api/state with /api/excel/goods/get-all-goods
-            stateData.forEach((stateItem) => {
+            resolvedStateData.forEach((stateItem) => {
                 const matchedProduct = productData.find(
                     (product) => product.fullName === stateItem.fullName
                 );
                 if (matchedProduct) {
-                    let sex = matchedProduct.plec; // Store Plec value in a temporary variable
-                    if (sex === 'D') {
-                        const size = stateItem.size;
-                        let columnIndex;
-                        switch (size) {
-                            case 'XXS':
-                            case '32':
-                                columnIndex = 2; // Third column (index starts from 0)
-                                break;
-                            case 'XS':
-                            case '34':
-                                columnIndex = 3; // Fourth column
-                                break;
-                            case 'S':
-                            case '36':
-                                columnIndex = 4; // Fifth column
-                                break;
-                            case 'M':
-                            case '38':
-                                columnIndex = 5; // Sixth column
-                                break;
-                            case 'L':
-                            case '40':
-                                columnIndex = 6; // Seventh column
-                                break;
-                            case 'XL':
-                            case '42':
-                                columnIndex = 7; // Eighth column
-                                break;
-                            case '2L':
-                            case '44':
-                                columnIndex = 8; // Ninth column
-                                break;
-                            case '3L':
-                            case '46':
-                                columnIndex = 9; // Tenth column
-                                break;
-                            case '4XL':
-                            case '48':
-                                columnIndex = 10; // Eleventh column
-                                break;
-                            case '5XL':
-                            case '50':
-                                columnIndex = 11; // Twelfth column
-                                break;
-                            case '6XL':
-                            case '52':
-                                columnIndex = 12; // Thirteenth column
-                                break;
-                            case '7XL':
-                            case '54':
-                                columnIndex = 13; // Fourteenth column
-                                break;
-                            default:
-                                console.log(`Unknown size: ${size}`);
-                                return;
-                        }
-                        console.log(
-                            `Placing symbol for ${matchedProduct.fullName} in column ${columnIndex}`
-                        );
-                        tableArray.forEach((row) => {
-                            if (row[0] === matchedProduct.fullName) {
-                                if (row[columnIndex]) {
-                                    // If a symbol already exists, concatenate unique symbols
-                                    const existingSymbols = row[columnIndex].split('/');
-                                    if (!existingSymbols.includes(stateItem.symbol)) {
-                                        row[columnIndex] = `${row[columnIndex]}/${stateItem.symbol}`;
-                                    }
-                                } else {
-                                    // If no symbol exists, add the current symbol
-                                    row[columnIndex] = stateItem.symbol;
-                                }
-                            }
-                        });
-                    } else if (sex === 'M') {
-                        const size = stateItem.size;
-                        let columnIndex;
-                        switch (size) {
-                            case 'XXS':
-                            case '40':
-                                columnIndex = 2; // Third column (index starts from 0)
-                                break;
-                            case 'XS':
-                            case '42':
-                                columnIndex = 3; // Fourth column
-                                break;
-                            case 'S':
-                            case '44':
-                                columnIndex = 4; // Fifth column
-                                break;
-                            case 'M':
-                            case '46':
-                                columnIndex = 5; // Sixth column
-                                break;
-                            case 'L':
-                            case '48':
-                                columnIndex = 6; // Seventh column
-                                break;
-                            case 'XL':
-                            case '50':
-                                columnIndex = 7; // Eighth column
-                                break;
-                            case '2L':
-                            case '52':
-                                columnIndex = 8; // Ninth column
-                                break;
-                            case '3L':
-                            case '54':
-                                columnIndex = 9; // Tenth column
-                                break;
-                            case '4XL':
-                            case '56':
-                                columnIndex = 10; // Eleventh column
-                                break;
-                            case '5XL':
-                            case '58':
-                                columnIndex = 11; // Twelfth column
-                                break;
-                            case '6XL':
-                            case '60':
-                                columnIndex = 12; // Thirteenth column
-                                break;
-                            case '7XL':
-                            case '62':
-                                columnIndex = 13; // Fourteenth column
-                                break;
-                            default:
-                                console.log(`Unknown size: ${size}`);
-                                return;
-                        }
-                        console.log(
-                            `Placing symbol for ${matchedProduct.fullName} in column ${columnIndex}`
-                        );
-                        tableArray.forEach((row) => {
-                            if (row[0] === matchedProduct.fullName) {
-                                if (row[columnIndex]) {
-                                    // If a symbol already exists, concatenate unique symbols
-                                    const existingSymbols = row[columnIndex].split('/');
-                                    if (!existingSymbols.includes(stateItem.symbol)) {
-                                        row[columnIndex] = `${row[columnIndex]}/${stateItem.symbol}`;
-                                    }
-                                } else {
-                                    // If no symbol exists, add the current symbol
-                                    row[columnIndex] = stateItem.symbol;
-                                }
-                            }
-                        });
-                    } else if (sex === 'Dz') {
-                        const size = stateItem.size;
-                        let columnIndex;
-                        switch (size) {
-                            case '92':
-                                columnIndex = 4; // Fourth column (index starts from 0)
-                                break;
-                            case '104':
-                                columnIndex = 5; // Fifth column
-                                break;
-                            case '116':
-                                columnIndex = 6; // Sixth column
-                                break;
-                            case '128':
-                                columnIndex = 7; // Seventh column
-                                break;
-                            case '140':
-                                columnIndex = 8; // Eighth column
-                                break;
-                            case '152':
-                                columnIndex = 9; // Ninth column
-                                break;
-                            default:
-                                console.log(`Unknown size: ${size}`);
-                                return;
-                        }
-                        console.log(
-                            `Placing symbol for ${matchedProduct.fullName} in column ${columnIndex}`
-                        );
-                        tableArray.forEach((row) => {
-                            if (row[0] === matchedProduct.fullName) {
-                                if (row[columnIndex]) {
-                                    // If a symbol already exists, concatenate unique symbols
-                                    const existingSymbols = row[columnIndex].split('/');
-                                    if (!existingSymbols.includes(stateItem.symbol)) {
-                                        row[columnIndex] = `${row[columnIndex]}/${stateItem.symbol}`;
-                                    }
-                                } else {
-                                    // If no symbol exists, add the current symbol
-                                    row[columnIndex] = stateItem.symbol;
-                                }
-                            }
-                        });
+                    const size = stateItem.size;
+                    let columnIndex;
+                    switch (size) {
+                        case 'XXS':
+                        case '32':
+                            columnIndex = 2;
+                            break;
+                        case 'XS':
+                        case '34':
+                            columnIndex = 3;
+                            break;
+                        case 'S':
+                        case '36':
+                            columnIndex = 4;
+                            break;
+                        case 'M':
+                        case '38':
+                            columnIndex = 5;
+                            break;
+                        case 'L':
+                        case '40':
+                            columnIndex = 6;
+                            break;
+                        case 'XL':
+                        case '42':
+                            columnIndex = 7;
+                            break;
+                        case '2L':
+                        case '44':
+                            columnIndex = 8;
+                            break;
+                        case '3L':
+                        case '46':
+                            columnIndex = 9;
+                            break;
+                        case '4XL':
+                        case '48':
+                            columnIndex = 10;
+                            break;
+                        case '5XL':
+                        case '50':
+                            columnIndex = 11;
+                            break;
+                        case '6XL':
+                        case '52':
+                            columnIndex = 12;
+                            break;
+                        case '7XL':
+                        case '54':
+                            columnIndex = 13;
+                            break;
+                        default:
+                            console.log(`Unknown size: ${size}`);
+                            return;
                     }
+                    tableArray.forEach((row) => {
+                        if (row[0] === matchedProduct.fullName) {
+                            if (row[columnIndex]) {
+                                const existingSymbols = row[columnIndex].split('/');
+                                if (!existingSymbols.includes(stateItem.symbol)) {
+                                    row[columnIndex] = `${row[columnIndex]}/${stateItem.symbol}`;
+                                }
+                            } else {
+                                row[columnIndex] = stateItem.symbol;
+                            }
+                        }
+                    });
                 }
             });
 
-            console.log('Updated Table Array:', tableArray);
             setTableArray(tableArray);
-
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -264,9 +150,34 @@ const SeachEngineTable = () => {
         }
     };
 
-    const filteredTableArray = tableArray.filter((row) =>
-        row[0]?.toLowerCase().includes(searchQuery)
-    );
+    // Handle symbol checkbox changes
+    const handleSymbolChange = (symbol) => {
+        setSelectedSymbols((prevSelected) =>
+            prevSelected.includes(symbol)
+                ? prevSelected.filter((s) => s !== symbol) // Remove symbol if already selected
+                : [...prevSelected, symbol] // Add symbol if not selected
+        );
+    };
+
+    const filteredTableArray = tableArray.map((row) => {
+        const matchesSearchQuery = row[0]?.toLowerCase().includes(searchQuery);
+
+        // Filter each cell to show only selected symbols, excluding the first column
+        const filteredRow = row.map((cell, colIndex) => {
+            if (colIndex === 0) return cell; // Always include the first column (product names)
+            if (colIndex === 1 || !cell) return cell; // Skip Plec or empty cells
+            if (selectedSymbols.length === 0) return null; // Hide all symbols if no checkboxes are selected
+
+            const cellSymbols = cell.split('/'); // Split cell content by '/'
+            const matchingSymbols = cellSymbols.filter((symbol) => selectedSymbols.includes(symbol));
+            return matchingSymbols.join('/') || null; // Join matching symbols or return null if none match
+        });
+
+        // Check if the row has any visible symbols after filtering (excluding the first column)
+        const hasVisibleSymbols = filteredRow.some((cell, colIndex) => colIndex > 1 && cell);
+
+        return matchesSearchQuery && hasVisibleSymbols ? filteredRow : null; // Keep the row if it matches the search query or has visible symbols
+    }).filter(Boolean); // Remove rows that are null
 
     if (loading) {
         return (
@@ -311,8 +222,23 @@ const SeachEngineTable = () => {
                     placeholder="Szukaj w tabeli..."
                     value={searchQuery}
                     onChange={handleSearch}
-                    style={{ maxWidth: '300px' }}
+                    style={{ maxWidth: '300px', marginRight: '10px' }}
                 />
+                <div style={{ marginLeft: '10px' }}>
+                    {symbols.map((symbol) => (
+                        <div key={symbol} style={{ display: 'inline-block', marginRight: '10px' }}>
+                            <input
+                                type="checkbox"
+                                id={`symbol-${symbol}`}
+                                checked={selectedSymbols.includes(symbol)}
+                                onChange={() => handleSymbolChange(symbol)}
+                            />
+                            <label htmlFor={`symbol-${symbol}`} style={{ marginLeft: '5px' }}>
+                                Pokaż {symbol}
+                            </label>
+                        </div>
+                    ))}
+                </div>
             </div>
             <table className="table table-bordered text-center" style={{ backgroundColor: 'black' }}>
                 <thead style={{ backgroundColor: '#495057' }}>

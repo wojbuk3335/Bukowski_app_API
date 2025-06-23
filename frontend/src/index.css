@@ -121,6 +121,12 @@ html,
   text-align: center;
 }
 
+.table-container .table {
+    width: 100% !important; /* Ensure the table spans the full width */
+    max-width: 100% !important; /* Prevent the table from exceeding the container width */
+    table-layout: fixed !important; /* Ensure consistent column widths */
+}
+
 .table-bordered>:not(caption)>*>* {
   border-width: 0 var(--bs-border-width);
   background: black;

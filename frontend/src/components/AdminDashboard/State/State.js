@@ -672,6 +672,12 @@ const State = () => {
         setMagazynCount(count); // Update the count
     };
 
+    useEffect(() => {
+        if (selectedSellingPoint && tableData.length > 0) {
+            handleSellingPointChange(selectedSellingPoint); // Calculate count on initial load or when dependencies change
+        }
+    }, [selectedSellingPoint, tableData]);
+
     if (loading) {
         return (
             <div
@@ -858,8 +864,8 @@ const State = () => {
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     {selectedSellingPoint && (
-                        <span style={{ color: 'white', fontWeight: 'bold' }}>
-                            Liczba produktów w "{selectedSellingPoint}": {magazynCount}
+                        <span style={{ color: 'white', fontWeight: 'bold', fontSize: '1.5rem' }}>
+                            Liczba produktów w "{selectedSellingPoint}": <span style={{ color: 'red', fontWeight: 'bold', fontSize: '1.5rem' }}>{magazynCount}</span>
                         </span>
                     )}
                 </div>
