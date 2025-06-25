@@ -7,15 +7,41 @@ const Color = require('../db/models/color');
 const Category = require('../db/models/category');
 const Size = require('../db/models/size');
 
+// Helper function to get symbol by sellingPoint
+const getSymbolBySellingPoint = async (sellingPoint) => {
+    try {
+        if (!sellingPoint || sellingPoint === '-' || sellingPoint === 'Manual') {
+            return sellingPoint;
+        }
+        
+        const user = await User.findOne({ sellingPoint: sellingPoint }).lean();
+        
+        if (user && user.symbol) {
+            return user.symbol;
+        } else {
+            return sellingPoint;
+        }
+    } catch (error) {
+        console.error(`Error finding user by sellingPoint "${sellingPoint}":`, error);
+        return sellingPoint; // Return original value on error
+    }
+};
+
 const historyLogger = (collectionName) => {
     return async (req, res, next) => {
         const userloggedinId = req.user ? req.user._id : null;
         let historyEntry;
 
-        const mapOperationToPolish = (method, collection) => {
+        const mapOperationToPolish = (method, collection, operationType) => {
             if (method === 'PUT' || method === 'PATCH') return 'Aktualizacja';
             if (method === 'DELETE') {
-                if (collection === 'states') return 'Usunięto ze stanu'; // Special case for states
+                if (collection === 'states') {
+                    // Handle different operation types for states
+                    if (operationType === 'delete') return 'Usunięto ze stanu';
+                    if (operationType === 'transfer-same') return 'Przeniesiono w ramach stanu';
+                    if (operationType === 'transfer-from-magazyn') return 'Przesunięto ze stanu';
+                    return 'Przesunięto ze stanu'; // Default
+                }
                 return 'Usunięcie';
             }
             if (method === 'POST') {
@@ -39,7 +65,7 @@ const historyLogger = (collectionName) => {
             return collection;
         };
 
-        const operation = mapOperationToPolish(req.method, collectionName);
+        const operation = mapOperationToPolish(req.method, collectionName, req.headers['operation-type']);
         const collectionNamePolish = mapCollectionToPolish(collectionName);
 
         if (collectionName === 'stock') {
@@ -89,7 +115,6 @@ const historyLogger = (collectionName) => {
             if (operation === 'Dodano produkt') {
                 try {
                     const newGood = req.body;
-                    console.log('New good being added:', newGood); // Log the new product details
                     product = newGood.fullName || 'Nieznany produkt'; // Set product to fullName or default value
                     details = newGood.fullName || 'Unknown'; // Ensure details is explicitly set to fullName
                 } catch (error) {
@@ -363,6 +388,20 @@ const historyLogger = (collectionName) => {
             let from = '-'; // Default "Skąd" value
             let to = '-'; // Default "Dokąd" value
 
+            // Special handling for barcode/symbol endpoint
+            if (req.params.barcode && req.params.symbol && req.method === 'DELETE') {
+                // This is the /barcode/:barcode/symbol/:symbol endpoint
+                // The controller already handles history logging, so skip middleware logging
+                return next();
+            }
+
+            // Special handling for ID-based delete endpoint when it has operation-type header
+            if (req.params.id && req.method === 'DELETE' && req.headers['operation-type']) {
+                // This is the /:id endpoint with operation-type header
+                // The controller already handles history logging, so skip middleware logging
+                return next();
+            }
+
             if (operation === 'Dodano do stanu') {
                 from = 'Produkcja'; // Set "Skąd" to "Produkcja" for this operation
                 to = req.body.sellingPoint || '-'; // Set "Dokąd" to sellingPoint or "-" if not provided
@@ -418,14 +457,76 @@ const historyLogger = (collectionName) => {
                     if (state) {
                         product = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`; // Set product
                         details = `Usunięto produkt ze stanu ${product}`;
-                        from = state.sellingPoint?.symbol || '-'; // Set "Skąd" to the previous "Dokąd" value
-                        to = '-'; // Set "Dokąd" to "-"
+                        from = state.sellingPoint?.symbol || 'MAGAZYN'; // Set "Skąd" to the current symbol or MAGAZYN
+                        to = '-'; // Set "Dokąd" to "-" for deletion
+                    } else {
+                        details = `Nie znaleziono produktu o ID: ${req.params.id}`;
+                    }
+                } catch (error) {
+                    console.error('Error fetching state for deletion:', error);
+                    details = `Błąd podczas usuwania produktu o ID: ${req.params.id}`;
+                }
+            }
+
+            if (operation === 'Przeniesiono w ramach stanu') {
+                try {
+                    const state = await State.findById(req.params.id).populate('fullName').populate('size').populate('sellingPoint');
+                    if (state) {
+                        product = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`; // Set product
+                        const currentSymbol = state.sellingPoint?.symbol || 'MAGAZYN';
+                        let targetSymbol = req.headers['target-symbol'] || currentSymbol;
+                        
+                        // If targetSymbol is a sellingPoint name (not a symbol), find the corresponding symbol
+                        if (targetSymbol && targetSymbol !== '-' && targetSymbol !== 'Manual' && targetSymbol !== currentSymbol) {
+                            try {
+                                const targetUser = await User.findOne({ sellingPoint: targetSymbol }).lean();
+                                if (targetUser && targetUser.symbol) {
+                                    targetSymbol = targetUser.symbol;
+                                }
+                            } catch (userError) {
+                                console.error('Error finding user by sellingPoint:', userError);
+                            }
+                        }
+                        
+                        details = `Przeniesiono produkt w ramach stanu ${product} z ${currentSymbol} do ${targetSymbol}`;
+                        from = currentSymbol; // Set "Skąd" to current symbol
+                        to = targetSymbol; // Set "Dokąd" to target symbol (same as from for green items)
+                    } else {
+                        details = `Nie znaleziono produktu o ID: ${req.params.id}`;
+                    }
+                } catch (error) {
+                    console.error('Error fetching state for same transfer:', error);
+                    details = `Błąd podczas przenoszenia produktu o ID: ${req.params.id}`;
+                }
+            }
+
+            if (operation === 'Przesunięto ze stanu') {
+                try {
+                    const state = await State.findById(req.params.id).populate('fullName').populate('size').populate('sellingPoint');
+                    if (state) {
+                        product = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`; // Set product
+                        details = `Przesunięto produkt ze stanu ${product}`;
+                        from = state.sellingPoint?.symbol || 'MAGAZYN'; // Set "Skąd" to the current symbol or MAGAZYN
+                        
+                        // Try to determine the target selling point from sales data
+                        try {
+                            // This will be set by the frontend when making the delete request
+                            let targetSymbol = req.headers['target-symbol'] || req.query.targetSymbol || '-';
+                            
+                            // Use helper function to map sellingPoint to symbol
+                            targetSymbol = await getSymbolBySellingPoint(targetSymbol);
+                            
+                            to = targetSymbol; // Set "Dokąd" to the target symbol
+                        } catch (error) {
+                            console.error('Error in targetSymbol mapping:', error);
+                            to = '-'; // Fallback to "-"
+                        }
                     } else {
                         details = `Nie znaleziono produktu o ID: ${req.params.id}`;
                     }
                 } catch (error) {
                     console.error('Error fetching state:', error);
-                    details = `Błąd podczas usuwania produktu o ID: ${req.params.id}`;
+                    details = `Błąd podczas przesuwania produktu o ID: ${req.params.id}`;
                 }
             }
 

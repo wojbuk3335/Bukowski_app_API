@@ -125,8 +125,6 @@ class StatesController {
             const { id } = req.params;
             const { fullName, date, size, sellingPoint } = req.body;
 
-            console.log('Updating state:', { fullName, date, size, sellingPoint }); // Log the update data
-
             // Find Goods by fullName
             const goods = fullName ? await Goods.findOne({ fullName }) : null;
             if (fullName && !goods) {
@@ -186,14 +184,279 @@ class StatesController {
                 return res.status(400).json({ message: 'Invalid state ID' });
             }
 
-            const deletedState = await State.findByIdAndDelete(id);
-            if (!deletedState) {
+            // Get the state first to gather information for history
+            const stateToDelete = await State.findById(id)
+                .populate('fullName', 'fullName')
+                .populate('size', 'Roz_Opis')
+                .populate('sellingPoint', 'symbol');
+
+            if (!stateToDelete) {
                 return res.status(404).json({ message: 'State not found' });
             }
-            res.status(200).json({ message: 'State deleted successfully' });
+
+            // Get operation details from headers
+            const operationType = req.headers['operation-type'] || 'delete';
+            let targetSymbol = req.headers['target-symbol'] || '-';
+            const userloggedinId = req.user ? req.user._id : null;
+
+            // Helper function to get symbol by sellingPoint
+            const getSymbolBySellingPoint = async (sellingPoint) => {
+                try {
+                    if (!sellingPoint || sellingPoint === '-' || sellingPoint === 'Manual') {
+                        return sellingPoint;
+                    }
+                    
+                    const User = require('../db/models/user');
+                    const user = await User.findOne({ sellingPoint: sellingPoint }).lean();
+                    
+                    if (user && user.symbol) {
+                        return user.symbol;
+                    } else {
+                        return sellingPoint;
+                    }
+                } catch (error) {
+                    console.error(`Error finding user by sellingPoint "${sellingPoint}":`, error);
+                    return sellingPoint;
+                }
+            };
+
+            // Use helper function to map sellingPoint to symbol
+            targetSymbol = await getSymbolBySellingPoint(targetSymbol);
+
+            // Create manual history entries
+            const History = require('../db/models/history');
+            const product = `${stateToDelete.fullName?.fullName || 'Nieznany produkt'} ${stateToDelete.size?.Roz_Opis || 'Nieznany rozmiar'}`;
+            const currentSymbol = stateToDelete.sellingPoint?.symbol || 'MAGAZYN';
+
+            // For green items (transfer-same), create TWO history entries
+            if (operationType === 'transfer-same') {
+                // First entry: Transfer from MAGAZYN to selling point
+                const transferHistoryEntry = new History({
+                    collectionName: 'Stan',
+                    operation: 'Przesunięto ze stanu',
+                    product: product,
+                    details: `Przesunięto produkt ze stanu ${product} z MAGAZYN do ${targetSymbol}`,
+                    userloggedinId: userloggedinId,
+                    from: 'MAGAZYN',
+                    to: targetSymbol
+                });
+
+                // Second entry: Sale from selling point
+                const saleHistoryEntry = new History({
+                    collectionName: 'Stan',
+                    operation: 'Sprzedano ze stanu',
+                    product: product,
+                    details: `Sprzedano produkt ze stanu ${product}`,
+                    userloggedinId: userloggedinId,
+                    from: targetSymbol,
+                    to: 'Sprzedano'
+                });
+
+                // Save both history entries
+                await Promise.all([
+                    transferHistoryEntry.save(),
+                    saleHistoryEntry.save()
+                ]);
+
+                console.log(`Created 2 history entries for green item (transfer-same): ${product}`);
+
+            } else if (operationType === 'transfer-from-magazyn') {
+                // For orange items, create one transfer entry
+                const historyEntry = new History({
+                    collectionName: 'Stan',
+                    operation: 'Przesunięto ze stanu',
+                    product: product,
+                    details: `Przesunięto produkt ze stanu ${product}`,
+                    userloggedinId: userloggedinId,
+                    from: currentSymbol,
+                    to: targetSymbol
+                });
+
+                await historyEntry.save();
+                console.log(`Created 1 history entry for orange item (transfer-from-magazyn): ${product}`);
+            }
+
+            // Delete the state
+            const deletedState = await State.findByIdAndDelete(id);
+            
+            res.status(200).json({ 
+                message: 'State deleted successfully',
+                operationType: operationType,
+                historyEntriesCreated: operationType === 'transfer-same' ? 2 : 1
+            });
         } catch (error) {
-            console.error('Error deleting state:', error); // Log the error for debugging
+            console.error('Error deleting state:', error);
             res.status(500).json({ message: 'Failed to delete state', error: error.message });
+        }
+    }
+
+    // Delete all states by barcode (keep for compatibility)
+    async deleteStateByBarcode(req, res, next) {
+        try {
+            const { barcode } = req.params;
+
+            // Check if barcode is provided
+            if (!barcode) {
+                return res.status(400).json({ message: 'Barcode is required' });
+            }
+
+            // Find all states with matching barcode first
+            const statesToDelete = await State.find({ barcode: barcode })
+                .populate('fullName', 'fullName')
+                .populate('size', 'Roz_Opis')
+                .populate('sellingPoint', 'symbol');
+
+            if (statesToDelete.length === 0) {
+                return res.status(404).json({ message: 'No states with this barcode found' });
+            }
+
+            // Delete all states with this barcode using deleteMany
+            const deleteResult = await State.deleteMany({ barcode: barcode });
+
+            res.status(200).json({ 
+                message: `Successfully deleted ${deleteResult.deletedCount} states with barcode ${barcode}`,
+                deletedCount: deleteResult.deletedCount,
+                foundCount: statesToDelete.length
+            });
+        } catch (error) {
+            console.error('Error deleting states by barcode:', error);
+            res.status(500).json({ message: 'Failed to delete states by barcode', error: error.message });
+        }
+    }
+
+    // Delete states by barcode and symbol (selling point) with count limit
+    async deleteStateByBarcodeAndSymbol(req, res, next) {
+        try {
+            const { barcode, symbol } = req.params;
+            const { count } = req.query; // Optional count parameter
+
+            // Check if barcode and symbol are provided
+            if (!barcode || !symbol) {
+                return res.status(400).json({ message: 'Barcode and symbol are required' });
+            }
+
+            const deleteCount = count ? parseInt(count) : null; // Parse count or null for all
+
+            // Find all states with matching barcode AND symbol
+            const statesToDelete = await State.find({ 
+                barcode: barcode,
+                // We need to populate sellingPoint to access the symbol
+            })
+            .populate('fullName', 'fullName')
+            .populate('size', 'Roz_Opis')
+            .populate('sellingPoint', 'symbol');
+
+            // Filter by symbol after population
+            const filteredStatesToDelete = statesToDelete.filter(state => 
+                state.sellingPoint && state.sellingPoint.symbol === symbol
+            );
+
+            if (filteredStatesToDelete.length === 0) {
+                return res.status(404).json({ 
+                    message: 'No states with this barcode and symbol found',
+                    barcode: barcode,
+                    symbol: symbol,
+                    availableStates: statesToDelete.map(s => ({
+                        symbol: s.sellingPoint?.symbol,
+                        fullName: s.fullName?.fullName
+                    }))
+                });
+            }
+
+            // Limit the states to delete if count is specified
+            const statesToActuallyDelete = deleteCount ? 
+                filteredStatesToDelete.slice(0, deleteCount) : 
+                filteredStatesToDelete;
+
+            // Get IDs of states to delete
+            const idsToDelete = statesToActuallyDelete.map(state => state._id);
+
+            // Delete specific states by their IDs
+            const deleteResult = await State.deleteMany({ _id: { $in: idsToDelete } });
+
+            // Manual history logging for each deleted state
+            const History = require('../db/models/history');
+            const User = require('../db/models/user');
+            const userloggedinId = req.user ? req.user._id : null;
+            const operationType = req.headers['operation-type'] || 'delete';
+            let targetSymbol = req.headers['target-symbol'] || '-';
+
+            // Helper function to get symbol by sellingPoint
+            const getSymbolBySellingPoint = async (sellingPoint) => {
+                try {
+                    console.log(`[DEBUG Controller Helper] Looking for symbol for sellingPoint: "${sellingPoint}"`);
+                    if (!sellingPoint || sellingPoint === '-' || sellingPoint === 'Manual') {
+                        console.log(`[DEBUG Controller Helper] sellingPoint is empty, -, or Manual - returning as is`);
+                        return sellingPoint;
+                    }
+                    
+                    const user = await User.findOne({ sellingPoint: sellingPoint }).lean();
+                    console.log(`[DEBUG Controller Helper] Found user:`, user);
+                    
+                    if (user && user.symbol) {
+                        console.log(`[DEBUG Controller Helper] Mapped "${sellingPoint}" to symbol "${user.symbol}"`);
+                        return user.symbol;
+                    } else {
+                        console.log(`[DEBUG Controller Helper] No user found for sellingPoint "${sellingPoint}", returning original value`);
+                        return sellingPoint;
+                    }
+                } catch (error) {
+                    console.error(`[DEBUG Controller Helper] Error finding user by sellingPoint "${sellingPoint}":`, error);
+                    return sellingPoint; // Return original value on error
+                }
+            };
+
+            // Use helper function to map sellingPoint to symbol
+            targetSymbol = await getSymbolBySellingPoint(targetSymbol);
+            console.log(`[DEBUG Controller] Final targetSymbol after mapping: ${targetSymbol}`);
+
+            // Create history entries for each deleted state
+            const historyPromises = statesToActuallyDelete.map(async (state) => {
+                const product = `${state.fullName?.fullName || 'Nieznany produkt'} ${state.size?.Roz_Opis || 'Nieznany rozmiar'}`;
+                const from = state.sellingPoint?.symbol || 'MAGAZYN';
+                
+                let operation, details;
+                if (operationType === 'delete') {
+                    operation = 'Sprzedano ze stanu';
+                    details = `Sprzedano produkt ze stanu ${product}`;
+                } else {
+                    operation = 'Przesunięto ze stanu';
+                    details = `Przesunięto produkt ze stanu ${product}`;
+                }
+
+                const historyEntry = new History({
+                    collectionName: 'Stan',
+                    operation: operation,
+                    product: product,
+                    details: details,
+                    userloggedinId: userloggedinId,
+                    from: from,
+                    to: targetSymbol
+                });
+
+                return historyEntry.save();
+            });
+
+            // Wait for all history entries to be saved
+            await Promise.all(historyPromises);
+            console.log(`Created ${historyPromises.length} history entries`);
+
+            res.status(200).json({ 
+                message: `Successfully deleted ${deleteResult.deletedCount} states with barcode ${barcode} and symbol ${symbol}`,
+                deletedCount: deleteResult.deletedCount,
+                foundCount: filteredStatesToDelete.length,
+                requestedCount: deleteCount,
+                deletedStates: statesToActuallyDelete.map(state => ({
+                    id: state._id,
+                    fullName: state.fullName?.fullName,
+                    size: state.size?.Roz_Opis,
+                    barcode: state.barcode,
+                    symbol: state.sellingPoint?.symbol
+                }))
+            });
+        } catch (error) {
+            console.error('Error deleting states by barcode and symbol:', error);
+            res.status(500).json({ message: 'Failed to delete states by barcode and symbol', error: error.message });
         }
     }
 
@@ -217,6 +480,92 @@ class StatesController {
             res.status(200).json(tableData);
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    }
+
+    // Restore items (for transaction undo functionality)
+    async restoreState(req, res, next) {
+        try {
+            const { 
+                fullName, 
+                size, 
+                barcode, 
+                symbol, 
+                price, 
+                discount_price,
+                operationType 
+            } = req.body;
+
+            // Validate required fields
+            if (!fullName || !size || !barcode || !symbol) {
+                return res.status(400).json({ 
+                    message: 'Missing required fields: fullName, size, barcode, symbol' 
+                });
+            }
+
+            // Find the ObjectId for fullName in Goods
+            const goods = await Goods.findOne({ fullName: fullName });
+            if (!goods) {
+                return res.status(404).json({ message: `Goods not found for: ${fullName}` });
+            }
+
+            // Find the ObjectId for size in Size
+            const sizeObj = await Size.findOne({ Roz_Opis: size });
+            if (!sizeObj) {
+                return res.status(404).json({ message: `Size not found for: ${size}` });
+            }
+
+            // Find the ObjectId for sellingPoint in User by symbol
+            const User = require('../db/models/user');
+            const user = await User.findOne({ symbol: symbol });
+            if (!user) {
+                return res.status(404).json({ message: `User not found for symbol: ${symbol}` });
+            }
+
+            // Create new state entry
+            const state = new State({
+                _id: new mongoose.Types.ObjectId(),
+                fullName: goods._id,
+                date: new Date(),
+                plec: goods.Plec,
+                size: sizeObj._id,
+                barcode: barcode,
+                sellingPoint: user._id,
+                price: price || goods.price,
+                discount_price: discount_price || goods.discount_price
+            });
+
+            const newState = await state.save();
+
+            // Create history entry for restoration
+            const History = require('../db/models/history');
+            const userloggedinId = req.user ? req.user._id : null;
+            const product = `${fullName} ${size}`;
+            
+            const historyEntry = new History({
+                collectionName: 'Stan',
+                operation: 'Przywrócono do stanu',
+                product: product,
+                details: `Przywrócono produkt do stanu ${product} (anulowanie transakcji)`,
+                userloggedinId: userloggedinId,
+                from: 'SYSTEM_RESTORE',
+                to: symbol
+            });
+
+            await historyEntry.save();
+
+            res.status(201).json({ 
+                message: 'State restored successfully',
+                newState: newState,
+                operationType: operationType || 'restore'
+            });
+
+        } catch (error) {
+            console.error('Error restoring state:', error);
+            res.status(500).json({ 
+                message: 'Failed to restore state', 
+                error: error.message 
+            });
         }
     }
 }

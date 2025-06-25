@@ -1,0 +1,799 @@
+:root {
+  --bs-table-bg: #000000;
+  --bs-table-color: var(--bs-table-color-state, var(--bs-table-color-type, #ffffff));
+}
+
+.container {
+  padding: 20px;
+  width: 50%;
+  max-width: 50%;
+  margin: 0;
+  float: left;
+  box-sizing: border-box;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 2px solid white;
+  background-color: #000000;
+  display: flex;
+  flex-direction: column;
+}
+
+.salesContainer {
+  padding: 20px;
+  width: 50%;
+  max-width: 50%;
+  margin: 0;
+  float: right;
+  box-sizing: border-box;
+  height: 100vh;
+  overflow-y: auto;
+  background-color: #000000;
+  display: flex;
+  flex-direction: column;
+}
+
+.headerSection {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+.filtersSection {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+  min-height: 140px; /* Fixed height to ensure alignment */
+}
+
+.tableSection {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.mainWrapper {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  background-color: #000000;
+}
+
+.filtersContainer {
+  background-color: #000000;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border: 1px solid white;
+  color: white;
+}
+
+.summaryContainer {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #000000;
+  border-radius: 4px;
+  border: 1px solid white;
+  color: white;
+}
+
+.summaryContainer strong {
+  color: white;
+}
+
+.title {
+  color: white;
+}
+
+.table {
+  color: var(--bs-table-color);
+  text-decoration: none;
+  width: 100%;
+  border: 1px solid white;
+  margin: 0 auto;
+  background-color: black;
+  --bs-table-bg: black;
+  --bs-table-color-state: white;
+  --bs-table-color-type: white;
+  --bs-table-color: white;
+  font-size: 12px;
+  margin-bottom: 0;
+  margin-top:20px;
+}
+
+.table th {
+  border: 1px solid white;
+  padding: 8px 4px;
+  background-color: var(--bs-table-bg);
+  color: var(--bs-table-color);
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.table td {
+  border: 1px solid white;
+  padding: 6px 4px;
+  background-color: var(--bs-table-bg);
+  color: var(--bs-table-color);
+  vertical-align: middle;
+  font-size: 11px;
+  text-align: center;
+}
+
+.table > :not(caption) > * > * {
+  padding: .5rem .5rem;
+  color: var(--bs-table-color-state,var(--bs-table-color-type,var(--bs-table-color)));
+  background-color: #000;
+  border-bottom-width: var(--bs-border-width);
+  box-shadow: inset 0 0 0 9999px var(--bs-table-bg-state,var(--bs-table-bg-type,var(--bs-table-accent-bg)));
+  color: white;
+  border: 1px solid white;
+}
+
+.barcodeColumn {
+  min-width: 80px;
+  text-align: center;
+}
+
+.barcodeWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-width: 70px;
+  overflow: hidden;
+}
+
+.barcodeText {
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  word-break: break-all;
+  max-width: 80px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .mainWrapper {
+    flex-direction: column;
+  }
+  
+  .container,
+  .salesContainer {
+    width: 100%;
+    max-width: 100%;
+    float: none;
+    border-right: none;
+    border-bottom: 2px solid white;
+    background-color: #000000;
+  }
+  
+  .table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid white;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+    border: 1px solid white;
+  }
+
+  .table tr {
+    margin-bottom: 15px;
+    background-color: black;
+  }
+
+  .table td {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+    border: 1px solid white;
+    background-color: black;
+    color: white;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    width: 50%;
+    padding-left: 15px;
+    font-weight: bold;
+    text-align: left;
+    color: white;
+  }
+
+  .barcodeColumn {
+    min-width: 80px;
+  }
+  
+  .barcodeWrapper {
+    max-width: 80px;
+  }
+  
+  .barcodeText {
+    font-size: 10px;
+    max-width: 80px;
+  }
+
+  .buttonGroup .btn {
+    margin-bottom: 10px;
+    margin-right: 10px;
+  }
+}
+
+@media (max-width: 1660px) {
+  .table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid white;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tbody,
+  .table tr,
+  .table td,
+  .table th {
+    display: block;
+    width: 100%;
+    border: 1px solid white;
+  }
+
+  .table tr {
+    margin-bottom: 15px;
+    background-color: black;
+  }
+
+  .table td,
+  .table th {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+    border: 1px solid white;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    background-color: black;
+    color: white;
+  }
+
+  .table td::before,
+  .table th::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    width: 50%;
+    padding-left: 15px;
+    font-weight: bold;
+    text-align: left;
+    color: white;
+  }
+
+  .table tbody {
+    background-color: #000000;
+    color: #ffffff;
+  }
+
+  .table tbody td {
+    background-color: #000000;
+    color: #ffffff;
+    padding: 10px;
+    border: 1px solid white;
+  }
+}
+
+/* Loading and error states */
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  flex-direction: column;
+}
+
+.errorContainer {
+  text-align: center;
+  padding: 20px;
+}
+
+/* Table hover effects */
+.table tbody tr:hover {
+  background-color: #333333;
+}
+
+/* Price styling */
+.table td:nth-child(6) {
+  font-weight: 600;
+  color: #28a745;
+}
+
+/* Headers and text styling */
+h2 {
+  color: white;
+  font-weight: 600;
+  margin-bottom: 15px;
+  font-size: 1.5rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-4 {
+  margin-top: 1.5rem;
+}
+
+.mb-4 {
+  margin-bottom: 1.5rem;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.textRight {
+  text-align: right;
+}
+
+.textWhite {
+  color: #fff;
+}
+
+.lightgray {
+  color: lightgray;
+}
+
+/* Button styling */
+.button {
+  font-size: 0.875rem;
+}
+
+.buttonRefresh {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+  margin-bottom: 10px;
+}
+
+.buttonRefresh:hover {
+  background-color: #ffe066;
+  border-color: #ffe066;
+  color: #212529;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+  padding: 8px 16px;
+  font-weight: 500;
+  color: #000000;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+.btn-success {
+  --bs-btn-color: #000000;
+  --bs-btn-bg: #28a745;
+  --bs-btn-border-color: #28a745;
+}
+
+.btn-success:hover {
+  --bs-btn-color: #ffffff;
+  --bs-btn-bg: #218838;
+  --bs-btn-border-color: #1e7e34;
+}
+
+.btn-danger {
+  --bs-btn-color: #ffffff;
+  --bs-btn-bg: #dc3545;
+  --bs-btn-border-color: #dc3545;
+}
+
+.btn-danger:hover {
+  --bs-btn-color: #ffffff;
+  --bs-btn-bg: #c82333;
+  --bs-btn-border-color: #bd2130;
+}
+
+.addButton {
+  margin-bottom: 20px;
+  color: black;
+}
+
+.UploadButton {
+  margin-right: 5px;
+}
+
+/* Form styling */
+.form-control {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  background-color: #000;
+  color: #fff;
+}
+
+.form-control:focus {
+  background-color: #000;
+  color: #fff;
+  border-color: #80bdff;
+}
+
+.form-select {
+  color: #ffffff;
+  background-color: #000000;
+}
+
+.inputFile {
+  display: inline-block;
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.2;
+  color: #fff;
+  background-color: #000;
+  background-clip: padding-box;
+  border: 1px solid #ced4da;
+  border-radius: 0.3rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  cursor: pointer;
+}
+
+.inputFile:focus {
+  color: #fff;
+  background-color: #000;
+  border-color: #80bdff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.inputFile:hover {
+  border-color: #fff;
+}
+
+.inputFile::file-selector-button {
+  cursor: pointer;
+  color: #000000;
+  border: 2px solid #1f8a58;
+  padding: .2em .4em;
+  border-radius: .2em;
+  background-color: #198754;
+}
+
+.inputFile::file-selector-button:hover {
+  color: #000000;
+  background-color: #df480c;
+  border-color: #da1919;
+}
+
+/* Modal styling */
+.modalHeader {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: var(--bs-modal-header-padding);
+  border-bottom: var(--bs-modal-header-border-width) solid var(--bs-modal-header-border-color);
+  border-top-left-radius: var(--bs-modal-inner-border-radius);
+  border-top-right-radius: var(--bs-modal-inner-border-radius);
+  background-color: black;
+  color: white;
+  border: 1px solid white;
+}
+
+.modalBody {
+  position: relative;
+  flex: 1 1 auto;
+  padding: var(--bs-modal-body-padding);
+  color: white;
+  border: 1px solid white;
+  background-color: black;
+  padding: 20px;
+}
+
+.modalFooter {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--bs-modal-footer-padding);
+  border-top: var(--bs-modal-footer-border-width) solid var(--bs-modal-footer-border-color);
+  background-color: black;
+  color: white;
+  border: 1px solid white;
+}
+
+.custom-modal .modal-content {
+  background-color: black;
+  color: white;
+  border: 1px solid white;
+}
+
+.formGroup {
+  display: flex;
+  align-items: center;
+}
+
+.emailLabel {
+  margin-right: 10px;
+  color: white;
+  min-width: 80px;
+}
+
+.inputField {
+  flex: 1;
+  background-color: black;
+  color: white;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.buttonGroup .btn {
+  color: black;
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+.buttonGroup .btn:hover {
+  color: white;
+}
+
+.btn-wyloguj {
+  color: black;
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+.btn-wyloguj:hover {
+  color: white;
+}
+
+.btn-close {
+  --bs-btn-close-bg: transparent;
+  display: none;
+}
+
+.modal-header .btn-close {
+  display: none;
+}
+
+.modal-backdrop {
+  background-color: red;
+}
+
+.sellingPointColumn {
+  width: 150px;
+  white-space: nowrap;
+}
+
+.hand-cursor {
+  cursor: pointer;
+}
+
+.draggable-header {
+  cursor: move !important;
+}
+
+.modal-header {
+  cursor: move !important;
+}
+
+/* Alert styling */
+.alert {
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+/* Stats section */
+.statsSection {
+  background-color: #000000;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  border: 1px solid white;
+  font-size: 14px;
+  color: white;
+}
+
+/* Table responsive styles */
+.tableContainer {
+  text-align: center;
+}
+
+/* Ensure table fits in container */
+.table-responsive {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+/* Drag and Drop Styles */
+.draggableRow {
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.draggableRow:hover {
+  background-color: #444444 !important;
+  transform: scale(1.02);
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.2);
+}
+
+.draggableRow:active {
+  cursor: grabbing;
+}
+
+.pendingSalesSection {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid white;
+}
+
+.dropZone {
+  min-height: 200px;
+  border: 2px dashed #ffc107;
+  border-radius: 8px;
+  padding: 20px;
+  background-color: #1a1a1a;
+  transition: all 0.3s ease;
+}
+
+.dropZone:hover {
+  border-color: #ffffff;
+  background-color: #2a2a2a;
+}
+
+.dropZoneEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  color: #ffc107;
+  text-align: center;
+}
+
+.dropZoneEmpty p {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.dropZoneEmpty span {
+  font-size: 48px;
+  opacity: 0.7;
+}
+
+.pendingSummary {
+  background-color: #000000;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
+  color: #ffc107;
+  text-align: center;
+}
+
+/* Synchronized rows styling */
+.magazynMatched {
+  background-color: #6c757d !important;
+}
+
+.magazynMatched td {
+  background-color: #6c757d !important;
+  color: white !important;
+}
+
+.salesMatched {
+  background-color: #28a745 !important;
+}
+
+.salesMatched td {
+  background-color: #28a745 !important;
+  color: white !important;
+}
+
+.table .magazynMatched > td {
+  background-color: #6c757d !important;
+  color: white !important;
+  box-shadow: inset 0 0 0 9999px #6c757d !important;
+}
+
+.table .salesMatched > td {
+  background-color: #28a745 !important;
+  color: white !important;
+  box-shadow: inset 0 0 0 9999px #28a745 !important;
+}
+
+/* Transferred items styling */
+.magazynTransferred {
+  background-color: #6c757d !important;
+}
+
+.magazynTransferred td {
+  background-color: #6c757d !important;
+  color: white !important;
+}
+
+.salesTransferred {
+  background-color: #fd7e14 !important;
+}
+
+.salesTransferred td {
+  background-color: #fd7e14 !important;
+  color: white !important;
+}
+
+.table .magazynTransferred > td {
+  background-color: #6c757d !important;
+  color: white !important;
+  box-shadow: inset 0 0 0 9999px #6c757d !important;
+}
+
+.table .salesTransferred > td {
+  background-color: #fd7e14 !important;
+  color: white !important;
+  box-shadow: inset 0 0 0 9999px #fd7e14 !important;
+}
+
+/* Default sales styling - blue */
+.salesDefault {
+  background-color: #007bff !important;
+}
+
+.salesDefault td {
+  background-color: #007bff !important;
+  color: white !important;
+}
+
+.table .salesDefault > td {
+  background-color: #007bff !important;
+  color: white !important;
+  box-shadow: inset 0 0 0 9999px #007bff !important;
+}
+
+.transferButton {
+  background-color: #007bff !important;
+  color: white !important;
+  border: none !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+}
+
+.transferButton:hover {
+  background-color: #0056b3 !important;
+}
+
+.transferButton:disabled {
+  background-color: #6c757d !important;
+  cursor: not-allowed !important;
+}
+
+
+h2 {
+    color: white;
+    margin-bottom: 93px;
+}
