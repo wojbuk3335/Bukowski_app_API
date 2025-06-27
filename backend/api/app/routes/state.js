@@ -6,7 +6,8 @@ const historyLogger = require('../middleware/historyLogger');
 
 router.get("/", StatesController.getAllStates);
 router.post("/",historyLogger('states'), StatesController.createState);
-router.post("/restore", StatesController.restoreState); // New restore endpoint
+router.post("/restore", StatesController.restoreState); // Restore endpoint with history logging
+router.post("/restore-silent", StatesController.restoreStateSilent); // Silent restore without history logging
 router.get("/:id", StatesController.getStateById);
 router.put("/:id",historyLogger('states'), StatesController.updateStateById);
 router.delete("/barcode/:barcode/symbol/:symbol", historyLogger('states'), StatesController.deleteStateByBarcodeAndSymbol); // New specific endpoint

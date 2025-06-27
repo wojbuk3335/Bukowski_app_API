@@ -579,8 +579,19 @@ const historyLogger = (collectionName) => {
         }
 
         if (historyEntry) {
+            // Add transactionId if provided in headers (try both formats)
+            const transactionId = req.headers['transactionid'] || req.headers['transaction-id'];
+            if (transactionId) {
+                historyEntry.transactionId = transactionId;
+                console.log('Setting transactionId in history entry:', transactionId);
+            } else {
+                console.log('No transactionid or transaction-id header found in request');
+                console.log('Available headers:', Object.keys(req.headers));
+            }
+            
             historyEntry.save()
                 .then(() => {
+                    console.log('History entry saved with transactionId:', historyEntry.transactionId);
                     next();
                 })
                 .catch(err => {

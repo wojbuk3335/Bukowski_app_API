@@ -1,9 +1,9 @@
-import React, { useState, useEffect, forwardRef } from 'react';
+import React, { useState, useEffect, forwardRef, useRef } from 'react';
 import axios from 'axios';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { pl } from 'date-fns/locale';
-import styles from '../State/State.module.css'; // Use the same styles as State.js
+import styles from '../Warehouse/Warehouse.module.css'; // Use the same styles as Warehouse.js
 
 // Register Polish locale
 registerLocale('pl', pl);
@@ -28,9 +28,16 @@ const AddToState = () => {
   // Transaction management states
   const [isTransactionInProgress, setIsTransactionInProgress] = useState(false);
   const [lastTransaction, setLastTransaction] = useState(null); // Store details for potential undo
+  
+  // History search states
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
+  
+  // Magazyn search states
+  const [magazynSearchTerm, setMagazynSearchTerm] = useState('');
   const [transactionHistory, setTransactionHistory] = useState([]); // List of transactions that can be undone
   const [showUndoOptions, setShowUndoOptions] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false); // For modal display
+  const [showClearStorageInfo, setShowClearStorageInfo] = useState(false); // For clear storage info modal
   
   // Persistent sales view states
   const [persistentSalesView, setPersistentSalesView] = useState({
@@ -44,7 +51,12 @@ const AddToState = () => {
   const [lastTransactionDetails, setLastTransactionDetails] = useState(null); // Store details of last transaction for cancellation
   const [savedItemsForDisplay, setSavedItemsForDisplay] = useState([]); // Items to keep displaying after save
   
-  // Add CSS for DatePicker responsiveness
+  // Printing states
+  const [selectedForPrint, setSelectedForPrint] = useState(new Set()); // Track selected items for printing
+  const [printer, setPrinter] = useState(null); // Store printer instance
+  const [printerError, setPrinterError] = useState(null); // Track printer errors
+  
+  // Add CSS for DatePicker responsiveness and history scrollbar
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = `
@@ -59,6 +71,71 @@ const AddToState = () => {
         text-align: center !important;
         box-sizing: border-box !important;
       }
+      
+      /* Custom scrollbar for history list */
+      .history-scrollable::-webkit-scrollbar {
+        width: 8px;
+      }
+      .history-scrollable::-webkit-scrollbar-track {
+        background: #333;
+        border-radius: 4px;
+      }
+      .history-scrollable::-webkit-scrollbar-thumb {
+        background: #666;
+        border-radius: 4px;
+      }
+      .history-scrollable::-webkit-scrollbar-thumb:hover {
+        background: #888;
+      }
+      
+      /* History search input focus effect */
+      .history-search-input:focus {
+        outline: none;
+        border-color: #0066cc !important;
+        box-shadow: 0 0 5px rgba(0, 102, 204, 0.3);
+      }
+      
+      /* Custom scrollbar for magazyn table */
+      .magazyn-scrollable::-webkit-scrollbar {
+        width: 8px;
+      }
+      .magazyn-scrollable::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+      .magazyn-scrollable::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+      }
+      .magazyn-scrollable::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+      
+      /* Magazyn search input focus effect */
+      .magazyn-search-input:focus {
+        outline: none;
+        border-color: #0d6efd !important;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+      }
+      
+      /* White placeholder for magazyn search input */
+      .magazyn-search-input::placeholder {
+        color: white !important;
+        opacity: 0.7;
+      }
+      .magazyn-search-input::-webkit-input-placeholder {
+        color: white !important;
+        opacity: 0.7;
+      }
+      .magazyn-search-input::-moz-placeholder {
+        color: white !important;
+        opacity: 0.7;
+      }
+      .magazyn-search-input:-ms-input-placeholder {
+        color: white !important;
+        opacity: 0.7;
+      }
+      
       @media (max-width: 1024px) {
         .react-datepicker-wrapper {
           width: 100% !important;
@@ -130,7 +207,16 @@ const AddToState = () => {
       try {
         // Fetch magazyn items
         const stateResponse = await axios.get('/api/state');
-        const magazynData = stateResponse.data.filter(item => item.symbol === 'MAGAZYN');
+        const magazynDataRaw = stateResponse.data.filter(item => item.symbol === 'MAGAZYN');
+        
+        // Process magazyn data to combine prices with semicolon separator
+        const magazynData = magazynDataRaw.map(item => ({
+          ...item,
+          price: item.discount_price && Number(item.discount_price) !== 0
+            ? `${item.price};${item.discount_price}` // Combine price and discount_price with semicolon
+            : item.price // Use only price if discount_price is not valid
+        }));
+        
         setMagazynItems(magazynData);
 
         // Fetch sales data
@@ -368,8 +454,24 @@ const AddToState = () => {
           // Find the related magazyn item to get full data
           const relatedMagazynItem = magazynItems.find(item => item.id === id);
           if (relatedMagazynItem) {
+            // Handle price format for transaction history - split if contains semicolon
+            let itemPrice = 0;
+            let itemDiscountPrice = 0;
+            
+            if (relatedMagazynItem.price && typeof relatedMagazynItem.price === 'string' && relatedMagazynItem.price.includes(';')) {
+              const prices = relatedMagazynItem.price.split(';');
+              itemPrice = Number(prices[0]) || 0;
+              itemDiscountPrice = Number(prices[1]) || 0;
+            } else {
+              itemPrice = Number(relatedMagazynItem.price) || 0;
+            }
+            
             processedItems.push({
-              ...relatedMagazynItem,
+              fullName: relatedMagazynItem.fullName,
+              size: relatedMagazynItem.size,
+              barcode: relatedMagazynItem.barcode,
+              price: itemPrice,
+              discount_price: itemDiscountPrice,
               processType: 'synchronized',
               originalId: id,
               originalSymbol: 'MAGAZYN' // Items came from MAGAZYN originally
@@ -384,8 +486,24 @@ const AddToState = () => {
         // Find the related magazyn item to get full data
         const relatedMagazynItem = magazynItems.find(item => item.id === id);
         if (relatedMagazynItem) {
+          // Handle price format for transaction history - split if contains semicolon
+          let itemPrice = 0;
+          let itemDiscountPrice = 0;
+          
+          if (relatedMagazynItem.price && typeof relatedMagazynItem.price === 'string' && relatedMagazynItem.price.includes(';')) {
+            const prices = relatedMagazynItem.price.split(';');
+            itemPrice = Number(prices[0]) || 0;
+            itemDiscountPrice = Number(prices[1]) || 0;
+          } else {
+            itemPrice = Number(relatedMagazynItem.price) || 0;
+          }
+          
           processedItems.push({
-            ...relatedMagazynItem,
+            fullName: relatedMagazynItem.fullName,
+            size: relatedMagazynItem.size,
+            barcode: relatedMagazynItem.barcode,
+            price: itemPrice,
+            discount_price: itemDiscountPrice,
             processType: 'transferred',
             originalId: id,
             originalSymbol: 'MAGAZYN' // Items came from MAGAZYN originally
@@ -446,7 +564,8 @@ const AddToState = () => {
           await axios.delete(`/api/state/barcode/${barcode}/symbol/${symbolToDelete}?count=${count}`, {
             headers: {
               'target-symbol': 'Sprzedano', // Blue items are sold
-              'operation-type': 'delete'
+              'operation-type': 'delete',
+              'transactionid': transactionId // Changed from transaction-id to transactionid
             }
           });
         } catch (error) {
@@ -465,7 +584,8 @@ const AddToState = () => {
           await axios.delete(`/api/state/${itemId}`, {
             headers: {
               'target-symbol': actualTargetSymbol, // Same symbol (M → M)
-              'operation-type': 'transfer-same'
+              'operation-type': 'transfer-same',
+              'transactionid': transactionId // Changed from transaction-id to transactionid
             }
           });
         } catch (error) {
@@ -485,7 +605,8 @@ const AddToState = () => {
           await axios.delete(`/api/state/${itemId}`, {
             headers: {
               'target-symbol': actualTargetSymbol, // MAGAZYN → targetSymbol
-              'operation-type': 'transfer-from-magazyn'
+              'operation-type': 'transfer-from-magazyn',
+              'transactionid': transactionId // Changed from transaction-id to transactionid
             }
           });
         } catch (error) {
@@ -561,11 +682,10 @@ const AddToState = () => {
   const deactivateTransactionInDatabase = async (transactionId) => {
     try {
       await axios.delete(`/api/transaction-history/${transactionId}`);
-      console.log('Transaction deactivated in database:', transactionId);
       // Reload history after deactivating
       await loadTransactionHistory();
     } catch (error) {
-      console.error('Error deactivating transaction in database:', error);
+      console.error('Błąd podczas usuwania transakcji z bazy danych');
       throw error;
     }
   };
@@ -577,7 +697,7 @@ const AddToState = () => {
     setIsTransactionInProgress(true);
     
     try {
-      // Restore items to their original state based on transaction type
+      // STEP 1: First restore items to their original state
       const restorePromises = [];
       
       for (const item of transaction.processedItems) {
@@ -628,17 +748,52 @@ const AddToState = () => {
         
         if (restoreData) {
           restorePromises.push(
-            axios.post('/api/state/restore', restoreData)
+            axios.post('/api/state/restore-silent', restoreData)
           );
         }
       }
       
+      // Wait for all items to be restored
       await Promise.all(restorePromises);
       
-      // Deactivate transaction in database
+      // STEP 2: Now delete all history records associated with this transaction
+      let historyDeleted = false;
+      
+      try {
+        const deleteResponse = await axios.delete(`/api/history/by-transaction/${transaction.transactionId}`, {
+          headers: {
+            'transactionid': transaction.transactionId
+          }
+        });
+        historyDeleted = true;
+      } catch (deleteError) {
+        // Fallback: spróbuj usunąć po szczegółach transakcji
+        const fallbackPayload = {
+          timestamp: transaction.timestamp,
+          processedItems: transaction.processedItems.map(item => ({
+            fullName: item.fullName,
+            size: item.size,
+            barcode: item.barcode,
+            processType: item.processType
+          }))
+        };
+        
+        try {
+          const fallbackResponse = await axios.post('/api/history/delete-by-details', fallbackPayload);
+          historyDeleted = true;
+        } catch (fallbackError) {
+          console.error('❌ Nie udało się usunąć rekordów historii');
+        }
+      }
+      
+      if (!historyDeleted) {
+        console.error('⚠️ Nie udało się usunąć rekordów historii');
+      }
+      
+      // STEP 3: Delete the transaction itself from transaction history
       await deactivateTransactionInDatabase(transaction.transactionId);
       
-      // Refresh data
+      // STEP 4: Refresh data to reflect the changes
       const salesResponse = await axios.get('/api/sales/get-all-sales');
       setSalesData(salesResponse.data);
       
@@ -646,7 +801,7 @@ const AddToState = () => {
       const magazynData = stateResponse.data.filter(item => item.symbol === 'MAGAZYN');
       setMagazynItems(magazynData);
       
-      alert(`Transakcja z ${new Date(transaction.timestamp).toLocaleString('pl-PL')} została anulowana pomyślnie!`);
+      alert(`Transakcja z ${new Date(transaction.timestamp).toLocaleString('pl-PL')} została całkowicie anulowana i usunięta z historii!`);
       
     } catch (error) {
       console.error('Error undoing transaction:', error);
@@ -684,11 +839,16 @@ const AddToState = () => {
       setSavedItemsForDisplay([]);
       setIsTransactionSaved(false);
       
+      setShowClearStorageInfo(false); // Close info modal
       alert('Pamięć podręczna i stare transakcje zostały wyczyszczone!');
     } catch (error) {
-      console.error('Error clearing storage:', error);
+      alert('Błąd podczas czyszczenia pamięci');
       alert('Błąd podczas czyszczenia pamięci. Spróbuj ponownie.');
     }
+  };
+
+  const handleClearStorageClick = () => {
+    setShowClearStorageInfo(true);
   };
 
   const handleOperationTypeChange = (type) => {
@@ -762,6 +922,412 @@ const AddToState = () => {
     setPersistentSalesView(stateToSave);
   }, [filteredSales, manuallyAddedItems, synchronizedItems, addedMagazynIds]);
 
+  // Ref for draggable history modal
+  const historyModalRef = useRef(null);
+
+  // Make history modal draggable
+  const makeHistoryModalDraggable = () => {
+    const modal = historyModalRef.current;
+    if (!modal) return;
+    
+    const header = modal.querySelector('.modalHeader');
+    if (!header) return;
+    
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+
+    const onMouseDown = (e) => {
+      if (e.target.closest('button')) return; // Don't drag when clicking close button
+      
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      initialX = modal.offsetLeft;
+      initialY = modal.offsetTop;
+      
+      modal.style.position = 'fixed';
+      modal.style.left = `${initialX}px`;
+      modal.style.top = `${initialY}px`;
+      
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      e.preventDefault();
+    };
+
+    const onMouseMove = (e) => {
+      if (isDragging) {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        modal.style.left = `${initialX + dx}px`;
+        modal.style.top = `${initialY + dy}px`;
+      }
+    };
+
+    const onMouseUp = () => {
+      isDragging = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    // Remove existing listeners to prevent duplicates
+    header.removeEventListener('mousedown', onMouseDown);
+    header.addEventListener('mousedown', onMouseDown);
+    
+    return () => {
+      header.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  };
+
+  useEffect(() => {
+    if (showHistoryModal) {
+      setTimeout(() => {
+        makeHistoryModalDraggable();
+      }, 300);
+    }
+  }, [showHistoryModal]);
+
+  // Function to filter transaction history based on search term
+  const getFilteredTransactionHistory = () => {
+    if (!historySearchTerm.trim()) {
+      return transactionHistory;
+    }
+    
+    const searchLower = historySearchTerm.toLowerCase();
+    
+    return transactionHistory.filter(transaction => {
+      // Search in transaction timestamp
+      const dateStr = new Date(transaction.timestamp).toLocaleString('pl-PL').toLowerCase();
+      if (dateStr.includes(searchLower)) return true;
+      
+      // Search in transaction ID
+      if (transaction.transactionId && transaction.transactionId.toString().includes(searchLower)) return true;
+      
+      // Search in processed items
+      if (transaction.processedItems && transaction.processedItems.length > 0) {
+        return transaction.processedItems.some(item => {
+          const fullName = item.fullName ? item.fullName.toLowerCase() : '';
+          const size = item.size ? item.size.toLowerCase() : '';
+          const barcode = item.barcode ? item.barcode.toLowerCase() : '';
+          const processType = item.processType ? item.processType.toLowerCase() : '';
+          
+          return fullName.includes(searchLower) || 
+                 size.includes(searchLower) || 
+                 barcode.includes(searchLower) || 
+                 processType.includes(searchLower);
+        });
+      }
+      
+      return false;
+    });
+  };
+
+  // Function to filter magazyn items based on search term
+  const getFilteredMagazynItems = () => {
+    if (!magazynSearchTerm.trim()) {
+      return magazynItems;
+    }
+    
+    const searchLower = magazynSearchTerm.toLowerCase();
+    
+    return magazynItems.filter(item => {
+      // Search in item properties
+      const fullName = item.fullName ? item.fullName.toLowerCase() : '';
+      const size = item.size ? item.size.toLowerCase() : '';
+      const barcode = item.barcode ? item.barcode.toLowerCase() : '';
+      const price = item.price ? item.price.toString() : '';
+      const discountPrice = item.discount_price ? item.discount_price.toString() : '';
+      
+      return fullName.includes(searchLower) || 
+             size.includes(searchLower) || 
+             barcode.includes(searchLower) || 
+             price.includes(searchLower) || 
+             discountPrice.includes(searchLower);
+    });
+  };
+
+  // Printer functions
+  const checkPrinter = () => {
+    if (window.BrowserPrint) {
+      window.BrowserPrint.getDefaultDevice("printer",
+        (device) => {
+          setPrinter(device);
+          setPrinterError(null);
+          alert("Drukarka znaleziona!");
+        },
+        (err) => setPrinterError("Nie znaleziono drukarki: " + err)
+      );
+    } else {
+      setPrinterError("Nie załadowano biblioteki BrowserPrint.");
+    }
+  };
+
+  const printSelectedBarcodes = () => {
+    if (!printer) {
+      alert("Najpierw sprawdź drukarkę!");
+      return;
+    }
+
+    if (selectedForPrint.size === 0) {
+      alert("Nie zaznaczono żadnych kodów kreskowych do druku!");
+      return;
+    }
+
+    // Get all items (sales + manually added)
+    const allItems = [...filteredSales, ...manuallyAddedItems];
+    const selectedItems = allItems.filter(item => selectedForPrint.has(item._id || item.id));
+
+    if (selectedItems.length === 0) {
+      alert("Nie znaleziono zaznaczonych elementów!");
+      return;
+    }
+
+    // Generate ZPL labels for each selected item using the same format as State.js
+    const allLabels = [];
+
+    selectedItems.forEach((item) => {
+      // Handle fullName based on data source
+      let jacketName = "Brak nazwy";
+      if (typeof item.fullName === 'string') {
+        // Sales data - fullName is already a string
+        jacketName = item.fullName;
+      } else if (item.fullName && typeof item.fullName === 'object' && item.fullName.fullName) {
+        // Magazyn data - fullName is an object with nested fullName property
+        jacketName = item.fullName.fullName;
+      } else if (item.fullName) {
+        // Fallback - convert to string
+        jacketName = item.fullName.toString();
+      }
+      
+      // Handle size similarly
+      let size = "Brak rozmiaru";
+      if (typeof item.size === 'string') {
+        // Sales data - size is already a string
+        size = item.size;
+      } else if (item.size && typeof item.size === 'object' && item.size.Roz_Opis) {
+        // Magazyn data - size is an object with Roz_Opis property
+        size = item.size.Roz_Opis;
+      } else if (item.size) {
+        // Fallback - convert to string
+        size = item.size.toString();
+      }
+      
+      const barcode = item.barcode || "Brak kodu";
+      
+      // Convert Polish characters for ZPL printer compatibility
+      const convertPolishChars = (text) => {
+        if (!text || typeof text !== 'string') {
+          return text || '';
+        }
+        return text
+          .replace(/ą/g, 'a')
+          .replace(/ć/g, 'c')
+          .replace(/ę/g, 'e')
+          .replace(/ł/g, 'l')
+          .replace(/ń/g, 'n')
+          .replace(/ó/g, 'o')
+          .replace(/ś/g, 's')
+          .replace(/ź/g, 'z')
+          .replace(/ż/g, 'z')
+          .replace(/Ą/g, 'A')
+          .replace(/Ć/g, 'C')
+          .replace(/Ę/g, 'E')
+          .replace(/Ł/g, 'L')
+          .replace(/Ń/g, 'N')
+          .replace(/Ó/g, 'O')
+          .replace(/Ś/g, 'S')
+          .replace(/Ź/g, 'Z')
+          .replace(/Ż/g, 'Z');
+      };
+      
+      const printableJacketName = convertPolishChars(jacketName);
+      const printableSize = convertPolishChars(size);
+      
+      // Get symbol for this item
+      let symbol = "Brak symbolu";
+      if (operationType === 'sprzedaz') {
+        // For sales mode, use the selected selling point's symbol
+        const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
+        symbol = selectedUser ? selectedUser.symbol : selectedSellingPoint;
+      } else if (operationType === 'przepisanie') {
+        // For transfer mode, use the target selling point's symbol
+        const targetUser = usersData.find(user => user.sellingPoint === targetSellingPoint);
+        symbol = targetUser ? targetUser.symbol : targetSellingPoint;
+      }
+      
+      const printableSymbol = convertPolishChars(symbol);
+      
+      // Handle price - check for comma BEFORE adding PLN
+      let price = "Brak ceny";
+      let rawPrice = null;
+      
+      // Get raw price value without PLN
+      if (item.price) {
+        rawPrice = item.price;
+      } else if (item.cash && item.cash.length > 0 && item.cash[0].price) {
+        rawPrice = item.cash[0].price;
+      }
+      
+      // Handle double prices (separated by semicolon) - create two separate labels
+      if (rawPrice && rawPrice.toString().includes(';')) {
+        // Split prices by semicolon and create two separate labels
+        const prices = rawPrice.toString().split(';');
+        if (prices.length === 2) {
+          const price1 = convertPolishChars(prices[0].trim() + ' PLN');
+          const price2 = convertPolishChars(prices[1].trim() + ' PLN');
+          
+          // Add two separate labels to the array
+          allLabels.push(`^CI28
+^XA
+^PW700
+^LL1000
+^FO70,30
+^A0N,35,35
+^FD${printableJacketName}  ${printableSize}^FS
+^FO600,30
+^A0N,30,30
+^FD${printableSymbol}^FS
+^FO70,80
+^BY3,3,120
+^BCN,120,Y,N,N
+^FD${barcode}^FS
+^FO230,250
+^A0N,60,60
+^FD${price1}^FS
+^XZ`);
+          
+          allLabels.push(`^CI28
+^XA
+^PW700
+^LL1000
+^FO70,30
+^A0N,35,35
+^FD${printableJacketName}  ${printableSize}^FS
+^FO600,30
+^A0N,30,30
+^FD${printableSymbol}^FS
+^FO70,80
+^BY3,3,120
+^BCN,120,Y,N,N
+^FD${barcode}^FS
+^FO230,250
+^A0N,60,60
+^FD${price2}^FS
+^XZ`);
+          
+          // Skip single label creation
+        } else {
+          // Single price - format with PLN if needed
+          if (rawPrice) {
+            if (typeof rawPrice === 'number') {
+              price = `${rawPrice} PLN`;
+            } else if (typeof rawPrice === 'string') {
+              // Check if PLN is already included
+              price = rawPrice.includes('PLN') ? rawPrice : `${rawPrice} PLN`;
+            }
+          }
+          
+          // Single price - single label
+          const printablePrice = convertPolishChars(String(price));
+          allLabels.push(`^CI28
+^XA
+^PW700
+^LL1000
+^FO70,30
+^A0N,35,35
+^FD${printableJacketName}  ${printableSize}^FS
+^FO600,30
+^A0N,30,30
+^FD${printableSymbol}^FS
+^FO70,80
+^BY3,3,120
+^BCN,120,Y,N,N
+^FD${barcode}^FS
+^FO230,250
+^A0N,60,60
+^FD${printablePrice}^FS
+^XZ`);
+        }
+      } else {
+        // Single price - format with PLN if needed
+        if (rawPrice) {
+          if (typeof rawPrice === 'number') {
+            price = `${rawPrice} PLN`;
+          } else if (typeof rawPrice === 'string') {
+            // Check if PLN is already included
+            price = rawPrice.includes('PLN') ? rawPrice : `${rawPrice} PLN`;
+          }
+        }
+        
+        // Single price - single label
+        const printablePrice = convertPolishChars(String(price));
+        allLabels.push(`^CI28
+^XA
+^PW700
+^LL1000
+^FO70,30
+^A0N,35,35
+^FD${printableJacketName}  ${printableSize}^FS
+^FO600,30
+^A0N,30,30
+^FD${printableSymbol}^FS
+^FO70,80
+^BY3,3,120
+^BCN,120,Y,N,N
+^FD${barcode}^FS
+^FO230,250
+^A0N,60,60
+^FD${printablePrice}^FS
+^XZ`);
+      }
+    });
+
+    // Send each label separately to the printer
+    let labelIndex = 0;
+    const sendNextLabel = () => {
+      if (labelIndex >= allLabels.length) {
+        setSelectedForPrint(new Set()); // Clear selected items after all labels are printed
+        alert(`Wysłano ${allLabels.length} etykiet do drukarki!`);
+        return;
+      }
+      
+      printer.send(
+        allLabels[labelIndex],
+        () => {
+          labelIndex++;
+          // Small delay between labels to ensure proper processing
+          setTimeout(sendNextLabel, 100);
+        },
+        (err) => alert(`Błąd drukowania etykiety ${labelIndex + 1}: ${err}`)
+      );
+    };
+    
+    sendNextLabel();
+  };
+
+  const toggleSelectForPrint = (itemId) => {
+    setSelectedForPrint(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllForPrint = () => {
+    const allItems = [...filteredSales, ...manuallyAddedItems];
+    const allIds = allItems.map(item => item._id || item.id);
+    setSelectedForPrint(new Set(allIds));
+  };
+
+  const clearPrintSelection = () => {
+    setSelectedForPrint(new Set());
+  };
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div className={styles.error}>{error}</div>;
 
@@ -779,60 +1345,136 @@ const AddToState = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
           zIndex: 9999,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '20px',
-            width: isMobile ? '95%' : '80%',
-            maxWidth: '800px',
-            maxHeight: '80vh',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <div style={{
+          <div
+            className={styles.customModal + ' custom-modal'}
+            ref={historyModalRef}
+            style={{
+              backgroundColor: 'black',
+              borderRadius: '8px',
+              border: '1px solid white',
+              padding: '0',
+              width: isMobile ? '98%' : '700px',
+              maxWidth: '98vw',
+              maxHeight: '90vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              color: 'white',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.7)'
+            }}
+          >
+            <div className={styles.modalHeader + ' modalHeader'} style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '20px',
-              borderBottom: '1px solid #dee2e6',
-              paddingBottom: '10px'
-            }}>
-              <h4 style={{ margin: 0, color: '#333' }}>Historia transakcji</h4>
+              marginBottom: 0,
+              borderBottom: '1px solid white',
+              padding: '16px 24px',
+              backgroundColor: 'black',
+              color: 'white',
+              fontWeight: 600,
+              cursor: 'grab',
+              userSelect: 'none'
+            }}
+              onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
+              onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}
+            >
+              <span style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}>Historia transakcji</span>
               <button
                 onClick={() => setShowHistoryModal(false)}
-                className="btn btn-outline-secondary btn-sm"
-                style={{ padding: '5px 10px' }}
+                style={{
+                  backgroundColor: 'red',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '24px',
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 600
+                }}
+                title="Zamknij"
               >
-                ✕ Zamknij
+                ✕
               </button>
             </div>
-            
-            <div style={{
+            <div className={styles.modalBody + ' modalBody'} style={{
               flex: 1,
               overflowY: 'auto',
-              marginBottom: '20px'
+              marginBottom: 0,
+              backgroundColor: 'black',
+              color: 'white',
+              padding: '24px',
+              maxHeight: 'calc(100vh - 120px)' // Ograniczenie wysokości
             }}>
+              {/* Wyszukiwarka historii */}
+              <div style={{ marginBottom: '20px' }}>
+                <input
+                  type="text"
+                  className="history-search-input"
+                  placeholder="🔍 Wyszukaj po nazwie produktu, kodzie, dacie lub ID transakcji..."
+                  value={historySearchTerm}
+                  onChange={(e) => setHistorySearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '4px',
+                    border: '1px solid #444',
+                    backgroundColor: '#333',
+                    color: 'white',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                {historySearchTerm && (
+                  <div style={{ 
+                    marginTop: '8px', 
+                    fontSize: '12px', 
+                    color: '#ccc' 
+                  }}>
+                    Znaleziono: {getFilteredTransactionHistory().length} z {transactionHistory.length} transakcji
+                  </div>
+                )}
+              </div>
+              
               {transactionHistory.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                <div style={{ textAlign: 'center', padding: '40px', color: 'gray' }}>
                   Brak transakcji do wyświetlenia
                 </div>
+              ) : getFilteredTransactionHistory().length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'gray' }}>
+                  Brak transakcji pasujących do wyszukiwania
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {transactionHistory.map((transaction, index) => (
+                <div 
+                  className="history-scrollable"
+                  style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '14px',
+                    maxHeight: 'calc(100vh - 200px)', // Maksymalna wysokość listy
+                    overflowY: 'auto', // Suwak dla listy transakcji
+                    paddingRight: '8px' // Miejsce na suwak
+                  }}>
+                  {getFilteredTransactionHistory().map((transaction, index) => (
                     <div
                       key={transaction.transactionId}
                       style={{
-                        border: '1px solid #dee2e6',
+                        border: '1px solid #444',
                         borderRadius: '4px',
                         padding: '15px',
-                        backgroundColor: '#f8f9fa'
+                        backgroundColor: '#181818',
+                        color: 'white',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
                       }}
                     >
                       <div style={{
@@ -842,10 +1484,10 @@ const AddToState = () => {
                         marginBottom: '10px'
                       }}>
                         <div>
-                          <strong style={{ color: '#333' }}>
+                          <strong style={{ color: '#ffc107' }}>
                             #{index + 1} - {new Date(transaction.timestamp).toLocaleString('pl-PL')}
                           </strong>
-                          <div style={{ color: '#666', fontSize: '14px', marginTop: '5px' }}>
+                          <div style={{ color: '#ccc', fontSize: '14px', marginTop: '5px' }}>
                             Typ: {transaction.operationType === 'sprzedaz' ? 'Sprzedaż' : 'Przepisanie'} | 
                             Elementów: {transaction.itemsCount} | 
                             Punkt: {transaction.selectedSellingPoint || transaction.targetSellingPoint}
@@ -856,22 +1498,20 @@ const AddToState = () => {
                             handleUndoTransaction(transaction);
                             setShowHistoryModal(false);
                           }}
-                          className="btn btn-outline-danger btn-sm"
+                          className="btn btn-danger btn-sm"
                           disabled={isTransactionInProgress}
-                          style={{ minWidth: '80px' }}
                         >
                           {isTransactionInProgress ? 'Anulowanie...' : 'Anuluj'}
                         </button>
                       </div>
-                      
                       {transaction.processedItems && transaction.processedItems.length > 0 && (
-                        <div style={{ fontSize: '12px', color: '#555' }}>
+                        <div style={{ fontSize: '12px', color: '#ffc107' }}>
                           <strong>Przetworzone elementy:</strong>
                           <div style={{ marginTop: '5px', maxHeight: '100px', overflowY: 'auto' }}>
                             {transaction.processedItems.slice(0, 5).map((item, idx) => (
                               <div key={idx} style={{ 
                                 padding: '2px 0', 
-                                borderBottom: idx < 4 ? '1px solid #eee' : 'none' 
+                                borderBottom: idx < 4 ? '1px solid #333' : 'none' 
                               }}>
                                 • {item.fullName} ({item.size}) - {
                                   item.processType === 'sold' ? 'Sprzedano' :
@@ -881,7 +1521,7 @@ const AddToState = () => {
                               </div>
                             ))}
                             {transaction.processedItems.length > 5 && (
-                              <div style={{ padding: '2px 0', fontStyle: 'italic' }}>
+                              <div style={{ padding: '2px 0', fontStyle: 'italic', color: '#aaa' }}>
                                 ... i {transaction.processedItems.length - 5} więcej
                               </div>
                             )}
@@ -893,33 +1533,170 @@ const AddToState = () => {
                 </div>
               )}
             </div>
-            
-            <div style={{
+            <div className={styles.modalFooter + ' modalFooter'} style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              paddingTop: '10px',
-              borderTop: '1px solid #dee2e6'
+              padding: '16px 24px',
+              borderTop: '1px solid white',
+              backgroundColor: 'black',
+              color: 'white'
             }}>
-              <button
-                onClick={clearPersistentStorage}
-                className="btn btn-outline-warning btn-sm"
-              >
-                🗑️ Wyczyść pamięć
-              </button>
-              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={handleClearStorageClick}
+                  className="btn btn-warning btn-sm"
+                >
+                  Wyczyść pamięć
+                </button>
+                {historySearchTerm && (
+                  <button
+                    onClick={() => setHistorySearchTerm('')}
+                    className="btn btn-info btn-sm"
+                    title="Wyczyść wyszukiwanie"
+                  >
+                    Wyczyść filtr
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Anuluj
+                </button>
+              </div>
               {transactionHistory.length > 0 && (
                 <button
                   onClick={() => {
+                    // Always use the most recent transaction (first in array), not filtered results
                     handleUndoTransaction(transactionHistory[0]);
                     setShowHistoryModal(false);
                   }}
                   className="btn btn-danger btn-sm"
                   disabled={isTransactionInProgress}
+                  title="Anuluje najnowszą transakcję (ignoruje filtr wyszukiwania)"
                 >
-                  {isTransactionInProgress ? 'Anulowanie...' : '↶ Anuluj ostatnią transakcję'}
+                  {isTransactionInProgress ? 'Anulowanie...' : 'Anuluj ostatnią transakcję'}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Storage Info Modal */}
+      {showClearStorageInfo && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: 'black',
+            borderRadius: '8px',
+            border: '1px solid white',
+            padding: '0',
+            width: isMobile ? '95%' : '500px',
+            maxWidth: '95vw',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            color: 'white',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.7)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 0,
+              borderBottom: '1px solid white',
+              padding: '16px 24px',
+              backgroundColor: 'black',
+              color: 'white',
+              fontWeight: 600
+            }}>
+              <span style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}>ℹ️ Informacja o czyszczeniu pamięci</span>
+              <button
+                onClick={() => setShowClearStorageInfo(false)}
+                style={{
+                  backgroundColor: 'red',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '24px',
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: 600
+                }}
+                title="Zamknij"
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{
+              flex: 1,
+              backgroundColor: 'black',
+              color: 'white',
+              padding: '24px'
+            }}>
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ color: '#ffc107', marginBottom: '15px' }}>Co zostanie wyczyszczone:</h4>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
+                    🗄️ <strong>Pamięć podręczna aplikacji</strong> - zapisane stany transakcji
+                  </li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
+                    📊 <strong>Stare transakcje z bazy danych</strong> - historia starszych operacji
+                  </li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
+                    🔄 <strong>Aktualnie wyświetlane dane</strong> - zostanie odświeżone
+                  </li>
+                  <li style={{ padding: '8px 0' }}>
+                    💾 <strong>Lokalne ustawienia</strong> - zapisane filtry i preferencje
+                  </li>
+                </ul>
+              </div>
+              <div style={{ backgroundColor: '#1a1a1a', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
+                <p style={{ margin: 0, color: '#ffc107', fontWeight: 600 }}>⚠️ Uwaga:</p>
+                <p style={{ margin: '5px 0 0 0', fontSize: '14px' }}>
+                  Ta operacja jest nieodwracalna. Stracisz wszystkie zapisane filtry i tymczasowe dane.
+                  Bieżące niezapisane transakcje również zostaną utracone.
+                </p>
+              </div>
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 24px',
+              borderTop: '1px solid white',
+              backgroundColor: 'black',
+              color: 'white',
+              gap: '10px'
+            }}>
+              <button
+                onClick={() => setShowClearStorageInfo(false)}
+                className="btn btn-secondary btn-sm"
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={clearPersistentStorage}
+                className="btn btn-warning btn-sm"
+              >
+                Tak, wyczyść pamięć
+              </button>
             </div>
           </div>
         </div>
@@ -938,23 +1715,65 @@ const AddToState = () => {
           borderRight: isMobile ? 'none' : '1px solid #ccc',
           borderBottom: isMobile ? '1px solid #ccc' : 'none'
         }}>
-          <h2 style={{color:'white', marginBottom: isMobile ? '20px' : '93px', display: 'block', textAlign: isMobile ? 'center' : 'center'}}>Magazyn</h2>
-        <div className={styles.tableContainer}>
+          <h2 style={{color:'white', marginBottom: '5px', display: 'block', textAlign: 'center'}}>Magazyn</h2>
+          
+          {/* Wyszukiwarka magazynu */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ color: 'white', display: 'block', marginBottom: '5px', textAlign: 'center' }}>Wyszukiwarka:</label>
+            <input
+              type="text"
+              className="form-select magazyn-search-input"
+              placeholder="Wyszukaj w magazynie (nazwa, kod, rozmiar, cena...)..."
+              value={magazynSearchTerm}
+              onChange={(e) => setMagazynSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                textAlign: 'center',
+                padding: '10px',
+                borderRadius: '4px',
+                border: '1px solid #ced4da',
+                backgroundColor: 'black',
+                color: 'white',
+                fontSize: '14px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+        <div className={styles.tableContainer} style={{
+          maxHeight: 'calc(100vh - 300px)',
+          overflowY: 'auto'
+        }}>
+          <div className="magazyn-scrollable" style={{
+            maxHeight: 'calc(100vh - 300px)',
+            overflowY: 'auto'
+          }}>
           <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
             <thead>
               <tr>
                 <th className={`${styles.tableHeader} ${styles.noWrap}`}>Lp.</th>
                 <th className={`${styles.tableHeader} ${styles.noWrap}`}>Pełna nazwa</th>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Data</th>
                 <th className={`${styles.tableHeader} ${styles.noWrap}`}>Rozmiar</th>
+                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena (PLN)</th>
                 <th className={`${styles.tableHeader} ${styles.noWrap}`}>Kod kreskowy</th>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena</th>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena promocyjna</th>
                 <th className={`${styles.tableHeader} ${styles.noWrap}`}>Akcja</th>
               </tr>
             </thead>
             <tbody>
-              {magazynItems.map((item, index) => {
+              {magazynItems.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                    Brak produktów w magazynie
+                  </td>
+                </tr>
+              ) : getFilteredMagazynItems().length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                    Brak produktów pasujących do wyszukiwania
+                  </td>
+                </tr>
+              ) : (
+                getFilteredMagazynItems().map((item, index) => {
                 const isMatched = synchronizedItems.magazyn && synchronizedItems.magazyn.has(item.id);
                 const isManuallyAdded = addedMagazynIds.has(item.id);
                 const backgroundColor = isMatched ? '#666666' : (isManuallyAdded ? '#666666' : 'inherit');
@@ -963,13 +1782,9 @@ const AddToState = () => {
                   <tr key={item.id} className={styles.tableRow} style={backgroundColor !== 'inherit' ? { backgroundColor: `${backgroundColor} !important` } : {}}>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{index + 1}</td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.fullName}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
-                      {new Date(item.date).toLocaleDateString()}
-                    </td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.size}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.barcode}</td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.price}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.discount_price}</td>
+                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.barcode}</td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
                       <button 
                         onClick={() => handleAddToSales(item)}
@@ -993,11 +1808,13 @@ const AddToState = () => {
                     </td>
                   </tr>
                 );
-              })}
+              })
+              )}
             </tbody>
           </table>
-        </div>
-      </div>
+          </div> {/* magazyn-scrollable */}
+        </div> {/* tableContainer */}
+      </div> {/* Magazyn section */}
 
       {/* Right side - Sales data or Manual transfer */}
       <div style={{ 
@@ -1143,13 +1960,66 @@ const AddToState = () => {
           <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
             <button 
               onClick={() => setShowHistoryModal(true)}
-              className="btn btn-outline-info"
+              className="btn btn-info"
               style={{ height: 'fit-content' }}
             >
               📋 Historia ({transactionHistory.length})
             </button>
           </div>
+          
+          {/* Print controls */}
+          <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
+            <button 
+              onClick={checkPrinter}
+              className="btn btn-secondary"
+              style={{ height: 'fit-content', marginRight: '5px' }}
+            >
+              🖨️ Sprawdź drukarkę
+            </button>
+          </div>
+          
+          <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
+            <button 
+              onClick={printSelectedBarcodes}
+              className="btn btn-warning"
+              style={{ height: 'fit-content' }}
+              disabled={!printer || selectedForPrint.size === 0}
+            >
+              📄 Drukuj zaznaczone ({selectedForPrint.size})
+            </button>
+          </div>
         </div>
+
+        {/* Print error display */}
+        {printerError && (
+          <div style={{ textAlign: 'center', color: 'red', marginBottom: '10px' }}>
+            {printerError}
+          </div>
+        )}
+
+        {/* Print selection controls */}
+        {(filteredSales.length > 0 || manuallyAddedItems.length > 0) && (
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: '10px', 
+            marginBottom: '10px',
+            flexWrap: 'wrap'
+          }}>
+            <button 
+              onClick={selectAllForPrint}
+              className="btn btn-sm btn-outline-light"
+            >
+              Zaznacz wszystkie
+            </button>
+            <button 
+              onClick={clearPrintSelection}
+              className="btn btn-sm btn-outline-light"
+            >
+              Odznacz wszystkie
+            </button>
+          </div>
+        )}
 
         {/* Sales list or Manual transfer list */}
         {operationType === 'sprzedaz' ? (
@@ -1157,12 +2027,18 @@ const AddToState = () => {
             <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
               <thead>
                 <tr>
+                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>
+                    <input 
+                      type="checkbox" 
+                      onChange={(e) => e.target.checked ? selectAllForPrint() : clearPrintSelection()}
+                      checked={selectedForPrint.size > 0 && selectedForPrint.size === (filteredSales.length + manuallyAddedItems.length)}
+                    />
+                  </th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Lp.</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Pełna nazwa</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Rozmiar</th>
+                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena (PLN)</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Kod kreskowy</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Gotówka</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Karta</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Akcja</th>
                 </tr>
               </thead>
@@ -1180,22 +2056,28 @@ const AddToState = () => {
                     backgroundColor = '#2196F3'; // Blue as default
                   }
                   
+                  // Format price with semicolon separator
+                  let displayPrice = 'Brak ceny';
+                  if (sale.cash && sale.cash.length > 0 && sale.cash[0].price) {
+                    displayPrice = sale.cash[0].price.toString();
+                  } else if (sale.price) {
+                    displayPrice = sale.price.toString();
+                  }
+                  
                   return (
                     <tr key={sale._id} className={styles.tableRow} style={{ backgroundColor: `${backgroundColor} !important` }}>
+                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedForPrint.has(sale._id || sale.id)}
+                          onChange={() => toggleSelectForPrint(sale._id || sale.id)}
+                        />
+                      </td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{index + 1}</td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.fullName}</td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.size}</td>
+                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{displayPrice}</td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.barcode}</td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
-                        {sale.cash.map((c, i) => (
-                          <div key={i}>{`${c.price} ${c.currency}`}</div>
-                        ))}
-                      </td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
-                        {sale.card.map((c, i) => (
-                          <div key={i}>{`${c.price} ${c.currency}`}</div>
-                        ))}
-                      </td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
                         {isManuallyAdded ? (
                           <button 
@@ -1235,11 +2117,18 @@ const AddToState = () => {
             <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
               <thead>
                 <tr>
+                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>
+                    <input 
+                      type="checkbox" 
+                      onChange={(e) => e.target.checked ? selectAllForPrint() : clearPrintSelection()}
+                      checked={selectedForPrint.size > 0 && selectedForPrint.size === manuallyAddedItems.length}
+                    />
+                  </th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Lp.</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Pełna nazwa</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Rozmiar</th>
+                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena (PLN)</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Kod kreskowy</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Docelowy punkt</th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Akcja</th>
                 </tr>
@@ -1247,11 +2136,20 @@ const AddToState = () => {
               <tbody>
                 {manuallyAddedItems.map((item, index) => (
                   <tr key={item._id} className={styles.tableRow} style={{ backgroundColor: '#FF9800 !important' }}>
+                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedForPrint.has(item._id || item.id)}
+                        onChange={() => toggleSelectForPrint(item._id || item.id)}
+                      />
+                    </td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{index + 1}</td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{item.fullName}</td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{item.size}</td>
+                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>
+                      {item.price ? item.price.toString() : 'Brak ceny'}
+                    </td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{item.barcode}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{item.cash[0]?.price} PLN</td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{targetSellingPoint}</td>
                     <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>
                       <button 

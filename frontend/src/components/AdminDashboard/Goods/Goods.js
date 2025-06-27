@@ -101,7 +101,7 @@ const Goods = () => {
         if (modal) {
             setTimeout(() => {
                 makeModalDraggable();
-            }, 100);
+            }, 300);
         }
     }, [modal]);
 
@@ -356,27 +356,21 @@ const Goods = () => {
     const makeModalDraggable = () => {
         const modal = modalRef.current;
         if (!modal) return;
+        
+        const modalDialog = modal.querySelector('.modal-dialog');
         const header = modal.querySelector('.modal-header');
-        if (!header) return;
+        
+        if (!header || !modalDialog) return;
+        
         let isDragging = false;
         let startX, startY, initialX, initialY;
-
-        const onMouseDown = (e) => {
-            isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            initialX = modal.offsetLeft;
-            initialY = modal.offsetTop;
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
-        };
 
         const onMouseMove = (e) => {
             if (isDragging) {
                 const dx = e.clientX - startX;
                 const dy = e.clientY - startY;
-                modal.style.left = `${initialX + dx}px`;
-                modal.style.top = `${initialY + dy}px`;
+                modalDialog.style.left = `${initialX + dx}px`;
+                modalDialog.style.top = `${initialY + dy}px`;
             }
         };
 
@@ -386,7 +380,36 @@ const Goods = () => {
             document.removeEventListener('mouseup', onMouseUp);
         };
 
+        const onMouseDown = (e) => {
+            if (e.target.closest('.btn-close') || e.target.closest('button')) return;
+            
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const rect = modalDialog.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+            
+            modalDialog.style.position = 'fixed';
+            modalDialog.style.margin = '0';
+            modalDialog.style.left = `${initialX}px`;
+            modalDialog.style.top = `${initialY}px`;
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            e.preventDefault();
+        };
+
+        // Remove existing listeners to prevent duplicates
+        header.removeEventListener('mousedown', onMouseDown);
         header.addEventListener('mousedown', onMouseDown);
+        
+        return () => {
+            header.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
     };
 
     if (loading) {

@@ -172,10 +172,16 @@ const State = () => {
         setLoading(true);
         try {
             const response = await axios.get('/api/state');
+            console.log('Raw response from backend:', response.data[0]); // Debug first item
             const formattedData = response.data.map((row) => {
-                const combinedPrice = row.discount_price && Number(row.discount_price) !== 0
-                    ? `${row.price},${row.discount_price}` // Combine price and discount_price
-                    : row.price; // Use only price if discount_price is not valid
+                // Combine price and discount_price with semicolon if both exist
+                let combinedPrice;
+                if (row.discount_price && row.discount_price !== 0 && row.discount_price !== "0") {
+                    combinedPrice = `${row.price};${row.discount_price}`;
+                } else {
+                    combinedPrice = row.price;
+                }
+                
                 return {
                     id: row.id,
                     fullName: row.fullName?.fullName || row.fullName || "Brak danych",
@@ -184,7 +190,7 @@ const State = () => {
                     size: row.size?.Roz_Opis || row.size || "Brak danych",
                     barcode: row.barcode || "Brak danych",
                     symbol: row.symbol || "Brak danych",
-                    price: combinedPrice, // Set combined price
+                    price: combinedPrice, // Set combined price with semicolon
                 };
             });
             setTableData(formattedData.reverse());
@@ -224,7 +230,7 @@ const State = () => {
                 selectedGood.discount_price !== "" &&
                 Number(selectedGood.discount_price) !== 0
             ) {
-                price = `${selectedGood.price},${selectedGood.discount_price}`;
+                price = `${selectedGood.price}`
             } else {
                 price = selectedGood.price;
             }
@@ -594,43 +600,161 @@ const State = () => {
             return;
         }
 
-        // Generate ZPL for each selected row
-        const zplCommands = selectedIds.map((id) => {
+        // Generate ZPL labels for each selected row
+        const allLabels = [];
+        selectedIds.forEach((id) => {
             const row = tableData.find((item) => item.id === id);
             const jacketName = row?.fullName || "Brak nazwy";
             const size = row?.size || "Brak rozmiaru";
             const barcode = row?.barcode || "Brak kodu";
             const symbol = row?.symbol || "Brak symbolu";
-            const price = row?.price ? `${row.price} PLN` : "Brak ceny";
+            const rawPrice = row?.price || null;
 
-            return `
-            ^CI28
+            // Convert Polish characters for ZPL printer compatibility
+            const convertPolishChars = (text) => {
+                if (!text || typeof text !== 'string') {
+                    return text || '';
+                }
+                return text
+                    .replace(/ą/g, 'a')
+                    .replace(/ć/g, 'c')
+                    .replace(/ę/g, 'e')
+                    .replace(/ł/g, 'l')
+                    .replace(/ń/g, 'n')
+                    .replace(/ó/g, 'o')
+                    .replace(/ś/g, 's')
+                    .replace(/ź/g, 'z')
+                    .replace(/ż/g, 'z')
+                    .replace(/Ą/g, 'A')
+                    .replace(/Ć/g, 'C')
+                    .replace(/Ę/g, 'E')
+                    .replace(/Ł/g, 'L')
+                    .replace(/Ń/g, 'N')
+                    .replace(/Ó/g, 'O')
+                    .replace(/Ś/g, 'S')
+                    .replace(/Ź/g, 'Z')
+                    .replace(/Ż/g, 'Z');
+            };
+
+            const printableJacketName = convertPolishChars(String(jacketName));
+            const printableSize = convertPolishChars(String(size));
+            const printableSymbol = convertPolishChars(String(symbol));
+            
+            // Handle double prices (separated by semicolon) - create two separate labels
+            if (rawPrice && rawPrice.toString().includes(';')) {
+                // Split prices by semicolon and create two separate labels
+                const prices = rawPrice.toString().split(';');
+                if (prices.length === 2) {
+                    const price1 = convertPolishChars(prices[0].trim() + ' PLN');
+                    const price2 = convertPolishChars(prices[1].trim() + ' PLN');
+                    
+                    // Add two separate labels to the array
+                    allLabels.push(`^CI28
 ^XA
 ^PW700
 ^LL1000
 ^FO70,30
-^A0N,40,40
-^FD${jacketName}  ${size}^FS
+^A0N,35,35
+^FD${printableJacketName}  ${printableSize}^FS
 ^FO600,30
 ^A0N,30,30
-^FD${symbol}^FS
+^FD${printableSymbol}^FS
 ^FO70,80
 ^BY3,3,120
 ^BCN,120,Y,N,N
 ^FD${barcode}^FS
 ^FO230,250
 ^A0N,60,60
-^FD${price}^FS
-^XZ
-            `;
-        }).join('');
+^FD${price1}^FS
+^XZ`);
+                    
+                    allLabels.push(`^CI28
+^XA
+^PW700
+^LL1000
+^FO70,30
+^A0N,35,35
+^FD${printableJacketName}  ${printableSize}^FS
+^FO600,30
+^A0N,30,30
+^FD${printableSymbol}^FS
+^FO70,80
+^BY3,3,120
+^BCN,120,Y,N,N
+^FD${barcode}^FS
+^FO230,250
+^A0N,60,60
+^FD${price2}^FS
+^XZ`);
+                } else {
+                    // Single price - single label
+                    const price = rawPrice ? `${rawPrice} PLN` : "Brak ceny";
+                    const printablePrice = convertPolishChars(String(price));
+                    allLabels.push(`^CI28
+^XA
+^PW700
+^LL1000
+^FO70,30
+^A0N,35,35
+^FD${printableJacketName}  ${printableSize}^FS
+^FO600,30
+^A0N,30,30
+^FD${printableSymbol}^FS
+^FO70,80
+^BY3,3,120
+^BCN,120,Y,N,N
+^FD${barcode}^FS
+^FO230,250
+^A0N,60,60
+^FD${printablePrice}^FS
+^XZ`);
+                }
+            } else {
+                // Single price - single label
+                const price = rawPrice ? `${rawPrice} PLN` : "Brak ceny";
+                const printablePrice = convertPolishChars(String(price));
+                allLabels.push(`^CI28
+^XA
+^PW700
+^LL1000
+^FO70,30
+^A0N,35,35
+^FD${printableJacketName}  ${printableSize}^FS
+^FO600,30
+^A0N,30,30
+^FD${printableSymbol}^FS
+^FO70,80
+^BY3,3,120
+^BCN,120,Y,N,N
+^FD${barcode}^FS
+^FO230,250
+^A0N,60,60
+^FD${printablePrice}^FS
+^XZ`);
+            }
+        });
 
-        // Send ZPL commands to the printer
-        printer.send(
-            zplCommands,
-            () => setSelectedIds([]), // Clear selected IDs after printing
-            (err) => alert("Błąd drukowania: " + err)
-        );
+        // Send each label separately to the printer
+        let labelIndex = 0;
+        const sendNextLabel = () => {
+            if (labelIndex >= allLabels.length) {
+                setSelectedIds([]); // Clear selected IDs after all labels are printed
+                alert(`Wysłano ${allLabels.length} etykiet do drukarki!`);
+                return;
+            }
+            
+            printer.send(
+                allLabels[labelIndex],
+                () => {
+                    labelIndex++;
+                    // Small delay between labels to ensure proper processing
+                    setTimeout(sendNextLabel, 100);
+                },
+                (err) => alert(`Błąd drukowania etykiety ${labelIndex + 1}: ${err}`)
+            );
+        };
+        
+        sendNextLabel();
     };
 
     const handleLpFilterChange = (e) => {

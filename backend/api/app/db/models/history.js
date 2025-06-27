@@ -31,6 +31,10 @@ const historySchema = new mongoose.Schema({
     userloggedinId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User' // Ensure reference to the User model
+    },
+    transactionId: {
+        type: String, // Store transaction ID for grouping related operations
+        required: false // Not required for backwards compatibility
     }
 });
 

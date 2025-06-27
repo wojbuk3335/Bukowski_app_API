@@ -6,7 +6,7 @@ import { CSVLink } from 'react-csv'; // Install react-csv if not already install
 import jsPDF from 'jspdf'; // Install jspdf if not already installed
 import autoTable from 'jspdf-autotable'; // Install jspdf-autotable if not already installed
 import * as XLSX from 'xlsx'; // Install xlsx if not already installed
-import styles from '../State/State.module.css'; // Use the same styles as State.js
+import styles from '../Warehouse/Warehouse.module.css'; // Use the same styles as Warehouse.js
 
 const Sales = () => {
     const [sales, setSales] = useState([]); // Ensure sales is initialized as an empty array

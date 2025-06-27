@@ -7,6 +7,9 @@ function ZebraBarcodePrinter() {
   const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
+    // Printer detection is disabled to prevent errors when no printer is available
+    // Uncomment the code below if you need automatic printer detection
+    /*
     if (window.BrowserPrint) {
       window.BrowserPrint.getDefaultDevice("printer",
         (device) => setPrinter(device),
@@ -15,7 +18,23 @@ function ZebraBarcodePrinter() {
     } else {
       setError("Nie załadowano biblioteki BrowserPrint.");
     }
+    */
   }, []);
+
+  const checkPrinter = () => {
+    if (window.BrowserPrint) {
+      window.BrowserPrint.getDefaultDevice("printer",
+        (device) => {
+          setPrinter(device);
+          setSuccessMessage("Drukarka znaleziona!");
+          setError(null);
+        },
+        (err) => setError("Nie znaleziono drukarki: " + err)
+      );
+    } else {
+      setError("Nie załadowano biblioteki BrowserPrint.");
+    }
+  };
 
   const handlePrint = () => {
     if (!printer) return alert("Brak drukarki");
@@ -54,8 +73,15 @@ function ZebraBarcodePrinter() {
 
       <br /><br />
       <button
+        onClick={checkPrinter}
+        style={{ padding: "0.5rem 1rem", fontSize: "1rem", marginRight: "1rem" }}
+      >
+        Sprawdź drukarkę
+      </button>
+      <button
         onClick={handlePrint}
         style={{ padding: "0.5rem 1rem", fontSize: "1rem" }}
+        disabled={!printer}
       >
         Drukuj etykietę z kodem
       </button>

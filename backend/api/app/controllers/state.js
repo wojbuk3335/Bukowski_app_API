@@ -77,13 +77,24 @@ class StatesController {
             const checksum = calculateChecksum(barcode);
             barcode = barcode.substring(0, 12) + checksum; // Append checksum to barcode
 
-            // Calculate the price
-            const basePrice = goods.price || 0;
-            const discountPrice = goods.discount_price || 0;
-            const exception = goods.priceExceptions.find(
-                (ex) => ex.size && ex.size._id.toString() === size._id.toString()
-            );
-            const price = exception ? exception.value : basePrice;
+            // Handle price from frontend - support both single price and semicolon-separated prices
+            let finalPrice, finalDiscountPrice;
+            
+            if (req.body.price && typeof req.body.price === 'string' && req.body.price.includes(';')) {
+                // Price comes from frontend in format "price;discount_price"
+                const prices = req.body.price.split(';');
+                finalPrice = Number(prices[0]) || 0;
+                finalDiscountPrice = Number(prices[1]) || 0;
+            } else {
+                // Calculate the price normally from goods data
+                const basePrice = goods.price || 0;
+                const discountPrice = goods.discount_price || 0;
+                const exception = goods.priceExceptions.find(
+                    (ex) => ex.size && ex.size._id.toString() === size._id.toString()
+                );
+                finalPrice = exception ? exception.value : basePrice;
+                finalDiscountPrice = !exception && discountPrice && Number(discountPrice) !== 0 ? discountPrice : undefined;
+            }
 
             // Save both price and discount_price
             const state = new State({
@@ -94,8 +105,8 @@ class StatesController {
                 size: size._id,
                 barcode,
                 sellingPoint: user._id,
-                price: price,
-                discount_price: !exception && discountPrice && Number(discountPrice) !== 0 ? discountPrice : undefined
+                price: finalPrice,
+                discount_price: finalDiscountPrice
             });
 
             const newState = await state.save();
@@ -564,6 +575,77 @@ class StatesController {
             console.error('Error restoring state:', error);
             res.status(500).json({ 
                 message: 'Failed to restore state', 
+                error: error.message 
+            });
+        }
+    }
+
+    // Restore items silently (for transaction undo functionality without history logging)
+    async restoreStateSilent(req, res, next) {
+        try {
+            const { 
+                fullName, 
+                size, 
+                barcode, 
+                symbol, 
+                price, 
+                discount_price,
+                operationType 
+            } = req.body;
+
+            // Validate required fields
+            if (!fullName || !size || !barcode || !symbol) {
+                return res.status(400).json({ 
+                    message: 'Missing required fields: fullName, size, barcode, symbol' 
+                });
+            }
+
+            // Find the ObjectId for fullName in Goods
+            const goods = await Goods.findOne({ fullName: fullName });
+            if (!goods) {
+                return res.status(404).json({ message: `Goods not found for: ${fullName}` });
+            }
+
+            // Find the ObjectId for size in Size
+            const sizeObj = await Size.findOne({ Roz_Opis: size });
+            if (!sizeObj) {
+                return res.status(404).json({ message: `Size not found for: ${size}` });
+            }
+
+            // Find the ObjectId for sellingPoint in User by symbol
+            const User = require('../db/models/user');
+            const user = await User.findOne({ symbol: symbol });
+            if (!user) {
+                return res.status(404).json({ message: `User not found for symbol: ${symbol}` });
+            }
+
+            // Create new state entry
+            const state = new State({
+                _id: new mongoose.Types.ObjectId(),
+                fullName: goods._id,
+                date: new Date(),
+                plec: goods.Plec,
+                size: sizeObj._id,
+                barcode: barcode,
+                sellingPoint: user._id,
+                price: price || goods.price,
+                discount_price: discount_price || goods.discount_price
+            });
+
+            const newState = await state.save();
+
+            // NO HISTORY LOGGING - Silent restore for transaction cancellation
+
+            res.status(201).json({ 
+                message: 'State restored silently without history logging',
+                newState: newState,
+                operationType: operationType || 'restore-silent'
+            });
+
+        } catch (error) {
+            console.error('Error restoring state silently:', error);
+            res.status(500).json({ 
+                message: 'Failed to restore state silently', 
                 error: error.message 
             });
         }
