@@ -13,7 +13,7 @@ const transactionHistorySchema = new mongoose.Schema({
     operationType: {
         type: String,
         required: true,
-        enum: ['sprzedaz', 'przepisanie']
+        enum: ['sprzedaz', 'przepisanie', 'korekta']
     },
     selectedSellingPoint: {
         type: String
@@ -32,11 +32,12 @@ const transactionHistorySchema = new mongoose.Schema({
         discount_price: Number,
         processType: {
             type: String,
-            enum: ['sold', 'synchronized', 'transferred']
+            enum: ['sold', 'synchronized', 'transferred', 'corrected']
         },
         originalId: String,
         originalSymbol: String,
-        sellingPoint: String
+        sellingPoint: String,
+        originalTransactionId: String
     }],
     itemsCount: {
         type: Number,
@@ -50,6 +51,21 @@ const transactionHistorySchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    // New fields for correction functionality
+    isCorrection: {
+        type: Boolean,
+        default: false
+    },
+    hasCorrections: {
+        type: Boolean,
+        default: false
+    },
+    originalTransactionId: {
+        type: String
+    },
+    lastModified: {
+        type: String
     }
 });
 

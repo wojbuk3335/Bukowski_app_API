@@ -159,6 +159,91 @@ class HistoryController {
             });
         }
     }
+
+    deleteSingleItem = async (req, res, next) => {
+        try {
+            const { transactionId, itemDetails } = req.body;
+            
+            console.log('Attempting to delete single item from history');
+            console.log('TransactionId:', transactionId);
+            console.log('ItemDetails:', itemDetails);
+            
+            if (!itemDetails || !itemDetails.fullName || !itemDetails.size) {
+                return res.status(400).json({ 
+                    message: 'Invalid item details provided' 
+                });
+            }
+            
+            const productName = `${itemDetails.fullName} ${itemDetails.size}`;
+            
+            // First try to find by transactionId
+            let recordsToDelete = [];
+            
+            if (transactionId) {
+                recordsToDelete = await History.find({
+                    transactionId: transactionId,
+                    product: productName
+                });
+                
+                console.log(`Found ${recordsToDelete.length} records by transactionId for ${productName}`);
+            }
+            
+            // If no records found by transactionId, fall back to finding by product and recent timestamp
+            if (recordsToDelete.length === 0) {
+                // Look for records from the last hour
+                const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+                
+                recordsToDelete = await History.find({
+                    product: productName,
+                    timestamp: { $gte: oneHourAgo },
+                    $or: [
+                        { operation: 'Przesunięto ze stanu' },
+                        { operation: 'Przeniesiono w ramach stanu' },
+                        { operation: 'Usunięto ze stanu' },
+                        { operation: 'Dodano do stanu' },
+                        { operation: 'Sprzedano' },
+                        { operation: 'Przywrócono stan' }
+                    ]
+                }).limit(5); // Limit to 5 most recent records
+                
+                console.log(`Found ${recordsToDelete.length} recent records for ${productName}`);
+            }
+            
+            if (recordsToDelete.length === 0) {
+                return res.status(404).json({ 
+                    message: 'No history records found for this item',
+                    productName: productName,
+                    transactionId: transactionId
+                });
+            }
+            
+            // Delete the found records
+            const deleteResult = await History.deleteMany({
+                _id: { $in: recordsToDelete.map(r => r._id) }
+            });
+            
+            console.log(`Successfully deleted ${deleteResult.deletedCount} records for single item: ${productName}`);
+            
+            res.status(200).json({ 
+                message: 'Single item history records deleted successfully',
+                deletedCount: deleteResult.deletedCount,
+                productName: productName,
+                transactionId: transactionId,
+                deletedRecords: recordsToDelete.map(r => ({
+                    id: r._id,
+                    operation: r.operation,
+                    timestamp: r.timestamp
+                }))
+            });
+            
+        } catch (error) {
+            console.error('Error deleting single item from history:', error);
+            res.status(500).json({ 
+                message: 'Error deleting single item from history',
+                error: error.message 
+            });
+        }
+    }
 }
 
 module.exports = new HistoryController();

@@ -9,5 +9,7 @@ router.delete('/remove', historyController.removeAllHistory);
 router.delete('/by-transaction/:transactionId', historyController.deleteByTransactionId);
 //delete history records by transaction details (fallback method)
 router.post('/delete-by-details', historyController.deleteByTransactionDetails);
+//delete single item from history
+router.post('/delete-single-item', historyController.deleteSingleItem);
 
 module.exports = router;

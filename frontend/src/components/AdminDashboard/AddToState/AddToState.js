@@ -811,6 +811,147 @@ const AddToState = () => {
     }
   };
 
+  // Function to undo/cancel single item from transaction
+  const handleUndoSingleItem = async (transaction, itemToUndo) => {
+    if (!transaction || !itemToUndo || isTransactionInProgress) return;
+    
+    const confirmMessage = `Czy na pewno chcesz anulować tylko ten element?\n\n${itemToUndo.fullName} (${itemToUndo.size})\n\nElement zostanie przywrócony do magazynu, a transakcja zostanie zaktualizowana.`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    setIsTransactionInProgress(true);
+    
+    try {
+      // STEP 1: Restore the single item to its original state
+      let restoreData;
+      let targetSymbol;
+      
+      if (itemToUndo.processType === 'sold') {
+        // Blue items: restore to original selling point where they were sold from
+        targetSymbol = itemToUndo.originalSymbol || itemToUndo.sellingPoint;
+        
+        restoreData = {
+          fullName: itemToUndo.fullName,
+          size: itemToUndo.size,
+          barcode: itemToUndo.barcode,
+          symbol: targetSymbol,
+          price: itemToUndo.price,
+          operationType: 'restore-sale-single'
+        };
+        
+      } else if (itemToUndo.processType === 'synchronized') {
+        // Green items: restore to MAGAZYN
+        targetSymbol = 'MAGAZYN';
+        
+        restoreData = {
+          fullName: itemToUndo.fullName,
+          size: itemToUndo.size,
+          barcode: itemToUndo.barcode,
+          symbol: targetSymbol,
+          price: itemToUndo.price,
+          discount_price: itemToUndo.discount_price,
+          operationType: 'restore-synchronized-single'
+        };
+        
+      } else if (itemToUndo.processType === 'transferred') {
+        // Orange items: restore to MAGAZYN
+        targetSymbol = 'MAGAZYN';
+        
+        restoreData = {
+          fullName: itemToUndo.fullName,
+          size: itemToUndo.size,
+          barcode: itemToUndo.barcode,
+          symbol: targetSymbol,
+          price: itemToUndo.price,
+          discount_price: itemToUndo.discount_price,
+          operationType: 'restore-transfer-single'
+        };
+      }
+      
+      if (restoreData) {
+        await axios.post('/api/state/restore-silent', restoreData);
+      }
+      
+      // STEP 2: Create correction transaction for tracking
+      const correctionTransactionId = `correction-${Date.now()}`;
+      const correctionTransaction = {
+        transactionId: correctionTransactionId,
+        timestamp: new Date().toLocaleString('pl-PL'),
+        operationType: 'korekta',
+        selectedSellingPoint: transaction.selectedSellingPoint,
+        targetSellingPoint: transaction.targetSellingPoint,
+        processedItems: [{
+          ...itemToUndo,
+          processType: 'corrected', // Mark as corrected
+          originalTransactionId: transaction.transactionId
+        }],
+        itemsCount: 1,
+        isCorrection: true,
+        originalTransactionId: transaction.transactionId
+      };
+      
+      await saveTransactionToDatabase(correctionTransaction);
+      
+      // STEP 3: Update original transaction - remove the undone item
+      const updatedProcessedItems = transaction.processedItems.filter(item => 
+        !(item.fullName === itemToUndo.fullName && 
+          item.size === itemToUndo.size && 
+          item.barcode === itemToUndo.barcode &&
+          item.processType === itemToUndo.processType)
+      );
+      
+      const updatedTransaction = {
+        ...transaction,
+        processedItems: updatedProcessedItems,
+        itemsCount: updatedProcessedItems.length,
+        lastModified: new Date().toLocaleString('pl-PL'),
+        hasCorrections: true
+      };
+      
+      // Update the transaction in database
+      await axios.put(`/api/transaction-history/${transaction.transactionId}`, updatedTransaction);
+      
+      // STEP 4: Delete specific history record for this item
+      try {
+        const deleteHistoryPayload = {
+          transactionId: transaction.transactionId,
+          itemDetails: {
+            fullName: itemToUndo.fullName,
+            size: itemToUndo.size,
+            barcode: itemToUndo.barcode,
+            processType: itemToUndo.processType
+          }
+        };
+        
+        await axios.post('/api/history/delete-single-item', deleteHistoryPayload);
+      } catch (historyError) {
+        console.error('Błąd podczas usuwania rekordu historii dla pojedynczego elementu:', historyError);
+        // Don't fail the entire operation if history deletion fails
+      }
+      
+      // STEP 5: Refresh data to reflect the changes
+      const salesResponse = await axios.get('/api/sales/get-all-sales');
+      setSalesData(salesResponse.data);
+      
+      const stateResponse = await axios.get('/api/state');
+      const magazynData = stateResponse.data.filter(item => item.symbol === 'MAGAZYN');
+      setMagazynItems(magazynData);
+      
+      // Reload transaction history
+      await loadTransactionHistory();
+      
+      alert(`Element "${itemToUndo.fullName} (${itemToUndo.size})" został anulowany i przywrócony do magazynu!\n\nUtworzono transakcję korekcyjną: ${correctionTransactionId}`);
+      
+    } catch (error) {
+      console.error('Error undoing single item:', error);
+      alert('Błąd podczas anulowania elementu. Spróbuj ponownie.');
+    } finally {
+      setIsTransactionInProgress(false);
+    }
+  };
+
   // Function to clear persistent storage and old transactions
   const clearPersistentStorage = async () => {
     try {
@@ -1484,47 +1625,116 @@ const AddToState = () => {
                         marginBottom: '10px'
                       }}>
                         <div>
-                          <strong style={{ color: '#ffc107' }}>
+                          <strong style={{ color: transaction.isCorrection ? '#28a745' : '#ffc107' }}>
                             #{index + 1} - {new Date(transaction.timestamp).toLocaleString('pl-PL')}
+                            {transaction.isCorrection && (
+                              <span style={{ 
+                                marginLeft: '8px', 
+                                backgroundColor: '#28a745', 
+                                color: 'white', 
+                                padding: '2px 6px', 
+                                borderRadius: '3px', 
+                                fontSize: '10px' 
+                              }}>
+                                KOREKTA
+                              </span>
+                            )}
+                            {transaction.hasCorrections && (
+                              <span style={{ 
+                                marginLeft: '8px', 
+                                backgroundColor: '#ffc107', 
+                                color: 'black', 
+                                padding: '2px 6px', 
+                                borderRadius: '3px', 
+                                fontSize: '10px' 
+                              }}>
+                                ZMIENIONA
+                              </span>
+                            )}
                           </strong>
                           <div style={{ color: '#ccc', fontSize: '14px', marginTop: '5px' }}>
-                            Typ: {transaction.operationType === 'sprzedaz' ? 'Sprzedaż' : 'Przepisanie'} | 
+                            Typ: {
+                              transaction.operationType === 'sprzedaz' ? 'Sprzedaż' : 
+                              transaction.operationType === 'przepisanie' ? 'Przepisanie' :
+                              transaction.operationType === 'korekta' ? 'Korekta' :
+                              'Nieznane'
+                            } | 
                             Elementów: {transaction.itemsCount} | 
                             Punkt: {transaction.selectedSellingPoint || transaction.targetSellingPoint}
+                            {transaction.isCorrection && transaction.originalTransactionId && (
+                              <div style={{ color: '#28a745', fontSize: '12px', marginTop: '2px' }}>
+                                Korekta dla transakcji: {transaction.originalTransactionId}
+                              </div>
+                            )}
+                            {transaction.lastModified && (
+                              <div style={{ color: '#ffc107', fontSize: '12px', marginTop: '2px' }}>
+                                Ostatnia modyfikacja: {transaction.lastModified}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            handleUndoTransaction(transaction);
-                            setShowHistoryModal(false);
-                          }}
-                          className="btn btn-danger btn-sm"
-                          disabled={isTransactionInProgress}
-                        >
-                          {isTransactionInProgress ? 'Anulowanie...' : 'Anuluj'}
-                        </button>
+                        {!transaction.isCorrection && (
+                          <button
+                            onClick={() => {
+                              handleUndoTransaction(transaction);
+                              setShowHistoryModal(false);
+                            }}
+                            className="btn btn-danger btn-sm"
+                            disabled={isTransactionInProgress}
+                            title="Anuluj całą transakcję"
+                          >
+                            {isTransactionInProgress ? 'Anulowanie...' : 'Anuluj całość'}
+                          </button>
+                        )}
                       </div>
                       {transaction.processedItems && transaction.processedItems.length > 0 && (
                         <div style={{ fontSize: '12px', color: '#ffc107' }}>
                           <strong>Przetworzone elementy:</strong>
-                          <div style={{ marginTop: '5px', maxHeight: '100px', overflowY: 'auto' }}>
-                            {transaction.processedItems.slice(0, 5).map((item, idx) => (
+                          <div style={{ marginTop: '5px', maxHeight: '200px', overflowY: 'auto' }}>
+                            {transaction.processedItems.map((item, idx) => (
                               <div key={idx} style={{ 
-                                padding: '2px 0', 
-                                borderBottom: idx < 4 ? '1px solid #333' : 'none' 
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '4px 0', 
+                                borderBottom: idx < transaction.processedItems.length - 1 ? '1px solid #333' : 'none'
                               }}>
-                                • {item.fullName} ({item.size}) - {
-                                  item.processType === 'sold' ? 'Sprzedano' :
-                                  item.processType === 'synchronized' ? 'Zsynchronizowano' :
-                                  'Przeniesiono'
-                                }
+                                <div style={{ flex: 1 }}>
+                                  • {item.fullName} ({item.size}) - {
+                                    item.processType === 'sold' ? 'Sprzedano' :
+                                    item.processType === 'synchronized' ? 'Zsynchronizowano' :
+                                    item.processType === 'transferred' ? 'Przeniesiono' :
+                                    item.processType === 'corrected' ? 'Anulowano (korekta)' :
+                                    'Nieznane'
+                                  }
+                                  {item.processType === 'corrected' && (
+                                    <span style={{ color: '#28a745', marginLeft: '5px', fontSize: '10px' }}>
+                                      ✓ PRZYWRÓCONO
+                                    </span>
+                                  )}
+                                </div>
+                                {item.processType !== 'corrected' && !transaction.isCorrection && (
+                                  <button
+                                    onClick={() => handleUndoSingleItem(transaction, item)}
+                                    disabled={isTransactionInProgress}
+                                    style={{
+                                      backgroundColor: '#dc3545',
+                                      border: 'none',
+                                      borderRadius: '3px',
+                                      color: 'white',
+                                      padding: '2px 6px',
+                                      fontSize: '10px',
+                                      cursor: isTransactionInProgress ? 'not-allowed' : 'pointer',
+                                      marginLeft: '8px',
+                                      opacity: isTransactionInProgress ? 0.6 : 1
+                                    }}
+                                    title={`Anuluj tylko ten element: ${item.fullName} (${item.size})`}
+                                  >
+                                    {isTransactionInProgress ? '...' : 'Anuluj'}
+                                  </button>
+                                )}
                               </div>
                             ))}
-                            {transaction.processedItems.length > 5 && (
-                              <div style={{ padding: '2px 0', fontStyle: 'italic', color: '#aaa' }}>
-                                ... i {transaction.processedItems.length - 5} więcej
-                              </div>
-                            )}
                           </div>
                         </div>
                       )}

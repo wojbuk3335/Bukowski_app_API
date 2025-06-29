@@ -3,6 +3,7 @@ const router = express.Router();
 const {
     getTransactionHistory,
     saveTransaction,
+    updateTransaction,
     deactivateTransaction,
     getTransactionById,
     clearOldTransactions
@@ -16,6 +17,9 @@ router.post('/', saveTransaction);
 
 // Get a specific transaction by ID
 router.get('/:transactionId', getTransactionById);
+
+// Update a transaction
+router.put('/:transactionId', updateTransaction);
 
 // Deactivate a transaction (soft delete)
 router.delete('/:transactionId', deactivateTransaction);

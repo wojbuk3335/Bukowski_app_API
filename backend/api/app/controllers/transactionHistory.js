@@ -124,9 +124,36 @@ const clearOldTransactions = async (req, res) => {
     }
 };
 
+// Update a transaction
+const updateTransaction = async (req, res) => {
+    try {
+        const { transactionId } = req.params;
+        const updateData = req.body;
+        
+        const transaction = await TransactionHistory.findOneAndUpdate(
+            { transactionId, isActive: true },
+            updateData,
+            { new: true }
+        );
+
+        if (!transaction) {
+            return res.status(404).json({ error: 'Transaction not found or already deactivated' });
+        }
+
+        res.status(200).json({
+            message: 'Transaction updated successfully',
+            transaction
+        });
+    } catch (error) {
+        console.error('Error updating transaction:', error);
+        res.status(500).json({ error: 'Failed to update transaction' });
+    }
+};
+
 module.exports = {
     getTransactionHistory,
     saveTransaction,
+    updateTransaction,
     deactivateTransaction,
     getTransactionById,
     clearOldTransactions
