@@ -173,6 +173,7 @@ const State = () => {
         try {
             const response = await axios.get('/api/state');
             console.log('Raw response from backend:', response.data[0]); // Debug first item
+            console.log('Selected selling point:', selectedSellingPoint); // Debug selected selling point
             const formattedData = response.data.map((row) => {
                 // Combine price and discount_price with semicolon if both exist
                 let combinedPrice;
@@ -182,7 +183,7 @@ const State = () => {
                     combinedPrice = row.price;
                 }
                 
-                return {
+                const formattedRow = {
                     id: row.id,
                     fullName: row.fullName?.fullName || row.fullName || "Brak danych",
                     plec: row.Plec || "Brak danych",
@@ -192,7 +193,11 @@ const State = () => {
                     symbol: row.symbol || "Brak danych",
                     price: combinedPrice, // Set combined price with semicolon
                 };
+                
+                console.log('Formatted row symbol:', formattedRow.symbol); // Debug each row symbol
+                return formattedRow;
             });
+            console.log('All formatted data:', formattedData); // Debug all data
             setTableData(formattedData.reverse());
         } catch (error) {
             console.error('Error fetching table data:', error);
@@ -280,50 +285,64 @@ const State = () => {
     }, []);
 
     useEffect(() => {
-        // Filter table data based on search query
-        const filteredData = tableData.filter((row) =>
-            Object.values(row).some((value) =>
-                value?.toString().toLowerCase().includes(searchQuery.toLowerCase())
-            )
-        );
-        setFilteredTableData(filteredData);
-    }, [searchQuery, tableData]); // Update filtered data when searchQuery or tableData changes
+        // Consolidate all filtering logic into one useEffect to avoid conflicts
+        let filteredData = [...tableData];
+        
+        console.log('=== FILTERING DEBUG ===');
+        console.log('Original tableData length:', tableData.length);
+        console.log('Selected selling point:', selectedSellingPoint);
 
-    useEffect(() => {
-        // Filter table data based on the selected filters
-        let filteredData = tableData;
+        // Filter by selected selling point (most important filter)
+        if (selectedSellingPoint) {
+            const beforeFilter = filteredData.length;
+            filteredData = filteredData.filter((row) => {
+                const match = row.symbol?.trim().toLowerCase() === selectedSellingPoint.trim().toLowerCase();
+                if (!match) {
+                    console.log(`Row filtered out - symbol: "${row.symbol}", selected: "${selectedSellingPoint}"`);
+                }
+                return match;
+            });
+            console.log(`After selling point filter: ${beforeFilter} -> ${filteredData.length}`);
+        }
 
+        // Filter by search query
+        if (searchQuery) {
+            filteredData = filteredData.filter((row) =>
+                Object.values(row).some((value) =>
+                    value?.toString().toLowerCase().includes(searchQuery.toLowerCase())
+                )
+            );
+        }
+
+        // Filter by name
         if (nameFilter) {
             filteredData = filteredData.filter((row) =>
                 row.fullName.toLowerCase().includes(nameFilter.toLowerCase())
             );
         }
 
+        // Filter by size
         if (sizeFilter) {
             filteredData = filteredData.filter((row) =>
                 row.size.toLowerCase().includes(sizeFilter.toLowerCase())
             );
         }
 
+        // Filter by date
         if (dateFilter) {
             filteredData = filteredData.filter((row) =>
                 new Date(row.date).toLocaleDateString() === new Date(dateFilter).toLocaleDateString()
             );
         }
 
+        // Filter by selling point filter (different from selectedSellingPoint)
         if (sellingPointFilter) {
             filteredData = filteredData.filter((row) =>
-                row.sellingPoint.toLowerCase().includes(sellingPointFilter.toLowerCase())
+                row.symbol.toLowerCase().includes(sellingPointFilter.toLowerCase())
             );
         }
 
-        setFilteredTableData(filteredData);
-    }, [nameFilter, sizeFilter, dateFilter, sellingPointFilter, tableData]); // Update filtered data when filters or tableData change
-
-    useEffect(() => {
-        // Apply column filters to the table data
-        let filteredData = [...tableData];
-
+        // Apply column filters
         if (columnFilters.lp) {
             filteredData = filteredData.filter((row, index) =>
                 (index + 1).toString().includes(columnFilters.lp)
@@ -348,13 +367,7 @@ const State = () => {
             );
         }
 
-        setFilteredTableData(filteredData);
-    }, [tableData, columnFilters]);
-
-    useEffect(() => {
-        // Filter table data based on the selected date range
-        let filteredData = tableData;
-
+        // Filter by date range
         if (dateRange[0].startDate && dateRange[0].endDate) {
             filteredData = filteredData.filter((row) => {
                 const rowDate = new Date(row.date);
@@ -362,8 +375,20 @@ const State = () => {
             });
         }
 
+        console.log('Final filtered data length:', filteredData.length);
+        console.log('Final filtered data:', filteredData);
         setFilteredTableData(filteredData);
-    }, [dateRange, tableData]); // Update filtered data when dateRange or tableData changes
+    }, [
+        tableData, 
+        selectedSellingPoint, 
+        searchQuery, 
+        nameFilter, 
+        sizeFilter, 
+        dateFilter, 
+        sellingPointFilter, 
+        columnFilters, 
+        dateRange
+    ]);
 
     const deleteRow = async (id) => {
         if (!id) {

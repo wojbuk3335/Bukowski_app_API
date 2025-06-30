@@ -69,7 +69,7 @@ const Users = () => {
 
     const handleRoleChange = (e) => {
         const { value } = e.target;
-        setNewUser({ ...newUser, role: value, sellingPoint: value === 'admin' ? '' : newUser.sellingPoint });
+        setNewUser({ ...newUser, role: value, sellingPoint: (value === 'admin' || value === 'magazyn') ? '' : newUser.sellingPoint });
     };
 
     const handleEditRoleChange = (e) => {
@@ -77,7 +77,7 @@ const Users = () => {
         setEditUser({
             ...editUser,
             role: value,
-            sellingPoint: value === 'admin' ? null : editUser.sellingPoint
+            sellingPoint: (value === 'admin' || value === 'magazyn') ? null : editUser.sellingPoint
         });
     };
 
@@ -99,8 +99,8 @@ const Users = () => {
     };
 
     const handleAddUser = () => {
-        // Ensure sellingPoint is an empty string for administrators
-        if (newUser.role === 'admin') {
+        // Ensure sellingPoint is an empty string for administrators and magazyn
+        if (newUser.role === 'admin' || newUser.role === 'magazyn') {
             newUser.sellingPoint = '';
         }
 
@@ -113,7 +113,7 @@ const Users = () => {
         // Check if email, symbol, or sellingPoint already exists (case-insensitive)
         const emailExists = users.some(user => user.email.toLowerCase() === newUser.email.toLowerCase());
         const symbolExists = users.some(user => user.symbol.toLowerCase() === newUser.symbol.toLowerCase());
-        const sellingPointExists = users.some(user => user.sellingPoint && newUser.sellingPoint && user.sellingPoint.toLowerCase() === newUser.sellingPoint.toLowerCase() && newUser.role !== 'admin');
+        const sellingPointExists = users.some(user => user.sellingPoint && newUser.sellingPoint && user.sellingPoint.toLowerCase() === newUser.sellingPoint.toLowerCase() && newUser.role !== 'admin' && newUser.role !== 'magazyn');
 
         if (emailExists) {
             alert('Użytkownik z tym adresem email już istnieje.');
@@ -191,8 +191,8 @@ const Users = () => {
     };
 
     const handleUpdateUser = () => {
-        // Ensure sellingPoint is an empty string for administrators
-        if (editUser.role === 'admin') {
+        // Ensure sellingPoint is an empty string for administrators and magazyn
+        if (editUser.role === 'admin' || editUser.role === 'magazyn') {
             editUser.sellingPoint = '';
         }
 
@@ -205,7 +205,7 @@ const Users = () => {
         // Check if email or symbol already exists (case-insensitive)
         const emailExists = users.some(user => user.email.toLowerCase() === editUser.email.toLowerCase() && user._id !== editUser._id);
         const symbolExists = users.some(user => user.symbol.toLowerCase() === editUser.symbol.toLowerCase() && user._id !== editUser._id);
-        const sellingPointExists = users.some(user => user.sellingPoint && editUser.sellingPoint && user.sellingPoint.toLowerCase() === editUser.sellingPoint.toLowerCase() && user._id !== editUser._id && editUser.role !== 'admin');
+        const sellingPointExists = users.some(user => user.sellingPoint && editUser.sellingPoint && user.sellingPoint.toLowerCase() === editUser.sellingPoint.toLowerCase() && user._id !== editUser._id && editUser.role !== 'admin' && editUser.role !== 'magazyn');
 
         if (emailExists) {
             alert('Użytkownik z tym adresem email już istnieje.');
@@ -217,7 +217,7 @@ const Users = () => {
             return;
         }
 
-        if (sellingPointExists && editUser.role !== 'admin') {
+        if (sellingPointExists && editUser.role !== 'admin' && editUser.role !== 'magazyn') {
             alert('Użytkownik z tym punktem sprzedaży już istnieje.');
             return;
         }
@@ -411,7 +411,7 @@ const Users = () => {
                                 <td className={styles.tableCell} data-label="ID">{user._id}</td>
                                 <td className={styles.tableCell} data-label="Email">{user.email}</td>
                                 <td className={styles.tableCell} data-label="Symbol">{user.symbol}</td>
-                                <td className={styles.tableCell} data-label="Rola">{user.role === 'admin' ? 'Administrator' : 'Użytkownik'}</td>
+                                <td className={styles.tableCell} data-label="Rola">{user.role === 'admin' ? 'Administrator' : user.role === 'magazyn' ? 'Magazyn' : 'Użytkownik'}</td>
                                 <td className={`${styles.tableCell} ${styles.sellingPointColumn}`} data-label="Punkt sprzedaży">
                                     {user.sellingPoint || '\u00A0'}
                                 </td>
@@ -488,6 +488,7 @@ const Users = () => {
                         >
                             <option value="user">Użytkownik</option>
                             <option value="admin">Administrator</option>
+                            <option value="magazyn">Magazyn</option>
                         </Input>
                     </FormGroup>
                     {newUser.role === 'user' && (
@@ -580,6 +581,7 @@ const Users = () => {
                         >
                             <option value="user">Użytkownik</option>
                             <option value="admin">Administrator</option>
+                            <option value="magazyn">Magazyn</option>
                         </Input>
                     </FormGroup>
                     {editUser.role === 'user' && (

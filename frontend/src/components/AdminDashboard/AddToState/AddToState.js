@@ -4,6 +4,7 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { pl } from 'date-fns/locale';
 import styles from '../Warehouse/Warehouse.module.css'; // Use the same styles as Warehouse.js
+import TransactionReportModal from './TransactionReportModal';
 
 // Register Polish locale
 registerLocale('pl', pl);
@@ -16,6 +17,7 @@ const AddToState = () => {
   const [selectedSellingPoint, setSelectedSellingPoint] = useState('');
   const [sellingPoints, setSellingPoints] = useState([]);
   const [usersData, setUsersData] = useState([]); // Store users data for symbol lookup
+  const [magazynSymbol, setMagazynSymbol] = useState('MAGAZYN'); // Dynamic magazyn symbol
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synchronizedItems, setSynchronizedItems] = useState(new Set());
@@ -56,6 +58,32 @@ const AddToState = () => {
   const [printer, setPrinter] = useState(null); // Store printer instance
   const [printerError, setPrinterError] = useState(null); // Track printer errors
   
+  // Transaction report states
+  const [showTransactionReport, setShowTransactionReport] = useState(false);
+  const [selectedTransactionForReport, setSelectedTransactionForReport] = useState(null);
+  
+  // State for showing/hiding transaction details
+  const [expandedTransactions, setExpandedTransactions] = useState(new Set());
+  
+  // Modal states for alerts
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationModal, setNotificationModal] = useState({
+    title: '',
+    message: '',
+    type: 'info' // 'info', 'success', 'warning', 'error'
+  });
+  
+  // Modal states for confirmation dialogs
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    title: '',
+    message: '',
+    onConfirm: null,
+    onCancel: null,
+    confirmText: 'Tak',
+    cancelText: 'Anuluj'
+  });
+  
   // Add CSS for DatePicker responsiveness and history scrollbar
   useEffect(() => {
     const style = document.createElement('style');
@@ -77,15 +105,15 @@ const AddToState = () => {
         width: 8px;
       }
       .history-scrollable::-webkit-scrollbar-track {
-        background: #333;
+        background: #000;
         border-radius: 4px;
       }
       .history-scrollable::-webkit-scrollbar-thumb {
-        background: #666;
+        background: #000;
         border-radius: 4px;
       }
       .history-scrollable::-webkit-scrollbar-thumb:hover {
-        background: #888;
+        background: #000;
       }
       
       /* History search input focus effect */
@@ -100,15 +128,15 @@ const AddToState = () => {
         width: 8px;
       }
       .magazyn-scrollable::-webkit-scrollbar-track {
-        background: #f1f1f1;
+        background: #000;
         border-radius: 4px;
       }
       .magazyn-scrollable::-webkit-scrollbar-thumb {
-        background: #888;
+        background: #000;
         border-radius: 4px;
       }
       .magazyn-scrollable::-webkit-scrollbar-thumb:hover {
-        background: #555;
+        background: #000;
       }
       
       /* Magazyn search input focus effect */
@@ -205,9 +233,12 @@ const AddToState = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Get current magazyn symbol
+        const currentMagazynSymbol = await getMagazynSymbol();
+        
         // Fetch magazyn items
         const stateResponse = await axios.get('/api/state');
-        const magazynDataRaw = stateResponse.data.filter(item => item.symbol === 'MAGAZYN');
+        const magazynDataRaw = stateResponse.data.filter(item => item.symbol === currentMagazynSymbol);
         
         // Process magazyn data to combine prices with semicolon separator
         const magazynData = magazynDataRaw.map(item => ({
@@ -234,7 +265,7 @@ const AddToState = () => {
           
           uniqueSellingPointsFromUsers = [...new Set(
             usersDataArray
-              .filter(user => user && user.sellingPoint && user.sellingPoint !== 'MAGAZYN' && user.sellingPoint !== 'Magazyn') // Exclude MAGAZYN variations
+              .filter(user => user && user.sellingPoint && user.sellingPoint !== currentMagazynSymbol && user.sellingPoint !== 'Magazyn') // Exclude current magazyn symbol and Magazyn
               .map(user => user.sellingPoint)
           )];
         } catch (userError) {
@@ -247,7 +278,7 @@ const AddToState = () => {
         
         // Combine and deduplicate selling points from both sources
         const allSellingPoints = [...new Set([...uniqueSellingPointsFromUsers, ...uniqueSellingPointsFromSales])]
-          .filter(point => point && point !== 'MAGAZYN'); // Additional filter to exclude MAGAZYN
+          .filter(point => point && point !== currentMagazynSymbol); // Additional filter to exclude current magazyn symbol
         
         setSellingPoints(allSellingPoints);
         
@@ -474,7 +505,7 @@ const AddToState = () => {
               discount_price: itemDiscountPrice,
               processType: 'synchronized',
               originalId: id,
-              originalSymbol: 'MAGAZYN' // Items came from MAGAZYN originally
+              originalSymbol: magazynSymbol // Items came from current magazyn symbol originally
             });
           }
         });
@@ -506,7 +537,7 @@ const AddToState = () => {
             discount_price: itemDiscountPrice,
             processType: 'transferred',
             originalId: id,
-            originalSymbol: 'MAGAZYN' // Items came from MAGAZYN originally
+            originalSymbol: magazynSymbol // Items came from current magazyn symbol originally
           });
         }
       });
@@ -578,16 +609,51 @@ const AddToState = () => {
         }
       });
 
-      // Process green items (transfer within same selling point)
+      // Process green items (transfer within same selling point or to target point)
       const greenPromises = Array.from(greenItems).map(async (itemId) => {
         try {
-          await axios.delete(`/api/state/${itemId}`, {
-            headers: {
-              'target-symbol': actualTargetSymbol, // Same symbol (M → M)
-              'operation-type': 'transfer-same',
-              'transactionid': transactionId // Changed from transaction-id to transactionid
+          // For "przepisanie" mode, we need to restore items to target selling point
+          if (operationType === 'przepisanie') {
+            // First, get the item data before deleting it
+            const magazynItem = magazynItems.find(item => item.id === itemId);
+            if (!magazynItem) {
+              console.warn(`Magazyn item ${itemId} not found for green transfer`);
+              return;
             }
-          });
+
+            // Step 1: Delete from MAGAZYN
+            await axios.delete(`/api/state/${itemId}`, {
+              headers: {
+                'target-symbol': actualTargetSymbol,
+                'operation-type': 'transfer-from-magazyn', // Changed for przepisanie mode
+                'transactionid': transactionId
+              }
+            });
+
+            // Step 2: Restore to target selling point
+            const restoreData = {
+              fullName: magazynItem.fullName.fullName || magazynItem.fullName,
+              size: magazynItem.size.Roz_Opis || magazynItem.size,
+              barcode: magazynItem.barcode,
+              symbol: actualTargetSymbol,
+              price: magazynItem.price,
+              discount_price: magazynItem.discount_price,
+              operationType: 'transfer-green-to-target'
+            };
+
+            await axios.post('/api/state/restore-silent', restoreData);
+            console.log(`Successfully transferred green item ${itemId} from MAGAZYN to ${actualTargetSymbol} (przepisanie mode)`);
+
+          } else {
+            // For "sprzedaz" mode, use original logic (delete only - simulates sale)
+            await axios.delete(`/api/state/${itemId}`, {
+              headers: {
+                'target-symbol': actualTargetSymbol, // Same symbol (M → M)
+                'operation-type': 'transfer-same',
+                'transactionid': transactionId
+              }
+            });
+          }
         } catch (error) {
           console.error(`Error transferring green item ${itemId}:`, error);
           if (error.response && error.response.status === 404) {
@@ -599,16 +665,39 @@ const AddToState = () => {
         }
       });
 
-      // Process orange items (transfer from MAGAZYN)
+      // Process orange items (transfer from MAGAZYN to target/selling point)
       const orangePromises = Array.from(orangeItems).map(async (itemId) => {
         try {
+          // First, get the item data before deleting it
+          const magazynItem = magazynItems.find(item => item.id === itemId);
+          if (!magazynItem) {
+            console.warn(`Magazyn item ${itemId} not found`);
+            return;
+          }
+
+          // Step 1: Delete from MAGAZYN
           await axios.delete(`/api/state/${itemId}`, {
             headers: {
               'target-symbol': actualTargetSymbol, // MAGAZYN → targetSymbol
               'operation-type': 'transfer-from-magazyn',
-              'transactionid': transactionId // Changed from transaction-id to transactionid
+              'transactionid': transactionId
             }
           });
+
+          // Step 2: Restore to target selling point (for both sprzedaz and przepisanie)
+          const restoreData = {
+            fullName: magazynItem.fullName.fullName || magazynItem.fullName,
+            size: magazynItem.size.Roz_Opis || magazynItem.size,
+            barcode: magazynItem.barcode,
+            symbol: actualTargetSymbol,
+            price: magazynItem.price,
+            discount_price: magazynItem.discount_price,
+            operationType: `transfer-orange-${operationType}` // transfer-orange-sprzedaz or transfer-orange-przepisanie
+          };
+
+          await axios.post('/api/state/restore-silent', restoreData);
+          console.log(`Successfully transferred orange item ${itemId} from MAGAZYN to ${actualTargetSymbol} (${operationType} mode)`);
+
         } catch (error) {
           console.error(`Error transferring orange item ${itemId}:`, error);
           if (error.response && error.response.status === 404) {
@@ -643,12 +732,12 @@ const AddToState = () => {
 
       // Refresh magazyn data
       const stateResponse = await axios.get('/api/state');
-      const magazynData = stateResponse.data.filter(item => item.symbol === 'MAGAZYN');
+      const magazynData = stateResponse.data.filter(item => item.symbol === magazynSymbol);
       setMagazynItems(magazynData);
-      alert('Transakcja została zapisana pomyślnie!');
+      showNotification('Sukces!', 'Transakcja została zapisana pomyślnie!', 'success');
     } catch (error) {
       console.error('Error saving items:', error);
-      alert('Błąd podczas zapisywania. Spróbuj ponownie.');
+      showNotification('Błąd!', 'Błąd podczas zapisywania. Spróbuj ponownie.', 'error');
     } finally {
       setIsTransactionInProgress(false);
     }
@@ -690,14 +779,207 @@ const AddToState = () => {
     }
   };
 
+  // Function to show notification modal instead of alert
+  const showNotification = (title, message, type = 'info') => {
+    setNotificationModal({ title, message, type });
+    setShowNotificationModal(true);
+  };
+
+  // Function to show confirmation modal instead of window.confirm
+  const showConfirmation = (title, message, onConfirm, onCancel = null, confirmText = 'Tak', cancelText = 'Anuluj') => {
+    setConfirmModal({ 
+      title, 
+      message, 
+      onConfirm, 
+      onCancel: onCancel || (() => setShowConfirmModal(false)), 
+      confirmText, 
+      cancelText 
+    });
+    setShowConfirmModal(true);
+  };
+
+  // Function to delete all transaction history with confirmation
+  const handleDeleteAllHistory = async () => {
+    const firstMessage = "⚠️ UWAGA! ⚠️\n\n" +
+      "Czy na pewno chcesz usunąć CAŁĄ historię transakcji?\n\n" +
+      "Ta operacja:\n" +
+      "• Usunie wszystkie zapisane transakcje z bazy danych\n" +
+      "• Nie przywróci żadnych produktów do magazynu\n" +
+      "• Jest NIEODWRACALNA\n\n" +
+      "Kliknij OK, aby kontynuować, lub Anuluj, aby przerwać.";
+
+    showConfirmation(
+      '⚠️ UWAGA! ⚠️',
+      firstMessage,
+      () => {
+        setShowConfirmModal(false);
+        showSecondDeleteConfirmation();
+      },
+      () => setShowConfirmModal(false),
+      'Kontynuuj',
+      'Anuluj'
+    );
+  };
+
+  const showSecondDeleteConfirmation = () => {
+    const secondMessage = " OSTATECZNE OSTRZEŻENIE! \n\n" +
+      "To jest Twoja ostatnia szansa!\n\n" +
+      "Usunięcie całej historii transakcji spowoduje:\n" +
+      "• CAŁKOWITĄ UTRATĘ wszystkich zapisanych transakcji\n" +
+      "• Brak możliwości anulowania pojedynczych transakcji\n" +
+      "• Utratę raportów i statystyk\n\n" +
+      "CZY JESTEŚ ABSOLUTNIE PEWIEN?\n\n" +
+      "Kliknij OK, aby BEZPOWROTNIE usunąć całą historię.";
+
+    showConfirmation(
+      ' OSTATECZNE OSTRZEŻENIE! ',
+      secondMessage,
+      () => {
+        setShowConfirmModal(false);
+        performDeleteAllHistory();
+      },
+      () => setShowConfirmModal(false),
+      'USUŃ WSZYSTKO',
+      'Anuluj'
+    );
+  };
+
+  const performDeleteAllHistory = async () => {
+
+    setIsTransactionInProgress(true);
+    
+    try {
+      // Get all transactions first
+      const response = await axios.get('/api/transaction-history');
+      const allTransactions = response.data || [];
+      
+      if (allTransactions.length === 0) {
+        showNotification('Informacja', 'Brak transakcji do usunięcia.', 'info');
+        return;
+      }
+
+      // Delete each transaction individually
+      let deletedCount = 0;
+      const errors = [];
+
+      for (const transaction of allTransactions) {
+        try {
+          await axios.delete(`/api/transaction-history/${transaction.transactionId}`);
+          deletedCount++;
+        } catch (error) {
+          console.error(`Error deleting transaction ${transaction.transactionId}:`, error);
+          errors.push(transaction.transactionId);
+        }
+      }
+
+      // Clear local state
+      setTransactionHistory([]);
+      
+      // Close modal
+      setShowHistoryModal(false);
+      
+      // Show result
+      if (errors.length === 0) {
+        showNotification('Sukces!', `Wszystkie transakcje zostały usunięte! (${deletedCount} transakcji)`, 'success');
+      } else {
+        showNotification('Częściowy sukces', `Usunięto ${deletedCount} z ${allTransactions.length} transakcji.\nBłędy przy usuwaniu: ${errors.length} transakcji.`, 'warning');
+      }
+    } catch (error) {
+      console.error('Error deleting all transaction history:', error);
+      showNotification('Błąd!', 'Błąd podczas usuwania historii transakcji. Spróbuj ponownie.', 'error');
+    } finally {
+      setIsTransactionInProgress(false);
+    }
+  };
+
   // Function to undo/cancel last transaction
   const handleUndoTransaction = async (transaction) => {
     if (!transaction || isTransactionInProgress) return;
     
+    const confirmMessage = `Czy na pewno chcesz anulować całą transakcję?\n\n` +
+      `Transakcja z: ${new Date(transaction.timestamp).toLocaleString('pl-PL')}\n` +
+      `Liczba elementów: ${transaction.itemsCount}\n` +
+      `Punkt sprzedaży: ${transaction.selectedSellingPoint || 'N/D'}\n\n` +
+      `Ta operacja:\n` +
+      `• Przywróci wszystkie produkty do ich pierwotnych lokalizacji\n` +
+      `• Usunie transakcję z historii\n` +
+      `• Jest NIEODWRACALNA`;
+
+    // Use modal confirmation instead of window.confirm
+    showConfirmation(
+      '⚠️ OSTRZEŻENIE! ⚠️',
+      confirmMessage,
+      () => {
+        setShowConfirmModal(false);
+        performUndoTransaction(transaction);
+      },
+      () => setShowConfirmModal(false),
+      'Anuluj transakcję',
+      'Anuluj'
+    );
+  };
+
+  // Actual implementation moved to separate function
+  const performUndoTransaction = async (transaction) => {
+    
     setIsTransactionInProgress(true);
     
     try {
-      // STEP 1: First restore items to their original state
+      // STEP 1: First remove items from their current locations to prevent duplication
+      const removePromises = [];
+      
+      for (const item of transaction.processedItems) {
+        if (item.processType === 'sold') {
+          // Sold items - they were sold from a selling point, don't need to remove from anywhere
+          // They are already gone from the selling point through sale
+          continue;
+          
+        } else if (item.processType === 'synchronized') {
+          // Synchronized items - they were transferred to selling point and then sold
+          // They are already gone from the selling point through sale, don't need to remove
+          continue;
+          
+        } else if (item.processType === 'transferred') {
+          // Transferred items - they are currently in the target selling point, need to remove them
+          const targetSellingPointName = transaction.selectedSellingPoint || transaction.targetSellingPoint;
+          
+          // Convert selling point name to symbol using usersData
+          let targetSymbol = null;
+          if (targetSellingPointName) {
+            const targetUser = usersData.find(user => user.sellingPoint === targetSellingPointName);
+            targetSymbol = targetUser ? targetUser.symbol : targetSellingPointName; // Fallback to name if symbol not found
+          }
+          
+          if (targetSymbol) {
+            removePromises.push(
+              axios.delete(`/api/state/barcode/${item.barcode}/symbol/${targetSymbol}?count=1`, {
+                headers: {
+                  'operation-type': 'correction-undo-transaction',
+                  'target-symbol': 'MAGAZYN'
+                }
+              })
+            );
+          }
+        } else if (item.processType === 'corrected') {
+          // Corrected items - they were restored to magazyn, need to remove them from magazyn
+          removePromises.push(
+            axios.delete(`/api/state/barcode/${item.barcode}/symbol/${magazynSymbol}?count=1`, {
+              headers: {
+                'operation-type': 'correction-undo-transaction',
+                'target-symbol': item.originalSymbol || 'UNKNOWN'
+              }
+            })
+          );
+        }
+      }
+      
+      // Wait for all items to be removed from their current locations
+      if (removePromises.length > 0) {
+        await Promise.all(removePromises);
+        console.log(`✅ Removed ${removePromises.length} items from their current locations`);
+      }
+      
+      // STEP 2: Now restore items to their original state
       const restorePromises = [];
       
       for (const item of transaction.processedItems) {
@@ -718,8 +1000,8 @@ const AddToState = () => {
           };
           
         } else if (item.processType === 'synchronized') {
-          // Green items: restore to MAGAZYN (they were transferred from MAGAZYN then sold)
-          targetSymbol = 'MAGAZYN';
+          // Green items: restore to current magazyn symbol (they were transferred from MAGAZYN then sold)
+          targetSymbol = magazynSymbol;
           
           restoreData = {
             fullName: item.fullName,
@@ -732,8 +1014,8 @@ const AddToState = () => {
           };
           
         } else if (item.processType === 'transferred') {
-          // Orange items: restore to MAGAZYN
-          targetSymbol = 'MAGAZYN';
+          // Orange items: restore to current magazyn symbol
+          targetSymbol = magazynSymbol;
           
           restoreData = {
             fullName: item.fullName,
@@ -744,6 +1026,9 @@ const AddToState = () => {
             discount_price: item.discount_price,
             operationType: 'restore-transfer'
           };
+        } else if (item.processType === 'corrected') {
+          // Corrected items: don't restore, they were already removed above
+          continue;
         }
         
         if (restoreData) {
@@ -754,9 +1039,12 @@ const AddToState = () => {
       }
       
       // Wait for all items to be restored
-      await Promise.all(restorePromises);
+      if (restorePromises.length > 0) {
+        await Promise.all(restorePromises);
+        console.log(`✅ Restored ${restorePromises.length} items to their original locations`);
+      }
       
-      // STEP 2: Now delete all history records associated with this transaction
+      // STEP 3: Now delete all history records associated with this transaction
       let historyDeleted = false;
       
       try {
@@ -790,22 +1078,22 @@ const AddToState = () => {
         console.error('⚠️ Nie udało się usunąć rekordów historii');
       }
       
-      // STEP 3: Delete the transaction itself from transaction history
+      // STEP 4: Delete the transaction itself from transaction history
       await deactivateTransactionInDatabase(transaction.transactionId);
       
-      // STEP 4: Refresh data to reflect the changes
+      // STEP 5: Refresh data to reflect the changes
       const salesResponse = await axios.get('/api/sales/get-all-sales');
       setSalesData(salesResponse.data);
       
       const stateResponse = await axios.get('/api/state');
-      const magazynData = stateResponse.data.filter(item => item.symbol === 'MAGAZYN');
+      const magazynData = stateResponse.data.filter(item => item.symbol === magazynSymbol);
       setMagazynItems(magazynData);
       
-      alert(`Transakcja z ${new Date(transaction.timestamp).toLocaleString('pl-PL')} została całkowicie anulowana i usunięta z historii!`);
+      showNotification('Sukces!', `Transakcja z ${new Date(transaction.timestamp).toLocaleString('pl-PL')} została całkowicie anulowana i usunięta z historii!`, 'success');
       
     } catch (error) {
       console.error('Error undoing transaction:', error);
-      alert('Błąd podczas anulowania transakcji. Spróbuj ponownie.');
+      showNotification('Błąd!', 'Błąd podczas anulowania transakcji. Spróbuj ponownie.', 'error');
     } finally {
       setIsTransactionInProgress(false);
     }
@@ -815,16 +1103,100 @@ const AddToState = () => {
   const handleUndoSingleItem = async (transaction, itemToUndo) => {
     if (!transaction || !itemToUndo || isTransactionInProgress) return;
     
-    const confirmMessage = `Czy na pewno chcesz anulować tylko ten element?\n\n${itemToUndo.fullName} (${itemToUndo.size})\n\nElement zostanie przywrócony do magazynu, a transakcja zostanie zaktualizowana.`;
+    const confirmMessage = `Czy na pewno chcesz anulować ten element?\n\n` +
+      `Element: ${itemToUndo.fullName} (${itemToUndo.size})\n` +
+      `Typ operacji: ${
+        itemToUndo.processType === 'sold' ? 'Sprzedano' :
+        itemToUndo.processType === 'synchronized' ? 'Zsynchronizowano' :
+        itemToUndo.processType === 'transferred' ? 'Przeniesiono' :
+        'Nieznane'
+      }\n\n` +
+      `Ta operacja:\n` +
+      `• Przywróci element do magazynu\n` +
+      `• Zaktualizuje transakcję\n` +
+      `• Stworzy rekord korekty\n` +
+      `• Jest NIEODWRACALNA`;
     
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
+    // Use modal confirmation instead of window.confirm
+    showConfirmation(
+      '⚠️ OSTRZEŻENIE! ⚠️',
+      confirmMessage,
+      () => {
+        setShowConfirmModal(false);
+        performUndoSingleItem(transaction, itemToUndo);
+      },
+      () => setShowConfirmModal(false),
+      'Anuluj element',
+      'Anuluj'
+    );
+  };
+
+  // Actual implementation moved to separate function
+  const performUndoSingleItem = async (transaction, itemToUndo) => {
     
     setIsTransactionInProgress(true);
     
     try {
-      // STEP 1: Restore the single item to its original state
+      // STEP 1: First remove item from its current location to prevent duplication
+      if (itemToUndo.processType === 'sold') {
+        // Sold items - they were sold from a selling point, already gone through sale
+        // Don't need to remove from anywhere
+        
+      } else if (itemToUndo.processType === 'synchronized') {
+        // Synchronized items - they were transferred to selling point and then sold
+        // Already gone through sale, don't need to remove from anywhere
+        
+      } else if (itemToUndo.processType === 'transferred') {
+        // Transferred items - they are currently in the target selling point, need to remove them
+        // For transferred items, the target is where they were moved TO, not FROM
+        const targetSellingPointName = transaction.targetSellingPoint || transaction.selectedSellingPoint;
+        
+        // Convert selling point name to symbol using usersData
+        let targetSymbol = null;
+        if (targetSellingPointName) {
+          const targetUser = usersData.find(user => user.sellingPoint === targetSellingPointName);
+          targetSymbol = targetUser ? targetUser.symbol : targetSellingPointName; // Fallback to name if symbol not found
+        }
+        
+        console.log(`[DEBUG] Attempting to remove transferred item:`, {
+          fullName: itemToUndo.fullName,
+          size: itemToUndo.size,
+          barcode: itemToUndo.barcode,
+          targetSellingPointName: targetSellingPointName,
+          targetSymbol: targetSymbol,
+          transaction: {
+            selectedSellingPoint: transaction.selectedSellingPoint,
+            targetSellingPoint: transaction.targetSellingPoint,
+            operationType: transaction.operationType
+          }
+        });
+        
+        if (targetSymbol) {
+          try {
+            await axios.delete(`/api/state/barcode/${itemToUndo.barcode}/symbol/${targetSymbol}?count=1`, {
+              headers: {
+                'operation-type': 'correction-undo-single',
+                'target-symbol': 'MAGAZYN'
+              }
+            });
+            console.log(`✅ Removed ${itemToUndo.fullName} (${itemToUndo.size}) from ${targetSymbol} for correction`);
+          } catch (deleteError) {
+            console.error(`❌ Failed to remove item from ${targetSymbol}:`, deleteError);
+            console.log('Error details:', {
+              status: deleteError.response?.status,
+              statusText: deleteError.response?.statusText,
+              data: deleteError.response?.data,
+              url: deleteError.config?.url
+            });
+            throw deleteError; // Re-throw to handle in outer catch
+          }
+        } else {
+          console.warn(`⚠️ No target symbol found for transferred item. Transaction data:`, transaction);
+          // Continue without removing since we can't determine where the item is
+        }
+      }
+      
+      // STEP 2: Now restore the single item to its original state
       let restoreData;
       let targetSymbol;
       
@@ -842,8 +1214,8 @@ const AddToState = () => {
         };
         
       } else if (itemToUndo.processType === 'synchronized') {
-        // Green items: restore to MAGAZYN
-        targetSymbol = 'MAGAZYN';
+        // Green items: restore to current magazyn symbol
+        targetSymbol = magazynSymbol;
         
         restoreData = {
           fullName: itemToUndo.fullName,
@@ -856,8 +1228,8 @@ const AddToState = () => {
         };
         
       } else if (itemToUndo.processType === 'transferred') {
-        // Orange items: restore to MAGAZYN
-        targetSymbol = 'MAGAZYN';
+        // Orange items: restore to current magazyn symbol
+        targetSymbol = magazynSymbol;
         
         restoreData = {
           fullName: itemToUndo.fullName,
@@ -872,9 +1244,10 @@ const AddToState = () => {
       
       if (restoreData) {
         await axios.post('/api/state/restore-silent', restoreData);
+        console.log(`✅ Restored ${itemToUndo.fullName} (${itemToUndo.size}) to ${targetSymbol}`);
       }
       
-      // STEP 2: Create correction transaction for tracking
+      // STEP 3: Create correction transaction for tracking
       const correctionTransactionId = `correction-${Date.now()}`;
       const correctionTransaction = {
         transactionId: correctionTransactionId,
@@ -894,7 +1267,7 @@ const AddToState = () => {
       
       await saveTransactionToDatabase(correctionTransaction);
       
-      // STEP 3: Update original transaction - remove the undone item
+      // STEP 4: Update original transaction - remove the undone item
       const updatedProcessedItems = transaction.processedItems.filter(item => 
         !(item.fullName === itemToUndo.fullName && 
           item.size === itemToUndo.size && 
@@ -913,7 +1286,7 @@ const AddToState = () => {
       // Update the transaction in database
       await axios.put(`/api/transaction-history/${transaction.transactionId}`, updatedTransaction);
       
-      // STEP 4: Delete specific history record for this item
+      // STEP 5: Delete specific history record for this item
       try {
         const deleteHistoryPayload = {
           transactionId: transaction.transactionId,
@@ -921,32 +1294,45 @@ const AddToState = () => {
             fullName: itemToUndo.fullName,
             size: itemToUndo.size,
             barcode: itemToUndo.barcode,
-            processType: itemToUndo.processType
+            processType: itemToUndo.processType,
+            price: itemToUndo.price,
+            originalSymbol: itemToUndo.originalSymbol,
+            timestamp: transaction.timestamp // Add transaction timestamp for better matching
           }
         };
         
+        console.log('Sending delete history payload:', deleteHistoryPayload);
+        
         await axios.post('/api/history/delete-single-item', deleteHistoryPayload);
+        
+        console.log('Successfully deleted history record for single item');
+        
       } catch (historyError) {
         console.error('Błąd podczas usuwania rekordu historii dla pojedynczego elementu:', historyError);
         // Don't fail the entire operation if history deletion fails
+        console.warn('Historia nie została usunięta, ale element został przywrócony do magazynu');
       }
       
-      // STEP 5: Refresh data to reflect the changes
+      // STEP 6: Refresh data to reflect the changes
       const salesResponse = await axios.get('/api/sales/get-all-sales');
       setSalesData(salesResponse.data);
       
       const stateResponse = await axios.get('/api/state');
-      const magazynData = stateResponse.data.filter(item => item.symbol === 'MAGAZYN');
+      const magazynData = stateResponse.data.filter(item => item.symbol === magazynSymbol);
       setMagazynItems(magazynData);
       
       // Reload transaction history
       await loadTransactionHistory();
       
-      alert(`Element "${itemToUndo.fullName} (${itemToUndo.size})" został anulowany i przywrócony do magazynu!\n\nUtworzono transakcję korekcyjną: ${correctionTransactionId}`);
+      showNotification(
+        'Sukces!', 
+        `Element "${itemToUndo.fullName} (${itemToUndo.size})" został anulowany i przywrócony do magazynu!\n\nUtworzono transakcję korekcyjną: ${correctionTransactionId}`, 
+        'success'
+      );
       
     } catch (error) {
       console.error('Error undoing single item:', error);
-      alert('Błąd podczas anulowania elementu. Spróbuj ponownie.');
+      showNotification('Błąd!', 'Błąd podczas anulowania elementu. Spróbuj ponownie.', 'error');
     } finally {
       setIsTransactionInProgress(false);
     }
@@ -969,7 +1355,10 @@ const AddToState = () => {
         timestamp: null
       });
       
-      // Reload transaction history from database
+      // Clear transaction history in component state
+      setTransactionHistory([]);
+      
+      // Reload transaction history from database (to get only remaining active transactions)
       await loadTransactionHistory();
       
       // Reset current states
@@ -983,13 +1372,31 @@ const AddToState = () => {
       setShowClearStorageInfo(false); // Close info modal
       alert('Pamięć podręczna i stare transakcje zostały wyczyszczone!');
     } catch (error) {
-      alert('Błąd podczas czyszczenia pamięci');
       alert('Błąd podczas czyszczenia pamięci. Spróbuj ponownie.');
     }
   };
 
   const handleClearStorageClick = () => {
     setShowClearStorageInfo(true);
+  };
+
+  // Handle show transaction report
+  const handleShowTransactionReport = (transaction) => {
+    setSelectedTransactionForReport(transaction);
+    setShowTransactionReport(true);
+  };
+
+  // Handle expanding/collapsing transaction details
+  const toggleTransactionDetails = (transactionId) => {
+    setExpandedTransactions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(transactionId)) {
+        newSet.delete(transactionId);
+      } else {
+        newSet.add(transactionId);
+      }
+      return newSet;
+    });
   };
 
   const handleOperationTypeChange = (type) => {
@@ -1469,6 +1876,28 @@ const AddToState = () => {
     setSelectedForPrint(new Set());
   };
 
+  // Function to get the current magazyn symbol from users
+  const getMagazynSymbol = async () => {
+    try {
+      const usersResponse = await axios.get('/api/user');
+      const usersDataArray = Array.isArray(usersResponse.data.users) ? usersResponse.data.users : [];
+      const magazynUser = usersDataArray.find(user => user.email === 'magazyn@wp.pl');
+      if (magazynUser && magazynUser.symbol) {
+        setMagazynSymbol(magazynUser.symbol);
+        return magazynUser.symbol;
+      }
+      return 'MAGAZYN'; // Fallback to default
+    } catch (error) {
+      console.error('Error fetching magazyn symbol:', error);
+      return 'MAGAZYN'; // Fallback to default
+    }
+  };
+
+  // Initial fetch of magazyn symbol
+  useEffect(() => {
+    getMagazynSymbol();
+  }, []);
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div className={styles.error}>{error}</div>;
 
@@ -1550,19 +1979,18 @@ const AddToState = () => {
             </div>
             <div className={styles.modalBody + ' modalBody'} style={{
               flex: 1,
-              overflowY: 'auto',
+              overflow: 'hidden',
               marginBottom: 0,
               backgroundColor: 'black',
               color: 'white',
-              padding: '24px',
-              maxHeight: 'calc(100vh - 120px)' // Ograniczenie wysokości
+              padding: '24px'
             }}>
               {/* Wyszukiwarka historii */}
               <div style={{ marginBottom: '20px' }}>
                 <input
                   type="text"
                   className="history-search-input"
-                  placeholder="🔍 Wyszukaj po nazwie produktu, kodzie, dacie lub ID transakcji..."
+                  placeholder=" Wyszukaj po nazwie produktu, kodzie, dacie lub ID transakcji..."
                   value={historySearchTerm}
                   onChange={(e) => setHistorySearchTerm(e.target.value)}
                   style={{
@@ -1570,7 +1998,7 @@ const AddToState = () => {
                     padding: '12px',
                     borderRadius: '4px',
                     border: '1px solid #444',
-                    backgroundColor: '#333',
+                    backgroundColor: 'black',
                     color: 'white',
                     fontSize: '14px',
                     boxSizing: 'border-box'
@@ -1602,8 +2030,8 @@ const AddToState = () => {
                     display: 'flex', 
                     flexDirection: 'column', 
                     gap: '14px',
-                    maxHeight: 'calc(100vh - 200px)', // Maksymalna wysokość listy
-                    overflowY: 'auto', // Suwak dla listy transakcji
+                    maxHeight: 'calc(90vh - 180px)', // Dopasowana wysokość
+                    overflowY: 'auto', // Jeden suwak dla listy transakcji
                     paddingRight: '8px' // Miejsce na suwak
                   }}>
                   {getFilteredTransactionHistory().map((transaction, index) => (
@@ -1613,7 +2041,7 @@ const AddToState = () => {
                         border: '1px solid #444',
                         borderRadius: '4px',
                         padding: '15px',
-                        backgroundColor: '#181818',
+                        backgroundColor: 'black',
                         color: 'white',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
                       }}
@@ -1625,7 +2053,7 @@ const AddToState = () => {
                         marginBottom: '10px'
                       }}>
                         <div>
-                          <strong style={{ color: transaction.isCorrection ? '#28a745' : '#ffc107' }}>
+                          <strong style={{ color: transaction.isCorrection ? '#28a745' : 'white' }}>
                             #{index + 1} - {new Date(transaction.timestamp).toLocaleString('pl-PL')}
                             {transaction.isCorrection && (
                               <span style={{ 
@@ -1642,7 +2070,7 @@ const AddToState = () => {
                             {transaction.hasCorrections && (
                               <span style={{ 
                                 marginLeft: '8px', 
-                                backgroundColor: '#ffc107', 
+                                backgroundColor: 'white', 
                                 color: 'black', 
                                 padding: '2px 6px', 
                                 borderRadius: '3px', 
@@ -1667,32 +2095,73 @@ const AddToState = () => {
                               </div>
                             )}
                             {transaction.lastModified && (
-                              <div style={{ color: '#ffc107', fontSize: '12px', marginTop: '2px' }}>
+                              <div style={{ color: 'white', fontSize: '12px', marginTop: '2px' }}>
                                 Ostatnia modyfikacja: {transaction.lastModified}
                               </div>
                             )}
                           </div>
                         </div>
-                        {!transaction.isCorrection && (
-                          <button
-                            onClick={() => {
-                              handleUndoTransaction(transaction);
-                              setShowHistoryModal(false);
-                            }}
-                            className="btn btn-danger btn-sm"
-                            disabled={isTransactionInProgress}
-                            title="Anuluj całą transakcję"
-                          >
-                            {isTransactionInProgress ? 'Anulowanie...' : 'Anuluj całość'}
-                          </button>
+                        {transaction.isCorrection ? (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleShowTransactionReport(transaction)}
+                              className="btn btn-sm"
+                              style={{
+                                backgroundColor: '#28a745',
+                                color: 'white',
+                                border: 'none'
+                              }}
+                              title="Pokaż raport korekty"
+                            >
+                              Raport korekty
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              onClick={() => toggleTransactionDetails(transaction.transactionId)}
+                              className="btn btn-sm"
+                              style={{
+                                backgroundColor: expandedTransactions.has(transaction.transactionId) ? '#28a745' : '#6c757d',
+                                color: 'white',
+                                border: 'none'
+                              }}
+                              title={expandedTransactions.has(transaction.transactionId) ? "Ukryj szczegóły" : "Pokaż szczegóły"}
+                            >
+                              {expandedTransactions.has(transaction.transactionId) ? 'Ukryj szczegóły' : 'Pokaż szczegóły'}
+                            </button>
+                            <button
+                              onClick={() => handleShowTransactionReport(transaction)}
+                              className="btn btn-sm"
+                              style={{
+                                backgroundColor: '#0d6efd',
+                                color: 'white',
+                                border: 'none'
+                              }}
+                              title="Pokaż raport transakcji"
+                            >
+                              Raport
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleUndoTransaction(transaction);
+                                setShowHistoryModal(false);
+                              }}
+                              className="btn btn-danger btn-sm"
+                              disabled={isTransactionInProgress}
+                              title="Anuluj całą transakcję"
+                            >
+                              {isTransactionInProgress ? 'Anulowanie...' : 'Anuluj całość'}
+                            </button>
+                          </div>
                         )}
                       </div>
-                      {transaction.processedItems && transaction.processedItems.length > 0 && (
-                        <div style={{ fontSize: '12px', color: '#ffc107' }}>
+                      {expandedTransactions.has(transaction.transactionId) && transaction.processedItems && transaction.processedItems.length > 0 && (
+                        <div style={{ fontSize: '12px', color: 'white' }}>
                           <strong>Przetworzone elementy:</strong>
                           <div style={{ marginTop: '5px', maxHeight: '200px', overflowY: 'auto' }}>
                             {transaction.processedItems.map((item, idx) => (
-                              <div key={idx} style={{ 
+                              <div key={idx} style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
@@ -1758,6 +2227,21 @@ const AddToState = () => {
                   className="btn btn-warning btn-sm"
                 >
                   Wyczyść pamięć
+                </button>
+                <button
+                  onClick={handleDeleteAllHistory}
+                  className="btn btn-sm"
+                  disabled={isTransactionInProgress || transactionHistory.length === 0}
+                  style={{
+                    backgroundColor: '#dc3545',
+                    border: 'none',
+                    color: 'white',
+                    opacity: (isTransactionInProgress || transactionHistory.length === 0) ? 0.6 : 1,
+                    cursor: (isTransactionInProgress || transactionHistory.length === 0) ? 'not-allowed' : 'pointer'
+                  }}
+                  title={transactionHistory.length === 0 ? "Brak historii do usunięcia" : "Usuń całą historię transakcji - NIEODWRACALNE!"}
+                >
+                  {isTransactionInProgress ? 'Usuwanie...' : 'Usuń całą historię'}
                 </button>
                 {historySearchTerm && (
                   <button
@@ -1832,12 +2316,12 @@ const AddToState = () => {
               color: 'white',
               fontWeight: 600
             }}>
-              <span style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}>ℹ️ Informacja o czyszczeniu pamięci</span>
+              <span style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}> Informacja o czyszczeniu pamięci</span>
               <button
                 onClick={() => setShowClearStorageInfo(false)}
                 style={{
                   backgroundColor: 'red',
-                  border: 'none',
+                                   border: 'none',
                   borderRadius: '50%',
                   width: '24px',
                   height: '24px',
@@ -1861,24 +2345,24 @@ const AddToState = () => {
               padding: '24px'
             }}>
               <div style={{ marginBottom: '20px' }}>
-                <h4 style={{ color: '#ffc107', marginBottom: '15px' }}>Co zostanie wyczyszczone:</h4>
+                <h4 style={{ color: 'white', marginBottom: '15px' }}>Co zostanie wyczyszczone:</h4>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                   <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
                     🗄️ <strong>Pamięć podręczna aplikacji</strong> - zapisane stany transakcji
                   </li>
                   <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
-                    📊 <strong>Stare transakcje z bazy danych</strong> - historia starszych operacji
+                    <strong>Stare transakcje z bazy danych</strong> - historia starszych operacji
                   </li>
                   <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
-                    🔄 <strong>Aktualnie wyświetlane dane</strong> - zostanie odświeżone
+                    <strong>Aktualnie wyświetlane dane</strong> - zostanie odświeżone
                   </li>
                   <li style={{ padding: '8px 0' }}>
-                    💾 <strong>Lokalne ustawienia</strong> - zapisane filtry i preferencje
+                    <strong>Lokalne ustawienia</strong> - zapisane filtry i preferencje
                   </li>
                 </ul>
               </div>
-              <div style={{ backgroundColor: '#1a1a1a', padding: '15px', borderRadius: '5px', marginBottom: '20px' }}>
-                <p style={{ margin: 0, color: '#ffc107', fontWeight: 600 }}>⚠️ Uwaga:</p>
+              <div style={{ backgroundColor: 'black', padding: '15px', borderRadius: '5px', marginBottom: '20px', border: '1px solid #444' }}>
+                <p style={{ margin: 0, color: 'white', fontWeight: 600 }}>⚠️ Uwaga:</p>
                 <p style={{ margin: '5px 0 0 0', fontSize: '14px' }}>
                   Ta operacja jest nieodwracalna. Stracisz wszystkie zapisane filtry i tymczasowe dane.
                   Bieżące niezapisane transakcje również zostaną utracone.
@@ -1911,6 +2395,14 @@ const AddToState = () => {
           </div>
         </div>
       )}
+
+      {/* Transaction Report Modal */}
+      <TransactionReportModal
+        showReportModal={showTransactionReport}
+        setShowReportModal={setShowTransactionReport}
+        transaction={selectedTransactionForReport}
+        usersData={usersData}
+      />
 
       {/* Main Content */}
       <div style={{ 
@@ -2173,7 +2665,7 @@ const AddToState = () => {
               className="btn btn-info"
               style={{ height: 'fit-content' }}
             >
-              📋 Historia ({transactionHistory.length})
+               Historia ({transactionHistory.length})
             </button>
           </div>
           
@@ -2184,7 +2676,7 @@ const AddToState = () => {
               className="btn btn-secondary"
               style={{ height: 'fit-content', marginRight: '5px' }}
             >
-              🖨️ Sprawdź drukarkę
+               Sprawdź drukarkę
             </button>
           </div>
           
@@ -2195,7 +2687,7 @@ const AddToState = () => {
               style={{ height: 'fit-content' }}
               disabled={!printer || selectedForPrint.size === 0}
             >
-              📄 Drukuj zaznaczone ({selectedForPrint.size})
+               Drukuj zaznaczone ({selectedForPrint.size})
             </button>
           </div>
         </div>
@@ -2398,6 +2890,195 @@ const AddToState = () => {
         )}
       </div>
     </div>
+    
+    {/* Notification Modal */}
+    {showNotificationModal && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        zIndex: 10001,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          backgroundColor: 'black',
+          borderRadius: '8px',
+          border: '2px solid white',
+          padding: '0',
+          width: isMobile ? '95%' : '500px',
+          maxWidth: '95vw',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          color: 'white',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.7)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 0,
+            borderBottom: '1px solid white',
+            padding: '16px 24px',
+            backgroundColor: 
+              notificationModal.type === 'success' ? '#0d6efd' :
+              notificationModal.type === 'error' ? '#dc3545' :
+              notificationModal.type === 'warning' ? '#ffc107' :
+              '#17a2b8',
+            color: 'white',
+            fontWeight: 600
+          }}>
+            <span style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}>
+              {notificationModal.title}
+            </span>
+            <button
+              onClick={() => setShowNotificationModal(false)}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '18px',
+                fontWeight: 600
+              }}
+              title="Zamknij"
+            >
+              ✕
+            </button>
+          </div>
+          <div style={{
+            flex: 1,
+            backgroundColor: 'black',
+            color: 'white',
+            padding: '24px'
+          }}>
+            <div style={{ fontSize: '16px', lineHeight: '1.5', whiteSpace: 'pre-line' }}>
+              {notificationModal.message}
+            </div>
+          </div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '16px 24px',
+            borderTop: '1px solid white',
+            backgroundColor: 'black',
+            color: 'white'
+          }}>
+            <button
+              onClick={() => setShowNotificationModal(false)}
+              className="btn btn-sm"
+              style={{
+                backgroundColor: 
+                  notificationModal.type === 'success' ? '#0d6efd' :
+                  notificationModal.type === 'error' ? '#dc3545' :
+                  notificationModal.type === 'warning' ? '#ffc107' :
+                  '#17a2b8',
+                border: 'none',
+                color: 'white',
+                padding: '8px 20px',
+                borderRadius: '4px'
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Confirmation Modal */}
+    {showConfirmModal && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000
+      }}>
+        <div style={{
+          backgroundColor: 'black',
+          border: '2px solid #0d6efd',
+          borderRadius: '8px',
+          minWidth: '400px',
+          maxWidth: '600px',
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}>
+          <div style={{
+            backgroundColor: '#0d6efd',
+            color: 'white',
+            padding: '16px 24px',
+            fontWeight: 'bold',
+            fontSize: '18px',
+            textAlign: 'center'
+          }}>
+            {confirmModal.title}
+          </div>
+          <div style={{
+            padding: '24px',
+            color: 'white',
+            lineHeight: '1.6',
+            whiteSpace: 'pre-line',
+            textAlign: 'center'
+          }}>
+            {confirmModal.message}
+          </div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '16px',
+            padding: '16px 24px',
+            borderTop: '1px solid #555',
+            backgroundColor: 'black'
+          }}>
+            <button
+              onClick={confirmModal.onCancel}
+              className="btn btn-sm"
+              style={{
+                backgroundColor: '#6c757d',
+                border: 'none',
+                color: 'white',
+                padding: '8px 20px',
+                borderRadius: '4px'
+              }}
+            >
+              {confirmModal.cancelText}
+            </button>
+            <button
+              onClick={confirmModal.onConfirm}
+              className="btn btn-sm"
+              style={{
+                backgroundColor: '#dc3545',
+                border: 'none',
+                color: 'white',
+                padding: '8px 20px',
+                borderRadius: '4px',
+                fontWeight: 'bold'
+              }}
+            >
+              {confirmModal.confirmText}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

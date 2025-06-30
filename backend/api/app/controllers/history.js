@@ -164,9 +164,9 @@ class HistoryController {
         try {
             const { transactionId, itemDetails } = req.body;
             
-            console.log('Attempting to delete single item from history');
+            console.log('=== DELETE SINGLE ITEM DEBUG ===');
             console.log('TransactionId:', transactionId);
-            console.log('ItemDetails:', itemDetails);
+            console.log('ItemDetails:', JSON.stringify(itemDetails, null, 2));
             
             if (!itemDetails || !itemDetails.fullName || !itemDetails.size) {
                 return res.status(400).json({ 
@@ -175,69 +175,147 @@ class HistoryController {
             }
             
             const productName = `${itemDetails.fullName} ${itemDetails.size}`;
+            const barcode = itemDetails.barcode;
+            const processType = itemDetails.processType;
             
-            // First try to find by transactionId
-            let recordsToDelete = [];
+            console.log('Product name to search:', productName);
+            console.log('Barcode:', barcode);
+            console.log('Process type:', processType);
+            
+            // First, let's see what records exist for this product
+            const allRecordsForProduct = await History.find({ product: productName }).sort({ timestamp: -1 });
+            console.log(`Found ${allRecordsForProduct.length} total records for product "${productName}"`);
+            
+            if (allRecordsForProduct.length > 0) {
+                console.log('Existing records for this product:');
+                allRecordsForProduct.forEach((record, index) => {
+                    console.log(`  ${index + 1}. ID: ${record._id}, Operation: ${record.operation}, TransactionId: ${record.transactionId || 'N/A'}, Timestamp: ${record.timestamp}, Details: ${record.details || 'N/A'}`);
+                });
+            }
+            
+            // Strategy 1: Try to find by transactionId and product (most specific)
+            let recordToDelete = null;
             
             if (transactionId) {
-                recordsToDelete = await History.find({
-                    transactionId: transactionId,
-                    product: productName
-                });
-                
-                console.log(`Found ${recordsToDelete.length} records by transactionId for ${productName}`);
-            }
-            
-            // If no records found by transactionId, fall back to finding by product and recent timestamp
-            if (recordsToDelete.length === 0) {
-                // Look for records from the last hour
-                const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-                
-                recordsToDelete = await History.find({
+                console.log('Strategy 1: Searching by transactionId and product...');
+                recordToDelete = await History.findOne({
                     product: productName,
-                    timestamp: { $gte: oneHourAgo },
-                    $or: [
-                        { operation: 'Przesunięto ze stanu' },
-                        { operation: 'Przeniesiono w ramach stanu' },
-                        { operation: 'Usunięto ze stanu' },
-                        { operation: 'Dodano do stanu' },
-                        { operation: 'Sprzedano' },
-                        { operation: 'Przywrócono stan' }
-                    ]
-                }).limit(5); // Limit to 5 most recent records
+                    transactionId: transactionId
+                }).sort({ timestamp: -1 });
                 
-                console.log(`Found ${recordsToDelete.length} recent records for ${productName}`);
+                if (recordToDelete) {
+                    console.log('✓ Found record using Strategy 1 (transactionId + product)');
+                } else {
+                    console.log('✗ No record found with Strategy 1');
+                }
             }
             
-            if (recordsToDelete.length === 0) {
+            // Strategy 2: If barcode exists, try to find by product and barcode in details
+            if (!recordToDelete && barcode) {
+                console.log('Strategy 2: Searching by product and barcode in details...');
+                recordToDelete = await History.findOne({
+                    product: productName,
+                    details: { $regex: barcode, $options: 'i' }
+                }).sort({ timestamp: -1 });
+                
+                if (recordToDelete) {
+                    console.log('✓ Found record using Strategy 2 (product + barcode)');
+                } else {
+                    console.log('✗ No record found with Strategy 2');
+                }
+            }
+            
+            // Strategy 3: Recent record by product and operation type
+            if (!recordToDelete && processType) {
+                console.log('Strategy 3: Searching by product and operation type...');
+                
+                let operations = [];
+                switch (processType) {
+                    case 'sold':
+                        operations = ['Sprzedano', 'Usunięto ze stanu'];
+                        break;
+                    case 'synchronized':
+                        operations = ['Przeniesiono w ramach stanu', 'Przesunięto ze stanu'];
+                        break;
+                    case 'transferred':
+                        operations = ['Przesunięto ze stanu', 'Dodano do stanu'];
+                        break;
+                }
+                
+                if (operations.length > 0) {
+                    recordToDelete = await History.findOne({
+                        product: productName,
+                        operation: { $in: operations },
+                        timestamp: { $gte: new Date(Date.now() - 2 * 60 * 60 * 1000) } // Last 2 hours
+                    }).sort({ timestamp: -1 });
+                    
+                    if (recordToDelete) {
+                        console.log('✓ Found record using Strategy 3 (product + operation + recent)');
+                    } else {
+                        console.log('✗ No record found with Strategy 3');
+                    }
+                }
+            }
+            
+            // Strategy 4: Most recent record for this product (last resort)
+            if (!recordToDelete) {
+                console.log('Strategy 4: Getting most recent record for this product...');
+                recordToDelete = await History.findOne({
+                    product: productName,
+                    timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
+                }).sort({ timestamp: -1 });
+                
+                if (recordToDelete) {
+                    console.log('✓ Found record using Strategy 4 (most recent)');
+                } else {
+                    console.log('✗ No record found with Strategy 4');
+                }
+            }
+            
+            if (!recordToDelete) {
+                console.log('❌ NO RECORD FOUND WITH ANY STRATEGY');
                 return res.status(404).json({ 
-                    message: 'No history records found for this item',
+                    message: 'No history record found for this item',
                     productName: productName,
-                    transactionId: transactionId
+                    transactionId: transactionId,
+                    availableRecords: allRecordsForProduct.length,
+                    searchDetails: {
+                        barcode: barcode,
+                        processType: processType
+                    }
                 });
             }
             
-            // Delete the found records
-            const deleteResult = await History.deleteMany({
-                _id: { $in: recordsToDelete.map(r => r._id) }
+            console.log(`✅ Found specific record to delete:`, {
+                id: recordToDelete._id,
+                operation: recordToDelete.operation,
+                product: recordToDelete.product,
+                timestamp: recordToDelete.timestamp,
+                transactionId: recordToDelete.transactionId,
+                details: recordToDelete.details
             });
             
-            console.log(`Successfully deleted ${deleteResult.deletedCount} records for single item: ${productName}`);
+            // Delete ONLY this ONE specific record
+            const deleteResult = await History.deleteOne({ _id: recordToDelete._id });
+            
+            console.log(`✅ Successfully deleted 1 specific record for: ${productName}`);
+            console.log('Delete result:', deleteResult);
             
             res.status(200).json({ 
-                message: 'Single item history records deleted successfully',
+                message: 'Single item history record deleted successfully',
                 deletedCount: deleteResult.deletedCount,
                 productName: productName,
                 transactionId: transactionId,
-                deletedRecords: recordsToDelete.map(r => ({
-                    id: r._id,
-                    operation: r.operation,
-                    timestamp: r.timestamp
-                }))
+                deletedRecord: {
+                    id: recordToDelete._id,
+                    operation: recordToDelete.operation,
+                    timestamp: recordToDelete.timestamp,
+                    details: recordToDelete.details
+                }
             });
             
         } catch (error) {
-            console.error('Error deleting single item from history:', error);
+            console.error('❌ Error deleting single item from history:', error);
             res.status(500).json({ 
                 message: 'Error deleting single item from history',
                 error: error.message 

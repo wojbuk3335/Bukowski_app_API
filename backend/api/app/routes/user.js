@@ -19,6 +19,7 @@ router.get('/validate-token', UsersController.verifyToken); // Added route for t
 router.get('/', UsersController.getAllUsers);
 router.get('/verifyToken', UsersController.verifyToken); // Changed to GET method
 router.delete('/:userId', historyLogger('users'), UsersController.deleteUser);
+router.get('/:userId/references', UsersController.getUserReferencesReport); // Get user references report
 router.get('/:userId', UsersController.getOneUser);
 router.put('/:userId', historyLogger('users'), UsersController.updateUser); // Ensure historyLogger is called before updateUser
 router.post('/logout', UsersController.logout); // Add route for logout

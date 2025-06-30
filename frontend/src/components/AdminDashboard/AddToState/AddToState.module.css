@@ -309,7 +309,7 @@
 
 /* Table hover effects */
 .table tbody tr:hover {
-  background-color: #333333;
+  background-color: #000000;
 }
 
 /* Price styling */
@@ -351,7 +351,7 @@ h2 {
 }
 
 .lightgray {
-  color: lightgray;
+  color: #000000;
 }
 
 /* Button styling */
@@ -424,7 +424,7 @@ h2 {
   padding: 10px;
   margin: 5px 0;
   display: inline-block;
-  border: 1px solid #ccc;
+  border: 1px solid #000000;
   box-sizing: border-box;
   background-color: #000;
   color: #fff;
@@ -485,6 +485,30 @@ h2 {
 }
 
 /* Modal styling */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 10000; /* Higher than history modal (9999) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalContent {
+  background-color: black;
+  border: 1px solid white;
+  border-radius: 8px;
+  max-width: 95vw;
+  max-height: 95vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .modalHeader {
   display: flex;
   flex-shrink: 0;

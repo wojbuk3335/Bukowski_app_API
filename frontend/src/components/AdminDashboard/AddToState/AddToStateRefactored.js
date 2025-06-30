@@ -9,6 +9,7 @@ import { formatDateForDisplay, generateTransactionId, getUserSymbol, filterItems
 import OperationControls from './OperationControls';
 import ActionButtons from './ActionButtons';
 import TransactionHistoryModal from './TransactionHistoryModal';
+import TransactionReportModal from './TransactionReportModal';
 import BalanceReportModal from './BalanceReportModal';
 
 // Register Polish locale
@@ -76,6 +77,8 @@ const AddToState = () => {
   const [selectedForPrint, setSelectedForPrint] = useState(new Set());
   const [printer, setPrinter] = useState(null);
   const [printerError, setPrinterError] = useState(null);
+  const [showTransactionReport, setShowTransactionReport] = useState(false);
+  const [selectedTransactionForReport, setSelectedTransactionForReport] = useState(null);
 
   // Handle save items transaction
   const handleSaveItems = async () => {
@@ -190,9 +193,17 @@ const AddToState = () => {
         }
       });
 
-      // Process orange items (transfer from MAGAZYN)
+      // Process orange items (transfer from MAGAZYN to target point)
       const orangePromises = Array.from(orangeItems).map(async (itemId) => {
         try {
+          // First, get the item data before deleting it
+          const magazynItem = magazynItems.find(item => item.id === itemId || item._id === itemId);
+          if (!magazynItem) {
+            console.warn(`Magazyn item ${itemId} not found in refactored component`);
+            return;
+          }
+
+          // Step 1: Delete from MAGAZYN
           await axios.delete(`/api/state/${itemId}`, {
             headers: {
               'target-symbol': actualTargetSymbol,
@@ -200,6 +211,21 @@ const AddToState = () => {
               'transactionid': transactionId
             }
           });
+
+          // Step 2: Restore to target selling point
+          const restoreData = {
+            fullName: magazynItem.fullName.fullName || magazynItem.fullName,
+            size: magazynItem.size.Roz_Opis || magazynItem.size,
+            barcode: magazynItem.barcode,
+            symbol: actualTargetSymbol,
+            price: magazynItem.price,
+            discount_price: magazynItem.discount_price,
+            operationType: `transfer-orange-refactored-${operationType}`
+          };
+
+          await axios.post('/api/state/restore-silent', restoreData);
+          console.log(`Successfully transferred orange item ${itemId} from MAGAZYN to ${actualTargetSymbol} (refactored ${operationType} mode)`);
+
         } catch (error) {
           console.error(`Error transferring orange item ${itemId}:`, error);
           if (error.response && error.response.status === 404) {
@@ -357,6 +383,12 @@ const AddToState = () => {
 
   const handleClearStorageClick = () => {
     setShowClearStorageInfo(true);
+  };
+
+  // Handle show transaction report
+  const handleShowTransactionReport = (transaction) => {
+    setSelectedTransactionForReport(transaction);
+    setShowTransactionReport(true);
   };
 
   // Generate balance report
@@ -637,6 +669,14 @@ const AddToState = () => {
         setExpandedTransactions={setExpandedTransactions}
         handleUndoTransaction={handleUndoTransaction}
         isTransactionInProgress={isTransactionInProgress}
+        onShowTransactionReport={handleShowTransactionReport}
+      />
+
+      <TransactionReportModal
+        showReportModal={showTransactionReport}
+        setShowReportModal={setShowTransactionReport}
+        transaction={selectedTransactionForReport}
+        usersData={usersData}
       />
 
       <BalanceReportModal

@@ -427,7 +427,11 @@ class StatesController {
                 const from = state.sellingPoint?.symbol || 'MAGAZYN';
                 
                 let operation, details;
-                if (operationType === 'delete') {
+                if (operationType === 'correction-undo-single' || operationType === 'correction-undo-transaction') {
+                    // This is a correction/undo operation - product is being moved back to warehouse
+                    operation = 'Przesunięto do magazynu (korekta)';
+                    details = `Przesunięto produkt ${product} z ${from} do ${targetSymbol} (korekta transakcji)`;
+                } else if (operationType === 'delete') {
                     operation = 'Sprzedano ze stanu';
                     details = `Sprzedano produkt ze stanu ${product}`;
                 } else {
@@ -533,6 +537,21 @@ class StatesController {
                 return res.status(404).json({ message: `User not found for symbol: ${symbol}` });
             }
 
+            // Handle price format - split if contains semicolon to avoid validation errors
+            let finalPrice, finalDiscountPrice;
+            
+            if (price && typeof price === 'string' && price.includes(';')) {
+                // Price comes in format "price;discount_price"
+                const prices = price.split(';');
+                finalPrice = Number(prices[0]) || goods.price || 0;
+                finalDiscountPrice = Number(prices[1]) || goods.discount_price || 0;
+                console.log(`Parsed semicolon price format in restoreState: "${price}" → price: ${finalPrice}, discount: ${finalDiscountPrice}`);
+            } else {
+                // Single price value
+                finalPrice = Number(price) || goods.price || 0;
+                finalDiscountPrice = Number(discount_price) || goods.discount_price || 0;
+            }
+
             // Create new state entry
             const state = new State({
                 _id: new mongoose.Types.ObjectId(),
@@ -542,8 +561,8 @@ class StatesController {
                 size: sizeObj._id,
                 barcode: barcode,
                 sellingPoint: user._id,
-                price: price || goods.price,
-                discount_price: discount_price || goods.discount_price
+                price: finalPrice,
+                discount_price: finalDiscountPrice
             });
 
             const newState = await state.save();
@@ -619,6 +638,21 @@ class StatesController {
                 return res.status(404).json({ message: `User not found for symbol: ${symbol}` });
             }
 
+            // Handle price format - split if contains semicolon to avoid validation errors
+            let finalPrice, finalDiscountPrice;
+            
+            if (price && typeof price === 'string' && price.includes(';')) {
+                // Price comes in format "price;discount_price"
+                const prices = price.split(';');
+                finalPrice = Number(prices[0]) || goods.price || 0;
+                finalDiscountPrice = Number(prices[1]) || goods.discount_price || 0;
+                console.log(`Parsed semicolon price format: "${price}" → price: ${finalPrice}, discount: ${finalDiscountPrice}`);
+            } else {
+                // Single price value
+                finalPrice = Number(price) || goods.price || 0;
+                finalDiscountPrice = Number(discount_price) || goods.discount_price || 0;
+            }
+
             // Create new state entry
             const state = new State({
                 _id: new mongoose.Types.ObjectId(),
@@ -628,8 +662,8 @@ class StatesController {
                 size: sizeObj._id,
                 barcode: barcode,
                 sellingPoint: user._id,
-                price: price || goods.price,
-                discount_price: discount_price || goods.discount_price
+                price: finalPrice,
+                discount_price: finalDiscountPrice
             });
 
             const newState = await state.save();

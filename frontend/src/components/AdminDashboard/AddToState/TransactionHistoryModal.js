@@ -11,7 +11,8 @@ const TransactionHistoryModal = ({
   expandedTransactions,
   setExpandedTransactions,
   handleUndoTransaction,
-  isTransactionInProgress
+  isTransactionInProgress,
+  onShowTransactionReport
 }) => {
   if (!showHistoryModal) return null;
 
@@ -63,7 +64,7 @@ const TransactionHistoryModal = ({
               onChange={(e) => setHistorySearchTerm(e.target.value)}
               className={`form-control ${styles.historySearchInput}`}
               style={{
-                backgroundColor: '#333',
+                backgroundColor: '',
                 color: 'white',
                 border: '1px solid #666'
               }}
@@ -116,6 +117,16 @@ const TransactionHistoryModal = ({
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowTransactionReport(transaction);
+                        }}
+                        className="btn btn-info btn-sm"
+                        title="Pokaż raport transakcji"
+                      >
+                         Raport
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

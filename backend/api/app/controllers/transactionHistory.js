@@ -17,8 +17,6 @@ const getTransactionHistory = async (req, res) => {
 // Save a new transaction to history
 const saveTransaction = async (req, res) => {
     try {
-        console.log('Received transaction data:', req.body);
-        
         const {
             transactionId,
             operationType,
@@ -26,10 +24,12 @@ const saveTransaction = async (req, res) => {
             targetSellingPoint,
             targetSymbol,
             processedItems,
-            itemsCount
+            itemsCount,
+            isCorrection,
+            originalTransactionId,
+            hasCorrections,
+            lastModified
         } = req.body;
-
-        console.log('Extracted transactionId:', transactionId);
 
         const newTransaction = new TransactionHistory({
             transactionId,
@@ -39,7 +39,11 @@ const saveTransaction = async (req, res) => {
             targetSymbol,
             processedItems,
             itemsCount,
-            userloggedinId: null // Since we don't require auth, set to null
+            userloggedinId: null, // Since we don't require auth, set to null
+            isCorrection: isCorrection || false,
+            originalTransactionId,
+            hasCorrections: hasCorrections || false,
+            lastModified
         });
 
         await newTransaction.save();

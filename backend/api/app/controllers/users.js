@@ -1,4 +1,9 @@
 const User = require('../db/models/user');
+const State = require('../db/models/state');
+const Sales = require('../db/models/sales');
+const History = require('../db/models/history');
+const TransactionHistory = require('../db/models/transactionHistory');
+const Transfer = require('../db/models/transfer');
 const mongoose = require('mongoose');
 const argon2 = require('argon2'); // Replaced bcrypt with argon2
 const jwt = require('jsonwebtoken');
@@ -191,7 +196,7 @@ class UsersController {
             });
     }
 
-    updateUser = (req, res, next) => {
+    updateUser = async (req, res, next) => {
         const id = req.params.userId;
         const updateOps = {};
 
@@ -203,19 +208,18 @@ class UsersController {
             updateOps.sellingPoint = null; // Ensure sellingPoint is null for admins
         }
 
-        if (updateOps.password) {
-            argon2.hash(updateOps.password) // Replaced bcrypt.hash with argon2.hash
-                .then(hash => {
-                    updateOps.password = hash;
-                    updateUserInDB(id, updateOps, res);
-                })
-                .catch(err => {
-                    return res.status(500).json({
-                        error: err
-                    });
-                });
-        } else {
-            updateUserInDB(id, updateOps, res);
+        try {
+            if (updateOps.password) {
+                const hash = await argon2.hash(updateOps.password);
+                updateOps.password = hash;
+            }
+            
+            await updateUserInDB(id, updateOps, res);
+        } catch (err) {
+            console.error('Error in updateUser:', err);
+            return res.status(500).json({
+                error: err.message || err
+            });
         }
     };
 
@@ -253,25 +257,258 @@ class UsersController {
             message: 'Logout successful. Please remove the token on the client side.'
         });
     }
+
+    // Get user references report - shows how many records reference this user
+    getUserReferencesReport = async (req, res, next) => {
+        const userId = req.params.userId;
+        
+        try {
+            const user = await User.findById(userId).exec();
+            if (!user) {
+                return res.status(404).json({
+                    message: 'User not found'
+                });
+            }
+
+            const report = await getUserReferencesCount(user);
+            
+            res.status(200).json({
+                message: 'User references report',
+                user: {
+                    _id: user._id,
+                    email: user.email,
+                    symbol: user.symbol,
+                    sellingPoint: user.sellingPoint,
+                    role: user.role
+                },
+                references: report
+            });
+        } catch (error) {
+            console.error('Error getting user references report:', error);
+            res.status(500).json({
+                error: error.message || error
+            });
+        }
+    };
 }
 
-const updateUserInDB = (id, updateOps, res) => {
-    User.updateOne({ _id: id }, { $set: updateOps })
-        .exec()
-        .then(result => {
-            res.status(200).json({
-                message: 'User updated',
-                request: {
-                    type: 'GET',
-                    url: `${config.domain}/api/user/${id}`
-                }
+const updateUserInDB = async (id, updateOps, res) => {
+    try {
+        // Get the current user data before update
+        const currentUser = await User.findById(id).exec();
+        if (!currentUser) {
+            return res.status(404).json({
+                message: 'User not found'
             });
-        })
-        .catch(error => {
-            res.status(500).json({
-                error: error
-            });
+        }
+
+        const oldSymbol = currentUser.symbol;
+        const oldSellingPoint = currentUser.sellingPoint;
+        const newSymbol = updateOps.symbol;
+        const newSellingPoint = updateOps.sellingPoint;
+
+        // Update the user
+        const result = await User.updateOne({ _id: id }, { $set: updateOps }).exec();
+
+        // Perform cascading updates if symbol or sellingPoint changed
+        const promises = [];
+
+        if (newSymbol && newSymbol !== oldSymbol) {
+            console.log(`Updating symbol from "${oldSymbol}" to "${newSymbol}" across collections`);
+            promises.push(updateSymbolReferences(oldSymbol, newSymbol));
+        }
+
+        if (newSellingPoint !== undefined && newSellingPoint !== oldSellingPoint) {
+            console.log(`Updating sellingPoint from "${oldSellingPoint}" to "${newSellingPoint}" across collections`);
+            promises.push(updateSellingPointReferences(currentUser._id, oldSellingPoint, newSellingPoint));
+        }
+
+        // Wait for all cascading updates to complete
+        if (promises.length > 0) {
+            await Promise.all(promises);
+            console.log('All cascading updates completed successfully');
+        }
+
+        res.status(200).json({
+            message: 'User updated',
+            cascadingUpdates: promises.length > 0 ? 'References updated across collections' : 'No cascading updates needed',
+            request: {
+                type: 'GET',
+                url: `${config.domain}/api/user/${id}`
+            }
         });
+    } catch (error) {
+        console.error('Error updating user with cascading updates:', error);
+        res.status(500).json({
+            error: error.message || error
+        });
+    }
+};
+
+// Function to update symbol references across collections
+const updateSymbolReferences = async (oldSymbol, newSymbol) => {
+    const updates = [];
+
+    try {
+        // Update Sales collection
+        const salesUpdate = await Sales.updateMany(
+            { symbol: oldSymbol },
+            { $set: { symbol: newSymbol } }
+        );
+        console.log(`Updated ${salesUpdate.modifiedCount} sales records with new symbol`);
+
+        // Update TransactionHistory collection - multiple fields
+        const transactionHistoryUpdate1 = await TransactionHistory.updateMany(
+            { targetSymbol: oldSymbol },
+            { $set: { targetSymbol: newSymbol } }
+        );
+        console.log(`Updated ${transactionHistoryUpdate1.modifiedCount} transaction history records (targetSymbol)`);
+
+        // Update processedItems.originalSymbol in TransactionHistory
+        const transactionHistoryUpdate2 = await TransactionHistory.updateMany(
+            { 'processedItems.originalSymbol': oldSymbol },
+            { $set: { 'processedItems.$.originalSymbol': newSymbol } }
+        );
+        console.log(`Updated ${transactionHistoryUpdate2.modifiedCount} transaction history processed items (originalSymbol)`);
+
+        return {
+            salesUpdated: salesUpdate.modifiedCount,
+            transactionHistoryTargetSymbol: transactionHistoryUpdate1.modifiedCount,
+            transactionHistoryProcessedItems: transactionHistoryUpdate2.modifiedCount
+        };
+    } catch (error) {
+        console.error('Error updating symbol references:', error);
+        throw error;
+    }
+};
+
+// Function to update sellingPoint references across collections
+const updateSellingPointReferences = async (userId, oldSellingPoint, newSellingPoint) => {
+    try {
+        // Update Sales collection (sellingPoint as string)
+        const salesUpdate = await Sales.updateMany(
+            { sellingPoint: oldSellingPoint },
+            { $set: { sellingPoint: newSellingPoint } }
+        );
+        console.log(`Updated ${salesUpdate.modifiedCount} sales records with new sellingPoint`);
+
+        // Update History collection (from and to fields as strings)
+        const historyFromUpdate = await History.updateMany(
+            { from: oldSellingPoint },
+            { $set: { from: newSellingPoint } }
+        );
+        console.log(`Updated ${historyFromUpdate.modifiedCount} history records (from field)`);
+
+        const historyToUpdate = await History.updateMany(
+            { to: oldSellingPoint },
+            { $set: { to: newSellingPoint } }
+        );
+        console.log(`Updated ${historyToUpdate.modifiedCount} history records (to field)`);
+
+        // Update TransactionHistory collection
+        const transactionHistorySelectedUpdate = await TransactionHistory.updateMany(
+            { selectedSellingPoint: oldSellingPoint },
+            { $set: { selectedSellingPoint: newSellingPoint } }
+        );
+        console.log(`Updated ${transactionHistorySelectedUpdate.modifiedCount} transaction history records (selectedSellingPoint)`);
+
+        const transactionHistoryTargetUpdate = await TransactionHistory.updateMany(
+            { targetSellingPoint: oldSellingPoint },
+            { $set: { targetSellingPoint: newSellingPoint } }
+        );
+        console.log(`Updated ${transactionHistoryTargetUpdate.modifiedCount} transaction history records (targetSellingPoint)`);
+
+        // Update processedItems.sellingPoint in TransactionHistory
+        const transactionHistoryProcessedUpdate = await TransactionHistory.updateMany(
+            { 'processedItems.sellingPoint': oldSellingPoint },
+            { $set: { 'processedItems.$.sellingPoint': newSellingPoint } }
+        );
+        console.log(`Updated ${transactionHistoryProcessedUpdate.modifiedCount} transaction history processed items (sellingPoint)`);
+
+        // Update Transfer collection
+        const transferFromUpdate = await Transfer.updateMany(
+            { transfer_from: oldSellingPoint },
+            { $set: { transfer_from: newSellingPoint } }
+        );
+        console.log(`Updated ${transferFromUpdate.modifiedCount} transfer records (transfer_from)`);
+
+        const transferToUpdate = await Transfer.updateMany(
+            { transfer_to: oldSellingPoint },
+            { $set: { transfer_to: newSellingPoint } }
+        );
+        console.log(`Updated ${transferToUpdate.modifiedCount} transfer records (transfer_to)`);
+
+        // Note: State collection uses ObjectId reference, so it will automatically 
+        // reference the correct user when the user document is updated
+        console.log('State collection uses ObjectId reference - no update needed');
+
+        return {
+            salesUpdated: salesUpdate.modifiedCount,
+            historyFromUpdated: historyFromUpdate.modifiedCount,
+            historyToUpdated: historyToUpdate.modifiedCount,
+            transactionHistorySelectedUpdated: transactionHistorySelectedUpdate.modifiedCount,
+            transactionHistoryTargetUpdated: transactionHistoryTargetUpdate.modifiedCount,
+            transactionHistoryProcessedUpdated: transactionHistoryProcessedUpdate.modifiedCount,
+            transferFromUpdated: transferFromUpdate.modifiedCount,
+            transferToUpdated: transferToUpdate.modifiedCount
+        };
+    } catch (error) {
+        console.error('Error updating sellingPoint references:', error);
+        throw error;
+    }
+};
+
+// Function to get count of references for a user across all collections
+const getUserReferencesCount = async (user) => {
+    try {
+        const symbol = user.symbol;
+        const sellingPoint = user.sellingPoint;
+        const userId = user._id;
+
+        const report = {
+            bySymbol: {},
+            bySellingPoint: {},
+            byUserId: {}
+        };
+
+        // Count references by symbol
+        if (symbol) {
+            report.bySymbol.sales = await Sales.countDocuments({ symbol });
+            report.bySymbol.transactionHistoryTargetSymbol = await TransactionHistory.countDocuments({ targetSymbol: symbol });
+            report.bySymbol.transactionHistoryProcessedItems = await TransactionHistory.countDocuments({ 'processedItems.originalSymbol': symbol });
+        }
+
+        // Count references by sellingPoint
+        if (sellingPoint) {
+            report.bySellingPoint.state = await State.countDocuments({ sellingPoint: userId }); // ObjectId reference
+            report.bySellingPoint.sales = await Sales.countDocuments({ sellingPoint });
+            report.bySellingPoint.historyFrom = await History.countDocuments({ from: sellingPoint });
+            report.bySellingPoint.historyTo = await History.countDocuments({ to: sellingPoint });
+            report.bySellingPoint.transactionHistorySelected = await TransactionHistory.countDocuments({ selectedSellingPoint: sellingPoint });
+            report.bySellingPoint.transactionHistoryTarget = await TransactionHistory.countDocuments({ targetSellingPoint: sellingPoint });
+            report.bySellingPoint.transactionHistoryProcessedItems = await TransactionHistory.countDocuments({ 'processedItems.sellingPoint': sellingPoint });
+            report.bySellingPoint.transferFrom = await Transfer.countDocuments({ transfer_from: sellingPoint });
+            report.bySellingPoint.transferTo = await Transfer.countDocuments({ transfer_to: sellingPoint });
+        }
+
+        // Count references by userId
+        report.byUserId.history = await History.countDocuments({ userloggedinId: userId });
+        report.byUserId.transactionHistory = await TransactionHistory.countDocuments({ userloggedinId: userId });
+
+        // Calculate totals
+        report.totals = {
+            symbolReferences: Object.values(report.bySymbol).reduce((sum, count) => sum + count, 0),
+            sellingPointReferences: Object.values(report.bySellingPoint).reduce((sum, count) => sum + count, 0),
+            userIdReferences: Object.values(report.byUserId).reduce((sum, count) => sum + count, 0)
+        };
+
+        report.totals.allReferences = report.totals.symbolReferences + report.totals.sellingPointReferences + report.totals.userIdReferences;
+
+        return report;
+    } catch (error) {
+        console.error('Error getting user references count:', error);
+        throw error;
+    }
 };
 
 // Example function to handle token blacklisting
