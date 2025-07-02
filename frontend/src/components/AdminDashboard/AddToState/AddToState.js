@@ -2420,7 +2420,7 @@ const AddToState = () => {
           <h2 style={{color:'white', marginBottom: '5px', display: 'block', textAlign: 'center'}}>Magazyn</h2>
           
           {/* Wyszukiwarka magazynu */}
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '20px', marginTop: '90px' }}>
             <label style={{ color: 'white', display: 'block', marginBottom: '5px', textAlign: 'center' }}>Wyszukiwarka:</label>
             <input
               type="text"

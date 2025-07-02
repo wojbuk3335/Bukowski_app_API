@@ -11,5 +11,7 @@ router.delete('/by-transaction/:transactionId', historyController.deleteByTransa
 router.post('/delete-by-details', historyController.deleteByTransactionDetails);
 //delete single item from history
 router.post('/delete-single-item', historyController.deleteSingleItem);
+//delete single record by ID
+router.delete('/:id', historyController.deleteSingleRecord);
 
 module.exports = router;

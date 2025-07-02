@@ -322,6 +322,37 @@ class HistoryController {
             });
         }
     }
+
+    // Nowa metoda do usuwania pojedynczego rekordu
+    deleteSingleRecord = async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            
+            console.log('Attempting to delete single history record with ID:', id);
+            
+            const deletedRecord = await History.findByIdAndDelete(id);
+            
+            if (!deletedRecord) {
+                return res.status(404).json({ 
+                    message: 'History record not found',
+                    id: id
+                });
+            }
+            
+            console.log('Successfully deleted history record:', deletedRecord._id);
+            
+            res.status(200).json({ 
+                message: 'History record deleted successfully',
+                deletedRecord: deletedRecord
+            });
+        } catch (error) {
+            console.error('Error deleting single history record:', error);
+            res.status(500).json({ 
+                message: 'Error deleting history record',
+                error: error.message 
+            });
+        }
+    };
 }
 
 module.exports = new HistoryController();
