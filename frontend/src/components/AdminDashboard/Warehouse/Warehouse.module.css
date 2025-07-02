@@ -451,3 +451,142 @@
     }
 
 }
+
+/* Analytics Panel Styles */
+.analyticsPanel {
+    background-color: #000000;
+    border: 1px solid white;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.analyticsPanelHeader {
+    background-color: #000000;
+    padding: 15px 20px;
+    border-bottom: 1px solid white;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.analyticsPanelTitle {
+    color: #ffffff;
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.analyticsPanelBody {
+    padding: 20px;
+    background-color: #000000;
+    border-radius: 0 0 8px 8px;
+}
+
+.metricCard {
+    background-color: #000000;
+    border: 1px solid white;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.metricCard:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+}
+
+.metricCardBody {
+    padding: 20px;
+}
+
+.metricValue {
+    color: #007bff;
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.metricLabel {
+    color: #ffffff;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.chartContainer {
+    background-color: #000000;
+    border: 1px solid white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+}
+
+.chartTitle {
+    color: #ffffff;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.analyticsTable {
+    background-color: #000000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.darkTable {
+    width: 100%;
+    background-color: #000000;
+    color: white;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.darkTable th {
+    background-color: #000000;
+    color: white;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid white;
+    font-weight: bold;
+}
+
+.darkTable td {
+    padding: 10px 12px;
+    border-bottom: 1px solid white;
+    color: #ffffff;
+}
+
+.darkTable tr:hover {
+    background-color: #333333;
+}
+
+.darkTable tr:nth-child(even) {
+    background-color: #111111;
+}
+
+@media (max-width: 768px) {
+    .analyticsPanelHeader {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .metricCard {
+        margin-bottom: 10px;
+    }
+    
+    .chartContainer {
+        padding: 15px;
+    }
+    
+    .darkTable {
+        font-size: 0.9rem;
+    }
+    
+    .darkTable th,
+    .darkTable td {
+        padding: 8px;
+    }
+}

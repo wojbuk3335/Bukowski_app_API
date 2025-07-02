@@ -6,7 +6,32 @@ import { CSVLink } from 'react-csv'; // Install react-csv if not already install
 import jsPDF from 'jspdf'; // Install jspdf if not already installed
 import autoTable from 'jspdf-autotable'; // Install jspdf-autotable if not already installed
 import * as XLSX from 'xlsx'; // Install xlsx if not already installed
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    LineElement,
+    PointElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend,
+} from 'chart.js';
+import { Bar, Line, Pie } from 'react-chartjs-2';
 import styles from '../Warehouse/Warehouse.module.css'; // Use the same styles as Warehouse.js
+
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    LineElement,
+    PointElement,
+    ArcElement,
+    Title,
+    Tooltip,
+    Legend
+);
 
 const Sales = () => {
     const [sales, setSales] = useState([]); // Ensure sales is initialized as an empty array
@@ -17,6 +42,8 @@ const Sales = () => {
     const [searchQuery, setSearchQuery] = useState(''); // Search query for the search bar
     const [columnFilters, setColumnFilters] = useState({}); // Filters for individual columns
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }); // State for sorting configuration
+    const [showAnalytics, setShowAnalytics] = useState(false); // Show/hide analytics panel
+    const [reportType, setReportType] = useState('summary'); // Type of report to display
 
     useEffect(() => {
         const fetchSales = async () => {
@@ -179,39 +206,313 @@ const Sales = () => {
     const cardSummary = calculateSummary(filteredSales, 'card');
     const cashSummary = calculateSummary(filteredSales, 'cash');
 
+    // Analytics functions
+    const getSalesAnalytics = () => {
+        const analytics = {
+            totalSales: filteredSales.length,
+            totalRevenue: {},
+            avgSaleValue: {},
+            topSellingProducts: {},
+            salesByDate: {},
+            salesBySellingPoint: {},
+            salesBySize: {}
+        };
+
+        // Calculate total revenue and average sale value
+        filteredSales.forEach(sale => {
+            [...sale.card, ...sale.cash].forEach(payment => {
+                if (!analytics.totalRevenue[payment.currency]) {
+                    analytics.totalRevenue[payment.currency] = 0;
+                }
+                analytics.totalRevenue[payment.currency] += payment.price;
+            });
+        });
+
+        // Calculate average sale value
+        Object.keys(analytics.totalRevenue).forEach(currency => {
+            analytics.avgSaleValue[currency] = (analytics.totalRevenue[currency] / filteredSales.length).toFixed(2);
+        });
+
+        // Group sales by date
+        filteredSales.forEach(sale => {
+            const date = new Date(sale.timestamp).toLocaleDateString();
+            if (!analytics.salesByDate[date]) {
+                analytics.salesByDate[date] = { count: 0, revenue: {} };
+            }
+            analytics.salesByDate[date].count++;
+            [...sale.card, ...sale.cash].forEach(payment => {
+                if (!analytics.salesByDate[date].revenue[payment.currency]) {
+                    analytics.salesByDate[date].revenue[payment.currency] = 0;
+                }
+                analytics.salesByDate[date].revenue[payment.currency] += payment.price;
+            });
+        });
+
+        // Group by selling point
+        filteredSales.forEach(sale => {
+            if (!analytics.salesBySellingPoint[sale.sellingPoint]) {
+                analytics.salesBySellingPoint[sale.sellingPoint] = { count: 0, revenue: {} };
+            }
+            analytics.salesBySellingPoint[sale.sellingPoint].count++;
+            [...sale.card, ...sale.cash].forEach(payment => {
+                if (!analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency]) {
+                    analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency] = 0;
+                }
+                analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency] += payment.price;
+            });
+        });
+
+        // Group by product name
+        filteredSales.forEach(sale => {
+            if (!analytics.topSellingProducts[sale.fullName]) {
+                analytics.topSellingProducts[sale.fullName] = { count: 0, revenue: {} };
+            }
+            analytics.topSellingProducts[sale.fullName].count++;
+            [...sale.card, ...sale.cash].forEach(payment => {
+                if (!analytics.topSellingProducts[sale.fullName].revenue[payment.currency]) {
+                    analytics.topSellingProducts[sale.fullName].revenue[payment.currency] = 0;
+                }
+                analytics.topSellingProducts[sale.fullName].revenue[payment.currency] += payment.price;
+            });
+        });
+
+        // Group by size
+        filteredSales.forEach(sale => {
+            const size = sale.size || 'Brak rozmiaru';
+            if (!analytics.salesBySize[size]) {
+                analytics.salesBySize[size] = { count: 0, revenue: {} };
+            }
+            analytics.salesBySize[size].count++;
+            [...sale.card, ...sale.cash].forEach(payment => {
+                if (!analytics.salesBySize[size].revenue[payment.currency]) {
+                    analytics.salesBySize[size].revenue[payment.currency] = 0;
+                }
+                analytics.salesBySize[size].revenue[payment.currency] += payment.price;
+            });
+        });
+
+        return analytics;
+    };
+
+    const analytics = getSalesAnalytics();
+
+    // Chart data preparation
+    const getChartData = () => {
+        const salesByDate = analytics.salesByDate;
+        const dates = Object.keys(salesByDate).sort();
+        const counts = dates.map(date => salesByDate[date].count);
+        
+        return {
+            dailySales: {
+                labels: dates,
+                datasets: [{
+                    label: 'Liczba sprzedaży',
+                    data: counts,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            sellingPoints: {
+                labels: Object.keys(analytics.salesBySellingPoint),
+                datasets: [{
+                    data: Object.values(analytics.salesBySellingPoint).map(point => point.count),
+                    backgroundColor: [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+                    ]
+                }]
+            },
+            topProducts: {
+                labels: Object.keys(analytics.topSellingProducts)
+                    .sort((a, b) => analytics.topSellingProducts[b].count - analytics.topSellingProducts[a].count)
+                    .slice(0, 10),
+                datasets: [{
+                    label: 'Liczba sprzedanych',
+                    data: Object.keys(analytics.topSellingProducts)
+                        .sort((a, b) => analytics.topSellingProducts[b].count - analytics.topSellingProducts[a].count)
+                        .slice(0, 10)
+                        .map(product => analytics.topSellingProducts[product].count),
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }]
+            }
+        };
+    };
+
+    const chartData = getChartData();
+
     const handleExportFullPDF = () => {
         const doc = new jsPDF();
-        doc.setFontSize(8); // Set smaller font size for the title
-        doc.text('Sales Data with Summary', 20, 10);
-
-        // Export table data
+        const analytics = getSalesAnalytics();
+        
+        // Tytuł raportu
+        doc.setFontSize(20);
+        doc.text('Pełny Raport Sprzedaży', 20, 20);
+        
+        // Okres raportu
+        doc.setFontSize(12);
+        doc.text(`Okres: ${startDate ? startDate.toLocaleDateString() : 'Wszystkie'} - ${endDate ? endDate.toLocaleDateString() : 'Wszystkie'}`, 20, 35);
+        doc.text(`Data raportu: ${new Date().toLocaleDateString()}`, 20, 45);
+        
+        let yPosition = 60;
+        
+        // Podsumowanie
+        doc.setFontSize(16);
+        doc.text('Podsumowanie:', 20, yPosition);
+        yPosition += 15;
+        
+        doc.setFontSize(12);
+        doc.text(`Łączna liczba sprzedaży: ${analytics.totalSales}`, 20, yPosition);
+        yPosition += 10;
+        
+        Object.entries(analytics.totalRevenue).forEach(([currency, amount]) => {
+            doc.text(`Przychód (${currency}): ${amount.toFixed(2)}`, 20, yPosition);
+            yPosition += 10;
+        });
+        
+        Object.entries(analytics.avgSaleValue).forEach(([currency, avg]) => {
+            doc.text(`Średnia wartość sprzedaży (${currency}): ${avg}`, 20, yPosition);
+            yPosition += 10;
+        });
+        
+        yPosition += 10;
+        
+        // Tabela z danymi sprzedaży
         autoTable(doc, {
+            startY: yPosition,
             head: [['Lp.', 'Pełna nazwa', 'Data', 'Kod kreskowy', 'Rozmiar', 'Punkt sprzedaży', 'Skąd', 'Karta', 'Gotówka']],
-            body: filteredSales.map((sale, index) => [
+            body: filteredSales.slice(0, 50).map((sale, index) => [
                 index + 1,
                 sale.fullName,
                 new Date(sale.timestamp).toLocaleDateString(),
                 sale.barcode,
-                sale.size || 'N/A', // Use plain string value of sizeId
+                sale.size || 'N/A',
                 sale.sellingPoint,
                 sale.from,
                 sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
                 sale.cash.map((c) => `${c.price} ${c.currency}`).join(', '),
             ]),
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [41, 128, 185] }
         });
-
-        // Add summary row
+        
+        // Nowa strona dla analiz
+        doc.addPage();
+        yPosition = 20;
+        
+        doc.setFontSize(16);
+        doc.text('Top 10 Produktów:', 20, yPosition);
+        yPosition += 15;
+        
         autoTable(doc, {
-            startY: doc.lastAutoTable.finalY + 10, // Start below the previous table
-            head: [['Typ', 'Waluta', 'Suma']],
-            body: [
-                ...Object.entries(cardSummary).map(([currency, total]) => ['Karta', currency, total.toFixed(2)]),
-                ...Object.entries(cashSummary).map(([currency, total]) => ['Gotówka', currency, total.toFixed(2)]),
-            ],
+            startY: yPosition,
+            head: [['Produkt', 'Liczba sprzedanych', 'Przychód']],
+            body: Object.entries(analytics.topSellingProducts)
+                .sort(([,a], [,b]) => b.count - a.count)
+                .slice(0, 10)
+                .map(([product, data]) => [
+                    product,
+                    data.count,
+                    Object.entries(data.revenue).map(([curr, amt]) => `${amt.toFixed(2)} ${curr}`).join(', ')
+                ]),
+            styles: { fontSize: 10 },
+            headStyles: { fillColor: [46, 204, 113] }
         });
+        
+        doc.save('pelny_raport_sprzedazy.pdf');
+    };
 
-        doc.save('sales_data_with_summary.pdf');
-    };    const handleRemoveAllData = async () => {
+    const handlePrintReport = () => {
+        const printWindow = window.open('', '_blank');
+        const analytics = getSalesAnalytics();
+        
+        const reportHTML = `
+            <html>
+                <head>
+                    <title>Raport Sprzedaży</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .header { text-align: center; margin-bottom: 30px; }
+                        .summary { margin-bottom: 30px; }
+                        .section { margin-bottom: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                        .metric { display: inline-block; margin: 10px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Raport Sprzedaży</h1>
+                        <p>Okres: ${startDate ? startDate.toLocaleDateString() : 'Wszystkie'} - ${endDate ? endDate.toLocaleDateString() : 'Wszystkie'}</p>
+                        <p>Data raportu: ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div class="summary">
+                        <h2>Podsumowanie</h2>
+                        <div class="metric">
+                            <strong>Łączna liczba sprzedaży:</strong> ${analytics.totalSales}
+                        </div>
+                        ${Object.entries(analytics.totalRevenue).map(([currency, amount]) => 
+                            `<div class="metric"><strong>Przychód (${currency}):</strong> ${amount.toFixed(2)}</div>`
+                        ).join('')}
+                        ${Object.entries(analytics.avgSaleValue).map(([currency, avg]) => 
+                            `<div class="metric"><strong>Średnia wartość sprzedaży (${currency}):</strong> ${avg}</div>`
+                        ).join('')}
+                    </div>
+
+                    <div class="section">
+                        <h2>Top 10 Produktów</h2>
+                        <table>
+                            <thead>
+                                <tr><th>Produkt</th><th>Liczba sprzedanych</th><th>Przychód</th></tr>
+                            </thead>
+                            <tbody>
+                                ${Object.entries(analytics.topSellingProducts)
+                                    .sort(([,a], [,b]) => b.count - a.count)
+                                    .slice(0, 10)
+                                    .map(([product, data]) => 
+                                        `<tr>
+                                            <td>${product}</td>
+                                            <td>${data.count}</td>
+                                            <td>${Object.entries(data.revenue).map(([curr, amt]) => `${amt.toFixed(2)} ${curr}`).join(', ')}</td>
+                                        </tr>`
+                                    ).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="section">
+                        <h2>Sprzedaż według punktów</h2>
+                        <table>
+                            <thead>
+                                <tr><th>Punkt sprzedaży</th><th>Liczba sprzedaży</th><th>Przychód</th></tr>
+                            </thead>
+                            <tbody>
+                                ${Object.entries(analytics.salesBySellingPoint)
+                                    .sort(([,a], [,b]) => b.count - a.count)
+                                    .map(([point, data]) => 
+                                        `<tr>
+                                            <td>${point}</td>
+                                            <td>${data.count}</td>
+                                            <td>${Object.entries(data.revenue).map(([curr, amt]) => `${amt.toFixed(2)} ${curr}`).join(', ')}</td>
+                                        </tr>`
+                                    ).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </body>
+            </html>
+        `;
+        
+        printWindow.document.write(reportHTML);
+        printWindow.document.close();
+        printWindow.print();
+    };
+
+    const handleRemoveAllData = async () => {
         const confirmationWord = 'REMOVE';
         const userInput = prompt(`To confirm removing all data, type "${confirmationWord}"`);
         if (userInput === confirmationWord) {
@@ -250,48 +551,49 @@ const Sales = () => {
     return (
         <div>
             <h1 className={styles.title}>Sprzedaż</h1> 
-            <div className="d-flex flex-column align-items-center mb-3">
-                <div className="d-flex justify-content-center mb-3">
-                    <div className="me-3">
-                        <label>Data początkowa:</label>
-                        <DatePicker
-                            selected={startDate}
-                            onChange={(date) => setStartDate(date)}
-                            selectsStart
-                            startDate={startDate}
-                            endDate={endDate}
-                            className="form-control"
-                            placeholderText="Wybierz datę początkową"
-                        />
-                    </div>
-                    <div>
-                        <label>Data końcowa:</label>
-                        <DatePicker
-                            selected={endDate}
-                            onChange={(date) => setEndDate(date)}
-                            selectsEnd
-                            startDate={startDate}
-                            endDate={endDate}
-                            minDate={startDate}
-                            className="form-control"
-                            placeholderText="Wybierz datę końcową"
-                        />
-                    </div>
+            <div className="d-flex flex-wrap justify-content-center align-items-end mb-3" style={{ gap: '15px' }}>
+                <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '5px' }}>Data początkowa:</label>
+                    <DatePicker
+                        selected={startDate}
+                        onChange={(date) => setStartDate(date)}
+                        selectsStart
+                        startDate={startDate}
+                        endDate={endDate}
+                        className="form-control"
+                        placeholderText="Wybierz datę początkową"
+                        style={{ width: '160px' }}
+                    />
                 </div>
-                <div style={{ width: '200px' }}>
+                <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '5px' }}>Data końcowa:</label>
+                    <DatePicker
+                        selected={endDate}
+                        onChange={(date) => setEndDate(date)}
+                        selectsEnd
+                        startDate={startDate}
+                        endDate={endDate}
+                        minDate={startDate}
+                        className="form-control"
+                        placeholderText="Wybierz datę końcową"
+                        style={{ width: '160px' }}
+                    />
+                </div>
+                <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '5px' }}>Wyszukiwarka:</label>
                     <input
                         type="text"
                         className="form-control"
                         placeholder="Wyszukiwarka"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ width: '200px' }}
                     />
-                </div>            </div>
-            <div className="d-flex justify-content-center mb-3">
-                <button className="btn btn-primary me-2" onClick={handleExportPDF}>
+                </div>
+                <button className="btn btn-primary" onClick={handleExportPDF}>
                     Eksportuj PDF (Tylko Dane)
                 </button>
-                <button className="btn btn-success me-2" onClick={handleExportExcel}>
+                <button className="btn btn-success" onClick={handleExportExcel}>
                     Eksportuj Excel
                 </button>
                 <CSVLink
@@ -307,12 +609,21 @@ const Sales = () => {
                         Gotówka: sale.cash.map((c) => `${c.price} ${c.currency}`).join(', '),
                     }))}
                     filename="sales_data.csv"
-                    className="btn btn-info me-2"
+                    className="btn btn-info"
                 >
                     Eksportuj CSV
                 </CSVLink>
                 <button className="btn btn-warning" onClick={handleExportFullPDF}>
                     Eksportuj PDF (Dane + Podsumowanie)
+                </button>
+                <button className="btn btn-success" onClick={handlePrintReport}>
+                    Drukuj Raport
+                </button>
+                <button 
+                    className="btn btn-info" 
+                    onClick={() => setShowAnalytics(!showAnalytics)}
+                >
+                    {showAnalytics ? 'Ukryj Analizy' : 'Pokaż Analizy'}
                 </button>
             </div>
             <div className="d-flex justify-content-center mb-3">
@@ -320,6 +631,159 @@ const Sales = () => {
                     Usuń Wszystkie Dane
                 </button>
             </div>
+
+            {/* Analytics Panel */}
+            {showAnalytics && (
+                <div className="row mb-4">
+                    <div className="col-12">
+                        <div className={styles.analyticsPanel}>
+                            <div className={styles.analyticsPanelHeader}>
+                                <h3 className={styles.analyticsPanelTitle}>Analizy Sprzedaży</h3>
+                                <div className="btn-group" role="group">
+                                    <button 
+                                        className={`btn ${reportType === 'summary' ? 'btn-primary' : 'btn-outline-light'}`}
+                                        onClick={() => setReportType('summary')}
+                                    >
+                                        Podsumowanie
+                                    </button>
+                                    <button 
+                                        className={`btn ${reportType === 'charts' ? 'btn-primary' : 'btn-outline-light'}`}
+                                        onClick={() => setReportType('charts')}
+                                    >
+                                        Wykresy
+                                    </button>
+                                    <button 
+                                        className={`btn ${reportType === 'trends' ? 'btn-primary' : 'btn-outline-light'}`}
+                                        onClick={() => setReportType('trends')}
+                                    >
+                                        Trendy
+                                    </button>
+                                </div>
+                            </div>
+                            <div className={styles.analyticsPanelBody}>
+                                {reportType === 'summary' && (
+                                    <div className="row">
+                                        <div className="col-md-3">
+                                            <div className={styles.metricCard}>
+                                                <div className={styles.metricCardBody}>
+                                                    <h4 className={styles.metricValue}>{analytics.totalSales}</h4>
+                                                    <p className={styles.metricLabel}>Łączna liczba sprzedaży</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="col-md-3">
+                                            <div className={styles.metricCard}>
+                                                <div className={styles.metricCardBody}>
+                                                    <h5 className={styles.metricValue}>
+                                                        {Object.entries(analytics.totalRevenue).map(([currency, amount]) => (
+                                                            <div key={currency}>{amount.toFixed(2)} {currency}</div>
+                                                        ))}
+                                                    </h5>
+                                                    <p className={styles.metricLabel}>Łączny przychód</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="col-md-3">
+                                            <div className={styles.metricCard}>
+                                                <div className={styles.metricCardBody}>
+                                                    <h5 className={styles.metricValue}>
+                                                        {Object.entries(analytics.avgSaleValue).map(([currency, avg]) => (
+                                                            <div key={currency}>{avg} {currency}</div>
+                                                        ))}
+                                                    </h5>
+                                                    <p className={styles.metricLabel}>Średnia wartość sprzedaży</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="col-md-3">
+                                            <div className={styles.metricCard}>
+                                                <div className={styles.metricCardBody}>
+                                                    <h4 className={styles.metricValue}>
+                                                        {Object.keys(analytics.salesBySellingPoint).length}
+                                                    </h4>
+                                                    <p className={styles.metricLabel}>Aktywne punkty sprzedaży</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {reportType === 'charts' && (
+                                    <div className="row">
+                                        <div className="col-md-6 mb-4">
+                                            <div className={styles.chartContainer}>
+                                                <h5 className={styles.chartTitle}>Sprzedaż dzienne</h5>
+                                                <Bar data={chartData.dailySales} options={{ responsive: true }} />
+                                            </div>
+                                        </div>
+                                        <div className="col-md-6 mb-4">
+                                            <div className={styles.chartContainer}>
+                                                <h5 className={styles.chartTitle}>Punkty sprzedaży</h5>
+                                                <Pie data={chartData.sellingPoints} options={{ responsive: true }} />
+                                            </div>
+                                        </div>
+                                        <div className="col-12 mb-4">
+                                            <div className={styles.chartContainer}>
+                                                <h5 className={styles.chartTitle}>Top 10 produktów</h5>
+                                                <Bar data={chartData.topProducts} options={{ 
+                                                    responsive: true,
+                                                    indexAxis: 'y'
+                                                }} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {reportType === 'trends' && (
+                                    <div className="row">
+                                        <div className="col-md-6">
+                                            <div className={styles.chartContainer}>
+                                                <h5 className={styles.chartTitle}>Trend sprzedaży dziennej</h5>
+                                                <Line data={chartData.dailySales} options={{ 
+                                                    responsive: true,
+                                                    scales: {
+                                                        y: {
+                                                            beginAtZero: true
+                                                        }
+                                                    }
+                                                }} />
+                                            </div>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <div className={styles.chartContainer}>
+                                                <h5 className={styles.chartTitle}>Analiza rozmiarów</h5>
+                                                <div className={styles.analyticsTable}>
+                                                    <table className={styles.darkTable}>
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Rozmiar</th>
+                                                                <th>Liczba</th>
+                                                                <th>% udziału</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {Object.entries(analytics.salesBySize)
+                                                                .sort(([,a], [,b]) => b.count - a.count)
+                                                                .map(([size, data]) => (
+                                                                    <tr key={size}>
+                                                                        <td>{size}</td>
+                                                                        <td>{data.count}</td>
+                                                                        <td>{((data.count / analytics.totalSales) * 100).toFixed(1)}%</td>
+                                                                    </tr>
+                                                                ))
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className={styles.tableContainer}>
                 <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
                     <caption className={styles.caption}>Tabela przedstawiająca dane sprzedaży w systemie</caption>
