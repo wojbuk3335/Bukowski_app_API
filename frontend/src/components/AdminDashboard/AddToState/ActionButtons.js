@@ -32,10 +32,9 @@ const ActionButtons = ({
       <button
         onClick={handleSaveItems}
         className="btn btn-success"
-        disabled={!canSaveTransaction() || isTransactionInProgress}
         style={{
-          opacity: canSaveTransaction() ? 1 : 0.6,
-          cursor: canSaveTransaction() ? 'pointer' : 'not-allowed'
+          opacity: 1,
+          cursor: 'pointer'
         }}
       >
         {isTransactionInProgress ? (

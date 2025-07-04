@@ -281,11 +281,7 @@ const AddToState = () => {
         const allSellingPoints = [...new Set([...uniqueSellingPointsFromUsers, ...uniqueSellingPointsFromSales])]
           .filter(point => point && point !== currentMagazynSymbol); // Additional filter to exclude current magazyn symbol
         
-        console.log('🔍 DEBUG: Selling points creation...');
-        console.log('Current magazyn symbol:', currentMagazynSymbol);
-        console.log('Unique selling points from users:', uniqueSellingPointsFromUsers);
-        console.log('Unique selling points from sales:', uniqueSellingPointsFromSales);
-        console.log('All selling points (final):', allSellingPoints);
+
         
         setSellingPoints(allSellingPoints);
         
@@ -316,59 +312,88 @@ const AddToState = () => {
     
     // Filter sales based on selected date and selling point (only for "sprzedaz" mode)
     if (operationType === 'sprzedaz') {
-      console.log('🔍 DEBUG: Filtering sales...');
-      console.log('Selected date:', selectedDate);
-      console.log('Selected selling point:', selectedSellingPoint);
-      console.log('Total sales data:', salesData.length);
-      console.log('Users data:', usersData);
-      console.log('Processed sales IDs:', processedSalesIds);
+
       
       let filtered = salesData.filter(sale => {
-        const saleDate = new Date(sale.timestamp).toDateString();
         const selectedDateString = selectedDate.toDateString();
-        console.log(`🔍 Comparing dates: sale date "${saleDate}" === selected date "${selectedDateString}"`);
-        return saleDate === selectedDateString;
+        let finalSaleDate;
+        
+        // PRIORYTET: Jeśli istnieje pole 'date', użyj go. W przeciwnym razie użyj 'timestamp'
+        if (sale.date) {
+          // Użyj pola 'date' jako głównego źródła daty
+          finalSaleDate = new Date(sale.date).toDateString();
+
+        } else {
+          // Fallback do 'timestamp' tylko jeśli nie ma pola 'date'
+          if (typeof sale.timestamp === 'string' && sale.timestamp.includes('.')) {
+            const datePart = sale.timestamp.split(',')[0]; // Weź tylko część z datą, usuń czas
+            const parts = datePart.split('.');
+            if (parts.length === 3) {
+              // Konwertuj z DD.MM.YYYY na poprawny format MM/DD/YYYY
+              const [day, month, year] = parts;
+              finalSaleDate = new Date(`${month}/${day}/${year}`).toDateString();
+            } else {
+              finalSaleDate = new Date(sale.timestamp).toDateString();
+            }
+          } else {
+            finalSaleDate = new Date(sale.timestamp).toDateString();
+          }
+
+        }
+        
+        // Porównaj tylko jedną ostateczną datę
+        const matches = finalSaleDate === selectedDateString;
+
+        
+        return matches;
       });
       
-      // TEMPORARY: Show all sales regardless of date for debugging
-      filtered = salesData; // Uncomment this line to disable date filtering
+      // USUNIĘTE: Tymczasowe wyłączenie filtrowania dat
+      // filtered = salesData; // Ta linia powodowała pokazywanie wszystkich sprzedaży
       
-      console.log('Filtered by date:', filtered.length, filtered);
+
 
       if (selectedSellingPoint) {
         // Find the symbol for the selected selling point
         const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
-        console.log('Found user for selling point:', selectedUser);
+
         const selectedSymbol = selectedUser ? selectedUser.symbol : null;
-        console.log('Selected symbol:', selectedSymbol);
+
         
         if (selectedSymbol) {
           // Filter sales by 'from' field matching the selected symbol
           const beforeFilter = filtered.length;
           filtered = filtered.filter(sale => {
-            console.log(`Comparing sale.from "${sale.from}" === selectedSymbol "${selectedSymbol}"`);
+
             return sale.from === selectedSymbol;
           });
-          console.log(`Filtered by symbol: ${beforeFilter} -> ${filtered.length}`, filtered);
+
         } else {
-          console.log('❌ No symbol found for selected selling point');
+
         }
       } else {
-        console.log('❌ No selling point selected');
+
       }
 
       // IMPORTANT: Filter out already processed sales to prevent double-processing
+      // BUT keep synchronized sales visible (they should show as green)
       const beforeProcessedFilter = filtered.length;
-      filtered = filtered.filter(sale => !processedSalesIds.has(sale._id));
-      console.log(`Filtered out processed sales: ${beforeProcessedFilter} -> ${filtered.length}`, filtered);
+      filtered = filtered.filter(sale => {
+        const isProcessed = processedSalesIds.has(sale._id);
+        const isSynchronized = synchronizedItems.sales && synchronizedItems.sales.has(sale._id);
+        
+        // Keep if not processed OR if synchronized (to show green)
+        return !isProcessed || isSynchronized;
+      });
 
-      console.log('Final filtered sales:', filtered);
+
+
       setFilteredSales(filtered);
     } else {
       // For "przepisanie" mode, clear sales
       setFilteredSales([]);
     }
-  }, [salesData, selectedDate, selectedSellingPoint, operationType, usersData, processedSalesIds]);
+  }, [salesData, selectedDate, selectedSellingPoint, operationType, usersData, processedSalesIds, synchronizedItems]);
 
   const handleSynchronize = async () => {
     // Synchronization only available in "sprzedaz" mode
@@ -388,38 +413,48 @@ const AddToState = () => {
       // Format date for API call (YYYY-MM-DD)
       const formattedDate = selectedDate.toISOString().split('T')[0];
       
-      console.log('Making API call with:', {
-        date: formattedDate,
-        sellingPoint: selectedSellingPoint
-      });
+      // Find the symbol for the selected selling point
+      const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
+      const selectedSymbol = selectedUser ? selectedUser.symbol : null;
+      
+
+      
+      if (!selectedSymbol) {
+        showNotification('Błąd', `Nie znaleziono symbolu dla punktu sprzedaży "${selectedSellingPoint}"`, 'error');
+        setLoading(false);
+        return;
+      }
       
       // Fetch sales data for the selected date and selling point
+      // Use selectedSymbol instead of selectedSellingPoint for API call
       const salesResponse = await axios.get('/api/sales/filter-by-date-and-point', {
         params: {
           date: formattedDate,
-          sellingPoint: selectedSellingPoint
+          sellingPoint: selectedSymbol  // Use symbol instead of selling point name
         }
       });
       
-      console.log('API Response:', salesResponse.data);
+
 
       const freshSalesData = salesResponse.data;
-      setSalesData(freshSalesData);
 
-      showNotification(
-        'Sukces', 
-        `Pobrano ${freshSalesData.length} sprzedanych produktów dla daty ${selectedDate.toLocaleDateString('pl-PL')} i punktu "${selectedSellingPoint}"`, 
-        'success'
-      );
+      // Don't show notification about fetched data here - show it after synchronization
 
-      // Now perform synchronization with fresh data
+      // Now perform synchronization between currently visible sales and magazyn items
       const matchedMagazynIds = new Set();
       const matchedSalesIds = new Set();
       const synchronizedMagazynItems = new Set();
       const synchronizedSalesItems = new Set();
       
-      // Find one-to-one matches between fresh sales and magazyn items
-      freshSalesData.forEach(sale => {
+
+      
+      // Use currently filtered sales for synchronization (not fresh API data)
+      // This ensures we work with what user can see on screen
+      const salesForSync = filteredSales.length > 0 ? filteredSales : freshSalesData;
+
+      
+      // Find one-to-one matches between visible sales and magazyn items
+      salesForSync.forEach(sale => {
         if (matchedSalesIds.has(sale._id)) return;
         
         for (let i = 0; i < magazynItems.length; i++) {
@@ -427,17 +462,30 @@ const AddToState = () => {
           
           if (matchedMagazynIds.has(magazynItem.id)) continue;
           
+
+          
           if (sale.barcode === magazynItem.barcode && sale.size === magazynItem.size) {
             matchedMagazynIds.add(magazynItem.id);
             matchedSalesIds.add(sale._id);
             synchronizedMagazynItems.add(magazynItem.id);
             synchronizedSalesItems.add(sale._id);
+
             break;
           }
         }
       });
       
+      // Update synchronized items first
       setSynchronizedItems({ magazyn: synchronizedMagazynItems, sales: synchronizedSalesItems });
+      
+
+      
+      // Synchronization completed - no modal notification needed
+      // Results are visible through color changes in the UI
+      
+      // DO NOT update salesData - this would trigger useEffect and clear existing filteredSales
+      // Just keep the synchronized items marked as green
+      // setSalesData(freshSalesData); // REMOVED - this was causing the blue items to disappear
       
     } catch (error) {
       console.error('Error during synchronization:', error);
@@ -525,12 +573,12 @@ const AddToState = () => {
 
     try {
       // STEP 1: Validate that all items exist in current state before processing
-      console.log('🔍 Validating items against current state...');
+
       
       // Fetch current state from API
       const currentStateResponse = await axios.get('/api/state');
       const currentStateItems = currentStateResponse.data || [];
-      console.log('Current state items:', currentStateItems.length);
+
       
       // Collect all items that need to be validated
       const itemsToValidate = [];
@@ -580,7 +628,7 @@ const AddToState = () => {
         });
       }
       
-      console.log('Items to validate:', itemsToValidate.length);
+
       
       // Validate each item against current state
       itemsToValidate.forEach(item => {
@@ -597,7 +645,7 @@ const AddToState = () => {
         }
       });
       
-      console.log(`✅ Valid items: ${validItems.length}, ❌ Missing items: ${missingItems.length}`);
+
       
       // If there are missing items, show warning but continue with valid items
       if (missingItems.length > 0) {
@@ -814,7 +862,7 @@ const AddToState = () => {
             };
 
             await axios.post('/api/state/restore-silent', restoreData);
-            console.log(`Successfully transferred green item ${itemId} from MAGAZYN to ${actualTargetSymbol} (przepisanie mode)`);
+
 
           } else {
             // For "sprzedaz" mode, use original logic (delete only - simulates sale)
@@ -868,7 +916,7 @@ const AddToState = () => {
           };
 
           await axios.post('/api/state/restore-silent', restoreData);
-          console.log(`Successfully transferred orange item ${itemId} from MAGAZYN to ${actualTargetSymbol} (${operationType} mode)`);
+
 
         } catch (error) {
           console.error(`Error transferring orange item ${itemId}:`, error);
@@ -1156,7 +1204,7 @@ const AddToState = () => {
       // Wait for all items to be removed from their current locations
       if (removePromises.length > 0) {
         await Promise.all(removePromises);
-        console.log(`✅ Removed ${removePromises.length} items from their current locations`);
+
       }
       
       // STEP 2: Now restore items to their original state
@@ -1221,7 +1269,7 @@ const AddToState = () => {
       // Wait for all items to be restored
       if (restorePromises.length > 0) {
         await Promise.all(restorePromises);
-        console.log(`✅ Restored ${restorePromises.length} items to their original locations`);
+
       }
       
       // STEP 3: Now delete all history records associated with this transaction
@@ -1338,18 +1386,7 @@ const AddToState = () => {
           targetSymbol = targetUser ? targetUser.symbol : targetSellingPointName; // Fallback to name if symbol not found
         }
         
-        console.log(`[DEBUG] Attempting to remove transferred item:`, {
-          fullName: itemToUndo.fullName,
-          size: itemToUndo.size,
-          barcode: itemToUndo.barcode,
-          targetSellingPointName: targetSellingPointName,
-          targetSymbol: targetSymbol,
-          transaction: {
-            selectedSellingPoint: transaction.selectedSellingPoint,
-            targetSellingPoint: transaction.targetSellingPoint,
-            operationType: transaction.operationType
-          }
-        });
+
         
         if (targetSymbol) {
           try {
@@ -1359,15 +1396,10 @@ const AddToState = () => {
                 'target-symbol': 'MAGAZYN'
               }
             });
-            console.log(`✅ Removed ${itemToUndo.fullName} (${itemToUndo.size}) from ${targetSymbol} for correction`);
+
           } catch (deleteError) {
             console.error(`❌ Failed to remove item from ${targetSymbol}:`, deleteError);
-            console.log('Error details:', {
-              status: deleteError.response?.status,
-              statusText: deleteError.response?.statusText,
-              data: deleteError.response?.data,
-              url: deleteError.config?.url
-            });
+
             throw deleteError; // Re-throw to handle in outer catch
           }
         } else {
@@ -1424,7 +1456,7 @@ const AddToState = () => {
       
       if (restoreData) {
         await axios.post('/api/state/restore-silent', restoreData);
-        console.log(`✅ Restored ${itemToUndo.fullName} (${itemToUndo.size}) to ${targetSymbol}`);
+
       }
       
       // STEP 3: Create correction transaction for tracking
@@ -1481,11 +1513,11 @@ const AddToState = () => {
           }
         };
         
-        console.log('Sending delete history payload:', deleteHistoryPayload);
+
         
         await axios.post('/api/history/delete-single-item', deleteHistoryPayload);
         
-        console.log('Successfully deleted history record for single item');
+
         
       } catch (historyError) {
         console.error('Błąd podczas usuwania rekordu historii dla pojedynczego elementu:', historyError);
@@ -2835,12 +2867,6 @@ const AddToState = () => {
               onClick={handleSave}
               className="btn btn-success"
               style={{ height: 'fit-content' }}
-              disabled={
-                isTransactionInProgress || 
-                isTransactionSaved ||
-                (operationType === 'sprzedaz' && (!synchronizedItems.magazyn || synchronizedItems.magazyn.size === 0) && addedMagazynIds.size === 0) ||
-                (operationType === 'przepisanie' && (!targetSellingPoint || addedMagazynIds.size === 0))
-              }
             >
               {isTransactionInProgress ? 'Zapisywanie...' : 
                isTransactionSaved ? 'Zapisano' : 
