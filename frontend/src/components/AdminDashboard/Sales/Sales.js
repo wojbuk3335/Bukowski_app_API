@@ -551,49 +551,48 @@ const Sales = () => {
     return (
         <div>
             <h1 className={styles.title}>Sprzedaż</h1> 
-            <div className="d-flex flex-wrap justify-content-center align-items-end mb-3" style={{ gap: '15px' }}>
-                <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '5px' }}>Data początkowa:</label>
-                    <DatePicker
-                        selected={startDate}
-                        onChange={(date) => setStartDate(date)}
-                        selectsStart
-                        startDate={startDate}
-                        endDate={endDate}
-                        className="form-control"
-                        placeholderText="Wybierz datę początkową"
-                        style={{ width: '160px' }}
-                    />
+            <div className="d-flex flex-column align-items-center mb-3">
+                <div className="d-flex justify-content-center mb-3">
+                    <div className="me-3">
+                        <label>Data początkowa:</label>
+                        <DatePicker
+                            selected={startDate}
+                            onChange={(date) => setStartDate(date)}
+                            selectsStart
+                            startDate={startDate}
+                            endDate={endDate}
+                            className="form-control"
+                            placeholderText="Wybierz datę początkową"
+                        />
+                    </div>
+                    <div>
+                        <label>Data końcowa:</label>
+                        <DatePicker
+                            selected={endDate}
+                            onChange={(date) => setEndDate(date)}
+                            selectsEnd
+                            startDate={startDate}
+                            endDate={endDate}
+                            minDate={startDate}
+                            className="form-control"
+                            placeholderText="Wybierz datę końcową"
+                        />
+                    </div>
                 </div>
-                <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '5px' }}>Data końcowa:</label>
-                    <DatePicker
-                        selected={endDate}
-                        onChange={(date) => setEndDate(date)}
-                        selectsEnd
-                        startDate={startDate}
-                        endDate={endDate}
-                        minDate={startDate}
-                        className="form-control"
-                        placeholderText="Wybierz datę końcową"
-                        style={{ width: '160px' }}
-                    />
-                </div>
-                <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '5px' }}>Wyszukiwarka:</label>
+                <div style={{ width: '200px' }}>
                     <input
                         type="text"
                         className="form-control"
                         placeholder="Wyszukiwarka"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ width: '200px' }}
                     />
-                </div>
-                <button className="btn btn-primary" onClick={handleExportPDF}>
+                </div>            </div>
+            <div className="d-flex justify-content-center mb-3">
+                <button className="btn btn-primary me-2" onClick={handleExportPDF}>
                     Eksportuj PDF (Tylko Dane)
                 </button>
-                <button className="btn btn-success" onClick={handleExportExcel}>
+                <button className="btn btn-success me-2" onClick={handleExportExcel}>
                     Eksportuj Excel
                 </button>
                 <CSVLink
@@ -609,14 +608,14 @@ const Sales = () => {
                         Gotówka: sale.cash.map((c) => `${c.price} ${c.currency}`).join(', '),
                     }))}
                     filename="sales_data.csv"
-                    className="btn btn-info"
+                    className="btn btn-info me-2"
                 >
                     Eksportuj CSV
                 </CSVLink>
-                <button className="btn btn-warning" onClick={handleExportFullPDF}>
+                <button className="btn btn-warning me-2" onClick={handleExportFullPDF}>
                     Eksportuj PDF (Dane + Podsumowanie)
                 </button>
-                <button className="btn btn-success" onClick={handlePrintReport}>
+                <button className="btn btn-success me-2" onClick={handlePrintReport}>
                     Drukuj Raport
                 </button>
                 <button 
@@ -624,11 +623,6 @@ const Sales = () => {
                     onClick={() => setShowAnalytics(!showAnalytics)}
                 >
                     {showAnalytics ? 'Ukryj Analizy' : 'Pokaż Analizy'}
-                </button>
-            </div>
-            <div className="d-flex justify-content-center mb-3">
-                <button className="btn btn-danger" onClick={handleRemoveAllData}>
-                    Usuń Wszystkie Dane
                 </button>
             </div>
 
@@ -711,23 +705,75 @@ const Sales = () => {
                                 {reportType === 'charts' && (
                                     <div className="row">
                                         <div className="col-md-6 mb-4">
-                                            <div className={styles.chartContainer}>
+                                            <div className={`${styles.chartContainer} ${styles.smallChart}`}>
                                                 <h5 className={styles.chartTitle}>Sprzedaż dzienne</h5>
-                                                <Bar data={chartData.dailySales} options={{ responsive: true }} />
+                                                <Bar data={chartData.dailySales} options={{ 
+                                                    responsive: true,
+                                                    maintainAspectRatio: false,
+                                                    plugins: {
+                                                        legend: {
+                                                            display: false
+                                                        }
+                                                    },
+                                                    scales: {
+                                                        y: {
+                                                            beginAtZero: true,
+                                                            ticks: {
+                                                                color: '#fff'
+                                                            }
+                                                        },
+                                                        x: {
+                                                            ticks: {
+                                                                color: '#fff'
+                                                            }
+                                                        }
+                                                    }
+                                                }} />
                                             </div>
                                         </div>
                                         <div className="col-md-6 mb-4">
-                                            <div className={styles.chartContainer}>
+                                            <div className={`${styles.chartContainer} ${styles.smallChart}`}>
                                                 <h5 className={styles.chartTitle}>Punkty sprzedaży</h5>
-                                                <Pie data={chartData.sellingPoints} options={{ responsive: true }} />
+                                                <Pie data={chartData.sellingPoints} options={{ 
+                                                    responsive: true,
+                                                    maintainAspectRatio: false,
+                                                    plugins: {
+                                                        legend: {
+                                                            position: 'bottom',
+                                                            labels: {
+                                                                color: '#fff',
+                                                                fontSize: 10
+                                                            }
+                                                        }
+                                                    }
+                                                }} />
                                             </div>
                                         </div>
                                         <div className="col-12 mb-4">
-                                            <div className={styles.chartContainer}>
+                                            <div className={`${styles.chartContainer} ${styles.compactChart}`}>
                                                 <h5 className={styles.chartTitle}>Top 10 produktów</h5>
                                                 <Bar data={chartData.topProducts} options={{ 
                                                     responsive: true,
-                                                    indexAxis: 'y'
+                                                    maintainAspectRatio: false,
+                                                    indexAxis: 'y',
+                                                    plugins: {
+                                                        legend: {
+                                                            display: false
+                                                        }
+                                                    },
+                                                    scales: {
+                                                        y: {
+                                                            ticks: {
+                                                                color: '#fff',
+                                                                fontSize: 10
+                                                            }
+                                                        },
+                                                        x: {
+                                                            ticks: {
+                                                                color: '#fff'
+                                                            }
+                                                        }
+                                                    }
                                                 }} />
                                             </div>
                                         </div>
@@ -737,20 +783,34 @@ const Sales = () => {
                                 {reportType === 'trends' && (
                                     <div className="row">
                                         <div className="col-md-6">
-                                            <div className={styles.chartContainer}>
+                                            <div className={`${styles.chartContainer} ${styles.smallChart}`}>
                                                 <h5 className={styles.chartTitle}>Trend sprzedaży dziennej</h5>
                                                 <Line data={chartData.dailySales} options={{ 
                                                     responsive: true,
+                                                    maintainAspectRatio: false,
+                                                    plugins: {
+                                                        legend: {
+                                                            display: false
+                                                        }
+                                                    },
                                                     scales: {
                                                         y: {
-                                                            beginAtZero: true
+                                                            beginAtZero: true,
+                                                            ticks: {
+                                                                color: '#fff'
+                                                            }
+                                                        },
+                                                        x: {
+                                                            ticks: {
+                                                                color: '#fff'
+                                                            }
                                                         }
                                                     }
                                                 }} />
                                             </div>
                                         </div>
                                         <div className="col-md-6">
-                                            <div className={styles.chartContainer}>
+                                            <div className={`${styles.chartContainer} ${styles.smallChart}`}>
                                                 <h5 className={styles.chartTitle}>Analiza rozmiarów</h5>
                                                 <div className={styles.analyticsTable}>
                                                     <table className={styles.darkTable}>
@@ -764,6 +824,7 @@ const Sales = () => {
                                                         <tbody>
                                                             {Object.entries(analytics.salesBySize)
                                                                 .sort(([,a], [,b]) => b.count - a.count)
+                                                                .slice(0, 8) // Ograniczamy do 8 wierszy
                                                                 .map(([size, data]) => (
                                                                     <tr key={size}>
                                                                         <td>{size}</td>

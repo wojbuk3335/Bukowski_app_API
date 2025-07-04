@@ -97,6 +97,47 @@ class SalesController {
             res.status(500).json({ error: error.message });
         }
     }
+
+    static async getSalesByDateAndSellingPoint(req, res) {
+        try {
+            const { date, sellingPoint } = req.query;
+            
+            console.log('Received query params:', { date, sellingPoint });
+            
+            if (!date || !sellingPoint) {
+                return res.status(400).json({ 
+                    error: 'Date and sellingPoint parameters are required' 
+                });
+            }
+
+            // Parse the date to get start and end of the day
+            const startDate = new Date(date);
+            startDate.setUTCHours(0, 0, 0, 0);
+            
+            const endDate = new Date(date);
+            endDate.setUTCHours(23, 59, 59, 999);
+            
+            console.log('Date range:', { startDate, endDate });
+            console.log('Searching for sellingPoint:', sellingPoint);
+
+            // Find sales for the specific date and selling point
+            const sales = await Sales.find({
+                sellingPoint: sellingPoint,
+                timestamp: {
+                    $gte: startDate,
+                    $lte: endDate
+                }
+            }).sort({ timestamp: -1 }); // Sort by timestamp descending
+            
+            console.log('Found sales:', sales.length);
+            console.log('Sales data:', sales);
+
+            res.status(200).json(sales);
+        } catch (error) {
+            console.error('Error filtering sales by date and selling point:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
 }
 
 module.exports = SalesController;

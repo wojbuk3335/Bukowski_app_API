@@ -52,6 +52,7 @@ const AddToState = () => {
   const [isTransactionSaved, setIsTransactionSaved] = useState(false); // Track if transaction was saved
   const [lastTransactionDetails, setLastTransactionDetails] = useState(null); // Store details of last transaction for cancellation
   const [savedItemsForDisplay, setSavedItemsForDisplay] = useState([]); // Items to keep displaying after save
+  const [processedSalesIds, setProcessedSalesIds] = useState(new Set()); // Track which sales have been processed to prevent double-processing
   
   // Printing states
   const [selectedForPrint, setSelectedForPrint] = useState(new Set()); // Track selected items for printing
@@ -280,6 +281,12 @@ const AddToState = () => {
         const allSellingPoints = [...new Set([...uniqueSellingPointsFromUsers, ...uniqueSellingPointsFromSales])]
           .filter(point => point && point !== currentMagazynSymbol); // Additional filter to exclude current magazyn symbol
         
+        console.log('🔍 DEBUG: Selling points creation...');
+        console.log('Current magazyn symbol:', currentMagazynSymbol);
+        console.log('Unique selling points from users:', uniqueSellingPointsFromUsers);
+        console.log('Unique selling points from sales:', uniqueSellingPointsFromSales);
+        console.log('All selling points (final):', allSellingPoints);
+        
         setSellingPoints(allSellingPoints);
         
         // Set default selectedSellingPoint for sprzedaz mode
@@ -304,67 +311,144 @@ const AddToState = () => {
   }, []);
 
   useEffect(() => {
+    // Reset transaction saved state when date or selling point changes
+    setIsTransactionSaved(false);
+    
     // Filter sales based on selected date and selling point (only for "sprzedaz" mode)
     if (operationType === 'sprzedaz') {
+      console.log('🔍 DEBUG: Filtering sales...');
+      console.log('Selected date:', selectedDate);
+      console.log('Selected selling point:', selectedSellingPoint);
+      console.log('Total sales data:', salesData.length);
+      console.log('Users data:', usersData);
+      console.log('Processed sales IDs:', processedSalesIds);
+      
       let filtered = salesData.filter(sale => {
         const saleDate = new Date(sale.timestamp).toDateString();
         const selectedDateString = selectedDate.toDateString();
+        console.log(`🔍 Comparing dates: sale date "${saleDate}" === selected date "${selectedDateString}"`);
         return saleDate === selectedDateString;
       });
+      
+      // TEMPORARY: Show all sales regardless of date for debugging
+      filtered = salesData; // Uncomment this line to disable date filtering
+      
+      console.log('Filtered by date:', filtered.length, filtered);
 
       if (selectedSellingPoint) {
         // Find the symbol for the selected selling point
         const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
+        console.log('Found user for selling point:', selectedUser);
         const selectedSymbol = selectedUser ? selectedUser.symbol : null;
+        console.log('Selected symbol:', selectedSymbol);
         
         if (selectedSymbol) {
           // Filter sales by 'from' field matching the selected symbol
-          filtered = filtered.filter(sale => sale.from === selectedSymbol);
+          const beforeFilter = filtered.length;
+          filtered = filtered.filter(sale => {
+            console.log(`Comparing sale.from "${sale.from}" === selectedSymbol "${selectedSymbol}"`);
+            return sale.from === selectedSymbol;
+          });
+          console.log(`Filtered by symbol: ${beforeFilter} -> ${filtered.length}`, filtered);
+        } else {
+          console.log('❌ No symbol found for selected selling point');
         }
+      } else {
+        console.log('❌ No selling point selected');
       }
 
+      // IMPORTANT: Filter out already processed sales to prevent double-processing
+      const beforeProcessedFilter = filtered.length;
+      filtered = filtered.filter(sale => !processedSalesIds.has(sale._id));
+      console.log(`Filtered out processed sales: ${beforeProcessedFilter} -> ${filtered.length}`, filtered);
+
+      console.log('Final filtered sales:', filtered);
       setFilteredSales(filtered);
     } else {
       // For "przepisanie" mode, clear sales
       setFilteredSales([]);
     }
-  }, [salesData, selectedDate, selectedSellingPoint, operationType, usersData]);
+  }, [salesData, selectedDate, selectedSellingPoint, operationType, usersData, processedSalesIds]);
 
-  const handleSynchronize = () => {
+  const handleSynchronize = async () => {
     // Synchronization only available in "sprzedaz" mode
     if (operationType !== 'sprzedaz') {
-      alert('Synchronizacja dostępna tylko w trybie "Sprzedaż"');
+      showNotification('Błąd', 'Synchronizacja dostępna tylko w trybie "Sprzedaż"', 'error');
       return;
     }
-    
-    const matchedMagazynIds = new Set(); // Track which magazyn items are already matched
-    const matchedSalesIds = new Set(); // Track which sales items are already matched
-    const synchronizedMagazynItems = new Set(); // Store matched magazyn item IDs
-    const synchronizedSalesItems = new Set(); // Store matched sales item IDs
-    
-    // Find one-to-one matches between FILTERED sales and magazyn items
-    filteredSales.forEach(sale => {
-      if (matchedSalesIds.has(sale._id)) return; // Skip if this sale is already matched
+
+    if (!selectedDate || !selectedSellingPoint) {
+      showNotification('Błąd', 'Wybierz datę i punkt sprzedaży przed synchronizacją', 'error');
+      return;
+    }
+
+    try {
+      setLoading(true);
       
-      // Find the first available matching magazyn item
-      for (let i = 0; i < magazynItems.length; i++) {
-        const magazynItem = magazynItems[i];
-        
-        if (matchedMagazynIds.has(magazynItem.id)) continue; // Skip if this magazyn item is already matched
-        
-        if (sale.barcode === magazynItem.barcode && sale.size === magazynItem.size) {
-          // Match found - mark both items as matched and break out of the loop
-          matchedMagazynIds.add(magazynItem.id);
-          matchedSalesIds.add(sale._id);
-          synchronizedMagazynItems.add(magazynItem.id);
-          synchronizedSalesItems.add(sale._id);
-          break; // Important: Break out of the loop after finding the first match
+      // Format date for API call (YYYY-MM-DD)
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      
+      console.log('Making API call with:', {
+        date: formattedDate,
+        sellingPoint: selectedSellingPoint
+      });
+      
+      // Fetch sales data for the selected date and selling point
+      const salesResponse = await axios.get('/api/sales/filter-by-date-and-point', {
+        params: {
+          date: formattedDate,
+          sellingPoint: selectedSellingPoint
         }
-      }
-    });
-    
-    // Store both sets for rendering
-    setSynchronizedItems({ magazyn: synchronizedMagazynItems, sales: synchronizedSalesItems });
+      });
+      
+      console.log('API Response:', salesResponse.data);
+
+      const freshSalesData = salesResponse.data;
+      setSalesData(freshSalesData);
+
+      showNotification(
+        'Sukces', 
+        `Pobrano ${freshSalesData.length} sprzedanych produktów dla daty ${selectedDate.toLocaleDateString('pl-PL')} i punktu "${selectedSellingPoint}"`, 
+        'success'
+      );
+
+      // Now perform synchronization with fresh data
+      const matchedMagazynIds = new Set();
+      const matchedSalesIds = new Set();
+      const synchronizedMagazynItems = new Set();
+      const synchronizedSalesItems = new Set();
+      
+      // Find one-to-one matches between fresh sales and magazyn items
+      freshSalesData.forEach(sale => {
+        if (matchedSalesIds.has(sale._id)) return;
+        
+        for (let i = 0; i < magazynItems.length; i++) {
+          const magazynItem = magazynItems[i];
+          
+          if (matchedMagazynIds.has(magazynItem.id)) continue;
+          
+          if (sale.barcode === magazynItem.barcode && sale.size === magazynItem.size) {
+            matchedMagazynIds.add(magazynItem.id);
+            matchedSalesIds.add(sale._id);
+            synchronizedMagazynItems.add(magazynItem.id);
+            synchronizedSalesItems.add(sale._id);
+            break;
+          }
+        }
+      });
+      
+      setSynchronizedItems({ magazyn: synchronizedMagazynItems, sales: synchronizedSalesItems });
+      
+    } catch (error) {
+      console.error('Error during synchronization:', error);
+      showNotification(
+        'Błąd synchronizacji', 
+        `Nie udało się pobrać danych sprzedaży: ${error.response?.data?.error || error.message}`, 
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddToSales = (magazynItem) => {
@@ -440,36 +524,128 @@ const AddToState = () => {
     setIsTransactionInProgress(true);
 
     try {
-      // Prepare transaction details for history
+      // STEP 1: Validate that all items exist in current state before processing
+      console.log('🔍 Validating items against current state...');
+      
+      // Fetch current state from API
+      const currentStateResponse = await axios.get('/api/state');
+      const currentStateItems = currentStateResponse.data || [];
+      console.log('Current state items:', currentStateItems.length);
+      
+      // Collect all items that need to be validated
+      const itemsToValidate = [];
+      const missingItems = [];
+      const validItems = [];
+      
+      // Add sales items (blue) to validation
+      filteredSales.forEach(sale => {
+        if (!synchronizedItems.sales || !synchronizedItems.sales.has(sale._id)) {
+          itemsToValidate.push({
+            type: 'sales',
+            data: sale,
+            barcode: sale.barcode,
+            expectedSymbol: sale.from,
+            displayName: `${sale.fullName} (${sale.size})`
+          });
+        }
+      });
+      
+      // Add manually added items (orange) to validation - these should be in MAGAZYN
+      addedMagazynIds.forEach(id => {
+        const magazynItem = magazynItems.find(item => item.id === id);
+        if (magazynItem) {
+          itemsToValidate.push({
+            type: 'magazyn',
+            data: magazynItem,
+            barcode: magazynItem.barcode,
+            expectedSymbol: magazynSymbol,
+            displayName: `${magazynItem.fullName} (${magazynItem.size})`
+          });
+        }
+      });
+      
+      // Add synchronized items (green) to validation
+      if (synchronizedItems.magazyn) {
+        synchronizedItems.magazyn.forEach(id => {
+          const magazynItem = magazynItems.find(item => item.id === id);
+          if (magazynItem) {
+            itemsToValidate.push({
+              type: 'synchronized',
+              data: magazynItem,
+              barcode: magazynItem.barcode,
+              expectedSymbol: magazynSymbol,
+              displayName: `${magazynItem.fullName} (${magazynItem.size})`
+            });
+          }
+        });
+      }
+      
+      console.log('Items to validate:', itemsToValidate.length);
+      
+      // Validate each item against current state
+      itemsToValidate.forEach(item => {
+        const existsInState = currentStateItems.some(stateItem => 
+          stateItem.barcode === item.barcode && 
+          stateItem.symbol === item.expectedSymbol
+        );
+        
+        if (existsInState) {
+          validItems.push(item);
+        } else {
+          missingItems.push(item);
+          console.warn(`❌ Missing from state: ${item.displayName} (barcode: ${item.barcode}, symbol: ${item.expectedSymbol})`);
+        }
+      });
+      
+      console.log(`✅ Valid items: ${validItems.length}, ❌ Missing items: ${missingItems.length}`);
+      
+      // If there are missing items, show warning but continue with valid items
+      if (missingItems.length > 0) {
+        const missingList = missingItems.map(item => `• ${item.displayName} (${item.barcode})`).join('\n');
+        showNotification(
+          'Ostrzeżenie - Brakujące elementy', 
+          `Następujące elementy nie znajdują się na stanie i zostaną pominięte:\n\n${missingList}\n\nPozostałe elementy (${validItems.length}) zostały pomyślnie odpisane.`,
+          'warning'
+        );
+      }
+      
+      // If no valid items, stop processing
+      if (validItems.length === 0) {
+        showNotification('Błąd', 'Żaden z wybranych elementów nie znajduje się na stanie. Operacja anulowana.', 'error');
+        setIsTransactionInProgress(false);
+        return;
+      }
+
+      // STEP 2: Prepare transaction details for history (only valid items)
       const transactionId = Date.now().toString();
       const processedItems = [];
       
-      // Separate items by their colors/types
+      // Separate items by their colors/types (only valid items)
       const blueItems = new Set(); // Regular sales items (blue) - to be deleted
       const greenItems = new Set(); // Synchronized items (green) - to be transferred within same selling point
       const orangeItems = new Set(); // Manually added items (orange) - to be transferred from MAGAZYN
 
-      // Process sales items for deletion (blue)
+      // Process sales items for deletion (blue) - only valid ones
       const blueItemsBarcodes = []; // Use array instead of Set to keep duplicates
-      filteredSales.forEach(sale => {
-        if (!synchronizedItems.sales || !synchronizedItems.sales.has(sale._id)) {
-          // For blue items, we use barcode directly from sales data
-          blueItemsBarcodes.push(sale.barcode); // Push to array to keep duplicates
-          
-          // Find the original selling point symbol for this sale
-          const originalSymbol = sale.from; // This should contain the symbol from which it was sold
-          
-          processedItems.push({
-            fullName: sale.fullName,
-            size: sale.size,
-            barcode: sale.barcode,
-            price: sale.cash[0]?.price || 0,
-            processType: 'sold',
-            originalId: sale._id,
-            originalSymbol: originalSymbol || selectedSellingPoint, // Where it should be restored
-            sellingPoint: selectedSellingPoint
-          });
-        }
+      const validSalesItems = validItems.filter(item => item.type === 'sales');
+      validSalesItems.forEach(validItem => {
+        const sale = validItem.data;
+        // For blue items, we use barcode directly from sales data
+        blueItemsBarcodes.push(sale.barcode); // Push to array to keep duplicates
+        
+        // Find the original selling point symbol for this sale
+        const originalSymbol = sale.from; // This should contain the symbol from which it was sold
+        
+        processedItems.push({
+          fullName: sale.fullName,
+          size: sale.size,
+          barcode: sale.barcode,
+          price: sale.cash[0]?.price || 0,
+          processType: 'sold',
+          originalId: sale._id,
+          originalSymbol: originalSymbol || selectedSellingPoint, // Where it should be restored
+          sellingPoint: selectedSellingPoint
+        });
       });
 
       // Group barcodes by count to know how many to delete
@@ -478,68 +654,64 @@ const AddToState = () => {
         barcodeCount[barcode] = (barcodeCount[barcode] || 0) + 1;
       });
 
-      // Process synchronized items (green) - these will be transferred within same point
-      if (synchronizedItems.magazyn) {
-        synchronizedItems.magazyn.forEach(id => {
-          greenItems.add(id);
-          // Find the related magazyn item to get full data
-          const relatedMagazynItem = magazynItems.find(item => item.id === id);
-          if (relatedMagazynItem) {
-            // Handle price format for transaction history - split if contains semicolon
-            let itemPrice = 0;
-            let itemDiscountPrice = 0;
-            
-            if (relatedMagazynItem.price && typeof relatedMagazynItem.price === 'string' && relatedMagazynItem.price.includes(';')) {
-              const prices = relatedMagazynItem.price.split(';');
-              itemPrice = Number(prices[0]) || 0;
-              itemDiscountPrice = Number(prices[1]) || 0;
-            } else {
-              itemPrice = Number(relatedMagazynItem.price) || 0;
-            }
-            
-            processedItems.push({
-              fullName: relatedMagazynItem.fullName,
-              size: relatedMagazynItem.size,
-              barcode: relatedMagazynItem.barcode,
-              price: itemPrice,
-              discount_price: itemDiscountPrice,
-              processType: 'synchronized',
-              originalId: id,
-              originalSymbol: magazynSymbol // Items came from current magazyn symbol originally
-            });
-          }
-        });
-      }
-
-      // Process manually added items (orange) - these come from MAGAZYN
-      addedMagazynIds.forEach(id => {
-        orangeItems.add(id);
-        // Find the related magazyn item to get full data
-        const relatedMagazynItem = magazynItems.find(item => item.id === id);
-        if (relatedMagazynItem) {
-          // Handle price format for transaction history - split if contains semicolon
-          let itemPrice = 0;
-          let itemDiscountPrice = 0;
-          
-          if (relatedMagazynItem.price && typeof relatedMagazynItem.price === 'string' && relatedMagazynItem.price.includes(';')) {
-            const prices = relatedMagazynItem.price.split(';');
-            itemPrice = Number(prices[0]) || 0;
-            itemDiscountPrice = Number(prices[1]) || 0;
-          } else {
-            itemPrice = Number(relatedMagazynItem.price) || 0;
-          }
-          
-          processedItems.push({
-            fullName: relatedMagazynItem.fullName,
-            size: relatedMagazynItem.size,
-            barcode: relatedMagazynItem.barcode,
-            price: itemPrice,
-            discount_price: itemDiscountPrice,
-            processType: 'transferred',
-            originalId: id,
-            originalSymbol: magazynSymbol // Items came from current magazyn symbol originally
-          });
+      // Process synchronized items (green) - only valid ones
+      const validSynchronizedItems = validItems.filter(item => item.type === 'synchronized');
+      validSynchronizedItems.forEach(validItem => {
+        const magazynItem = validItem.data;
+        greenItems.add(magazynItem.id);
+        
+        // Handle price format for transaction history - split if contains semicolon
+        let itemPrice = 0;
+        let itemDiscountPrice = 0;
+        
+        if (magazynItem.price && typeof magazynItem.price === 'string' && magazynItem.price.includes(';')) {
+          const prices = magazynItem.price.split(';');
+          itemPrice = Number(prices[0]) || 0;
+          itemDiscountPrice = Number(prices[1]) || 0;
+        } else {
+          itemPrice = Number(magazynItem.price) || 0;
         }
+        
+        processedItems.push({
+          fullName: magazynItem.fullName,
+          size: magazynItem.size,
+          barcode: magazynItem.barcode,
+          price: itemPrice,
+          discount_price: itemDiscountPrice,
+          processType: 'synchronized',
+          originalId: magazynItem.id,
+          originalSymbol: magazynSymbol // Items came from current magazyn symbol originally
+        });
+      });
+
+      // Process manually added items (orange) - only valid ones
+      const validMagazynItems = validItems.filter(item => item.type === 'magazyn');
+      validMagazynItems.forEach(validItem => {
+        const magazynItem = validItem.data;
+        orangeItems.add(magazynItem.id);
+        
+        // Handle price format for transaction history - split if contains semicolon
+        let itemPrice = 0;
+        let itemDiscountPrice = 0;
+        
+        if (magazynItem.price && typeof magazynItem.price === 'string' && magazynItem.price.includes(';')) {
+          const prices = magazynItem.price.split(';');
+          itemPrice = Number(prices[0]) || 0;
+          itemDiscountPrice = Number(prices[1]) || 0;
+        } else {
+          itemPrice = Number(magazynItem.price) || 0;
+        }
+        
+        processedItems.push({
+          fullName: magazynItem.fullName,
+          size: magazynItem.size,
+          barcode: magazynItem.barcode,
+          price: itemPrice,
+          discount_price: itemDiscountPrice,
+          processType: 'transferred',
+          originalId: magazynItem.id,
+          originalSymbol: magazynSymbol // Items came from current magazyn symbol originally
+        });
       });
 
       // Store transaction details for potential cancellation
@@ -715,6 +887,13 @@ const AddToState = () => {
       // Save transaction to database instead of local state
       await saveTransactionToDatabase(transactionDetails);
 
+      // Store IDs of processed sales to prevent them from showing up again (only successfully processed ones)
+      const processedBlueIds = new Set(processedSalesIds);
+      validSalesItems.forEach(validItem => {
+        processedBlueIds.add(validItem.data._id);
+      });
+      setProcessedSalesIds(processedBlueIds);
+
       // Store items for display (keeping the view)
       const itemsForDisplay = processedItems.map(item => ({
         ...item,
@@ -725,10 +904,11 @@ const AddToState = () => {
       // lastTransaction will be set when history is reloaded from database
       setIsTransactionSaved(true);
 
-      // Clear current states but keep the view
+      // Clear ALL states after successful save to prevent accidental double-saving
       setSynchronizedItems(new Set());
       setManuallyAddedItems([]);
       setAddedMagazynIds(new Set());
+      setFilteredSales([]); // Clear blue items (sales) to prevent double-saving
 
       // Refresh magazyn data
       const stateResponse = await axios.get('/api/state');
@@ -1352,6 +1532,7 @@ const AddToState = () => {
         manuallyAddedItems: [],
         synchronizedItems: new Set(),
         addedMagazynIds: new Set(),
+        processedSalesIds: new Set(),
         timestamp: null
       });
       
@@ -1367,6 +1548,7 @@ const AddToState = () => {
       setSynchronizedItems(new Set());
       setAddedMagazynIds(new Set());
       setSavedItemsForDisplay([]);
+      setProcessedSalesIds(new Set()); // Clear processed sales IDs
       setIsTransactionSaved(false);
       
       setShowClearStorageInfo(false); // Close info modal
@@ -1405,6 +1587,8 @@ const AddToState = () => {
     setSynchronizedItems(new Set());
     setManuallyAddedItems([]);
     setAddedMagazynIds(new Set());
+    setFilteredSales([]);
+    setProcessedSalesIds(new Set()); // Clear processed sales IDs
     setSelectedSellingPoint('');
     
     // Set default target selling point when switching to przepisanie mode
@@ -1437,6 +1621,9 @@ const AddToState = () => {
           }
           setSynchronizedItems(new Set(parsed.synchronizedItems));
           setAddedMagazynIds(new Set(parsed.addedMagazynIds));
+          if (parsed.processedSalesIds) {
+            setProcessedSalesIds(new Set(parsed.processedSalesIds));
+          }
         }
       } catch (error) {
         console.error('Error loading persistent state:', error);
@@ -1463,12 +1650,13 @@ const AddToState = () => {
       manuallyAddedItems,
       synchronizedItems: Array.from(synchronizedItems),
       addedMagazynIds: Array.from(addedMagazynIds),
+      processedSalesIds: Array.from(processedSalesIds),
       timestamp: Date.now()
     };
     
     localStorage.setItem('addToState_persistentView', JSON.stringify(stateToSave));
     setPersistentSalesView(stateToSave);
-  }, [filteredSales, manuallyAddedItems, synchronizedItems, addedMagazynIds]);
+  }, [filteredSales, manuallyAddedItems, synchronizedItems, addedMagazynIds, processedSalesIds]);
 
   // Ref for draggable history modal
   const historyModalRef = useRef(null);
@@ -2437,7 +2625,8 @@ const AddToState = () => {
                 backgroundColor: 'black',
                 color: 'white',
                 fontSize: '14px',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                marginBottom: '70px'
               }}
             />
           </div>
