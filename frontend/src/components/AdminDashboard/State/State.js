@@ -141,19 +141,18 @@ const State = () => {
         };
 
         fetchSizes();
-    }, []);
-
-    useEffect(() => {
+    }, []);    useEffect(() => {
         // Fetch user data from the API
         const fetchUsers = async () => {
             try {
-                const response = await axios.get('/api/user');
-                if (response.data && Array.isArray(response.data.users)) {
-                    const filteredUsers = response.data.users.filter(user => user.role !== 'admin');
-                    setUsers(filteredUsers);
+                const response = await axios.get('/api/user');                if (response.data && Array.isArray(response.data.users)) {
+                    // Get only users with role "user"
+                    const userRoleUsers = response.data.users.filter(user => user.role === 'user');
+                    setUsers(userRoleUsers);
 
-                    if (filteredUsers.length > 0) {
-                        setSelectedSellingPoint(filteredUsers[0].symbol); // Use symbol instead of sellingPoint
+                    // Auto-select first user to filter data immediately
+                    if (userRoleUsers.length > 0) {
+                        setSelectedSellingPoint(userRoleUsers[0].symbol);
                     }
                 } else {
                     console.error('Unexpected API response format:', response.data);
@@ -166,15 +165,19 @@ const State = () => {
         };
 
         fetchUsers();
-    }, []);
-
-    const fetchTableData = async () => {
+    }, []);const fetchTableData = async () => {
         setLoading(true);
         try {
             const response = await axios.get('/api/state');
-            console.log('Raw response from backend:', response.data[0]); // Debug first item
-            console.log('Selected selling point:', selectedSellingPoint); // Debug selected selling point
-            const formattedData = response.data.map((row) => {
+            
+            // Don't filter by default - show all data initially
+            // Only filter if a specific selling point is selected
+            let filteredData = response.data;
+            if (selectedSellingPoint && selectedSellingPoint !== '') {
+                filteredData = response.data.filter(row => row.symbol === selectedSellingPoint);
+            }
+
+            const formattedData = filteredData.map((row) => {
                 // Combine price and discount_price with semicolon if both exist
                 let combinedPrice;
                 if (row.discount_price && row.discount_price !== 0 && row.discount_price !== "0") {
@@ -194,10 +197,8 @@ const State = () => {
                     price: combinedPrice, // Set combined price with semicolon
                 };
                 
-                console.log('Formatted row symbol:', formattedRow.symbol); // Debug each row symbol
                 return formattedRow;
             });
-            console.log('All formatted data:', formattedData); // Debug all data
             setTableData(formattedData.reverse());
         } catch (error) {
             console.error('Error fetching table data:', error);
@@ -278,11 +279,18 @@ const State = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    useEffect(() => {
+    };    useEffect(() => {
         fetchTableData(); // Fetch table data on component mount
     }, []);
+
+    useEffect(() => {
+        fetchTableData(); // Refetch data when selling point changes
+    }, [selectedSellingPoint]);
+
+    // Function to handle selling point selection
+    const handleSellingPointChange = (value) => {
+        setSelectedSellingPoint(value);
+    };
 
     useEffect(() => {
         // Consolidate all filtering logic into one useEffect to avoid conflicts
@@ -808,22 +816,15 @@ const State = () => {
                 fullName: input,
             }));
         }
-    };
-
-    const toggleDateRangePicker = () => {
+    };    const toggleDateRangePicker = () => {
         setIsDateRangePickerVisible((prev) => !prev); // Toggle visibility
-    };
-
-    const handleSellingPointChange = (value) => {
-        setSelectedSellingPoint(value); // Update selected selling point
-        const normalizedValue = value.trim().toLowerCase(); // Normalize the selected value
-        const count = tableData.filter((row) => row.symbol?.trim().toLowerCase() === normalizedValue).length; // Count rows matching the normalized value
-        setMagazynCount(count); // Update the count
-    };
-
-    useEffect(() => {
+    };    useEffect(() => {
+        // Count products for selected selling point
         if (selectedSellingPoint && tableData.length > 0) {
-            handleSellingPointChange(selectedSellingPoint); // Calculate count on initial load or when dependencies change
+            const count = tableData.filter(row => row.symbol === selectedSellingPoint).length;
+            setMagazynCount(count);
+        } else {
+            setMagazynCount(0);
         }
     }, [selectedSellingPoint, tableData]);
 
@@ -847,14 +848,12 @@ const State = () => {
                         height: '3rem',
                     }}
                 >
-                    <span className="sr-only"></span>
-                </div>
+                    <span className="sr-only"></span>                </div>
             </div>
         );
-    }
-
-    return (
+    }    return (
         <div>
+            {/* Export buttons */}
             <div className="d-flex justify-content-center mb-3">
                 <div className="btn-group">
                     <Button color="success" className="me-2 btn btn-sm" onClick={() => handleExport('excel')}>Export to Excel</Button>
@@ -862,9 +861,9 @@ const State = () => {
                     <Button color="info" className="me-2 btn btn-sm" onClick={() => handleExport('csv')}>Export to CSV</Button>
                     <Button color="danger" className="me-2 btn btn-sm" onClick={() => handleExport('pdf')}>Export to PDF</Button>
                     <Button color="primary" className="btn btn-sm" onClick={handlePrint}>Drukuj zaznaczone kody</Button>
-                </div>
-            </div>
+                </div>            </div>
 
+            {/* FORMULARZ DODAWANIA PRODUKTÓW - ZAKOMENTOWANY (wszystko ma być przez magazyn)
             <div className={`d-flex align-items-center gap-3 mb-4 ${styles.responsiveContainer}`}>
                 <Select
                     ref={(el) => (inputRefs.current[0] = el)}
@@ -959,8 +958,9 @@ const State = () => {
                             outlineColor: '#0d6efd', // Change focus outline color to #0d6efd
                         }}
                         onKeyDown={(e) => e.preventDefault()} // Prevent manual input
-                    />
-                </div>
+                    />                </div>
+            </div>
+            KONIEC ZAKOMENTOWANEGO FORMULARZA */}            <div className="d-flex align-items-center justify-content-center gap-3 mb-4">
                 <select
                     style={{
                         backgroundColor: 'black',
@@ -969,8 +969,7 @@ const State = () => {
                         borderRadius: '4px',
                         padding: '5px',
                         height: '38px',
-                        marginLeft: '10px',
-                        width: '150px', // Set width to 150px
+                        width: '200px', // Set width to 200px
                         outlineColor: 'rgb(13, 110, 253)', // Change focus color
                     }}
                     value={selectedSellingPoint}
@@ -978,15 +977,15 @@ const State = () => {
                 >
                     {users.map((user) => (
                         <option key={user._id} value={user.symbol}>
-                            {user.symbol || 'No Symbol'}
+                            {user.name} {user.symbol}
                         </option>
                     ))}
                 </select>
-                <div className="d-flex align-items-center gap-2 rrr">
+                <div className="d-flex align-items-center gap-2">
                     <input
                         type="text"
                         placeholder="Szukaj w tabeli" // Polish: Search in the table
-                        className="form-control w-50"
+                        className="form-control"
                         style={{
                             minWidth: '200px',
                             backgroundColor: 'black',
@@ -1352,14 +1351,11 @@ const State = () => {
                                 >
                                     {index + 1}
                                 </button>
-                            </li>
-                        ))}
-                    </ul>
-                </nav>
+                            </li>                        ))}
+                    </ul>                </nav>
             </div>
         </div>
     );
 };
-
 
 export default State;

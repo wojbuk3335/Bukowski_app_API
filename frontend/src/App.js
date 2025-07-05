@@ -18,6 +18,7 @@ import Users from './components/AdminDashboard/Users/Users';
 import UserProfile from './components/UserDashboard/Profile/Profile';
 import Goods from './components/AdminDashboard/Goods/Goods';
 import Warehouse from './components/AdminDashboard/Warehouse/Warehouse';
+import State from './components/AdminDashboard/State/State';
 import Category from './components/AdminDashboard/Category/Category';
 import SeachEngineList from './components/AdminDashboard/Searchengine/SeachEngineList/SeachEngineList';
 import SeachEngineTable from './components/AdminDashboard/Searchengine/SeachEngineTable/SeachEngineTable';
@@ -40,9 +41,9 @@ function App() {
           <Route path='searchengine' element={<Searchengine />}>
             <Route path='list' element={<SeachEngineList />} />
             <Route path='table' element={<SeachEngineTable />} />
-          </Route>
-          <Route path='users' element={<Users />} />
+          </Route>          <Route path='users' element={<Users />} />
           <Route path='goods' element={<Goods />} />
+          <Route path="states" element={<State />} />
           <Route path="category">
             <Route path="category" element={<Category />} />
           </Route>

@@ -141,15 +141,13 @@ const Warehouse = () => {
         };
 
         fetchSizes();
-    }, []);
-
-    useEffect(() => {
+    }, []);    useEffect(() => {
         // Fetch user data from the API
         const fetchUsers = async () => {
             try {
                 const response = await axios.get('/api/user');
                 if (response.data && Array.isArray(response.data.users)) {
-                    const filteredUsers = response.data.users.filter(user => user.role !== 'admin');
+                    const filteredUsers = response.data.users.filter(user => user.role === 'magazyn');
                     setUsers(filteredUsers);
 
                     if (filteredUsers.length > 0) {
@@ -166,13 +164,13 @@ const Warehouse = () => {
         };
 
         fetchUsers();
-    }, []);
-
-    const fetchTableData = async () => {
+    }, []);    const fetchTableData = async () => {
         setLoading(true);
         try {
             const response = await axios.get('/api/state');
-            const formattedData = response.data.map((row) => {
+            // Filter to only show products with "MAGAZYN" symbol
+            const filteredData = response.data.filter(row => row.symbol === 'MAGAZYN');
+            const formattedData = filteredData.map((row) => {
                 const combinedPrice = row.discount_price && Number(row.discount_price) !== 0
                     ? `${row.price};${row.discount_price}` // Combine price and discount_price with semicolon
                     : row.price; // Use only price if discount_price is not valid
