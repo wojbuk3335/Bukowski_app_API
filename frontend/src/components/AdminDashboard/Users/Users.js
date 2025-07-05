@@ -108,12 +108,17 @@ const Users = () => {
         if (newUser.role === 'user' && newUser.sellingPoint === '') {
             alert('Użytkownik musi mieć punkt sprzedaży.');
             return;
-        }
-
-        // Check if email, symbol, or sellingPoint already exists (case-insensitive)
+        }        // Check if email, symbol, or sellingPoint already exists (case-insensitive)
         const emailExists = users.some(user => user.email.toLowerCase() === newUser.email.toLowerCase());
         const symbolExists = users.some(user => user.symbol.toLowerCase() === newUser.symbol.toLowerCase());
         const sellingPointExists = users.some(user => user.sellingPoint && newUser.sellingPoint && user.sellingPoint.toLowerCase() === newUser.sellingPoint.toLowerCase() && newUser.role !== 'admin' && newUser.role !== 'magazyn');
+        
+        // Check if trying to create a magazyn user and if one already exists
+        const magazynExists = users.some(user => user.role === 'magazyn');
+        if (newUser.role === 'magazyn' && magazynExists) {
+            alert('Może istnieć tylko jeden użytkownik z rolą magazyn.');
+            return;
+        }
 
         if (emailExists) {
             alert('Użytkownik z tym adresem email już istnieje.');
@@ -159,9 +164,13 @@ const Users = () => {
                 // Clear all inputs
                 setNewUser({ email: '', password: '', symbol: '', role: 'user', sellingPoint: '' });
                 setConfirmPassword('');
-            })
-            .catch(error => {
+            })            .catch(error => {
                 console.error('Wystąpił błąd podczas dodawania użytkownika!', error);
+                if (error.response && error.response.data && error.response.data.message) {
+                    alert(error.response.data.message);
+                } else {
+                    alert('Wystąpił błąd podczas dodawania użytkownika!');
+                }
             });
     };
 
@@ -200,12 +209,17 @@ const Users = () => {
         if (editUser.role === 'user' && editUser.sellingPoint === '') {
             alert('Użytkownik musi mieć punkt sprzedaży.');
             return;
-        }
-
-        // Check if email or symbol already exists (case-insensitive)
+        }        // Check if email or symbol already exists (case-insensitive)
         const emailExists = users.some(user => user.email.toLowerCase() === editUser.email.toLowerCase() && user._id !== editUser._id);
         const symbolExists = users.some(user => user.symbol.toLowerCase() === editUser.symbol.toLowerCase() && user._id !== editUser._id);
         const sellingPointExists = users.some(user => user.sellingPoint && editUser.sellingPoint && user.sellingPoint.toLowerCase() === editUser.sellingPoint.toLowerCase() && user._id !== editUser._id && editUser.role !== 'admin' && editUser.role !== 'magazyn');
+
+        // Check if trying to change role to 'magazyn' and if another user already has this role
+        const magazynExists = users.some(user => user.role === 'magazyn' && user._id !== editUser._id);
+        if (editUser.role === 'magazyn' && magazynExists) {
+            alert('Może istnieć tylko jeden użytkownik z rolą magazyn.');
+            return;
+        }
 
         if (emailExists) {
             alert('Użytkownik z tym adresem email już istnieje.');
@@ -277,9 +291,13 @@ const Users = () => {
 
                 console.log('Old User:', response.data.oldUser);
                 console.log('Updated User:', response.data.updatedUser);
-            })
-            .catch(error => {
+            })            .catch(error => {
                 console.error('There was an error updating the user!', error);
+                if (error.response && error.response.data && error.response.data.message) {
+                    alert(error.response.data.message);
+                } else {
+                    alert('Wystąpił błąd podczas aktualizacji użytkownika!');
+                }
             });
     };
 
