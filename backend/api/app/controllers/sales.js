@@ -118,16 +118,14 @@ class SalesController {
             endDate.setUTCHours(23, 59, 59, 999);
             
             console.log('Date range:', { startDate, endDate });
-            console.log('Searching for sellingPoint:', sellingPoint);
-
-            // Find sales for the specific date and selling point
+            console.log('Searching for sellingPoint:', sellingPoint);            // Find sales for the specific date and selling point
             const sales = await Sales.find({
                 sellingPoint: sellingPoint,
-                timestamp: {
+                date: {
                     $gte: startDate,
                     $lte: endDate
                 }
-            }).sort({ timestamp: -1 }); // Sort by timestamp descending
+            }).sort({ date: -1 }); // Sort by date descending
             
             console.log('Found sales:', sales.length);
             console.log('Sales data:', sales);
@@ -135,6 +133,121 @@ class SalesController {
             res.status(200).json(sales);
         } catch (error) {
             console.error('Error filtering sales by date and selling point:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    // Nowa metoda - Dynamiczna analiza sprzedaży
+    static async getDynamicSalesAnalysis(req, res) {
+        try {
+            const { startDate, endDate, sellingPoints } = req.body;
+            
+            console.log('Dynamic analysis request:', { startDate, endDate, sellingPoints });
+            
+            if (!startDate || !endDate || !sellingPoints || !Array.isArray(sellingPoints)) {
+                return res.status(400).json({ 
+                    error: 'startDate, endDate and sellingPoints (array) are required' 
+                });
+            }
+
+            // Parse dates
+            const parsedStartDate = new Date(startDate);
+            parsedStartDate.setUTCHours(0, 0, 0, 0);
+            
+            const parsedEndDate = new Date(endDate);
+            parsedEndDate.setUTCHours(23, 59, 59, 999);
+            
+            console.log('Date range:', { parsedStartDate, parsedEndDate });
+            console.log('Selected selling points:', sellingPoints);            // Find sales for the date range and selected selling points
+            const sales = await Sales.find({
+                sellingPoint: { $in: sellingPoints },
+                date: {
+                    $gte: parsedStartDate,
+                    $lte: parsedEndDate
+                }
+            });
+            
+            console.log('Found sales for analysis:', sales.length);            // Calculate analytics
+            const analytics = {
+                totalQuantity: sales.length, // Całkowita ilość sprzedanych produktów (kurtek)
+                totalValue: {}, // Całkowita wartość według walut
+                salesBySellingPoint: {}, // Sprzedaż według punktów
+                productBreakdown: {}, // Rozkład produktów
+                sellingPointBreakdown: {} // Rozkład według punktów sprzedaży
+            };
+
+            // Initialize selling point breakdown
+            sellingPoints.forEach(point => {
+                analytics.sellingPointBreakdown[point] = {
+                    count: 0,
+                    value: {}
+                };
+            });
+
+            // Process each sale
+            sales.forEach(sale => {
+                // Count products by selling point
+                if (analytics.sellingPointBreakdown[sale.sellingPoint]) {
+                    analytics.sellingPointBreakdown[sale.sellingPoint].count++;
+                }
+
+                // Calculate total value by currency
+                [...sale.card, ...sale.cash].forEach(payment => {
+                    // Global total
+                    if (!analytics.totalValue[payment.currency]) {
+                        analytics.totalValue[payment.currency] = 0;
+                    }
+                    analytics.totalValue[payment.currency] += payment.price;
+
+                    // By selling point
+                    if (analytics.sellingPointBreakdown[sale.sellingPoint]) {
+                        if (!analytics.sellingPointBreakdown[sale.sellingPoint].value[payment.currency]) {
+                            analytics.sellingPointBreakdown[sale.sellingPoint].value[payment.currency] = 0;
+                        }
+                        analytics.sellingPointBreakdown[sale.sellingPoint].value[payment.currency] += payment.price;
+                    }
+                });
+
+                // Product breakdown
+                if (!analytics.productBreakdown[sale.fullName]) {
+                    analytics.productBreakdown[sale.fullName] = {
+                        count: 0,
+                        value: {}
+                    };
+                }
+                analytics.productBreakdown[sale.fullName].count++;
+
+                [...sale.card, ...sale.cash].forEach(payment => {
+                    if (!analytics.productBreakdown[sale.fullName].value[payment.currency]) {
+                        analytics.productBreakdown[sale.fullName].value[payment.currency] = 0;
+                    }
+                    analytics.productBreakdown[sale.fullName].value[payment.currency] += payment.price;
+                });
+            });            const result = {
+                dateRange: {
+                    start: startDate,
+                    end: endDate
+                },
+                selectedSellingPoints: sellingPoints,
+                totalQuantity: analytics.totalQuantity,
+                totalValue: analytics.totalValue,
+                analytics: analytics,
+                rawSales: sales // Optional: include raw data if needed
+            };
+
+            res.status(200).json(result);
+        } catch (error) {
+            console.error('Error in dynamic sales analysis:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    }    // Metoda do pobierania dostępnych punktów sprzedaży
+    static async getAvailableSellingPoints(req, res) {
+        try {
+            const sellingPoints = await Sales.distinct('sellingPoint');
+            
+            res.status(200).json(sellingPoints.filter(point => point && point.trim() !== ''));
+        } catch (error) {
+            console.error('Error fetching selling points:', error.message);
             res.status(500).json({ error: error.message });
         }
     }

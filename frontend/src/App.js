@@ -46,8 +46,7 @@ function App() {
           <Route path="states" element={<State />} />
           <Route path="category">
             <Route path="category" element={<Category />} />
-          </Route>
-          <Route path="state" element={<Warehouse />} />
+          </Route>          <Route path="state" element={<Warehouse />} />
           <Route path="history" element={<History />} />
           <Route path="addtostate" element={<AddToState />} />
           <Route path="sales" element={<Sales/>} />

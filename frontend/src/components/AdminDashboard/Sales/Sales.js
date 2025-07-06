@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import DatePicker from 'react-datepicker'; // Install react-datepicker if not already installed
+import DatePicker, { registerLocale } from 'react-datepicker'; // Install react-datepicker if not already installed
 import 'react-datepicker/dist/react-datepicker.css'; // Import styles for the date picker
+import { pl } from 'date-fns/locale'; // Import Polish locale
 import { CSVLink } from 'react-csv'; // Install react-csv if not already installed
 import jsPDF from 'jspdf'; // Install jspdf if not already installed
 import autoTable from 'jspdf-autotable'; // Install jspdf-autotable if not already installed
@@ -33,8 +34,10 @@ ChartJS.register(
     Legend
 );
 
-const Sales = () => {
-    const [sales, setSales] = useState([]); // Ensure sales is initialized as an empty array
+// Register Polish locale for DatePicker
+registerLocale('pl', pl);
+
+const Sales = () => {    const [sales, setSales] = useState([]); // Ensure sales is initialized as an empty array
     const [filteredSales, setFilteredSales] = useState([]); // State for filtered sales
     const [error, setError] = useState(null); // State to track errors
     const [startDate, setStartDate] = useState(null); // Start date for date range filter
@@ -44,6 +47,17 @@ const Sales = () => {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }); // State for sorting configuration
     const [showAnalytics, setShowAnalytics] = useState(false); // Show/hide analytics panel
     const [reportType, setReportType] = useState('summary'); // Type of report to display
+    
+    // Dynamic analysis states
+    const [availableSellingPoints, setAvailableSellingPoints] = useState([]);
+    const [selectedSellingPoints, setSelectedSellingPoints] = useState([]);
+    const [dynamicAnalysisResult, setDynamicAnalysisResult] = useState(null);
+    const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
+
+    // Memoize conditions for dynamic analysis to avoid unnecessary re-renders
+    const canShowAnalysis = React.useMemo(() => {
+        return reportType === 'summary' && startDate && endDate && selectedSellingPoints.length > 0;
+    }, [reportType, startDate, endDate, selectedSellingPoints.length]);
 
     useEffect(() => {
         const fetchSales = async () => {
@@ -63,23 +77,77 @@ const Sales = () => {
                 setSales([]); // Fallback to an empty array
                 setFilteredSales([]);
             }
-        };
-
-        fetchSales();
+        };        fetchSales();
     }, []);
 
+    // Fetch available selling points
     useEffect(() => {
+        const fetchSellingPoints = async () => {
+            try {
+                const response = await axios.get('/api/sales/available-selling-points');
+                setAvailableSellingPoints(response.data);
+            } catch (error) {
+                console.error('Error fetching selling points:', error);
+            }
+        };        fetchSellingPoints();
+    }, []);    // Auto-fetch dynamic analysis when dates or selling points change (with debouncing)
+    useEffect(() => {
+        // Only run for summary report type
+        if (reportType !== 'summary') {
+            return;
+        }
+
+        // Clear previous results when conditions change
+        if (!startDate || !endDate || selectedSellingPoints.length === 0) {
+            setDynamicAnalysisResult(null);
+            return;
+        }
+
+        console.log('Date change detected for dynamic analysis:');
+        console.log('Start Date object:', startDate);
+        console.log('End Date object:', endDate);
+        console.log('Selected selling points:', selectedSellingPoints);
+        
+        // Debounce the API call to avoid multiple rapid calls
+        const timeoutId = setTimeout(() => {
+            fetchDynamicAnalysis();
+        }, 300); // 300ms delay
+
+        // Cleanup timeout if dependencies change before it executes
+        return () => clearTimeout(timeoutId);
+    }, [startDate, endDate, selectedSellingPoints, reportType]);useEffect(() => {
         console.log('Applying filters:', { sales, startDate, endDate, searchQuery, columnFilters }); // Debugging log
 
         // Apply all filters (date range, search query, and column filters)
         let filtered = [...sales];
-
-        // Filter by date range
-        if (startDate && endDate) {
+        
+        console.log('Total sales before filtering:', filtered.length);
+        console.log('Sample sale data:', filtered[0]);        // Filter by date range - porównujemy w formacie DD.MM.YYYY
+        if (startDate && endDate) {            console.log('Filtering by date range:', { startDate, endDate });
+            
+            // Ustawiamy czas na początek i koniec dnia dla porównania
+            const startOfDay = new Date(startDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            
+            const endOfDay = new Date(endDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            
+            console.log(`Date range: ${startOfDay.toISOString()} - ${endOfDay.toISOString()}`);
+            
             filtered = filtered.filter((sale) => {
-                const saleDate = new Date(sale.timestamp);
-                return saleDate >= startDate && saleDate <= endDate;
+                const saleDate = new Date(sale.date);
+                const saleDateStr = saleDate.toLocaleDateString('pl-PL');
+                
+                console.log(`Sale date: ${sale.date} -> ${saleDateStr}`);
+                console.log(`Comparing Date objects: ${saleDate.getTime()} between ${startOfDay.getTime()} and ${endOfDay.getTime()}`);
+                
+                // Porównujemy obiekty Date zamiast stringów
+                const isInRange = saleDate >= startOfDay && saleDate <= endOfDay;
+                console.log(`Date match: ${isInRange}`);
+                
+                return isInRange;
             });
+            console.log('Sales after date filtering:', filtered.length);
         }
 
         // Filter by search query
@@ -95,10 +163,9 @@ const Sales = () => {
                 console.log(`Filtering column: ${key}, Filter value: ${columnFilters[key]}`); // Debugging log
                 filtered = filtered.filter((sale) => {
                     let saleValue;
-                    
-                    // Special handling for timestamp to match the displayed format
-                    if (key === 'timestamp') {
-                        saleValue = new Date(sale.timestamp).toLocaleDateString();
+                      // Special handling for date to match the displayed format
+                    if (key === 'date') {
+                        saleValue = new Date(sale.date).toLocaleDateString();
                     } else if (key === 'sizeId') {
                         saleValue = String(sale.size || ''); // Map 'sizeId' to 'size'
                     } else {
@@ -143,35 +210,49 @@ const Sales = () => {
         const doc = new jsPDF();
         doc.text('Sales Data', 20, 10);
         autoTable(doc, {
-            head: [['Lp.', 'Pełna nazwa', 'Data', 'Kod kreskowy', 'Rozmiar', 'Punkt sprzedaży', 'Skąd', 'Karta', 'Gotówka']],
-            body: filteredSales.map((sale, index) => [
+            head: [['Lp.', 'Pełna nazwa', 'Data', 'Kod kreskowy', 'Rozmiar', 'Punkt sprzedaży', 'Skąd', 'Karta', 'Gotówka']],            body: filteredSales.map((sale, index) => [
                 index + 1,
                 sale.fullName,
-                new Date(sale.timestamp).toLocaleDateString(),
-                sale.barcode,
-                sale.size || 'N/A', // Use plain string value of sizeId
+                fixDateDisplay(sale.date),
+                sale.barcode,sale.size || 'N/A', // Use plain string value of sizeId
                 sale.sellingPoint,
                 sale.from,
-                sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
-                sale.cash.map((c) => `${c.price} ${c.currency}`).join(', '),
+                sale.card.filter(c => c.price !== null && c.price !== undefined && c.price !== 0).map((c) => `${c.price} ${c.currency}`).join(', ') || '0.00 PLN',
+                sale.cash.filter(c => c.price !== null && c.price !== undefined && c.price !== 0).map((c) => `${c.price} ${c.currency}`).join(', ') || '0.00 PLN',
             ]),
         });
         doc.save('sales_data.pdf');
-    };
-
-    const handleExportExcel = () => {
+    };    const handleExportExcel = () => {
         const worksheet = XLSX.utils.json_to_sheet(
-            filteredSales.map((sale, index) => ({
-                Lp: index + 1,
-                'Pełna nazwa': sale.fullName,
-                Data: new Date(sale.timestamp).toLocaleDateString(),
-                'Kod kreskowy': sale.barcode,
-                Rozmiar: sale.size || 'N/A', // Use plain string value of sizeId
-                'Punkt sprzedaży': sale.sellingPoint,
-                Skąd: sale.from,
-                Karta: sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
-                Gotówka: sale.cash.map((c) => `${c.price} ${c.currency}`).join(', '),
-            }))
+            filteredSales.map((sale, index) => {
+                // Filter out null/undefined/zero prices for card payments
+                const validCardPayments = sale.card.filter(c => 
+                    c.price !== null && c.price !== undefined && c.price !== 0
+                );
+                const cardDisplay = validCardPayments.length > 0 
+                    ? validCardPayments.map((c) => `${c.price} ${c.currency}`).join(', ')
+                    : '0.00 PLN';
+
+                // Filter out null/undefined/zero prices for cash payments
+                const validCashPayments = sale.cash.filter(c => 
+                    c.price !== null && c.price !== undefined && c.price !== 0
+                );
+                const cashDisplay = validCashPayments.length > 0 
+                    ? validCashPayments.map((c) => `${c.price} ${c.currency}`).join(', ')
+                    : '0.00 PLN';
+
+                return {
+                    Lp: index + 1,
+                    'Pełna nazwa': sale.fullName,
+                    Data: fixDateDisplay(sale.date),
+                    'Kod kreskowy': sale.barcode,
+                    Rozmiar: sale.size || 'N/A', // Use plain string value of sizeId
+                    'Punkt sprzedaży': sale.sellingPoint,
+                    Skąd: sale.from,
+                    Karta: cardDisplay,
+                    Gotówka: cashDisplay,
+                };
+            })
         );
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Sales Data');
@@ -187,20 +268,54 @@ const Sales = () => {
             ...prevFilters,
             [key]: value.toLowerCase(), // Ensure case-insensitive filtering
         }));
-    };
-
-    const calculateSummary = (sales, key) => {
+    };    const calculateSummary = (sales, key) => {
         const summary = {};
         sales.forEach((sale) => {
             sale[key].forEach((entry) => {
                 const { price, currency } = entry;
-                if (!summary[currency]) {
-                    summary[currency] = 0;
+                // Skip entries with null, undefined or zero prices
+                if (price !== null && price !== undefined && price !== 0) {
+                    if (!summary[currency]) {
+                        summary[currency] = 0;
+                    }
+                    summary[currency] += price;
                 }
-                summary[currency] += price;
             });
         });
         return summary;
+    };// Helper function to format summary with default PLN when empty
+    const formatSummary = (summary) => {
+        if (Object.keys(summary).length === 0) {
+            return [{ currency: 'PLN', total: 0 }];
+        }
+        return Object.entries(summary).map(([currency, total]) => ({ currency, total }));
+    };    // Helper function to format payment arrays for display in table cells
+    const formatPaymentArray = (paymentArray) => {
+        if (!paymentArray || paymentArray.length === 0) {
+            return <div>0.00 PLN</div>;
+        }
+        
+        // Filter out payments with null or undefined prices
+        const validPayments = paymentArray.filter(payment => 
+            payment.price !== null && payment.price !== undefined && payment.price !== 0
+        );
+        
+        if (validPayments.length === 0) {
+            return <div>0.00 PLN</div>;
+        }
+        
+        return validPayments.map((payment, i) => (
+            <div key={i}>{`${payment.price} ${payment.currency}`}</div>
+        ));
+    };// Funkcja do prawidłowego wyświetlania daty z pola 'date'
+    const fixDateDisplay = (dateString) => {
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1; // JavaScript months are 0-based
+        const day = date.getDate();
+        
+        // Wyświetlamy datę w formacie DD.MM.YYYY z zerami wiodącymi
+        return `${day.toString().padStart(2, '0')}.${month.toString().padStart(2, '0')}.${year}`;
     };
 
     const cardSummary = calculateSummary(filteredSales, 'card');
@@ -216,67 +331,69 @@ const Sales = () => {
             salesByDate: {},
             salesBySellingPoint: {},
             salesBySize: {}
-        };
-
-        // Calculate total revenue and average sale value
+        };        // Calculate total revenue and average sale value
         filteredSales.forEach(sale => {
             [...sale.card, ...sale.cash].forEach(payment => {
-                if (!analytics.totalRevenue[payment.currency]) {
-                    analytics.totalRevenue[payment.currency] = 0;
+                // Skip payments with null, undefined or zero prices
+                if (payment.price !== null && payment.price !== undefined && payment.price !== 0) {
+                    if (!analytics.totalRevenue[payment.currency]) {
+                        analytics.totalRevenue[payment.currency] = 0;
+                    }
+                    analytics.totalRevenue[payment.currency] += payment.price;
                 }
-                analytics.totalRevenue[payment.currency] += payment.price;
             });
         });
 
         // Calculate average sale value
         Object.keys(analytics.totalRevenue).forEach(currency => {
             analytics.avgSaleValue[currency] = (analytics.totalRevenue[currency] / filteredSales.length).toFixed(2);
-        });
-
-        // Group sales by date
+        });        // Group sales by date
         filteredSales.forEach(sale => {
-            const date = new Date(sale.timestamp).toLocaleDateString();
+            const date = new Date(sale.date).toLocaleDateString('en-US');
             if (!analytics.salesByDate[date]) {
                 analytics.salesByDate[date] = { count: 0, revenue: {} };
             }
             analytics.salesByDate[date].count++;
             [...sale.card, ...sale.cash].forEach(payment => {
-                if (!analytics.salesByDate[date].revenue[payment.currency]) {
-                    analytics.salesByDate[date].revenue[payment.currency] = 0;
+                // Skip payments with null, undefined or zero prices
+                if (payment.price !== null && payment.price !== undefined && payment.price !== 0) {
+                    if (!analytics.salesByDate[date].revenue[payment.currency]) {
+                        analytics.salesByDate[date].revenue[payment.currency] = 0;
+                    }
+                    analytics.salesByDate[date].revenue[payment.currency] += payment.price;
                 }
-                analytics.salesByDate[date].revenue[payment.currency] += payment.price;
             });
-        });
-
-        // Group by selling point
+        });        // Group by selling point
         filteredSales.forEach(sale => {
             if (!analytics.salesBySellingPoint[sale.sellingPoint]) {
                 analytics.salesBySellingPoint[sale.sellingPoint] = { count: 0, revenue: {} };
             }
             analytics.salesBySellingPoint[sale.sellingPoint].count++;
             [...sale.card, ...sale.cash].forEach(payment => {
-                if (!analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency]) {
-                    analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency] = 0;
+                // Skip payments with null, undefined or zero prices
+                if (payment.price !== null && payment.price !== undefined && payment.price !== 0) {
+                    if (!analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency]) {
+                        analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency] = 0;
+                    }
+                    analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency] += payment.price;
                 }
-                analytics.salesBySellingPoint[sale.sellingPoint].revenue[payment.currency] += payment.price;
             });
-        });
-
-        // Group by product name
+        });        // Group by product name
         filteredSales.forEach(sale => {
             if (!analytics.topSellingProducts[sale.fullName]) {
                 analytics.topSellingProducts[sale.fullName] = { count: 0, revenue: {} };
             }
             analytics.topSellingProducts[sale.fullName].count++;
             [...sale.card, ...sale.cash].forEach(payment => {
-                if (!analytics.topSellingProducts[sale.fullName].revenue[payment.currency]) {
-                    analytics.topSellingProducts[sale.fullName].revenue[payment.currency] = 0;
+                // Skip payments with null, undefined or zero prices
+                if (payment.price !== null && payment.price !== undefined && payment.price !== 0) {
+                    if (!analytics.topSellingProducts[sale.fullName].revenue[payment.currency]) {
+                        analytics.topSellingProducts[sale.fullName].revenue[payment.currency] = 0;
+                    }
+                    analytics.topSellingProducts[sale.fullName].revenue[payment.currency] += payment.price;
                 }
-                analytics.topSellingProducts[sale.fullName].revenue[payment.currency] += payment.price;
             });
-        });
-
-        // Group by size
+        });        // Group by size
         filteredSales.forEach(sale => {
             const size = sale.size || 'Brak rozmiaru';
             if (!analytics.salesBySize[size]) {
@@ -284,23 +401,71 @@ const Sales = () => {
             }
             analytics.salesBySize[size].count++;
             [...sale.card, ...sale.cash].forEach(payment => {
-                if (!analytics.salesBySize[size].revenue[payment.currency]) {
-                    analytics.salesBySize[size].revenue[payment.currency] = 0;
+                // Skip payments with null, undefined or zero prices
+                if (payment.price !== null && payment.price !== undefined && payment.price !== 0) {
+                    if (!analytics.salesBySize[size].revenue[payment.currency]) {
+                        analytics.salesBySize[size].revenue[payment.currency] = 0;
+                    }
+                    analytics.salesBySize[size].revenue[payment.currency] += payment.price;
                 }
-                analytics.salesBySize[size].revenue[payment.currency] += payment.price;
             });
         });
 
         return analytics;
     };
 
-    const analytics = getSalesAnalytics();
-
-    // Chart data preparation
+    const analytics = getSalesAnalytics();    // Chart data preparation
     const getChartData = () => {
         const salesByDate = analytics.salesByDate;
         const dates = Object.keys(salesByDate).sort();
         const counts = dates.map(date => salesByDate[date].count);
+          // Generate trends data for selling points over time
+        const getTrendsData = () => {
+            const sellingPoints = [...new Set(filteredSales.map(sale => sale.sellingPoint))];
+            const allDates = [...new Set(filteredSales.map(sale => new Date(sale.date).toLocaleDateString('en-US')))].sort();
+            
+            // Color palette for different selling points
+            const colorPalette = [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                '#9966FF', '#FF9F40', '#2ECC71', '#E74C3C',
+                '#3498DB', '#F39C12', '#9B59B6', '#1ABC9C', 
+                '#E67E22', '#95A5A6', '#8E44AD', '#16A085'
+            ];
+            
+            const datasets = sellingPoints.map((sellingPoint, index) => {
+                const pointSalesByDate = {};
+                
+                // Initialize all dates with 0
+                allDates.forEach(date => {
+                    pointSalesByDate[date] = 0;
+                });
+                
+                // Count sales for this selling point by date
+                filteredSales
+                    .filter(sale => sale.sellingPoint === sellingPoint)
+                    .forEach(sale => {
+                        const date = new Date(sale.date).toLocaleDateString('en-US');
+                        pointSalesByDate[date]++;
+                    });
+                
+                const color = colorPalette[index % colorPalette.length];
+                
+                return {
+                    label: sellingPoint,
+                    data: allDates.map(date => pointSalesByDate[date]),
+                    borderColor: color,
+                    backgroundColor: color + '20', // Add transparency
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1
+                };
+            });
+            
+            return {
+                labels: allDates,
+                datasets: datasets
+            };
+        };
         
         return {
             dailySales: {
@@ -319,8 +484,17 @@ const Sales = () => {
                     data: Object.values(analytics.salesBySellingPoint).map(point => point.count),
                     backgroundColor: [
                         '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
-                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
-                    ]
+                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF',
+                        '#2ECC71', '#E74C3C', '#3498DB', '#F39C12',
+                        '#9B59B6', '#1ABC9C', '#E67E22', '#95A5A6'
+                    ],
+                    borderColor: [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF',
+                        '#2ECC71', '#E74C3C', '#3498DB', '#F39C12',
+                        '#9B59B6', '#1ABC9C', '#E67E22', '#95A5A6'
+                    ],
+                    borderWidth: 2
                 }]
             },
             topProducts: {
@@ -337,7 +511,8 @@ const Sales = () => {
                     borderColor: 'rgba(255, 99, 132, 1)',
                     borderWidth: 1
                 }]
-            }
+            },
+            trends: getTrendsData()
         };
     };
 
@@ -377,23 +552,39 @@ const Sales = () => {
             yPosition += 10;
         });
         
-        yPosition += 10;
-        
-        // Tabela z danymi sprzedaży
+        yPosition += 10;          // Tabela z danymi sprzedaży
         autoTable(doc, {
             startY: yPosition,
             head: [['Lp.', 'Pełna nazwa', 'Data', 'Kod kreskowy', 'Rozmiar', 'Punkt sprzedaży', 'Skąd', 'Karta', 'Gotówka']],
-            body: filteredSales.slice(0, 50).map((sale, index) => [
-                index + 1,
-                sale.fullName,
-                new Date(sale.timestamp).toLocaleDateString(),
-                sale.barcode,
-                sale.size || 'N/A',
-                sale.sellingPoint,
-                sale.from,
-                sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
-                sale.cash.map((c) => `${c.price} ${c.currency}`).join(', '),
-            ]),
+            body: filteredSales.slice(0, 50).map((sale, index) => {
+                // Filter out null/undefined/zero prices for card payments
+                const validCardPayments = sale.card.filter(c => 
+                    c.price !== null && c.price !== undefined && c.price !== 0
+                );
+                const cardDisplay = validCardPayments.length > 0 
+                    ? validCardPayments.map((c) => `${c.price} ${c.currency}`).join(', ')
+                    : '0.00 PLN';
+
+                // Filter out null/undefined/zero prices for cash payments
+                const validCashPayments = sale.cash.filter(c => 
+                    c.price !== null && c.price !== undefined && c.price !== 0
+                );
+                const cashDisplay = validCashPayments.length > 0 
+                    ? validCashPayments.map((c) => `${c.price} ${c.currency}`).join(', ')
+                    : '0.00 PLN';
+
+                return [
+                    index + 1,
+                    sale.fullName,
+                    fixDateDisplay(sale.date),
+                    sale.barcode,
+                    sale.size || 'N/A',
+                    sale.sellingPoint,
+                    sale.from,
+                    cardDisplay,
+                    cashDisplay,
+                ];
+            }),
             styles: { fontSize: 8 },
             headStyles: { fillColor: [41, 128, 185] }
         });
@@ -537,9 +728,60 @@ const Sales = () => {
         } else {
             alert('Data removal canceled.');
         }
-    };
+    };    const uniqueSellingPoints = [...new Set(sales.map((sale) => sale.sellingPoint))]; // Get unique selling points    // Dynamic analysis functions
+    const handleSellingPointChange = (sellingPoint, isChecked) => {
+        setSelectedSellingPoints(prev => {
+            const newPoints = isChecked 
+                ? [...prev, sellingPoint]
+                : prev.filter(point => point !== sellingPoint);
+            
+            // Clear previous results when selection changes
+            if (dynamicAnalysisResult) {
+                setDynamicAnalysisResult(null);
+            }
+            
+            return newPoints;
+        });
+    };const fetchDynamicAnalysis = async () => {
+        // Prevent multiple simultaneous calls
+        if (isLoadingAnalysis) {
+            console.log('Analysis already in progress, skipping...');
+            return;
+        }
 
-    const uniqueSellingPoints = [...new Set(sales.map((sale) => sale.sellingPoint))]; // Get unique selling points
+        if (!startDate || !endDate) {
+            console.log('Missing dates:', { startDate, endDate });
+            setDynamicAnalysisResult(null);
+            return;
+        }
+        
+        if (selectedSellingPoints.length === 0) {
+            console.log('No selling points selected');
+            setDynamicAnalysisResult(null);
+            return;
+        }
+
+        console.log('=== STARTING DYNAMIC ANALYSIS ===');
+        console.log('Selected Start Date object:', startDate);
+        console.log('Selected End Date object:', endDate);
+        console.log('Selected selling points:', selectedSellingPoints);
+
+        setIsLoadingAnalysis(true);
+        try {
+            const response = await axios.post('/api/sales/dynamic-analysis', {
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+                sellingPoints: selectedSellingPoints
+            });
+            console.log('Backend response:', response.data);
+            setDynamicAnalysisResult(response.data);
+        } catch (error) {
+            console.error('Error fetching dynamic analysis:', error);
+            setDynamicAnalysisResult(null);
+        } finally {
+            setIsLoadingAnalysis(false);
+        }
+    };
 
     const handleDropdownFilterChange = (key, value) => {
         setColumnFilters((prevFilters) => ({
@@ -554,8 +796,7 @@ const Sales = () => {
             <div className="d-flex flex-column align-items-center mb-3">
                 <div className="d-flex justify-content-center mb-3">
                     <div className="me-3">
-                        <label>Data początkowa:</label>
-                        <DatePicker
+                        <label>Data początkowa:</label>                        <DatePicker
                             selected={startDate}
                             onChange={(date) => setStartDate(date)}
                             selectsStart
@@ -563,11 +804,12 @@ const Sales = () => {
                             endDate={endDate}
                             className="form-control"
                             placeholderText="Wybierz datę początkową"
+                            dateFormat="dd.MM.yyyy"
+                            locale="pl"
                         />
                     </div>
                     <div>
-                        <label>Data końcowa:</label>
-                        <DatePicker
+                        <label>Data końcowa:</label>                        <DatePicker
                             selected={endDate}
                             onChange={(date) => setEndDate(date)}
                             selectsEnd
@@ -576,6 +818,8 @@ const Sales = () => {
                             minDate={startDate}
                             className="form-control"
                             placeholderText="Wybierz datę końcową"
+                            dateFormat="dd.MM.yyyy"
+                            locale="pl"
                         />
                     </div>
                 </div>
@@ -594,19 +838,36 @@ const Sales = () => {
                 </button>
                 <button className="btn btn-success me-2" onClick={handleExportExcel}>
                     Eksportuj Excel
-                </button>
-                <CSVLink
-                    data={filteredSales.map((sale, index) => ({
-                        Lp: index + 1,
-                        'Pełna nazwa': sale.fullName,
-                        Data: new Date(sale.timestamp).toLocaleDateString(),
-                        'Kod kreskowy': sale.barcode,
-                        Rozmiar: sale.size || 'N/A', // Use plain string value of sizeId
-                        'Punkt sprzedaży': sale.sellingPoint,
-                        Skąd: sale.from,
-                        Karta: sale.card.map((c) => `${c.price} ${c.currency}`).join(', '),
-                        Gotówka: sale.cash.map((c) => `${c.price} ${c.currency}`).join(', '),
-                    }))}
+                </button>                <CSVLink
+                    data={filteredSales.map((sale, index) => {
+                        // Filter out null/undefined/zero prices for card payments
+                        const validCardPayments = sale.card.filter(c => 
+                            c.price !== null && c.price !== undefined && c.price !== 0
+                        );
+                        const cardDisplay = validCardPayments.length > 0 
+                            ? validCardPayments.map((c) => `${c.price} ${c.currency}`).join(', ')
+                            : '0.00 PLN';
+
+                        // Filter out null/undefined/zero prices for cash payments
+                        const validCashPayments = sale.cash.filter(c => 
+                            c.price !== null && c.price !== undefined && c.price !== 0
+                        );
+                        const cashDisplay = validCashPayments.length > 0 
+                            ? validCashPayments.map((c) => `${c.price} ${c.currency}`).join(', ')
+                            : '0.00 PLN';
+
+                        return {
+                            Lp: index + 1,
+                            'Pełna nazwa': sale.fullName,
+                            Data: fixDateDisplay(sale.date),
+                            'Kod kreskowy': sale.barcode,
+                            Rozmiar: sale.size || 'N/A', // Use plain string value of sizeId
+                            'Punkt sprzedaży': sale.sellingPoint,
+                            Skąd: sale.from,
+                            Karta: cardDisplay,
+                            Gotówka: cashDisplay,
+                        };
+                    })}
                     filename="sales_data.csv"
                     className="btn btn-info me-2"
                 >
@@ -654,57 +915,140 @@ const Sales = () => {
                                     </button>
                                 </div>
                             </div>
-                            <div className={styles.analyticsPanelBody}>
-                                {reportType === 'summary' && (
-                                    <div className="row">
-                                        <div className="col-md-3">
-                                            <div className={styles.metricCard}>
-                                                <div className={styles.metricCardBody}>
-                                                    <h4 className={styles.metricValue}>{analytics.totalSales}</h4>
-                                                    <p className={styles.metricLabel}>Łączna liczba sprzedaży</p>
+                            <div className={styles.analyticsPanelBody}>                                {reportType === 'summary' && (
+                                    <div>
+                                        {/* Selling Points Selection */}
+                                        <div className="row mb-4">
+                                            <div className="col-12">
+                                                <div className={styles.metricCard}>
+                                                    <div className={styles.metricCardBody}>
+                                                        <h5 className={styles.metricLabel} style={{marginBottom: '15px'}}>
+                                                            Wybierz punkty sprzedaży dla analizy:
+                                                        </h5>
+                                                        <div className="row">                                                            {availableSellingPoints.map((point, index) => (
+                                                                <div key={point} className="col-md-3 col-sm-6 mb-2">
+                                                                    <div className="form-check d-flex align-items-center">
+                                                                        <input
+                                                                            className="form-check-input"
+                                                                            type="checkbox"
+                                                                            id={`selling-point-${index}`}
+                                                                            checked={selectedSellingPoints.includes(point)}
+                                                                            onChange={(e) => handleSellingPointChange(point, e.target.checked)}
+                                                                            style={{ marginRight: '8px', marginTop: '0' }}
+                                                                        />
+                                                                        <label 
+                                                                            className="form-check-label" 
+                                                                            htmlFor={`selling-point-${index}`}
+                                                                            style={{ color: 'white', margin: '0', cursor: 'pointer' }}
+                                                                        >
+                                                                            {point}
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            ))}</div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="col-md-3">
-                                            <div className={styles.metricCard}>
-                                                <div className={styles.metricCardBody}>
-                                                    <h5 className={styles.metricValue}>
-                                                        {Object.entries(analytics.totalRevenue).map(([currency, amount]) => (
-                                                            <div key={currency}>{amount.toFixed(2)} {currency}</div>
-                                                        ))}
-                                                    </h5>
-                                                    <p className={styles.metricLabel}>Łączny przychód</p>
+                                        </div>                                        {/* Dynamic Analysis Results */}
+                                        {selectedSellingPoints.length === 0 ? (
+                                            <div className="row">
+                                                <div className="col-12 text-center">
+                                                    <div className={styles.metricCard}>
+                                                        <div className={styles.metricCardBody}>
+                                                            <p className={styles.metricLabel}>
+                                                                Proszę wybrać przynajmniej jeden punkt sprzedaży
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="col-md-3">
-                                            <div className={styles.metricCard}>
-                                                <div className={styles.metricCardBody}>
-                                                    <h5 className={styles.metricValue}>
-                                                        {Object.entries(analytics.avgSaleValue).map(([currency, avg]) => (
-                                                            <div key={currency}>{avg} {currency}</div>
-                                                        ))}
-                                                    </h5>
-                                                    <p className={styles.metricLabel}>Średnia wartość sprzedaży</p>
+                                        ) : !startDate || !endDate ? (
+                                            <div className="row">
+                                                <div className="col-12 text-center">
+                                                    <div className={styles.metricCard}>
+                                                        <div className={styles.metricCardBody}>
+                                                            <p className={styles.metricLabel}>
+                                                                Proszę wybrać zakres dat aby zobaczyć analizę
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="col-md-3">
-                                            <div className={styles.metricCard}>
-                                                <div className={styles.metricCardBody}>
-                                                    <h4 className={styles.metricValue}>
-                                                        {Object.keys(analytics.salesBySellingPoint).length}
-                                                    </h4>
-                                                    <p className={styles.metricLabel}>Aktywne punkty sprzedaży</p>
+                                        ) : isLoadingAnalysis ? (
+                                            <div className="row">
+                                                <div className="col-12 text-center">
+                                                    <div className={styles.metricCard}>
+                                                        <div className={styles.metricCardBody}>
+                                                            <h5>Ładowanie analizy...</h5>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        ) : dynamicAnalysisResult ? (
+                                            <div className="row">
+                                                <div className="col-md-3">
+                                                    <div className={styles.metricCard}>
+                                                        <div className={styles.metricCardBody}>
+                                                            <h4 className={styles.metricValue}>{dynamicAnalysisResult.totalQuantity}</h4>
+                                                            <p className={styles.metricLabel}>Łączna ilość sprzedanych kurtek</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="col-md-3">
+                                                    <div className={styles.metricCard}>
+                                                        <div className={styles.metricCardBody}>
+                                                            <h5 className={styles.metricValue}>
+                                                                {Object.entries(dynamicAnalysisResult.totalValue).map(([currency, amount]) => (
+                                                                    <div key={currency}>{amount.toFixed(2)} {currency}</div>
+                                                                ))}
+                                                            </h5>
+                                                            <p className={styles.metricLabel}>Łączna wartość sprzedaży</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="col-md-3">
+                                                    <div className={styles.metricCard}>
+                                                        <div className={styles.metricCardBody}>
+                                                            <h5 className={styles.metricValue}>
+                                                                {Object.entries(dynamicAnalysisResult.totalValue).map(([currency, amount]) => (
+                                                                    <div key={currency}>
+                                                                        {dynamicAnalysisResult.totalQuantity > 0 ? (amount / dynamicAnalysisResult.totalQuantity).toFixed(2) : '0.00'} {currency}
+                                                                    </div>
+                                                                ))}
+                                                            </h5>
+                                                            <p className={styles.metricLabel}>Średnia wartość sprzedaży</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="col-md-3">
+                                                    <div className={styles.metricCard}>
+                                                        <div className={styles.metricCardBody}>
+                                                            <h4 className={styles.metricValue}>
+                                                                {dynamicAnalysisResult.selectedSellingPoints.length}
+                                                            </h4>
+                                                            <p className={styles.metricLabel}>Wybrane punkty sprzedaży</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="row">
+                                                <div className="col-12 text-center">
+                                                    <div className={styles.metricCard}>
+                                                        <div className={styles.metricCardBody}>
+                                                            <p className={styles.metricLabel}>
+                                                                Brak danych dla wybranego zakresu
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
                                 {reportType === 'charts' && (
-                                    <div className="row">
-                                        <div className="col-md-6 mb-4">
+                                    <div className="row">                                        <div className="col-md-6 mb-4">
                                             <div className={`${styles.chartContainer} ${styles.smallChart}`}>
                                                 <h5 className={styles.chartTitle}>Sprzedaż dzienne</h5>
                                                 <Bar data={chartData.dailySales} options={{ 
@@ -719,7 +1063,9 @@ const Sales = () => {
                                                         y: {
                                                             beginAtZero: true,
                                                             ticks: {
-                                                                color: '#fff'
+                                                                color: '#fff',
+                                                                stepSize: 1,
+                                                                precision: 0
                                                             }
                                                         },
                                                         x: {
@@ -730,8 +1076,7 @@ const Sales = () => {
                                                     }
                                                 }} />
                                             </div>
-                                        </div>
-                                        <div className="col-md-6 mb-4">
+                                        </div>                                        <div className="col-md-6 mb-4">
                                             <div className={`${styles.chartContainer} ${styles.smallChart}`}>
                                                 <h5 className={styles.chartTitle}>Punkty sprzedaży</h5>
                                                 <Pie data={chartData.sellingPoints} options={{ 
@@ -739,17 +1084,29 @@ const Sales = () => {
                                                     maintainAspectRatio: false,
                                                     plugins: {
                                                         legend: {
-                                                            position: 'bottom',
+                                                            position: 'right',
                                                             labels: {
                                                                 color: '#fff',
-                                                                fontSize: 10
+                                                                fontSize: 12,
+                                                                usePointStyle: true,
+                                                                padding: 15
+                                                            }
+                                                        },
+                                                        tooltip: {
+                                                            callbacks: {
+                                                                label: function(context) {
+                                                                    const label = context.label || '';
+                                                                    const value = context.parsed;
+                                                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                                                    const percentage = ((value / total) * 100).toFixed(1);
+                                                                    return `${label}: ${value} (${percentage}%)`;
+                                                                }
                                                             }
                                                         }
                                                     }
                                                 }} />
                                             </div>
-                                        </div>
-                                        <div className="col-12 mb-4">
+                                        </div>                                        <div className="col-12 mb-4">
                                             <div className={`${styles.chartContainer} ${styles.compactChart}`}>
                                                 <h5 className={styles.chartTitle}>Top 10 produktów</h5>
                                                 <Bar data={chartData.topProducts} options={{ 
@@ -769,8 +1126,11 @@ const Sales = () => {
                                                             }
                                                         },
                                                         x: {
+                                                            beginAtZero: true,
                                                             ticks: {
-                                                                color: '#fff'
+                                                                color: '#fff',
+                                                                stepSize: 1,
+                                                                precision: 0
                                                             }
                                                         }
                                                     }
@@ -781,8 +1141,7 @@ const Sales = () => {
                                 )}
 
                                 {reportType === 'trends' && (
-                                    <div className="row">
-                                        <div className="col-md-6">
+                                    <div className="row">                                        <div className="col-md-6">
                                             <div className={`${styles.chartContainer} ${styles.smallChart}`}>
                                                 <h5 className={styles.chartTitle}>Trend sprzedaży dziennej</h5>
                                                 <Line data={chartData.dailySales} options={{ 
@@ -797,7 +1156,9 @@ const Sales = () => {
                                                         y: {
                                                             beginAtZero: true,
                                                             ticks: {
-                                                                color: '#fff'
+                                                                color: '#fff',
+                                                                stepSize: 1,
+                                                                precision: 0
                                                             }
                                                         },
                                                         x: {
@@ -808,36 +1169,63 @@ const Sales = () => {
                                                     }
                                                 }} />
                                             </div>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <div className={`${styles.chartContainer} ${styles.smallChart}`}>
-                                                <h5 className={styles.chartTitle}>Analiza rozmiarów</h5>
-                                                <div className={styles.analyticsTable}>
-                                                    <table className={styles.darkTable}>
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Rozmiar</th>
-                                                                <th>Liczba</th>
-                                                                <th>% udziału</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {Object.entries(analytics.salesBySize)
-                                                                .sort(([,a], [,b]) => b.count - a.count)
-                                                                .slice(0, 8) // Ograniczamy do 8 wierszy
-                                                                .map(([size, data]) => (
-                                                                    <tr key={size}>
-                                                                        <td>{size}</td>
-                                                                        <td>{data.count}</td>
-                                                                        <td>{((data.count / analytics.totalSales) * 100).toFixed(1)}%</td>
-                                                                    </tr>
-                                                                ))
-                                                            }
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        </div>                        <div className="col-md-6">
+                            <div className={`${styles.chartContainer} ${styles.smallChart}`}>
+                                <h5 className={styles.chartTitle}>Trendy sprzedaży według punktów sprzedaży</h5>
+                                <Line data={chartData.trends} options={{ 
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: {
+                                            display: true,
+                                            position: 'top',
+                                            labels: {
+                                                color: '#fff',
+                                                boxWidth: 20,
+                                                padding: 20,
+                                                usePointStyle: true
+                                            }
+                                        },
+                                        tooltip: {
+                                            mode: 'index',
+                                            intersect: false,
+                                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                            titleColor: '#fff',
+                                            bodyColor: '#fff',
+                                            borderColor: '#fff',
+                                            borderWidth: 1
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            ticks: {
+                                                color: '#fff',
+                                                stepSize: 1,
+                                                precision: 0
+                                            },
+                                            grid: {
+                                                color: 'rgba(255, 255, 255, 0.1)'
+                                            }
+                                        },
+                                        x: {
+                                            ticks: {
+                                                color: '#fff',
+                                                maxTicksLimit: 10
+                                            },
+                                            grid: {
+                                                color: 'rgba(255, 255, 255, 0.1)'
+                                            }
+                                        }
+                                    },
+                                    interaction: {
+                                        mode: 'nearest',
+                                        axis: 'x',
+                                        intersect: false
+                                    }
+                                }} />
+                            </div>
+                        </div>
                                     </div>
                                 )}
                             </div>
@@ -867,14 +1255,13 @@ const Sales = () => {
                                     placeholder="Filter"
                                     onChange={(e) => handleColumnFilterChange('fullName', e.target.value)}
                                 />
-                            </th>
-                            <th className={`${styles.tableHeader} ${styles.noWrap}`} onClick={() => handleSort('timestamp')}>
-                                Data {sortConfig.key === 'timestamp' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </th>                            <th className={`${styles.tableHeader} ${styles.noWrap}`} onClick={() => handleSort('date')}>
+                                Data {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                 <input
                                     type="text"
                                     className="form-control form-control-sm mt-1"
                                     placeholder="Filter"
-                                    onChange={(e) => handleColumnFilterChange('timestamp', e.target.value)}
+                                    onChange={(e) => handleColumnFilterChange('date', e.target.value)}
                                 />
                             </th>
                             <th className={`${styles.tableHeader} ${styles.noWrap}`} onClick={() => handleSort('barcode')}>
@@ -934,44 +1321,37 @@ const Sales = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {sortedSales.map((sale, index) => (
-                            <tr key={sale._id} className={styles.tableRow}>
-                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{index + 1}</td>
-                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.fullName}</td>
-                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{new Date(sale.timestamp).toLocaleDateString()}</td>
+                        {sortedSales.map((sale, index) => (                            <tr key={sale._id} className={styles.tableRow}>                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{index + 1}</td>
+                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.fullName}</td>                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                    {fixDateDisplay(sale.date)}
+                                </td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.barcode}</td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.size}</td> 
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.sellingPoint}</td>
-                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.from}</td>
-                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                                    {sale.card.map((c, i) => (
-                                        <div key={i}>{`${c.price} ${c.currency}`}</div>
-                                    ))}
+                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{sale.from}</td>                                <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                    {formatPaymentArray(sale.card)}
                                 </td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                                    {sale.cash.map((c, i) => (
-                                        <div key={i}>{`${c.price} ${c.currency}`}</div>
-                                    ))}
+                                    {formatPaymentArray(sale.cash)}
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colSpan="7"></td>
-                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                            <td colSpan="7"></td>                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                                 <strong>Karta:</strong>
-                                {Object.entries(cardSummary).map(([currency, total], index) => (
+                                {formatSummary(cardSummary).map((item, index) => (
                                     <div key={index}>
-                                        {total.toFixed(2)} {currency}
+                                        {item.total.toFixed(2)} {item.currency}
                                     </div>
                                 ))}
                             </td>
                             <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                                 <strong>Gotówka:</strong>
-                                {Object.entries(cashSummary).map(([currency, total], index) => (
+                                {formatSummary(cashSummary).map((item, index) => (
                                     <div key={index}>
-                                        {total.toFixed(2)} {currency}
+                                        {item.total.toFixed(2)} {item.currency}
                                     </div>
                                 ))}
                             </td>
