@@ -30,6 +30,7 @@ const historyRoutes = require('./routes/history'); // Import history routes
 const salesRoutes = require('./routes/sales'); // Import sales routes
 const transferRoutes = require('./routes/transfer'); // Import transfer routes
 const transactionHistoryRoutes = require('./routes/transactionHistory'); // Import transaction history routes
+const localizationRoutes = require('./routes/locatization'); // Import localization routes
 
 app.use('/api/sales', salesRoutes); // Use sales routes
 app.use('/api/transfer', transferRoutes); // Use transfer routes
@@ -42,6 +43,7 @@ app.use('/api/excel/color', colorRoutes);
 app.use('/api/excel/size', sizeRoutes);
 app.use('/api/excel/goods', goodsRoutes);
 app.use('/api/excel/category', categoryRoutes);
+app.use('/api/excel/localization', localizationRoutes); // Use localization routes
 app.use('/api/config', configRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/category', categoryRoutes);

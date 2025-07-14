@@ -9,7 +9,8 @@ const userSchema = new mongoose.Schema({
         match: /[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/
     },
     password: { type: String, required: true },
-    symbol: { type: String, required: true },    sellingPoint: {
+    symbol: { type: String, required: true },
+    sellingPoint: {
         type: String,
         required: function () { return this.role === 'user'; }, // Required for users
         default: null, // Allow sellingPoint to be null
@@ -21,6 +22,11 @@ const userSchema = new mongoose.Schema({
             },
             message: 'Selling point must be unique for users.'
         }
+    },
+    location: {
+        type: String,
+        required: function () { return this.role === 'user'; }, // Required for users
+        default: null, // Allow location to be null for admin and magazyn
     },
     role: {
         type: String,

@@ -9,20 +9,22 @@ const Users = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
     const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState(false);
-    const [newUser, setNewUser] = useState({ email: '', password: '', symbol: '', role: 'user', sellingPoint: '' });
+    const [newUser, setNewUser] = useState({ email: '', password: '', symbol: '', role: 'user', sellingPoint: '', location: '' });
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [editUser, setEditUser] = useState({ _id: '', email: '', symbol: '', role: '', sellingPoint: '' });
+    const [editUser, setEditUser] = useState({ _id: '', email: '', symbol: '', role: '', sellingPoint: '', location: '' });
     const [userIdToDelete, setUserIdToDelete] = useState('');
     const [editPassword, setEditPassword] = useState('');
     const [editConfirmPassword, setEditConfirmPassword] = useState('');
     const [initialRole, setInitialRole] = useState('');
     const [oldUser, setOldUser] = useState(null);
     const [updatedUser, setUpdatedUser] = useState(null);
+    const [localizations, setLocalizations] = useState([]);
 
     const modalRef = useRef(null);
 
     useEffect(() => {
         fetchUsers();
+        fetchLocalizations();
     }, []);
 
     useEffect(() => {
@@ -51,12 +53,27 @@ const Users = () => {
             });
     };
 
+    const fetchLocalizations = () => {
+        axios.get('/api/excel/localization/get-all-localizations')
+            .then(response => {
+                // Filtruj tylko lokalizacje z niepustym opisem dla select w Users
+                const localizationsWithDescription = response.data.localizations.filter(localization => 
+                    localization.Miejsc_1_Opis_1 && 
+                    localization.Miejsc_1_Opis_1.trim() !== ""
+                );
+                setLocalizations(localizationsWithDescription);
+            })
+            .catch(error => {
+                console.error('There was an error fetching the localizations!', error);
+            });
+    };
+
     const toggleModal = () => setIsModalOpen(!isModalOpen);
     const toggleAddUserModal = () => {
         setIsAddUserModalOpen(!isAddUserModalOpen);
         if (!isAddUserModalOpen) {
             // Clear all inputs when opening the modal
-            setNewUser({ email: '', password: '', symbol: '', role: 'user', sellingPoint: '' });
+            setNewUser({ email: '', password: '', symbol: '', role: 'user', sellingPoint: '', location: '' });
             setConfirmPassword('');
         }
     };
@@ -69,7 +86,7 @@ const Users = () => {
 
     const handleRoleChange = (e) => {
         const { value } = e.target;
-        setNewUser({ ...newUser, role: value, sellingPoint: (value === 'admin' || value === 'magazyn') ? '' : newUser.sellingPoint });
+        setNewUser({ ...newUser, role: value, sellingPoint: (value === 'admin' || value === 'magazyn') ? '' : newUser.sellingPoint, location: (value === 'admin' || value === 'magazyn') ? '' : newUser.location });
     };
 
     const handleEditRoleChange = (e) => {
@@ -77,7 +94,8 @@ const Users = () => {
         setEditUser({
             ...editUser,
             role: value,
-            sellingPoint: (value === 'admin' || value === 'magazyn') ? null : editUser.sellingPoint
+            sellingPoint: (value === 'admin' || value === 'magazyn') ? null : editUser.sellingPoint,
+            location: (value === 'admin' || value === 'magazyn') ? null : editUser.location
         });
     };
 
@@ -99,26 +117,27 @@ const Users = () => {
     };
 
     const handleAddUser = () => {
-        // Ensure sellingPoint is an empty string for administrators and magazyn
+        // Ensure sellingPoint and location are empty strings for administrators and magazyn
         if (newUser.role === 'admin' || newUser.role === 'magazyn') {
             newUser.sellingPoint = '';
+            newUser.location = '';
         }
 
-        // Ensure sellingPoint is not empty for users
+        // Ensure sellingPoint and location are not empty for users
         if (newUser.role === 'user' && newUser.sellingPoint === '') {
             alert('Użytkownik musi mieć punkt sprzedaży.');
             return;
-        }        // Check if email, symbol, or sellingPoint already exists (case-insensitive)
+        }
+
+        if (newUser.role === 'user' && newUser.location === '') {
+            alert('Użytkownik musi mieć lokalizację.');
+            return;
+        }
+
+        // Check if email, symbol, or sellingPoint already exists (case-insensitive)
         const emailExists = users.some(user => user.email.toLowerCase() === newUser.email.toLowerCase());
         const symbolExists = users.some(user => user.symbol.toLowerCase() === newUser.symbol.toLowerCase());
         const sellingPointExists = users.some(user => user.sellingPoint && newUser.sellingPoint && user.sellingPoint.toLowerCase() === newUser.sellingPoint.toLowerCase() && newUser.role !== 'admin' && newUser.role !== 'magazyn');
-        
-        // Check if trying to create a magazyn user and if one already exists
-        const magazynExists = users.some(user => user.role === 'magazyn');
-        if (newUser.role === 'magazyn' && magazynExists) {
-            alert('Może istnieć tylko jeden użytkownik z rolą magazyn.');
-            return;
-        }
 
         if (emailExists) {
             alert('Użytkownik z tym adresem email już istnieje.');
@@ -162,15 +181,11 @@ const Users = () => {
                 toggleAddUserModal();
                 fetchUsers(); // Refresh the user list
                 // Clear all inputs
-                setNewUser({ email: '', password: '', symbol: '', role: 'user', sellingPoint: '' });
+                setNewUser({ email: '', password: '', symbol: '', role: 'user', sellingPoint: '', location: '' });
                 setConfirmPassword('');
-            })            .catch(error => {
+            })
+            .catch(error => {
                 console.error('Wystąpił błąd podczas dodawania użytkownika!', error);
-                if (error.response && error.response.data && error.response.data.message) {
-                    alert(error.response.data.message);
-                } else {
-                    alert('Wystąpił błąd podczas dodawania użytkownika!');
-                }
             });
     };
 
@@ -187,7 +202,8 @@ const Users = () => {
                     email: user.email,
                     symbol: user.symbol,
                     role: user.role,
-                    sellingPoint: user.sellingPoint // Ensure sellingPoint is set
+                    sellingPoint: user.sellingPoint, // Ensure sellingPoint is set
+                    location: user.location // Ensure location is set
                 });
                 setEditPassword(''); // Clear password fields
                 setEditConfirmPassword(''); // Clear confirm password fields
@@ -200,26 +216,27 @@ const Users = () => {
     };
 
     const handleUpdateUser = () => {
-        // Ensure sellingPoint is an empty string for administrators and magazyn
+        // Ensure sellingPoint and location are empty strings for administrators and magazyn
         if (editUser.role === 'admin' || editUser.role === 'magazyn') {
             editUser.sellingPoint = '';
+            editUser.location = '';
         }
 
-        // Ensure sellingPoint is not empty for users
+        // Ensure sellingPoint and location are not empty for users
         if (editUser.role === 'user' && editUser.sellingPoint === '') {
             alert('Użytkownik musi mieć punkt sprzedaży.');
             return;
-        }        // Check if email or symbol already exists (case-insensitive)
+        }
+
+        if (editUser.role === 'user' && editUser.location === '') {
+            alert('Użytkownik musi mieć lokalizację.');
+            return;
+        }
+
+        // Check if email or symbol already exists (case-insensitive)
         const emailExists = users.some(user => user.email.toLowerCase() === editUser.email.toLowerCase() && user._id !== editUser._id);
         const symbolExists = users.some(user => user.symbol.toLowerCase() === editUser.symbol.toLowerCase() && user._id !== editUser._id);
         const sellingPointExists = users.some(user => user.sellingPoint && editUser.sellingPoint && user.sellingPoint.toLowerCase() === editUser.sellingPoint.toLowerCase() && user._id !== editUser._id && editUser.role !== 'admin' && editUser.role !== 'magazyn');
-
-        // Check if trying to change role to 'magazyn' and if another user already has this role
-        const magazynExists = users.some(user => user.role === 'magazyn' && user._id !== editUser._id);
-        if (editUser.role === 'magazyn' && magazynExists) {
-            alert('Może istnieć tylko jeden użytkownik z rolą magazyn.');
-            return;
-        }
 
         if (emailExists) {
             alert('Użytkownik z tym adresem email już istnieje.');
@@ -291,13 +308,9 @@ const Users = () => {
 
                 console.log('Old User:', response.data.oldUser);
                 console.log('Updated User:', response.data.updatedUser);
-            })            .catch(error => {
+            })
+            .catch(error => {
                 console.error('There was an error updating the user!', error);
-                if (error.response && error.response.data && error.response.data.message) {
-                    alert(error.response.data.message);
-                } else {
-                    alert('Wystąpił błąd podczas aktualizacji użytkownika!');
-                }
             });
     };
 
@@ -419,6 +432,7 @@ const Users = () => {
                             <th className={styles.tableHeader}>Symbol</th>
                             <th className={styles.tableHeader}>Rola</th>
                             <th className={`${styles.tableHeader} ${styles.sellingPointColumn}`}>Punkt sprzedaży</th>
+                            <th className={`${styles.tableHeader} ${styles.sellingPointColumn}`}>Lokalizacja</th>
                             <th className={styles.tableHeader}>Akcje</th>
                         </tr>
                     </thead>
@@ -432,6 +446,9 @@ const Users = () => {
                                 <td className={styles.tableCell} data-label="Rola">{user.role === 'admin' ? 'Administrator' : user.role === 'magazyn' ? 'Magazyn' : 'Użytkownik'}</td>
                                 <td className={`${styles.tableCell} ${styles.sellingPointColumn}`} data-label="Punkt sprzedaży">
                                     {user.sellingPoint || '\u00A0'}
+                                </td>
+                                <td className={`${styles.tableCell} ${styles.sellingPointColumn}`} data-label="Lokalizacja">
+                                    {user.location || '\u00A0'}
                                 </td>
                                 <td className={`${styles.tableCell} ${styles.buttonGroup}`} data-label="Akcje">
                                     <Button color="warning" onClick={() => handleEditUser(user._id)} className="btn-sm">Edytuj</Button>
@@ -519,6 +536,24 @@ const Users = () => {
                                 onChange={handleInputChange}
                                 className={styles.inputField}
                             />
+                        </FormGroup>
+                    )}
+                    {newUser.role === 'user' && (
+                        <FormGroup className={styles.formGroup}>
+                            <Label for="location" className={styles.emailLabel}>Lokalizacja:</Label>
+                            <Input
+                                type="select"
+                                id="location"
+                                value={newUser.location}
+                                onChange={handleInputChange}
+                                className={styles.inputField}
+                            >
+                                {localizations.map(localization => (
+                                    <option key={localization._id} value={localization.Miejsc_1_Opis_1}>
+                                        {localization.Miejsc_1_Opis_1}
+                                    </option>
+                                ))}
+                            </Input>
                         </FormGroup>
                     )}
                     <Button color="primary" onClick={handleAddUser} className="btn-sm">Dodaj użytkownika</Button>
@@ -612,6 +647,24 @@ const Users = () => {
                                 onChange={handleEditInputChange}
                                 className={styles.inputField}
                             />
+                        </FormGroup>
+                    )}
+                    {editUser.role === 'user' && (
+                        <FormGroup className={styles.formGroup}>
+                            <Label for="location" className={styles.emailLabel}>Lokalizacja:</Label>
+                            <Input
+                                type="select"
+                                id="location"
+                                value={editUser.location}
+                                onChange={handleEditInputChange}
+                                className={styles.inputField}
+                            >
+                                {localizations.map(localization => (
+                                    <option key={localization._id} value={localization.Miejsc_1_Opis_1}>
+                                        {localization.Miejsc_1_Opis_1}
+                                    </option>
+                                ))}
+                            </Input>
                         </FormGroup>
                     )}
                     <Button color="primary" onClick={handleUpdateUser} className="btn-sm">Zaktualizuj użytkownika</Button>

@@ -35,50 +35,51 @@ class UsersController {
 
                 argon2.hash(req.body.password) // Replaced bcrypt.hash with argon2.hash
                     .then(hash => {
-                        // Ensure sellingPoint is an empty string for admins and magazyn
+                        // Ensure sellingPoint and location are empty strings for admins and magazyn
                         const newUser = new User({
                             _id: new mongoose.Types.ObjectId(),
                             email: req.body.email,
-                            password: hash,
-                            symbol: req.body.symbol, // Ensure symbol is provided in the request body
-                            sellingPoint: (req.body.role === 'admin' || req.body.role === 'magazyn') ? '' : req.body.sellingPoint, // Ensure sellingPoint is empty for admins and magazyn
-                            role: req.body.role // Assuming role is provided in the request body
-                        });
-                        newUser.save()
-                            .then(result => {
-                                res.status(201).json({
-                                    message: 'User created',
-                                    role: newUser.role,
-                                    request: {
-                                        type: 'GET',
-                                        url: `${config.domain}/api/user/${result._id}`
-                                    },
-                                    success: true,
-                                    email: newUser.email
-                                });
-                            })
-                            .catch(error => {
-                                if (error.name === 'ValidationError') {
-                                    // Check if the error is about magazyn role limitation
-                                    if (error.message.includes('magazyn')) {
+                                password: hash,
+                                symbol: req.body.symbol, // Ensure symbol is provided in the request body
+                                sellingPoint: (req.body.role === 'admin' || req.body.role === 'magazyn') ? '' : req.body.sellingPoint, // Ensure sellingPoint is empty for admins and magazyn
+                                location: (req.body.role === 'admin' || req.body.role === 'magazyn') ? '' : req.body.location, // Ensure location is empty for admins and magazyn
+                                role: req.body.role // Assuming role is provided in the request body
+                            });
+                            newUser.save()
+                                .then(result => {
+                                    res.status(201).json({
+                                        message: 'User created',
+                                        role: newUser.role,
+                                        request: {
+                                            type: 'GET',
+                                            url: `${config.domain}/api/user/${result._id}`
+                                        },
+                                        success: true,
+                                        email: newUser.email
+                                    });
+                                })
+                                .catch(error => {
+                                    if (error.name === 'ValidationError') {
+                                        // Check if the error is about magazyn role limitation
+                                        if (error.message.includes('magazyn')) {
+                                            return res.status(400).json({
+                                                message: 'Może istnieć tylko jeden użytkownik z rolą magazyn.'
+                                            });
+                                        }
                                         return res.status(400).json({
-                                            message: 'Może istnieć tylko jeden użytkownik z rolą magazyn.'
+                                            message: 'Invalid email format'
                                         });
                                     }
-                                    return res.status(400).json({
-                                        message: 'Invalid email format'
+                                    res.status(500).json({
+                                        error: error
                                     });
-                                }
-                                res.status(500).json({
-                                    error: error
                                 });
+                        })
+                        .catch(err => {
+                            return res.status(500).json({
+                                error: err
                             });
-                    })
-                    .catch(err => {
-                        return res.status(500).json({
-                            error: err
                         });
-                    });
             })
             .catch(error => {
                 res.status(500).json({
@@ -115,7 +116,8 @@ class UsersController {
                                 success: true,
                                 role: user.role,
                                 symbol: user.symbol,
-                                sellingPoint: user.sellingPoint
+                                sellingPoint: user.sellingPoint,
+                                location: user.location
                             });
                         }
                         res.status(401).json({
@@ -157,7 +159,7 @@ class UsersController {
 
     getAllUsers(req, res, next) {
         User.find()
-            .select('_id email role symbol sellingPoint')
+            .select('_id email role symbol sellingPoint location')
             .exec()
             .then(docs => {
                 const response = {
@@ -169,6 +171,7 @@ class UsersController {
                             role: doc.role,
                             symbol: doc.symbol,
                             sellingPoint: doc.sellingPoint,
+                            location: doc.location,
                             request: {
                                 type: 'GET',
                                 url: `${config.domain}/api/user/${doc._id}`
@@ -188,7 +191,7 @@ class UsersController {
     getOneUser(req, res, next) {
         const id = req.params.userId;
         User.findById(id)
-            .select('_id email symbol role sellingPoint')
+            .select('_id email symbol role sellingPoint location')
             .exec()
             .then(doc => {
                 if (doc) {
@@ -222,6 +225,7 @@ class UsersController {
 
         if (updateOps.role === 'admin' || updateOps.role === 'magazyn') {
             updateOps.sellingPoint = null; // Ensure sellingPoint is null for admins and magazyn
+            updateOps.location = null; // Ensure location is null for admins and magazyn
         }
 
         try {
