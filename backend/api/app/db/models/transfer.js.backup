@@ -26,11 +26,6 @@ const transferSchema = new mongoose.Schema({
         unique: true, // Ensure uniqueness
         sparse: true, // Allow null values without triggering uniqueness errors
     },
-    reason: {
-        type: String,
-        required: false, // Optional field for Dom transfers
-        default: null,
-    },
 }, {
     timestamps: true,
 });

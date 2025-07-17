@@ -86,7 +86,7 @@ const Users = () => {
 
     const handleRoleChange = (e) => {
         const { value } = e.target;
-        setNewUser({ ...newUser, role: value, sellingPoint: (value === 'admin' || value === 'magazyn') ? '' : newUser.sellingPoint, location: (value === 'admin' || value === 'magazyn') ? '' : newUser.location });
+        setNewUser({ ...newUser, role: value, sellingPoint: (value === 'admin' || value === 'magazyn' || value === 'dom') ? '' : newUser.sellingPoint, location: (value === 'admin' || value === 'magazyn' || value === 'dom') ? '' : newUser.location });
     };
 
     const handleEditRoleChange = (e) => {
@@ -94,8 +94,8 @@ const Users = () => {
         setEditUser({
             ...editUser,
             role: value,
-            sellingPoint: (value === 'admin' || value === 'magazyn') ? null : editUser.sellingPoint,
-            location: (value === 'admin' || value === 'magazyn') ? null : editUser.location
+            sellingPoint: (value === 'admin' || value === 'magazyn' || value === 'dom') ? null : editUser.sellingPoint,
+            location: (value === 'admin' || value === 'magazyn' || value === 'dom') ? null : editUser.location
         });
     };
 
@@ -117,8 +117,8 @@ const Users = () => {
     };
 
     const handleAddUser = () => {
-        // Ensure sellingPoint and location are empty strings for administrators and magazyn
-        if (newUser.role === 'admin' || newUser.role === 'magazyn') {
+        // Ensure sellingPoint and location are empty strings for administrators, magazyn and dom
+        if (newUser.role === 'admin' || newUser.role === 'magazyn' || newUser.role === 'dom') {
             newUser.sellingPoint = '';
             newUser.location = '';
         }
@@ -137,7 +137,7 @@ const Users = () => {
         // Check if email, symbol, or sellingPoint already exists (case-insensitive)
         const emailExists = users.some(user => user.email.toLowerCase() === newUser.email.toLowerCase());
         const symbolExists = users.some(user => user.symbol.toLowerCase() === newUser.symbol.toLowerCase());
-        const sellingPointExists = users.some(user => user.sellingPoint && newUser.sellingPoint && user.sellingPoint.toLowerCase() === newUser.sellingPoint.toLowerCase() && newUser.role !== 'admin' && newUser.role !== 'magazyn');
+        const sellingPointExists = users.some(user => user.sellingPoint && newUser.sellingPoint && user.sellingPoint.toLowerCase() === newUser.sellingPoint.toLowerCase() && newUser.role !== 'admin' && newUser.role !== 'magazyn' && newUser.role !== 'dom');
 
         if (emailExists) {
             alert('Użytkownik z tym adresem email już istnieje.');
@@ -174,7 +174,8 @@ const Users = () => {
 
         axios.post('/api/user/signup', payload, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`,
+                'transaction-id': Date.now().toString() // Add transaction ID
             }
         })
             .then(response => {
@@ -216,8 +217,8 @@ const Users = () => {
     };
 
     const handleUpdateUser = () => {
-        // Ensure sellingPoint and location are empty strings for administrators and magazyn
-        if (editUser.role === 'admin' || editUser.role === 'magazyn') {
+        // Ensure sellingPoint and location are empty strings for administrators, magazyn and dom
+        if (editUser.role === 'admin' || editUser.role === 'magazyn' || editUser.role === 'dom') {
             editUser.sellingPoint = '';
             editUser.location = '';
         }
@@ -248,7 +249,7 @@ const Users = () => {
             return;
         }
 
-        if (sellingPointExists && editUser.role !== 'admin' && editUser.role !== 'magazyn') {
+        if (sellingPointExists && editUser.role !== 'admin' && editUser.role !== 'magazyn' && editUser.role !== 'dom') {
             alert('Użytkownik z tym punktem sprzedaży już istnieje.');
             return;
         }
@@ -297,7 +298,8 @@ const Users = () => {
     const updateUserInDatabase = (updatedUser) => {
         axios.put(`/api/user/${updatedUser._id}`, updatedUser, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`,
+                'transaction-id': Date.now().toString() // Add transaction ID
             }
         })
             .then(response => {
@@ -344,7 +346,8 @@ const Users = () => {
     const confirmDeleteUser = () => {
         axios.delete(`/api/user/${userIdToDelete}`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`
+                'Authorization': `Bearer ${localStorage.getItem('AdminEmail')}`,
+                'transaction-id': Date.now().toString() // Add transaction ID
             }
         })
             .then(response => {
@@ -443,7 +446,7 @@ const Users = () => {
                                 <td className={styles.tableCell} data-label="ID">{user._id}</td>
                                 <td className={styles.tableCell} data-label="Email">{user.email}</td>
                                 <td className={styles.tableCell} data-label="Symbol">{user.symbol}</td>
-                                <td className={styles.tableCell} data-label="Rola">{user.role === 'admin' ? 'Administrator' : user.role === 'magazyn' ? 'Magazyn' : 'Użytkownik'}</td>
+                                <td className={styles.tableCell} data-label="Rola">{user.role === 'admin' ? 'Administrator' : user.role === 'magazyn' ? 'Magazyn' : user.role === 'dom' ? 'Dom' : 'Użytkownik'}</td>
                                 <td className={`${styles.tableCell} ${styles.sellingPointColumn}`} data-label="Punkt sprzedaży">
                                     {user.sellingPoint || '\u00A0'}
                                 </td>
@@ -524,6 +527,7 @@ const Users = () => {
                             <option value="user">Użytkownik</option>
                             <option value="admin">Administrator</option>
                             <option value="magazyn">Magazyn</option>
+                            <option value="dom">Dom</option>
                         </Input>
                     </FormGroup>
                     {newUser.role === 'user' && (
@@ -548,6 +552,7 @@ const Users = () => {
                                 onChange={handleInputChange}
                                 className={styles.inputField}
                             >
+                                <option value="">Wybierz lokalizację</option>
                                 {localizations.map(localization => (
                                     <option key={localization._id} value={localization.Miejsc_1_Opis_1}>
                                         {localization.Miejsc_1_Opis_1}
@@ -635,6 +640,7 @@ const Users = () => {
                             <option value="user">Użytkownik</option>
                             <option value="admin">Administrator</option>
                             <option value="magazyn">Magazyn</option>
+                            <option value="dom">Dom</option>
                         </Input>
                     </FormGroup>
                     {editUser.role === 'user' && (
@@ -659,6 +665,7 @@ const Users = () => {
                                 onChange={handleEditInputChange}
                                 className={styles.inputField}
                             >
+                                <option value="">Wybierz lokalizację</option>
                                 {localizations.map(localization => (
                                     <option key={localization._id} value={localization.Miejsc_1_Opis_1}>
                                         {localization.Miejsc_1_Opis_1}

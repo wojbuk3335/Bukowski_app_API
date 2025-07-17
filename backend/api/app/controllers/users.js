@@ -35,14 +35,14 @@ class UsersController {
 
                 argon2.hash(req.body.password) // Replaced bcrypt.hash with argon2.hash
                     .then(hash => {
-                        // Ensure sellingPoint and location are empty strings for admins and magazyn
+                        // Ensure sellingPoint and location are empty strings for admins, magazyn and dom
                         const newUser = new User({
                             _id: new mongoose.Types.ObjectId(),
                             email: req.body.email,
                                 password: hash,
                                 symbol: req.body.symbol, // Ensure symbol is provided in the request body
-                                sellingPoint: (req.body.role === 'admin' || req.body.role === 'magazyn') ? '' : req.body.sellingPoint, // Ensure sellingPoint is empty for admins and magazyn
-                                location: (req.body.role === 'admin' || req.body.role === 'magazyn') ? '' : req.body.location, // Ensure location is empty for admins and magazyn
+                                sellingPoint: (req.body.role === 'admin' || req.body.role === 'magazyn' || req.body.role === 'dom') ? '' : req.body.sellingPoint, // Ensure sellingPoint is empty for admins, magazyn and dom
+                                location: (req.body.role === 'admin' || req.body.role === 'magazyn' || req.body.role === 'dom') ? '' : req.body.location, // Ensure location is empty for admins, magazyn and dom
                                 role: req.body.role // Assuming role is provided in the request body
                             });
                             newUser.save()
@@ -223,9 +223,9 @@ class UsersController {
             updateOps[ops] = req.body[ops];
         }
 
-        if (updateOps.role === 'admin' || updateOps.role === 'magazyn') {
-            updateOps.sellingPoint = null; // Ensure sellingPoint is null for admins and magazyn
-            updateOps.location = null; // Ensure location is null for admins and magazyn
+        if (updateOps.role === 'admin' || updateOps.role === 'magazyn' || updateOps.role === 'dom') {
+            updateOps.sellingPoint = null; // Ensure sellingPoint is null for admins, magazyn and dom
+            updateOps.location = null; // Ensure location is null for admins, magazyn and dom
         }
 
         try {

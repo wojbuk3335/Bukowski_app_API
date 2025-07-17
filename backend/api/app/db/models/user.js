@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
         default: null, // Allow sellingPoint to be null
         validate: {
             validator: async function (value) {
-                if (this.role === 'admin' || this.role === 'magazyn') return true;
+                if (this.role === 'admin' || this.role === 'magazyn' || this.role === 'dom') return true;
                 const count = await mongoose.models.User.countDocuments({ sellingPoint: value, role: 'user' });
                 return count === 0;
             },
@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
     role: {
         type: String,
         required: true,
-        enum: ['user', 'admin', 'magazyn'],
+        enum: ['user', 'admin', 'magazyn', 'dom'],
         default: 'user',
         validate: {
             validator: async function (value) {
