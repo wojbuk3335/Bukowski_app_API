@@ -31,6 +31,16 @@ const transferSchema = new mongoose.Schema({
         required: false, // Optional field for Dom transfers
         default: null,
     },
+    advancePayment: {
+        type: Number,
+        required: false, // Optional field for Dom transfers
+        default: 0,
+    },
+    advancePaymentCurrency: {
+        type: String,
+        required: false, // Optional field for Dom transfers
+        default: 'PLN',
+    },
 }, {
     timestamps: true,
 });
