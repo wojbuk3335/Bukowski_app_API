@@ -23,8 +23,11 @@ const transferSchema = new mongoose.Schema({
     },
     productId: {
         type: String,
-        unique: true, // Ensure uniqueness
-        sparse: true, // Allow null values without triggering uniqueness errors
+        required: true, // Make it required since we need it for compound index
+    },
+    dateString: {
+        type: String,
+        required: true, // Store date in YYYY-MM-DD format for compound index
     },
     reason: {
         type: String,
@@ -44,6 +47,9 @@ const transferSchema = new mongoose.Schema({
 }, {
     timestamps: true,
 });
+
+// Create compound unique index: one product can only have one transfer per day
+transferSchema.index({ productId: 1, dateString: 1 }, { unique: true });
 
 // Add a static method to delete a transfer by productId
 transferSchema.statics.deleteByProductId = async function (productId) {

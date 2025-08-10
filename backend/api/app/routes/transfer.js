@@ -15,5 +15,6 @@ router.put('/:id', transferController.updateTransfer);
 router.delete('/all', transferController.deleteAllTransfers); // Define this route first
 router.delete('/:productId', transferController.deleteTransferByProductId); // Use productId for deletion
 router.patch('/:id/cancel', transferController.cancelTransfer);
+router.post('/manage-indexes', transferController.manageIndexes); // New endpoint for index management
 
 module.exports = router;

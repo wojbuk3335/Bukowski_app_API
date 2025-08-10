@@ -5,6 +5,7 @@ const historyLogger = require('../middleware/historyLogger');
 
 
 router.get("/", StatesController.getAllStates);
+router.get("/barcode/:barcode", StatesController.getStatesByBarcode); // New endpoint to find states by barcode
 router.post("/",historyLogger('states'), StatesController.createState);
 router.post("/restore", StatesController.restoreState); // Restore endpoint with history logging
 router.post("/restore-silent", StatesController.restoreStateSilent); // Silent restore without history logging

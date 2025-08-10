@@ -301,6 +301,44 @@ class StatesController {
         }
     }
 
+    // Find states by barcode
+    async getStatesByBarcode(req, res, next) {
+        try {
+            const { barcode } = req.params;
+
+            // Check if barcode is provided
+            if (!barcode) {
+                return res.status(400).json({ message: 'Barcode is required' });
+            }
+
+            // Find all states with matching barcode
+            const states = await State.find({ barcode: barcode })
+                .populate('fullName', 'fullName')
+                .populate('size', 'Roz_Opis')
+                .populate('sellingPoint', 'symbol');
+
+            if (states.length === 0) {
+                return res.status(404).json({ message: 'No states with this barcode found', barcode: barcode });
+            }
+
+            // Transform the results to include the populated fields
+            const transformedStates = states.map(state => ({
+                _id: state._id,
+                barcode: state.barcode,
+                symbol: state.sellingPoint?.symbol || 'UNKNOWN',
+                fullName: state.fullName?.fullName || 'UNKNOWN',
+                size: state.size?.Roz_Opis || 'UNKNOWN',
+                price: state.price,
+                discount_price: state.discount_price
+            }));
+
+            res.status(200).json(transformedStates);
+        } catch (error) {
+            console.error('Error finding states by barcode:', error);
+            res.status(500).json({ message: 'Failed to find states by barcode', error: error.message });
+        }
+    }
+
     // Delete all states by barcode (keep for compatibility)
     async deleteStateByBarcode(req, res, next) {
         try {
@@ -612,6 +650,8 @@ class StatesController {
                 operationType 
             } = req.body;
 
+            console.log('🔵 [SILENT RESTORE] Request data:', { fullName, size, barcode, symbol, price, discount_price, operationType });
+
             // Validate required fields
             if (!fullName || !size || !barcode || !symbol) {
                 return res.status(400).json({ 
@@ -633,8 +673,11 @@ class StatesController {
 
             // Find the ObjectId for sellingPoint in User by symbol
             const User = require('../db/models/user');
+            console.log('🔍 [SILENT RESTORE] Looking for user with symbol:', symbol);
             const user = await User.findOne({ symbol: symbol });
+            console.log('👤 [SILENT RESTORE] Found user:', user ? { symbol: user.symbol, sellingPoint: user.sellingPoint, _id: user._id } : 'NOT FOUND');
             if (!user) {
+                console.error('❌ [SILENT RESTORE] User not found for symbol:', symbol);
                 return res.status(404).json({ message: `User not found for symbol: ${symbol}` });
             }
 
@@ -667,6 +710,13 @@ class StatesController {
             });
 
             const newState = await state.save();
+            console.log('✅ [SILENT RESTORE] State saved successfully:', {
+                id: newState._id,
+                barcode: newState.barcode,
+                symbol: symbol,
+                fullName: fullName,
+                size: size
+            });
 
             // NO HISTORY LOGGING - Silent restore for transaction cancellation
 

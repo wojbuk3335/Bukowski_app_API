@@ -95,6 +95,48 @@ class TransferController {
             res.status(500).json({ error: error.message });
         }
     };
+
+    // New method to manage indexes
+    manageIndexes = async (req, res) => {
+        try {
+            const collection = Transfer.collection;
+            
+            // Get current indexes
+            const indexes = await collection.indexes();
+            console.log("Current indexes:", JSON.stringify(indexes, null, 2));
+            
+            // Drop old unique index on productId if it exists
+            try {
+                await collection.dropIndex("productId_1");
+                console.log("Dropped old productId_1 index");
+            } catch (error) {
+                console.log("productId_1 index not found or already dropped:", error.message);
+            }
+            
+            // Ensure compound index exists
+            try {
+                await collection.createIndex(
+                    { productId: 1, dateString: 1 }, 
+                    { unique: true, name: "productId_dateString_unique" }
+                );
+                console.log("Created compound index productId_dateString_unique");
+            } catch (error) {
+                console.log("Compound index already exists or error creating:", error.message);
+            }
+            
+            // Get indexes after changes
+            const newIndexes = await collection.indexes();
+            
+            res.status(200).json({ 
+                message: 'Index management completed',
+                oldIndexes: indexes,
+                newIndexes: newIndexes
+            });
+        } catch (error) {
+            console.error("Error managing indexes:", error);
+            res.status(500).json({ error: error.message });
+        }
+    };
 }
 
 module.exports = new TransferController();

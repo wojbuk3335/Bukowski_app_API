@@ -13,6 +13,8 @@ const AddToState = () => {
   const [magazynItems, setMagazynItems] = useState([]);
   const [salesData, setSalesData] = useState([]);
   const [filteredSales, setFilteredSales] = useState([]);
+  const [transfersData, setTransfersData] = useState([]); // Store transfers data
+  const [filteredTransfers, setFilteredTransfers] = useState([]); // Store filtered transfers
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSellingPoint, setSelectedSellingPoint] = useState('');
   const [sellingPoints, setSellingPoints] = useState([]);
@@ -53,6 +55,7 @@ const AddToState = () => {
   const [lastTransactionDetails, setLastTransactionDetails] = useState(null); // Store details of last transaction for cancellation
   const [savedItemsForDisplay, setSavedItemsForDisplay] = useState([]); // Items to keep displaying after save
   const [processedSalesIds, setProcessedSalesIds] = useState(new Set()); // Track which sales have been processed to prevent double-processing
+  const [processedTransferIds, setProcessedTransferIds] = useState(new Set()); // Track which transfers have been processed
   
   // Printing states
   const [selectedForPrint, setSelectedForPrint] = useState(new Set()); // Track selected items for printing
@@ -254,6 +257,10 @@ const AddToState = () => {
         // Fetch sales data
         const salesResponse = await axios.get('/api/sales/get-all-sales');
         setSalesData(salesResponse.data);
+
+        // Fetch transfers data
+        const transfersResponse = await axios.get('/api/transfer');
+        setTransfersData(transfersResponse.data);
         
         // Fetch selling points from users API
         let uniqueSellingPointsFromUsers = [];
@@ -389,11 +396,49 @@ const AddToState = () => {
 
 
       setFilteredSales(filtered);
+
+      // Filter transfers based on selected date and selling point
+      let filteredTransfersData = transfersData.filter(transfer => {
+        const selectedDateString = selectedDate.toDateString();
+        let finalTransferDate;
+        
+        // Use 'date' field from transfer
+        if (transfer.date) {
+          finalTransferDate = new Date(transfer.date).toDateString();
+        } else if (transfer.createdAt) {
+          finalTransferDate = new Date(transfer.createdAt).toDateString();
+        } else {
+          return false; // Skip transfers without date
+        }
+        
+        const matches = finalTransferDate === selectedDateString;
+        return matches;
+      });
+
+      if (selectedSellingPoint) {
+        // Find the symbol for the selected selling point
+        const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
+        const selectedSymbol = selectedUser ? selectedUser.symbol : null;
+        
+        if (selectedSymbol) {
+          // Filter transfers by 'transfer_from' field matching the selected symbol
+          filteredTransfersData = filteredTransfersData.filter(transfer => {
+            return transfer.transfer_from === selectedSymbol;
+          });
+        }
+      }
+
+      // Filter out processed transfers
+      filteredTransfersData = filteredTransfersData.filter(transfer => {
+        return !processedTransferIds.has(transfer._id);
+      });
+
+      setFilteredTransfers(filteredTransfersData);
     } else {
       // For "przepisanie" mode, clear sales
       setFilteredSales([]);
     }
-  }, [salesData, selectedDate, selectedSellingPoint, operationType, usersData, processedSalesIds, synchronizedItems]);
+  }, [salesData, transfersData, selectedDate, selectedSellingPoint, operationType, usersData, processedSalesIds, processedTransferIds, synchronizedItems]);
 
   const handleSynchronize = async () => {
     // Synchronization only available in "sprzedaz" mode
@@ -564,7 +609,7 @@ const AddToState = () => {
       return;
     }
 
-    if (filteredSales.length === 0 && manuallyAddedItems.length === 0) {
+    if (filteredSales.length === 0 && filteredTransfers.length === 0 && manuallyAddedItems.length === 0) {
       alert('Brak elementów do zapisania');
       return;
     }
@@ -588,13 +633,103 @@ const AddToState = () => {
       // Add sales items (blue) to validation
       filteredSales.forEach(sale => {
         if (!synchronizedItems.sales || !synchronizedItems.sales.has(sale._id)) {
+          // For sales items, check where they should be expected to exist
+          const expectedSymbol = sale.from || selectedSellingPoint;
+          
+          console.log('🔵 Walidacja sales item:', {
+            saleId: sale._id,
+            fullName: sale.fullName,
+            barcode: sale.barcode,
+            saleFrom: sale.from,
+            selectedSellingPoint: selectedSellingPoint,
+            expectedSymbol: expectedSymbol
+          });
+          
           itemsToValidate.push({
             type: 'sales',
             data: sale,
             barcode: sale.barcode,
-            expectedSymbol: sale.from,
+            expectedSymbol: expectedSymbol,
             displayName: `${sale.fullName} (${sale.size})`
           });
+        }
+      });
+      
+      // Add transfer items (blue) to validation - these should be deleted from transfer_from symbol
+      filteredTransfers.forEach(transfer => {
+        if (!synchronizedItems.transfers || !synchronizedItems.transfers.has(transfer._id)) {
+          // Try multiple ways to find the barcode for transfer
+          let itemBarcode = null;
+          
+          // Method 1: Look up by productId in current state
+          const stateItem = currentStateItems.find(item => item.id === transfer.productId);
+          if (stateItem) {
+            itemBarcode = stateItem.barcode;
+            console.log('🔍 Transfer barcode found by productId:', { productId: transfer.productId, barcode: itemBarcode });
+          }
+          
+          // Method 2: If not found, try to find by transfer details (barcode in transfer object)
+          if (!itemBarcode && transfer.barcode) {
+            itemBarcode = transfer.barcode;
+            console.log('🔍 Transfer barcode found in transfer object:', { barcode: itemBarcode });
+          }
+          
+          // Method 3: If still not found, try to find by fullName, size, and transfer_from symbol
+          if (!itemBarcode) {
+            const matchingStateItem = currentStateItems.find(item => 
+              item.fullName && transfer.fullName &&
+              item.fullName.toString().toLowerCase() === transfer.fullName.toLowerCase() &&
+              item.size && transfer.size &&
+              item.size.toString().toLowerCase() === transfer.size.toLowerCase() &&
+              item.symbol === transfer.transfer_from
+            );
+            
+            if (matchingStateItem) {
+              itemBarcode = matchingStateItem.barcode;
+              console.log('🔍 Transfer barcode found by matching fullName+size+symbol:', { 
+                fullName: transfer.fullName, 
+                size: transfer.size, 
+                symbol: transfer.transfer_from,
+                barcode: itemBarcode 
+              });
+            }
+          }
+          
+          if (itemBarcode) {
+            console.log('✅ Transfer validation added:', {
+              transferId: transfer._id,
+              fullName: transfer.fullName,
+              barcode: itemBarcode,
+              expectedSymbol: transfer.transfer_from,
+              productId: transfer.productId
+            });
+            
+            itemsToValidate.push({
+              type: 'transfers',
+              data: transfer,
+              barcode: itemBarcode,
+              expectedSymbol: transfer.transfer_from, // Remove from the original selling point
+              displayName: `${transfer.fullName} (${transfer.size}) - Transfer`,
+              productId: transfer.productId // Add productId for transfers
+            });
+          } else {
+            console.warn(`❌ Could not find barcode for transfer:`, {
+              transferId: transfer._id,
+              productId: transfer.productId,
+              fullName: transfer.fullName,
+              size: transfer.size,
+              transfer_from: transfer.transfer_from
+            });
+            
+            // Show all state items with same transfer_from symbol for debugging
+            const allInSymbol = currentStateItems.filter(item => item.symbol === transfer.transfer_from);
+            console.log(`🔍 All items in symbol ${transfer.transfer_from}:`, allInSymbol.map(i => ({ 
+              id: i.id, 
+              fullName: i.fullName, 
+              size: i.size, 
+              barcode: i.barcode 
+            })));
+          }
         }
       });
       
@@ -632,16 +767,32 @@ const AddToState = () => {
       
       // Validate each item against current state
       itemsToValidate.forEach(item => {
+        console.log(`🔍 Sprawdzanie elementu: ${item.displayName}`, {
+          barcode: item.barcode,
+          expectedSymbol: item.expectedSymbol,
+          type: item.type
+        });
+        
         const existsInState = currentStateItems.some(stateItem => 
           stateItem.barcode === item.barcode && 
           stateItem.symbol === item.expectedSymbol
         );
+        
+        console.log(`${existsInState ? '✅' : '❌'} Element ${existsInState ? 'ISTNIEJE' : 'BRAK'} na stanie:`, {
+          barcode: item.barcode,
+          expectedSymbol: item.expectedSymbol,
+          found: existsInState
+        });
         
         if (existsInState) {
           validItems.push(item);
         } else {
           missingItems.push(item);
           console.warn(`❌ Missing from state: ${item.displayName} (barcode: ${item.barcode}, symbol: ${item.expectedSymbol})`);
+          
+          // Show all items with this barcode to help debug
+          const allWithBarcode = currentStateItems.filter(stateItem => stateItem.barcode === item.barcode);
+          console.log(`🔍 Wszystkie elementy z kodem ${item.barcode} na stanie:`, allWithBarcode.map(i => ({ symbol: i.symbol, id: i.id })));
         }
       });
       
@@ -700,6 +851,29 @@ const AddToState = () => {
       const barcodeCount = {};
       blueItemsBarcodes.forEach(barcode => {
         barcodeCount[barcode] = (barcodeCount[barcode] || 0) + 1;
+      });
+
+      // Process transfer items for deletion (blue) - only valid ones
+      const validTransferItems = validItems.filter(item => item.type === 'transfers');
+      validTransferItems.forEach(validItem => {
+        const transfer = validItem.data;
+        // For transfer items, we use barcode found from productId
+        blueItemsBarcodes.push(validItem.barcode); // Add to same array as sales
+        
+        // Update barcode count for transfers too
+        barcodeCount[validItem.barcode] = (barcodeCount[validItem.barcode] || 0) + 1;
+        
+        processedItems.push({
+          fullName: transfer.fullName,
+          size: transfer.size,
+          barcode: validItem.barcode,
+          price: 0, // Transfers don't have price
+          processType: 'transferred',
+          originalId: transfer._id,
+          originalSymbol: transfer.transfer_from, // Where it should be restored
+          sellingPoint: selectedSellingPoint,
+          productId: transfer.productId // Keep productId for transfers
+        });
       });
 
       // Process synchronized items (green) - only valid ones
@@ -795,9 +969,18 @@ const AddToState = () => {
       }
 
       // Process blue items (delete from state by barcode and symbol)
-      const bluePromises = Object.entries(barcodeCount).map(async ([barcode, count]) => {
+      // Handle sales and transfers separately because they may have different symbols to delete from
+      
+      // Process sales items deletion
+      const salesBarcodeCount = {};
+      validSalesItems.forEach(validItem => {
+        const sale = validItem.data;
+        salesBarcodeCount[sale.barcode] = (salesBarcodeCount[sale.barcode] || 0) + 1;
+      });
+      
+      const salesPromises = Object.entries(salesBarcodeCount).map(async ([barcode, count]) => {
         try {
-          // Find the symbol for the selected selling point
+          // Find the symbol for the selected selling point (for sales)
           let symbolToDelete = '';
           if (selectedSellingPoint) {
             const user = usersData.find(user => user.sellingPoint === selectedSellingPoint);
@@ -814,13 +997,37 @@ const AddToState = () => {
           
           await axios.delete(`/api/state/barcode/${barcode}/symbol/${symbolToDelete}?count=${count}`, {
             headers: {
-              'target-symbol': 'Sprzedano', // Blue items are sold
+              'target-symbol': 'Sprzedano', // Sales items are sold
               'operation-type': 'delete',
-              'transactionid': transactionId // Changed from transaction-id to transactionid
+              'transactionid': transactionId
             }
           });
         } catch (error) {
-          console.error(`Error deleting blue items with barcode ${barcode}:`, error);
+          console.error(`Error deleting sales items with barcode ${barcode}:`, error);
+          if (error.response && error.response.status === 404) {
+            // Items not found - this might be expected
+          } else {
+            throw error;
+          }
+        }
+      });
+      
+      // Process transfer items deletion
+      const transferPromises = validTransferItems.map(async (validItem) => {
+        try {
+          const transfer = validItem.data;
+          const barcode = validItem.barcode;
+          const symbolToDelete = transfer.transfer_from; // Use transfer_from as the symbol to delete from
+          
+          await axios.delete(`/api/state/barcode/${barcode}/symbol/${symbolToDelete}?count=1`, {
+            headers: {
+              'target-symbol': 'Przeniesiono', // Transfer items are transferred
+              'operation-type': 'delete',
+              'transactionid': transactionId
+            }
+          });
+        } catch (error) {
+          console.error(`Error deleting transfer item with barcode ${validItem.barcode}:`, error);
           if (error.response && error.response.status === 404) {
             // Items not found - this might be expected
           } else {
@@ -930,7 +1137,7 @@ const AddToState = () => {
       });
 
       // Wait for all operations to complete
-      await Promise.all([...bluePromises, ...greenPromises, ...orangePromises]);
+      await Promise.all([...salesPromises, ...transferPromises, ...greenPromises, ...orangePromises]);
 
       // Save transaction to database instead of local state
       await saveTransactionToDatabase(transactionDetails);
@@ -941,6 +1148,13 @@ const AddToState = () => {
         processedBlueIds.add(validItem.data._id);
       });
       setProcessedSalesIds(processedBlueIds);
+      
+      // Store IDs of processed transfers to prevent them from showing up again
+      const newProcessedTransferIds = new Set(processedTransferIds);
+      validTransferItems.forEach(validItem => {
+        newProcessedTransferIds.add(validItem.data._id);
+      });
+      setProcessedTransferIds(newProcessedTransferIds);
 
       // Store items for display (keeping the view)
       const itemsForDisplay = processedItems.map(item => ({
@@ -996,14 +1210,40 @@ const AddToState = () => {
   };
 
   // Function to deactivate transaction in database
+  // Function to find current location of an item by barcode
+  const findCurrentItemLocation = async (barcode) => {
+    try {
+      const response = await axios.get(`/api/state/barcode/${barcode}`);
+      return response.data; // Returns array of items with this barcode
+    } catch (error) {
+      console.error('Error finding item location:', error);
+      return [];
+    }
+  };
+
   const deactivateTransactionInDatabase = async (transactionId) => {
     try {
-      await axios.delete(`/api/transaction-history/${transactionId}`);
+      console.log('🔍 Attempting to deactivate transaction:', transactionId);
+      const response = await axios.delete(`/api/transaction-history/${transactionId}`);
+      console.log('✅ Transaction deactivation response:', response.data);
       // Reload history after deactivating
       await loadTransactionHistory();
+      console.log('✅ Transaction history reloaded successfully');
     } catch (error) {
-      console.error('Błąd podczas usuwania transakcji z bazy danych');
+      console.error('❌ Error deactivating transaction:', error.response?.data || error.message);
+      console.error('❌ Full error object:', error);
       throw error;
+    }
+  };
+
+  // Function to find current location of an item by barcode
+  const findCurrentLocation = async (barcode) => {
+    try {
+      const response = await axios.get(`/api/state/barcode/${barcode}`);
+      return response.data; // Returns array of all locations where this barcode exists
+    } catch (error) {
+      console.error('Error finding current location:', error);
+      return [];
     }
   };
 
@@ -1168,25 +1408,35 @@ const AddToState = () => {
           continue;
           
         } else if (item.processType === 'transferred') {
-          // Transferred items - they are currently in the target selling point, need to remove them
-          const targetSellingPointName = transaction.selectedSellingPoint || transaction.targetSellingPoint;
+          // Transferred items - need to find where they actually are and remove them
+          console.log('� Szukanie aktualnej lokalizacji dla przeniesionego elementu:', {
+            barcode: item.barcode,
+            fullName: item.fullName,
+            originalSymbol: item.originalSymbol,
+            processType: item.processType
+          });
           
-          // Convert selling point name to symbol using usersData
-          let targetSymbol = null;
-          if (targetSellingPointName) {
-            const targetUser = usersData.find(user => user.sellingPoint === targetSellingPointName);
-            targetSymbol = targetUser ? targetUser.symbol : targetSellingPointName; // Fallback to name if symbol not found
-          }
+          const currentLocations = await findCurrentItemLocation(item.barcode);
+          console.log('📍 Znalezione lokalizacje:', currentLocations);
           
-          if (targetSymbol) {
+          if (currentLocations && currentLocations.length > 0) {
+            // Remove from the first location found (usually there should be only one)
+            const currentLocation = currentLocations[0];
+            console.log('🗑️ Usuwanie elementu z aktualnej lokalizacji:', {
+              currentSymbol: currentLocation.symbol,
+              targetForRestore: item.originalSymbol || 'MAGAZYN'
+            });
+            
             removePromises.push(
-              axios.delete(`/api/state/barcode/${item.barcode}/symbol/${targetSymbol}?count=1`, {
+              axios.delete(`/api/state/barcode/${item.barcode}/symbol/${currentLocation.symbol}?count=1`, {
                 headers: {
                   'operation-type': 'correction-undo-transaction',
-                  'target-symbol': 'MAGAZYN'
+                  'target-symbol': item.originalSymbol || 'MAGAZYN'
                 }
               })
             );
+          } else {
+            console.log('⚠️ No current location found for transferred item, might have been already sold');
           }
         } else if (item.processType === 'corrected') {
           // Corrected items - they were restored to magazyn, need to remove them from magazyn
@@ -1218,6 +1468,17 @@ const AddToState = () => {
           // Blue items: restore to original selling point where they were sold from
           targetSymbol = item.originalSymbol || item.sellingPoint;
           
+          console.log('🔵 Cofanie sprzedanej kurtki (sold item):', {
+            fullName: item.fullName,
+            size: item.size,
+            barcode: item.barcode,
+            originalSymbol: item.originalSymbol,
+            sellingPoint: item.sellingPoint,
+            targetSymbol: targetSymbol
+          });
+          
+          console.log('🔍 Wszystkie dane elementu (sold item):', item);
+          
           restoreData = {
             fullName: item.fullName,
             size: item.size,
@@ -1242,8 +1503,19 @@ const AddToState = () => {
           };
           
         } else if (item.processType === 'transferred') {
-          // Orange items: restore to current magazyn symbol
-          targetSymbol = magazynSymbol;
+          // Transferred items: restore to original symbol where they came from
+          targetSymbol = item.originalSymbol || magazynSymbol;
+          
+          console.log('🟠 Cofanie przeniesionego elementu (transferred item):', {
+            fullName: item.fullName,
+            size: item.size,
+            barcode: item.barcode,
+            originalSymbol: item.originalSymbol,
+            targetSymbol: targetSymbol,
+            productId: item.productId
+          });
+          
+          console.log('🔍 Wszystkie dane elementu (transferred item):', item);
           
           restoreData = {
             fullName: item.fullName,
@@ -1260,6 +1532,7 @@ const AddToState = () => {
         }
         
         if (restoreData) {
+          console.log('📤 Wysyłanie danych przywracania do API:', restoreData);
           restorePromises.push(
             axios.post('/api/state/restore-silent', restoreData)
           );
@@ -1276,13 +1549,17 @@ const AddToState = () => {
       let historyDeleted = false;
       
       try {
+        console.log('🔍 Attempting to delete history records for transactionId:', transaction.transactionId);
         const deleteResponse = await axios.delete(`/api/history/by-transaction/${transaction.transactionId}`, {
           headers: {
             'transactionid': transaction.transactionId
           }
         });
+        console.log('✅ History deletion response:', deleteResponse.data);
         historyDeleted = true;
       } catch (deleteError) {
+        console.error('❌ Error deleting history by transactionId:', deleteError.response?.data || deleteError.message);
+        
         // Fallback: spróbuj usunąć po szczegółach transakcji
         const fallbackPayload = {
           timestamp: transaction.timestamp,
@@ -1294,20 +1571,45 @@ const AddToState = () => {
           }))
         };
         
+        console.log('🔄 Trying fallback method with payload:', fallbackPayload);
+        
         try {
           const fallbackResponse = await axios.post('/api/history/delete-by-details', fallbackPayload);
+          console.log('✅ Fallback history deletion response:', fallbackResponse.data);
           historyDeleted = true;
         } catch (fallbackError) {
-          console.error('❌ Nie udało się usunąć rekordów historii');
+          console.error('❌ Fallback history deletion also failed:', fallbackError.response?.data || fallbackError.message);
         }
       }
       
       if (!historyDeleted) {
-        console.error('⚠️ Nie udało się usunąć rekordów historii');
+        console.warn('⚠️ Nie udało się usunąć rekordów historii - kontynuujemy z anulowaniem transakcji');
       }
       
       // STEP 4: Delete the transaction itself from transaction history
+      console.log('🔍 Attempting to deactivate transaction in database:', transaction.transactionId);
       await deactivateTransactionInDatabase(transaction.transactionId);
+      
+      // STEP 4.5: Remove anulowane items from processedSalesIds and processedTransferIds so they can appear in lists again
+      const newProcessedSalesIds = new Set(processedSalesIds);
+      const newProcessedTransferIds = new Set(processedTransferIds);
+      
+      transaction.processedItems.forEach(item => {
+        if (item.processType === 'sold') {
+          // Remove sold items from processedSalesIds
+          newProcessedSalesIds.delete(item.originalId);
+          console.log('🔵 Usuwanie sold item z processedSalesIds:', item.originalId);
+        } else if (item.processType === 'transferred') {
+          // Remove transferred items from processedTransferIds  
+          newProcessedTransferIds.delete(item.originalId);
+          console.log('🟠 Usuwanie transferred item z processedTransferIds:', item.originalId);
+        }
+      });
+      
+      setProcessedSalesIds(newProcessedSalesIds);
+      setProcessedTransferIds(newProcessedTransferIds);
+      
+      console.log('✅ Zaktualizowano listy przetworzonych elementów - niebieskie elementy powinny pojawić się ponownie na liście');
       
       // STEP 5: Refresh data to reflect the changes
       const salesResponse = await axios.get('/api/sales/get-all-sales');
@@ -1440,8 +1742,8 @@ const AddToState = () => {
         };
         
       } else if (itemToUndo.processType === 'transferred') {
-        // Orange items: restore to current magazyn symbol
-        targetSymbol = magazynSymbol;
+        // Transferred items: restore to original symbol where they came from
+        targetSymbol = itemToUndo.originalSymbol || magazynSymbol;
         
         restoreData = {
           fullName: itemToUndo.fullName,
@@ -1525,6 +1827,21 @@ const AddToState = () => {
         console.warn('Historia nie została usunięta, ale element został przywrócony do magazynu');
       }
       
+      // STEP 5.5: Remove anulowany item from processedSalesIds or processedTransferIds so it can appear in list again
+      if (itemToUndo.processType === 'sold') {
+        // Remove sold item from processedSalesIds
+        const newProcessedSalesIds = new Set(processedSalesIds);
+        newProcessedSalesIds.delete(itemToUndo.originalId);
+        setProcessedSalesIds(newProcessedSalesIds);
+        console.log('🔵 Usuwanie pojedynczego sold item z processedSalesIds:', itemToUndo.originalId);
+      } else if (itemToUndo.processType === 'transferred') {
+        // Remove transferred item from processedTransferIds
+        const newProcessedTransferIds = new Set(processedTransferIds);
+        newProcessedTransferIds.delete(itemToUndo.originalId);
+        setProcessedTransferIds(newProcessedTransferIds);
+        console.log('🟠 Usuwanie pojedynczego transferred item z processedTransferIds:', itemToUndo.originalId);
+      }
+      
       // STEP 6: Refresh data to reflect the changes
       const salesResponse = await axios.get('/api/sales/get-all-sales');
       setSalesData(salesResponse.data);
@@ -1581,6 +1898,7 @@ const AddToState = () => {
       setAddedMagazynIds(new Set());
       setSavedItemsForDisplay([]);
       setProcessedSalesIds(new Set()); // Clear processed sales IDs
+      setProcessedTransferIds(new Set()); // Clear processed transfer IDs
       setIsTransactionSaved(false);
       
       setShowClearStorageInfo(false); // Close info modal
@@ -1621,6 +1939,7 @@ const AddToState = () => {
     setAddedMagazynIds(new Set());
     setFilteredSales([]);
     setProcessedSalesIds(new Set()); // Clear processed sales IDs
+    setProcessedTransferIds(new Set()); // Clear processed transfer IDs
     setSelectedSellingPoint('');
     
     // Set default target selling point when switching to przepisanie mode
@@ -1656,6 +1975,9 @@ const AddToState = () => {
           if (parsed.processedSalesIds) {
             setProcessedSalesIds(new Set(parsed.processedSalesIds));
           }
+          if (parsed.processedTransferIds) {
+            setProcessedTransferIds(new Set(parsed.processedTransferIds));
+          }
         }
       } catch (error) {
         console.error('Error loading persistent state:', error);
@@ -1683,12 +2005,13 @@ const AddToState = () => {
       synchronizedItems: Array.from(synchronizedItems),
       addedMagazynIds: Array.from(addedMagazynIds),
       processedSalesIds: Array.from(processedSalesIds),
+      processedTransferIds: Array.from(processedTransferIds),
       timestamp: Date.now()
     };
     
     localStorage.setItem('addToState_persistentView', JSON.stringify(stateToSave));
     setPersistentSalesView(stateToSave);
-  }, [filteredSales, manuallyAddedItems, synchronizedItems, addedMagazynIds, processedSalesIds]);
+  }, [filteredSales, manuallyAddedItems, synchronizedItems, addedMagazynIds, processedSalesIds, processedTransferIds]);
 
   // Ref for draggable history modal
   const historyModalRef = useRef(null);
@@ -2087,7 +2410,7 @@ const AddToState = () => {
   };
 
   const selectAllForPrint = () => {
-    const allItems = [...filteredSales, ...manuallyAddedItems];
+    const allItems = [...filteredSales, ...manuallyAddedItems, ...filteredTransfers];
     const allIds = allItems.map(item => item._id || item.id);
     setSelectedForPrint(new Set(allIds));
   };
@@ -2915,7 +3238,7 @@ const AddToState = () => {
         )}
 
         {/* Print selection controls */}
-        {(filteredSales.length > 0 || manuallyAddedItems.length > 0) && (
+        {(filteredSales.length > 0 || manuallyAddedItems.length > 0 || filteredTransfers.length > 0) && (
           <div style={{ 
             display: 'flex', 
             justifyContent: 'center', 
@@ -2948,7 +3271,7 @@ const AddToState = () => {
                     <input 
                       type="checkbox" 
                       onChange={(e) => e.target.checked ? selectAllForPrint() : clearPrintSelection()}
-                      checked={selectedForPrint.size > 0 && selectedForPrint.size === (filteredSales.length + manuallyAddedItems.length)}
+                      checked={selectedForPrint.size > 0 && selectedForPrint.size === (filteredSales.length + manuallyAddedItems.length + filteredTransfers.length)}
                     />
                   </th>
                   <th className={`${styles.tableHeader} ${styles.noWrap}`}>Lp.</th>
@@ -2960,12 +3283,15 @@ const AddToState = () => {
                 </tr>
               </thead>
               <tbody>
-                {[...filteredSales, ...manuallyAddedItems].map((sale, index) => {
+                {[...filteredSales, ...manuallyAddedItems, ...filteredTransfers].map((sale, index) => {
                   const isMatched = synchronizedItems.sales && synchronizedItems.sales.has(sale._id);
                   const isManuallyAdded = sale.isManuallyAdded;
+                  const isTransfer = sale.transfer_from && sale.transfer_to; // Check if it's a transfer
                   let backgroundColor;
                   
-                  if (isManuallyAdded) {
+                  if (isTransfer) {
+                    backgroundColor = '#2196F3'; // Blue for transfers as requested
+                  } else if (isManuallyAdded) {
                     backgroundColor = '#FF9800'; // Orange for manually added items
                   } else if (isMatched) {
                     backgroundColor = '#4CAF50'; // Green if matched
@@ -2975,10 +3301,19 @@ const AddToState = () => {
                   
                   // Format price with semicolon separator
                   let displayPrice = 'Brak ceny';
-                  if (sale.cash && sale.cash.length > 0 && sale.cash[0].price) {
+                  if (isTransfer) {
+                    // For transfers, show transfer info instead of price
+                    displayPrice = `${sale.transfer_from} → ${sale.transfer_to}`;
+                  } else if (sale.cash && sale.cash.length > 0 && sale.cash[0].price) {
                     displayPrice = sale.cash[0].price.toString();
                   } else if (sale.price) {
                     displayPrice = sale.price.toString();
+                  }
+
+                  // Handle barcode for transfers
+                  let displayBarcode = sale.barcode || 'Brak kodu';
+                  if (isTransfer && !sale.barcode) {
+                    displayBarcode = 'Transfer';
                   }
                   
                   return (
@@ -2994,9 +3329,12 @@ const AddToState = () => {
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.fullName}</td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.size}</td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{displayPrice}</td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.barcode}</td>
+                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{displayBarcode}</td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
-                        {isManuallyAdded ? (
+                        {isTransfer ? (
+                          // Transfers don't have any action buttons - they are just displayed
+                          <span style={{ color: 'white', fontSize: '12px' }}>Transfer</span>
+                        ) : isManuallyAdded ? (
                           <button 
                             onClick={() => handleRemoveFromSales(sale)}
                             className="btn btn-sm"
@@ -3022,9 +3360,9 @@ const AddToState = () => {
               </tbody>
             </table>
             
-            {filteredSales.length === 0 && manuallyAddedItems.length === 0 && (
+            {filteredSales.length === 0 && manuallyAddedItems.length === 0 && filteredTransfers.length === 0 && (
               <div style={{ textAlign: 'center', color: 'white', marginTop: '20px' }}>
-                Brak sprzedaży dla wybranych kryteriów
+                Brak sprzedaży i transferów dla wybranych kryteriów
               </div>
             )}
           </div>
@@ -3103,6 +3441,7 @@ const AddToState = () => {
             )}
           </div>
         )}
+
       </div>
     </div>
     
