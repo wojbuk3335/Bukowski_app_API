@@ -44,6 +44,14 @@ const transferSchema = new mongoose.Schema({
         required: false, // Optional field for Dom transfers
         default: 'PLN',
     },
+    processed: {
+        type: Boolean,
+        default: false, // Track if transfer has been processed
+    },
+    processedAt: {
+        type: Date,
+        required: false, // When the transfer was processed
+    },
 }, {
     timestamps: true,
 });
