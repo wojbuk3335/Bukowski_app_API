@@ -6,6 +6,8 @@ const AddToState = ({ onAdd }) => {
   const [users, setUsers] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
+  const [lastTransaction, setLastTransaction] = useState(null);
+  const [canUndoTransaction, setCanUndoTransaction] = useState(false);
 
   useEffect(() => {
     // Fetch users from API
@@ -32,7 +34,34 @@ const AddToState = ({ onAdd }) => {
 
     fetchUsers();
     fetchTransfers();
+    checkLastTransaction();
   }, []);
+
+  // Function to check if there's a last transaction that can be undone
+  const checkLastTransaction = async () => {
+    try {
+      console.log('Checking last transaction...'); // Debug log
+      const response = await fetch('/api/transfer/last-transaction');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Last transaction data:', data); // Debug log
+        setLastTransaction(data);
+        setCanUndoTransaction(data.canUndo);
+      } else if (response.status === 404) {
+        console.log('No last transaction found (404)'); // Debug log
+        setLastTransaction(null);
+        setCanUndoTransaction(false);
+      } else {
+        console.log('Server error checking transaction:', response.status); // Debug log
+        setLastTransaction(null);
+        setCanUndoTransaction(false);
+      }
+    } catch (error) {
+      console.error('Error checking last transaction:', error);
+      setLastTransaction(null);
+      setCanUndoTransaction(false);
+    }
+  };
 
   useEffect(() => {
     // Filter items based on selected date and user
@@ -93,6 +122,9 @@ const AddToState = ({ onAdd }) => {
         const fetchResponse = await fetch('/api/transfer');
         const data = await fetchResponse.json();
         setTransfers(data || []);
+        
+        // Sprawdź ostatnią transakcję
+        await checkLastTransaction();
       } else {
         alert('Błąd podczas przetwarzania transferów');
       }
@@ -102,32 +134,83 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
-  const handleProcessSingleTransfer = async (transferId) => {
+  const handleUndoLastTransaction = async () => {
+    if (!canUndoTransaction || !lastTransaction) {
+      alert('Brak transakcji do cofnięcia');
+      return;
+    }
+
+    const confirmUndo = window.confirm(
+      `Czy na pewno chcesz cofnąć ostatnią transakcję?\n\n` +
+      `ID transakcji: ${lastTransaction.transactionId}\n` +
+      `Data: ${new Date(lastTransaction.timestamp).toLocaleString()}\n` +
+      `Liczba produktów: ${lastTransaction.itemCount}\n\n` +
+      `Wszystkie produkty zostaną przywrócone do stanu z oryginalymi ID.`
+    );
+
+    if (!confirmUndo) return;
+
+    try {
+      const response = await fetch('/api/transfer/undo-last', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(
+          `Transakcja została pomyślnie cofnięta!\n\n` +
+          `Przywrócono ${result.restoredCount} produktów do stanu.\n` +
+          `ID transakcji: ${result.transactionId}\n\n` +
+          `Produkty ponownie pojawiły się na liście transferów.`
+        );
+        
+        // Odśwież listę transferów po cofnięciu
+        const fetchResponse = await fetch('/api/transfer');
+        const data = await fetchResponse.json();
+        setTransfers(data || []);
+        
+        // Odśwież stan po cofnięciu
+        await checkLastTransaction();
+      } else {
+        const errorData = await response.json();
+        alert(`Błąd podczas cofania transakcji: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error undoing transaction:', error);
+      alert('Błąd podczas cofania transakcji');
+    }
+  };
+
+    const handleProcessSingleTransfer = async (transferId) => {
     try {
       const response = await fetch('/api/transfer/process-single', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          transferId: transferId
-        }),
+        body: JSON.stringify({ transferId }),
       });
 
       if (response.ok) {
         const result = await response.json();
-        alert('Kurtka została odpisana ze stanu');
+        alert(`Transfer przetworzony - kurtka została odpisana ze stanu`);
         
         // Odśwież listę transferów
         const fetchResponse = await fetch('/api/transfer');
         const data = await fetchResponse.json();
         setTransfers(data || []);
+        
+        // Sprawdź ostatnią transakcję
+        await checkLastTransaction();
       } else {
-        alert('Błąd podczas odpisywania kurtki ze stanu');
+        alert('Błąd podczas przetwarzania transferu');
       }
     } catch (error) {
       console.error('Error processing single transfer:', error);
-      alert('Błąd podczas odpisywania kurtki ze stanu');
+      alert('Błąd podczas przetwarzania transferu');
     }
   };
 
@@ -235,12 +318,55 @@ const AddToState = ({ onAdd }) => {
             borderRadius: '5px',
             cursor: 'pointer',
             fontSize: '16px',
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            marginRight: '10px'
           }}
           disabled={!Array.isArray(filteredItems) || filteredItems.length === 0}
         >
           Zapisz - Odpisz wszystkie kurtki ze stanu ({Array.isArray(filteredItems) ? filteredItems.length : 0})
         </button>
+
+        {canUndoTransaction && lastTransaction && (
+          <button 
+            onClick={handleUndoLastTransaction}
+            style={{
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+            title={`Cofnij transakcję z ${new Date(lastTransaction.timestamp).toLocaleString()}`}
+          >
+            ⟲ Anuluj ostatnią transakcję ({lastTransaction.itemCount} produktów)
+          </button>
+        )}
+
+        {/* Test button - always visible */}
+        <button 
+          onClick={checkLastTransaction}
+          style={{
+            backgroundColor: '#17a2b8',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            marginLeft: '10px'
+          }}
+        >
+          🔍 Sprawdź ostatnią transakcję
+        </button>
+        
+        {/* Debug info - remove in production */}
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+          Debug: canUndo={canUndoTransaction ? 'true' : 'false'}, hasTransaction={lastTransaction ? 'true' : 'false'}
+          {lastTransaction && `, transactionId=${lastTransaction.transactionId}`}
+        </div>
       </div>
 
       <div style={{ marginTop: '20px' }}>
@@ -261,20 +387,20 @@ const AddToState = ({ onAdd }) => {
           </thead>
           <tbody>
             {Array.isArray(filteredItems) && filteredItems.map((transfer) => (
-              <tr key={transfer._id}>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{transfer.fullName}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{transfer.size}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+              <tr key={transfer._id} style={{ backgroundColor: '#007bff', color: 'white' }}>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.fullName}</td>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.size}</td>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                   {new Date(transfer.date).toLocaleDateString()}
                 </td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{transfer.transfer_from}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{transfer.transfer_to}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{transfer.productId}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{transfer.reason || 'N/A'}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_from}</td>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_to}</td>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.productId}</td>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.reason || 'N/A'}</td>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                   {transfer.advancePayment} {transfer.advancePaymentCurrency}
                 </td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                   <button 
                     onClick={() => handleProcessSingleTransfer(transfer._id)}
                     style={{

@@ -8,4 +8,10 @@ router.post('/process-all', TransferProcessingController.processAllTransfers);
 // POST /api/transfer/process-single - Process single transfer and remove item from state
 router.post('/process-single', TransferProcessingController.processSingleTransfer);
 
+// POST /api/transfer/undo-last - Undo last transaction and restore items to state
+router.post('/undo-last', TransferProcessingController.undoLastTransaction);
+
+// GET /api/transfer/last-transaction - Get info about last transaction
+router.get('/last-transaction', TransferProcessingController.getLastTransaction);
+
 module.exports = router;
