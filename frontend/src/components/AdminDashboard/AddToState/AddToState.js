@@ -102,6 +102,12 @@ const AddToState = ({ onAdd }) => {
     // Filter items based on selected date and user
     let filtered = Array.isArray(transfers) ? transfers : [];
 
+    // Jeśli nie wybrano użytkownika, nie pokazuj żadnych transferów
+    if (!selectedUser) {
+      setFilteredItems([]);
+      return;
+    }
+
     if (selectedDate) {
       filtered = filtered.filter(transfer => {
         const transferDate = new Date(transfer.date).toISOString().split('T')[0];
@@ -546,6 +552,7 @@ const AddToState = ({ onAdd }) => {
   };
 
   return (
+    <>
     <div style={{ display: 'flex', height: '100vh', gap: '20px' }}>
       {/* LEWA STRONA - Miejsce na nową funkcjonalność */}
       <div style={{ 
@@ -730,24 +737,6 @@ const AddToState = ({ onAdd }) => {
               ⟲ Anuluj ostatnią transakcję ({lastTransaction.itemCount} produktów)
             </button>
           )}
-
-          {/* Test button - always visible */}
-          <button 
-            onClick={checkLastTransaction}
-            style={{
-              backgroundColor: '#17a2b8',
-              color: 'white',
-              border: 'none',
-              padding: '8px 16px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              marginLeft: '10px'
-            }}
-          >
-            🔍 Sprawdź ostatnią transakcję
-          </button>
-          
           {/* Debug info - remove in production */}
           <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
             Debug: canUndo={canUndoTransaction ? 'true' : 'false'}, hasTransaction={lastTransaction ? 'true' : 'false'}
@@ -791,53 +780,27 @@ const AddToState = ({ onAdd }) => {
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.fromWarehouse ? (
-                      // Przyciski dla produktów z magazynu
-                      <div style={{ display: 'flex', gap: '5px' }}>
-                        <button 
-                          onClick={() => handleReturnToWarehouse(transfer)}
-                          style={{
-                            backgroundColor: '#28a745',
-                            color: 'white',
-                            border: 'none',
-                            padding: '5px 8px',
-                            borderRadius: '3px',
-                            cursor: 'pointer',
-                            fontSize: '12px'
-                          }}
-                          title="Cofnij do magazynu"
-                        >
-                          ↩️ Cofnij
-                        </button>
-                        <button 
-                          onClick={() => handleProcessSingleTransfer(transfer._id)}
-                          style={{
-                            backgroundColor: '#dc3545',
-                            color: 'white',
-                            border: 'none',
-                            padding: '5px 8px',
-                            borderRadius: '3px',
-                            cursor: 'pointer',
-                            fontSize: '12px'
-                          }}
-                        >
-                          Odpisz
-                        </button>
-                      </div>
-                    ) : (
-                      // Standardowy przycisk dla normalnych transferów
+                      // Przyciski dla produktów z magazynu - tylko przycisk Cofnij
                       <button 
-                        onClick={() => handleProcessSingleTransfer(transfer._id)}
+                        onClick={() => handleReturnToWarehouse(transfer)}
                         style={{
-                          backgroundColor: '#dc3545',
+                          backgroundColor: '#28a745',
                           color: 'white',
                           border: 'none',
-                          padding: '5px 10px',
+                          padding: '5px 8px',
                           borderRadius: '3px',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          fontSize: '12px'
                         }}
+                        title="Cofnij do magazynu"
                       >
-                        Odpisz kurtkę
+                        ↩️ Cofnij
                       </button>
+                    ) : (
+                      // Brak akcji dla standardowych transferów
+                      <span style={{ color: '#ccc', fontSize: '12px' }}>
+                        -
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -852,6 +815,7 @@ const AddToState = ({ onAdd }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
