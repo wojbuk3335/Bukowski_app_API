@@ -33,8 +33,10 @@ const transactionHistoryRoutes = require('./routes/transactionHistory'); // Impo
 const localizationRoutes = require('./routes/locatization'); // Import localization routes
 const deductionsRoutes = require('./routes/deductions'); // Import deductions routes
 const transferProcessingRoutes = require('./routes/transferProcessing'); // Import transfer processing routes
+const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
 
 app.use('/api/sales', salesRoutes); // Use sales routes
+app.use('/api/warehouse', warehouseRoutes); // Use warehouse routes
 app.use('/api/transfer', transferProcessingRoutes); // Use transfer processing routes
 app.use('/api/transfer', transferRoutes); // Use transfer routes
 app.use('/api/deductions', deductionsRoutes); // Use deductions routes

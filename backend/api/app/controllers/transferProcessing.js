@@ -12,7 +12,7 @@ class TransferProcessingController {
     // Process all transfers - remove items from state based on transfers
     async processAllTransfers(req, res) {
         try {
-            const { transfers, selectedDate, selectedUser } = req.body;
+            const { transfers, selectedDate, selectedUser, transactionId } = req.body;
             
             if (!transfers || !Array.isArray(transfers) || transfers.length === 0) {
                 return res.status(400).json({
@@ -22,7 +22,8 @@ class TransferProcessingController {
 
             let processedCount = 0;
             const errors = [];
-            const transactionId = generateTransactionId(); // Generate unique transaction ID
+            const finalTransactionId = transactionId || generateTransactionId(); // Use provided or generate new
+            console.log('Using transactionId:', finalTransactionId);
             const removedItems = []; // Store removed items for response
 
             // Process each transfer
@@ -69,7 +70,7 @@ class TransferProcessingController {
                             userloggedinId: req.user ? req.user._id : null,
                             from: transfer.transfer_from,
                             to: transfer.transfer_to,
-                            transactionId: transactionId
+                            transactionId: finalTransactionId
                         });
 
                         await historyEntry.save();
@@ -94,7 +95,7 @@ class TransferProcessingController {
                 message: 'Transfers processed successfully',
                 processedCount: processedCount,
                 totalTransfers: transfers.length,
-                transactionId: transactionId,
+                transactionId: finalTransactionId,
                 removedItems: removedItems,
                 errors: errors.length > 0 ? errors : undefined
             });
@@ -187,14 +188,33 @@ class TransferProcessingController {
         }
     }
 
-    // Undo last transaction - restore items to state with original IDs
+    // Undo last transaction - restore items to state with original IDs (supports mixed transactions)
     async undoLastTransaction(req, res) {
         try {
-            // Find the most recent transaction
-            const lastTransaction = await History.findOne({
-                operation: 'Odpisano ze stanu (transfer)',
+            // Find the most recent transaction that can be undone (both types)
+            const lastTransactions = await History.find({
+                $or: [
+                    { operation: 'Odpisano ze stanu (transfer)' },
+                    { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Odpisano ze stanu (transfer) - COFNIĘTE' },
+                    { operation: 'Dodano do stanu (z magazynu) - COFNIĘTE' }
+                ],
                 transactionId: { $exists: true, $ne: null }
-            }).sort({ timestamp: -1 });
+            }).sort({ timestamp: -1 }).limit(20);
+
+            // Find the most recent transaction that hasn't been undone
+            let lastTransaction = null;
+            for (const transaction of lastTransactions) {
+                // Check if this transaction has been undone (has UNDO_ entry)
+                const undoExists = await History.findOne({
+                    transactionId: `UNDO_${transaction.transactionId}`
+                });
+                
+                if (!undoExists) {
+                    lastTransaction = transaction;
+                    break;
+                }
+            }
 
             if (!lastTransaction) {
                 return res.status(404).json({
@@ -215,76 +235,145 @@ class TransferProcessingController {
 
             const restoredItems = [];
             const errors = [];
+            const User = require('../db/models/user');
 
-            // Restore each item
+            // Process each entry in the transaction
             for (const entry of transactionEntries) {
                 try {
-                    // Parse the stored item data
                     const itemData = JSON.parse(entry.details);
                     
-                    // Create new State document with original ID
-                    const restoredItem = new State({
-                        _id: new mongoose.Types.ObjectId(itemData.originalId),
-                        fullName: itemData.fullName,
-                        size: itemData.size,
-                        barcode: itemData.barcode,
-                        sellingPoint: itemData.sellingPoint,
-                        price: itemData.price,
-                        discount_price: itemData.discount_price,
-                        date: itemData.date
-                    });
+                    // Determine type of undo based on operation
+                    const isWarehouseEntry = entry.operation === 'Dodano do stanu (z magazynu)' || 
+                                           entry.operation === 'Dodano do stanu (z magazynu) - COFNIĘTE';
+                    
+                    if (isWarehouseEntry) {
+                        // WAREHOUSE UNDO: Remove from user state and restore to warehouse
+                        console.log('Processing warehouse undo for:', itemData.barcode);
+                        
+                        // Remove the item from user state
+                        await State.findByIdAndDelete(itemData.stateId);
+                        
+                        // Restore item back to warehouse (create new document with MAGAZYN sellingPoint)
+                        const warehouseUser = await User.findOne({ symbol: 'MAGAZYN' });
+                        if (!warehouseUser) {
+                            throw new Error('MAGAZYN user not found');
+                        }
 
-                    await restoredItem.save();
+                        const warehouseItem = new State({
+                            _id: new mongoose.Types.ObjectId(),
+                            fullName: itemData.fullName,
+                            size: itemData.size,
+                            barcode: itemData.barcode,
+                            sellingPoint: warehouseUser._id,
+                            price: itemData.price,
+                            discount_price: itemData.discount_price || 0,
+                            date: new Date()
+                        });
 
-                    // Recreate transfer entry so it appears in the list again
-                    const currentDate = new Date();
-                    const recreatedTransfer = new Transfer({
-                        fullName: itemData.fullNameText,
-                        size: itemData.sizeText,
-                        date: currentDate, // Use current date so it appears in today's transfers
-                        dateString: currentDate.toISOString().split('T')[0], // Add required dateString field
-                        transfer_from: itemData.transferData.transfer_from,
-                        transfer_to: itemData.transferData.transfer_to,
-                        productId: itemData.originalId,
-                        reason: itemData.transferData.reason || 'Przywrócony po cofnięciu',
-                        advancePayment: itemData.transferData.advancePayment || 0,
-                        advancePaymentCurrency: itemData.transferData.advancePaymentCurrency || 'PLN'
-                    });
+                        await warehouseItem.save();
 
-                    await recreatedTransfer.save();
+                        // Create undo history entry
+                        const undoEntry = new History({
+                            collectionName: 'Stan',
+                            operation: 'Przywrócono do magazynu (cofnięcie)',
+                            product: `${itemData.fullNameText} ${itemData.sizeText}`,
+                            details: `Przywrócono do magazynu - cofnięcie transakcji ${lastTransaction.transactionId}`,
+                            userloggedinId: req.user ? req.user._id : null,
+                            from: itemData.sellingPointSymbol,
+                            to: 'MAGAZYN',
+                            transactionId: `UNDO_${lastTransaction.transactionId}`
+                        });
 
-                    // Create restoration history entry
-                    const restorationEntry = new History({
-                        collectionName: 'Stan',
-                        operation: 'Przywrócono do stanu (cofnięcie transferu)',
-                        product: `${itemData.fullNameText} ${itemData.sizeText}`,
-                        details: `Przywrócono produkt do stanu - cofnięcie transakcji ${lastTransaction.transactionId}`,
-                        userloggedinId: req.user ? req.user._id : null,
-                        from: entry.to,
-                        to: entry.from,
-                        transactionId: `UNDO_${lastTransaction.transactionId}`
-                    });
+                        await undoEntry.save();
 
-                    await restorationEntry.save();
+                        restoredItems.push({
+                            id: itemData.originalId,
+                            fullName: itemData.fullNameText,
+                            size: itemData.sizeText,
+                            barcode: itemData.barcode,
+                            action: 'restored_to_warehouse'
+                        });
 
-                    restoredItems.push({
-                        id: itemData.originalId,
-                        fullName: itemData.fullNameText,
-                        size: itemData.sizeText,
-                        barcode: itemData.barcode,
-                        sellingPoint: itemData.sellingPointSymbol
-                    });
+                    } else {
+                        // STANDARD UNDO: Restore to state and recreate transfer
+                        console.log('Processing standard undo for:', itemData.barcode);
+                        
+                        // Create new State document with original ID
+                        const restoredItem = new State({
+                            _id: new mongoose.Types.ObjectId(itemData.originalId),
+                            fullName: itemData.fullName,
+                            size: itemData.size,
+                            barcode: itemData.barcode,
+                            sellingPoint: itemData.sellingPoint,
+                            price: itemData.price,
+                            discount_price: itemData.discount_price,
+                            date: itemData.date
+                        });
+
+                        await restoredItem.save();
+
+                        // Recreate transfer entry so it appears in the list again
+                        const Transfer = require('../db/models/transfer');
+                        const currentDate = new Date();
+                        const recreatedTransfer = new Transfer({
+                            fullName: itemData.fullNameText,
+                            size: itemData.sizeText,
+                            date: currentDate,
+                            dateString: currentDate.toISOString().split('T')[0],
+                            transfer_from: itemData.transferData.transfer_from,
+                            transfer_to: itemData.transferData.transfer_to,
+                            productId: itemData.originalId,
+                            reason: itemData.transferData.reason || 'Przywrócony po cofnięciu',
+                            advancePayment: itemData.transferData.advancePayment || 0,
+                            advancePaymentCurrency: itemData.transferData.advancePaymentCurrency || 'PLN'
+                        });
+
+                        await recreatedTransfer.save();
+
+                        // Create restoration history entry
+                        const restorationEntry = new History({
+                            collectionName: 'Stan',
+                            operation: 'Przywrócono do stanu (cofnięcie transferu)',
+                            product: `${itemData.fullNameText} ${itemData.sizeText}`,
+                            details: `Przywrócono produkt do stanu - cofnięcie transakcji ${lastTransaction.transactionId}`,
+                            userloggedinId: req.user ? req.user._id : null,
+                            from: entry.to,
+                            to: entry.from,
+                            transactionId: `UNDO_${lastTransaction.transactionId}`
+                        });
+
+                        await restorationEntry.save();
+
+                        restoredItems.push({
+                            id: itemData.originalId,
+                            fullName: itemData.fullNameText,
+                            size: itemData.sizeText,
+                            barcode: itemData.barcode,
+                            action: 'restored_to_state'
+                        });
+                    }
 
                 } catch (itemError) {
-                    console.error(`Error restoring item:`, itemError);
-                    errors.push(`Item restoration error: ${itemError.message}`);
+                    console.error(`Error undoing item:`, itemError);
+                    errors.push(`Item undo error: ${itemError.message}`);
                 }
             }
 
-            // Mark original transaction as undone by updating operation
+            // Mark original transaction as undone (separate updates for different operations)
             await History.updateMany(
-                { transactionId: lastTransaction.transactionId },
+                { 
+                    transactionId: lastTransaction.transactionId,
+                    operation: 'Odpisano ze stanu (transfer)'
+                },
                 { operation: 'Odpisano ze stanu (transfer) - COFNIĘTE' }
+            );
+
+            await History.updateMany(
+                { 
+                    transactionId: lastTransaction.transactionId,
+                    operation: 'Dodano do stanu (z magazynu)'
+                },
+                { operation: 'Dodano do stanu (z magazynu) - COFNIĘTE' }
             );
 
             res.status(200).json({
@@ -304,17 +393,170 @@ class TransferProcessingController {
         }
     }
 
+    // Process warehouse items - transfer from warehouse to user
+    async processWarehouseItems(req, res) {
+        try {
+            const { warehouseItems, transactionId } = req.body;
+            
+            if (!warehouseItems || !Array.isArray(warehouseItems) || warehouseItems.length === 0) {
+                return res.status(400).json({
+                    message: 'No warehouse items provided for processing'
+                });
+            }
+
+            const User = require('../db/models/user');
+            const Goods = require('../db/models/goods'); 
+            const Size = require('../db/models/size');
+
+            const finalTransactionId = transactionId || generateTransactionId();
+            console.log('Warehouse using transactionId:', finalTransactionId);
+            const addedItems = [];
+            const errors = [];
+            
+            for (const item of warehouseItems) {
+                try {
+                    console.log('Processing warehouse item:', item);
+                    
+                    // Find user
+                    const user = await User.findOne({ symbol: item.transfer_to });
+                    console.log('Found user:', user ? user.symbol : 'NOT FOUND');
+                    
+                    if (!user) {
+                        errors.push(`User with symbol ${item.transfer_to} not found`);
+                        continue;
+                    }
+                    
+                    const goods = await Goods.findOne({ fullName: item.fullName });
+                    const size = await Size.findOne({ Roz_Opis: item.size });
+
+                    console.log('Found goods:', goods ? goods._id : 'NOT FOUND');
+                    console.log('Found size:', size ? size._id : 'NOT FOUND');
+
+                    if (!goods || !size) {
+                        errors.push(`Product or size not found for ${item.fullName} ${item.size}`);
+                        continue;
+                    }
+
+                    // Remove from warehouse (original warehouse item)
+                    const removedFromWarehouse = await State.findByIdAndDelete(item._id);
+                    
+                    if (!removedFromWarehouse) {
+                        errors.push(`Warehouse item ${item._id} not found in database`);
+                        continue;
+                    }
+
+                    // Create new State document for user
+                    const newStateItem = new State({
+                        _id: new mongoose.Types.ObjectId(),
+                        fullName: goods._id,
+                        size: size._id,
+                        barcode: item.barcode,
+                        sellingPoint: user._id,
+                        price: item.price || 0,
+                        discount_price: item.discount_price || 0,
+                        date: new Date()
+                    });
+
+                    await newStateItem.save();
+
+                    // Create history entry
+                    const historyEntry = new History({
+                        collectionName: 'Stan',
+                        operation: 'Dodano do stanu (z magazynu)',
+                        product: `${item.fullName} ${item.size}`,
+                        details: JSON.stringify({
+                            originalId: item._id,
+                            stateId: newStateItem._id,
+                            fullName: goods._id,
+                            fullNameText: item.fullName,
+                            size: size._id,
+                            sizeText: item.size,
+                            barcode: item.barcode,
+                            sellingPoint: user._id,
+                            sellingPointSymbol: user.symbol,
+                            price: item.price || 0,
+                            discount_price: item.discount_price || 0,
+                            date: newStateItem.date,
+                            transferData: {
+                                transfer_from: 'MAGAZYN',
+                                transfer_to: item.transfer_to,
+                                reason: 'Przeniesienie z magazynu'
+                            },
+                            fromWarehouse: true
+                        }),
+                        userloggedinId: req.user ? req.user._id : null,
+                        from: 'MAGAZYN',
+                        to: user.symbol,
+                        transactionId: finalTransactionId
+                    });
+
+                    await historyEntry.save();
+
+                    addedItems.push({
+                        id: newStateItem._id,
+                        fullName: item.fullName,
+                        size: item.size,
+                        barcode: item.barcode,
+                        transfer_to: item.transfer_to
+                    });
+
+                } catch (itemError) {
+                    console.error(`Error processing warehouse item:`, itemError);
+                    errors.push(`Warehouse item processing error: ${itemError.message}`);
+                }
+            }
+
+            res.status(200).json({
+                message: 'Warehouse items processed successfully',
+                transactionId: finalTransactionId,
+                processedCount: addedItems.length,
+                addedItems: addedItems,
+                errors: errors
+            });
+
+        } catch (error) {
+            console.error('Error processing warehouse items:', error);
+            res.status(500).json({
+                message: 'Failed to process warehouse items',
+                error: error.message
+            });
+        }
+    }
+
     // Get last transaction info
+    // Get last transaction info (supports mixed transactions)
     async getLastTransaction(req, res) {
         try {
             console.log('Getting last transaction...'); // Debug log
             
-            const lastTransaction = await History.findOne({
-                operation: 'Odpisano ze stanu (transfer)',
+            // Find recent transactions (both types)
+            const lastTransactions = await History.find({
+                $or: [
+                    { operation: 'Odpisano ze stanu (transfer)' },
+                    { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Odpisano ze stanu (transfer) - COFNIĘTE' },
+                    { operation: 'Dodano do stanu (z magazynu) - COFNIĘTE' }
+                ],
                 transactionId: { $exists: true, $ne: null }
-            }).sort({ timestamp: -1 });
+            }).sort({ timestamp: -1 }).limit(20);
 
-            console.log('Last transaction found:', lastTransaction); // Debug log
+            console.log('Found transactions:', lastTransactions.length); // Debug log
+
+            // Find the most recent transaction that hasn't been undone
+            let lastTransaction = null;
+            for (const transaction of lastTransactions) {
+                // Check if this transaction has been undone (has UNDO_ entry)
+                const undoExists = await History.findOne({
+                    transactionId: `UNDO_${transaction.transactionId}`
+                });
+                
+                if (!undoExists) {
+                    lastTransaction = transaction;
+                    break;
+                }
+            }
+
+            console.log('Last non-undone transaction found:', lastTransaction); // Debug log
 
             if (!lastTransaction) {
                 console.log('No transaction found - returning 404'); // Debug log
@@ -323,19 +565,39 @@ class TransferProcessingController {
                 });
             }
 
-            // Count items in this transaction
+            // Count items in this transaction (both original and COFNIĘTE operations)
+            const originalOperation = lastTransaction.operation.replace(' - COFNIĘTE', '');
             const transactionCount = await History.countDocuments({
                 transactionId: lastTransaction.transactionId,
-                operation: 'Odpisano ze stanu (transfer)'
+                operation: { $in: [originalOperation, lastTransaction.operation] }
             });
 
             console.log('Transaction count:', transactionCount); // Debug log
+
+            // Determine transaction type for UI
+            const hasWarehouseItems = await History.findOne({
+                transactionId: lastTransaction.transactionId,
+                operation: { $in: ['Dodano do stanu (z magazynu)', 'Dodano do stanu (z magazynu) - COFNIĘTE'] }
+            });
+
+            const hasStandardItems = await History.findOne({
+                transactionId: lastTransaction.transactionId,
+                operation: { $in: ['Odpisano ze stanu (transfer)', 'Odpisano ze stanu (transfer) - COFNIĘTE'] }
+            });
+
+            let transactionType = 'standard';
+            if (hasWarehouseItems && hasStandardItems) {
+                transactionType = 'mixed';
+            } else if (hasWarehouseItems) {
+                transactionType = 'warehouse';
+            }
 
             res.status(200).json({
                 transactionId: lastTransaction.transactionId,
                 timestamp: lastTransaction.timestamp,
                 itemCount: transactionCount,
-                canUndo: true
+                canUndo: true,
+                transactionType: transactionType
             });
 
         } catch (error) {

@@ -3,17 +3,27 @@ const Transfer = require('../db/models/transfer');
 class TransferController {
     createTransfer = async (req, res) => {
         try {
+            console.log('Received transfer data:', req.body); // Debug log
             const transfer = new Transfer(req.body);
+            console.log('Created transfer object:', transfer); // Debug log
             await transfer.save();
+            console.log('Transfer saved successfully'); // Debug log
             res.status(201).json(transfer);
         } catch (error) {
+            console.log('Transfer creation error:', error); // Debug log
             res.status(400).json({ error: error.message });
         }
     };
 
     getTransfers = async (req, res) => {
         try {
-            const transfers = await Transfer.find();
+            const { productId, dateString } = req.query;
+            let query = {};
+            
+            if (productId) query.productId = productId;
+            if (dateString) query.dateString = dateString;
+            
+            const transfers = await Transfer.find(query);
             res.status(200).json(transfers);
         } catch (error) {
             res.status(500).json({ error: error.message });

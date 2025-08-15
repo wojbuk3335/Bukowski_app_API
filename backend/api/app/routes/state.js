@@ -5,6 +5,7 @@ const historyLogger = require('../middleware/historyLogger');
 
 
 router.get("/", StatesController.getAllStates);
+router.get("/warehouse", StatesController.getWarehouseItems); // New endpoint for warehouse items
 router.get("/barcode/:barcode", StatesController.getStatesByBarcode); // New endpoint to find states by barcode
 router.post("/",historyLogger('states'), StatesController.createState);
 router.post("/restore", StatesController.restoreState); // Restore endpoint with history logging

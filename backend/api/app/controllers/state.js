@@ -15,6 +15,43 @@ const calculateChecksum = (barcode) => {
 };
 
 class StatesController {
+    // Get warehouse items (products with MAGAZYN/magazyn symbol)
+    async getWarehouseItems(req, res, next) {
+        try {
+            console.log('Fetching warehouse items...'); // Debug log
+            
+            const warehouseStates = await State.find()
+                .populate('fullName', 'fullName price priceExceptions discount_price')
+                .populate('size', 'Roz_Opis')
+                .populate('sellingPoint', 'symbol');
+
+            // Filter for warehouse items (symbol contains 'MAGAZYN' or 'magazyn')
+            const warehouseItems = warehouseStates.filter(state => {
+                const symbol = state.sellingPoint ? state.sellingPoint.symbol : '';
+                return symbol.toLowerCase().includes('magazyn');
+            });
+
+            console.log(`Found ${warehouseItems.length} warehouse items`); // Debug log
+
+            const sanitizedWarehouseItems = warehouseItems.map(state => ({
+                _id: state._id,
+                fullName: state.fullName,
+                date: state.date,
+                plec: state.plec,
+                size: state.size,
+                barcode: state.barcode,
+                sellingPoint: state.sellingPoint,
+                price: state.fullName ? state.fullName.price : 0,
+                discount_price: state.fullName ? state.fullName.discount_price : 0
+            }));
+
+            res.status(200).json(sanitizedWarehouseItems);
+        } catch (error) {
+            console.error('Error fetching warehouse items:', error);
+            res.status(500).json({ message: 'Failed to fetch warehouse items', error: error.message });
+        }
+    }
+
     // Get all states
     async getAllStates(req, res, next) {
         try {
