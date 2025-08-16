@@ -16,61 +16,82 @@ const AddToState = ({ onAdd }) => {
   const [warehouseSearch, setWarehouseSearch] = useState('');
   const [filteredWarehouseItems, setFilteredWarehouseItems] = useState([]);
 
+  // Fetch users from API
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user`);
+      const data = await response.json();
+      
+      // Filtruj użytkowników - usuń admin, magazyn i dom
+      const filteredUsers = (data.users || []).filter(user => {
+        const symbol = user.symbol?.toLowerCase();
+        return symbol !== 'admin' && symbol !== 'magazyn' && symbol !== 'dom';
+      });
+      
+      setUsers(filteredUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  // Fetch transfers from API
+  const fetchTransfers = async () => {
+    try {
+      console.log('🔄 Refreshing transfers data...'); // Debug log
+      const response = await fetch(`${API_BASE_URL}/api/transfer`);
+      const data = await response.json();
+      setTransfers(data || []);
+      console.log('✅ Transfers refreshed:', data?.length || 0, 'items'); // Debug log
+    } catch (error) {
+      console.error('Error fetching transfers:', error);
+    }
+  };
+
+  // Fetch warehouse items from API
+  const fetchWarehouseItems = async () => {
+    try {
+      console.log('🔄 Refreshing warehouse items...'); // Debug log
+      const response = await fetch(`${API_BASE_URL}/api/state/warehouse`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const warehouseProducts = await response.json();
+      console.log('✅ Warehouse items refreshed:', warehouseProducts?.length || 0, 'items'); // Debug log
+      
+      setWarehouseItems(warehouseProducts);
+      setFilteredWarehouseItems(warehouseProducts);
+    } catch (error) {
+      console.error('Error fetching warehouse items:', error);
+    }
+  };
+
+  // Initial data loading
   useEffect(() => {
-    // Fetch users from API
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/user`);
-        const data = await response.json();
-        
-        // Filtruj użytkowników - usuń admin, magazyn i dom
-        const filteredUsers = (data.users || []).filter(user => {
-          const symbol = user.symbol?.toLowerCase();
-          return symbol !== 'admin' && symbol !== 'magazyn' && symbol !== 'dom';
-        });
-        
-        setUsers(filteredUsers);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      }
-    };
-
-    // Fetch transfers from API
-    const fetchTransfers = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/transfer`);
-        const data = await response.json();
-        setTransfers(data || []);
-      } catch (error) {
-        console.error('Error fetching transfers:', error);
-      }
-    };
-
-    // Fetch warehouse items from API
-    const fetchWarehouseItems = async () => {
-      try {
-        console.log('Fetching warehouse items from:', `${API_BASE_URL}/api/state/warehouse`); // Debug log
-        const response = await fetch(`${API_BASE_URL}/api/state/warehouse`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const warehouseProducts = await response.json();
-        console.log('Warehouse products from API:', warehouseProducts); // Debug log
-        
-        setWarehouseItems(warehouseProducts);
-        setFilteredWarehouseItems(warehouseProducts);
-      } catch (error) {
-        console.error('Error fetching warehouse items:', error);
-      }
-    };
-
     fetchUsers();
     fetchTransfers();
     fetchWarehouseItems();
     checkLastTransaction();
   }, []);
+
+  // Refresh data when user selection changes
+  useEffect(() => {
+    if (selectedUser) {
+      console.log('👤 User changed to:', selectedUser, '- refreshing data...');
+      fetchTransfers();
+      fetchWarehouseItems();
+      checkLastTransaction();
+    }
+  }, [selectedUser]);
+
+  // Refresh data when date changes
+  useEffect(() => {
+    if (selectedDate) {
+      console.log('📅 Date changed to:', selectedDate, '- refreshing data...');
+      fetchTransfers();
+    }
+  }, [selectedDate]);
 
   // Function to check if there's a last transaction that can be undone
   const checkLastTransaction = async () => {
@@ -333,10 +354,11 @@ const AddToState = ({ onAdd }) => {
 
       alert(`Przetworzono ${processedCount} elementów:\n- ${warehouseItems.length} produktów z magazynu dodano do stanu\n- ${standardTransfers.length} standardowych transferów odpisano ze stanu`);
       
-      // Odśwież listę transferów po przetworzeniu
-      const fetchResponse = await fetch(`${API_BASE_URL}/api/transfer`);
-      const data = await fetchResponse.json();
-      setTransfers(data || []);
+      // Odśwież wszystkie dane po przetworzeniu
+      console.log('🔄 Refreshing all data after processing transfers...');
+      await fetchTransfers();
+      await fetchWarehouseItems();
+      console.log('✅ All data refreshed after processing');
       
       // Sprawdź ostatnią transakcję
       await checkLastTransaction();
@@ -426,22 +448,11 @@ const AddToState = ({ onAdd }) => {
           );
         }
         
-        // Odśwież listę transferów po cofnięciu
-        const fetchResponse = await fetch(`${API_BASE_URL}/api/transfer`);
-        const data = await fetchResponse.json();
-        setTransfers(data || []);
-        
-        // Odśwież magazyn - pobierz dane ponownie
-        try {
-          const warehouseResponse = await fetch(`${API_BASE_URL}/api/state/warehouse`);
-          if (warehouseResponse.ok) {
-            const warehouseData = await warehouseResponse.json();
-            setWarehouseItems(warehouseData);
-            setFilteredWarehouseItems(warehouseData);
-          }
-        } catch (error) {
-          console.error('Error refreshing warehouse:', error);
-        }
+        // Odśwież wszystkie dane po cofnięciu
+        console.log('🔄 Refreshing all data after undo...');
+        await fetchTransfers();
+        await fetchWarehouseItems();
+        console.log('✅ All data refreshed after undo');
         
         // Odśwież stan po cofnięciu
         await checkLastTransaction();

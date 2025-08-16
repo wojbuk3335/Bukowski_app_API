@@ -188,33 +188,17 @@ class TransferProcessingController {
         }
     }
 
-    // Undo last transaction - restore items to state with original IDs (supports mixed transactions)
+    // Undo last transaction - restore items to state and DELETE original history (clean approach)
     async undoLastTransaction(req, res) {
         try {
-            // Find the most recent transaction that can be undone (both types)
-            const lastTransactions = await History.find({
+            // Find the most recent transaction that can be undone (only active transactions)
+            const lastTransaction = await History.findOne({
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
-                    { operation: 'Dodano do stanu (z magazynu)' },
-                    { operation: 'Odpisano ze stanu (transfer) - COFNIĘTE' },
-                    { operation: 'Dodano do stanu (z magazynu) - COFNIĘTE' }
+                    { operation: 'Dodano do stanu (z magazynu)' }
                 ],
                 transactionId: { $exists: true, $ne: null }
-            }).sort({ timestamp: -1 }).limit(20);
-
-            // Find the most recent transaction that hasn't been undone
-            let lastTransaction = null;
-            for (const transaction of lastTransactions) {
-                // Check if this transaction has been undone (has UNDO_ entry)
-                const undoExists = await History.findOne({
-                    transactionId: `UNDO_${transaction.transactionId}`
-                });
-                
-                if (!undoExists) {
-                    lastTransaction = transaction;
-                    break;
-                }
-            }
+            }).sort({ timestamp: -1 });
 
             if (!lastTransaction) {
                 return res.status(404).json({
@@ -243,8 +227,7 @@ class TransferProcessingController {
                     const itemData = JSON.parse(entry.details);
                     
                     // Determine type of undo based on operation
-                    const isWarehouseEntry = entry.operation === 'Dodano do stanu (z magazynu)' || 
-                                           entry.operation === 'Dodano do stanu (z magazynu) - COFNIĘTE';
+                    const isWarehouseEntry = entry.operation === 'Dodano do stanu (z magazynu)';
                     
                     if (isWarehouseEntry) {
                         // WAREHOUSE UNDO: Remove from user state and restore to warehouse
@@ -271,20 +254,6 @@ class TransferProcessingController {
                         });
 
                         await warehouseItem.save();
-
-                        // Create undo history entry
-                        const undoEntry = new History({
-                            collectionName: 'Stan',
-                            operation: 'Przywrócono do magazynu (cofnięcie)',
-                            product: `${itemData.fullNameText} ${itemData.sizeText}`,
-                            details: `Przywrócono do magazynu - cofnięcie transakcji ${lastTransaction.transactionId}`,
-                            userloggedinId: req.user ? req.user._id : null,
-                            from: itemData.sellingPointSymbol,
-                            to: 'MAGAZYN',
-                            transactionId: `UNDO_${lastTransaction.transactionId}`
-                        });
-
-                        await undoEntry.save();
 
                         restoredItems.push({
                             id: itemData.originalId,
@@ -330,20 +299,6 @@ class TransferProcessingController {
 
                         await recreatedTransfer.save();
 
-                        // Create restoration history entry
-                        const restorationEntry = new History({
-                            collectionName: 'Stan',
-                            operation: 'Przywrócono do stanu (cofnięcie transferu)',
-                            product: `${itemData.fullNameText} ${itemData.sizeText}`,
-                            details: `Przywrócono produkt do stanu - cofnięcie transakcji ${lastTransaction.transactionId}`,
-                            userloggedinId: req.user ? req.user._id : null,
-                            from: entry.to,
-                            to: entry.from,
-                            transactionId: `UNDO_${lastTransaction.transactionId}`
-                        });
-
-                        await restorationEntry.save();
-
                         restoredItems.push({
                             id: itemData.originalId,
                             fullName: itemData.fullNameText,
@@ -359,28 +314,19 @@ class TransferProcessingController {
                 }
             }
 
-            // Mark original transaction as undone (separate updates for different operations)
-            await History.updateMany(
-                { 
-                    transactionId: lastTransaction.transactionId,
-                    operation: 'Odpisano ze stanu (transfer)'
-                },
-                { operation: 'Odpisano ze stanu (transfer) - COFNIĘTE' }
-            );
+            // *** CLEAN APPROACH: DELETE original transaction history instead of marking as COFNIĘTE ***
+            await History.deleteMany({
+                transactionId: lastTransaction.transactionId
+            });
 
-            await History.updateMany(
-                { 
-                    transactionId: lastTransaction.transactionId,
-                    operation: 'Dodano do stanu (z magazynu)'
-                },
-                { operation: 'Dodano do stanu (z magazynu) - COFNIĘTE' }
-            );
+            console.log(`CLEAN UNDO: Deleted ${transactionEntries.length} history entries for transaction ${lastTransaction.transactionId}`);
 
             res.status(200).json({
-                message: 'Transaction successfully undone',
+                message: 'Transaction successfully undone (history cleaned)',
                 transactionId: lastTransaction.transactionId,
                 restoredCount: restoredItems.length,
                 restoredItems: restoredItems,
+                deletedHistoryEntries: transactionEntries.length,
                 errors: errors.length > 0 ? errors : undefined
             });
 
@@ -524,39 +470,21 @@ class TransferProcessingController {
     }
 
     // Get last transaction info
-    // Get last transaction info (supports mixed transactions)
+    // Get last transaction info (simplified - no more COFNIĘTE entries)
     async getLastTransaction(req, res) {
         try {
             console.log('Getting last transaction...'); // Debug log
             
-            // Find recent transactions (both types)
-            const lastTransactions = await History.find({
+            // Find the most recent active transaction (only active operations)
+            const lastTransaction = await History.findOne({
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
-                    { operation: 'Dodano do stanu (z magazynu)' },
-                    { operation: 'Odpisano ze stanu (transfer) - COFNIĘTE' },
-                    { operation: 'Dodano do stanu (z magazynu) - COFNIĘTE' }
+                    { operation: 'Dodano do stanu (z magazynu)' }
                 ],
                 transactionId: { $exists: true, $ne: null }
-            }).sort({ timestamp: -1 }).limit(20);
+            }).sort({ timestamp: -1 });
 
-            console.log('Found transactions:', lastTransactions.length); // Debug log
-
-            // Find the most recent transaction that hasn't been undone
-            let lastTransaction = null;
-            for (const transaction of lastTransactions) {
-                // Check if this transaction has been undone (has UNDO_ entry)
-                const undoExists = await History.findOne({
-                    transactionId: `UNDO_${transaction.transactionId}`
-                });
-                
-                if (!undoExists) {
-                    lastTransaction = transaction;
-                    break;
-                }
-            }
-
-            console.log('Last non-undone transaction found:', lastTransaction); // Debug log
+            console.log('Last transaction found:', lastTransaction ? lastTransaction.transactionId : 'NONE'); // Debug log
 
             if (!lastTransaction) {
                 console.log('No transaction found - returning 404'); // Debug log
@@ -565,11 +493,9 @@ class TransferProcessingController {
                 });
             }
 
-            // Count items in this transaction (both original and COFNIĘTE operations)
-            const originalOperation = lastTransaction.operation.replace(' - COFNIĘTE', '');
+            // Count items in this transaction
             const transactionCount = await History.countDocuments({
-                transactionId: lastTransaction.transactionId,
-                operation: { $in: [originalOperation, lastTransaction.operation] }
+                transactionId: lastTransaction.transactionId
             });
 
             console.log('Transaction count:', transactionCount); // Debug log
@@ -577,12 +503,12 @@ class TransferProcessingController {
             // Determine transaction type for UI
             const hasWarehouseItems = await History.findOne({
                 transactionId: lastTransaction.transactionId,
-                operation: { $in: ['Dodano do stanu (z magazynu)', 'Dodano do stanu (z magazynu) - COFNIĘTE'] }
+                operation: 'Dodano do stanu (z magazynu)'
             });
 
             const hasStandardItems = await History.findOne({
                 transactionId: lastTransaction.transactionId,
-                operation: { $in: ['Odpisano ze stanu (transfer)', 'Odpisano ze stanu (transfer) - COFNIĘTE'] }
+                operation: 'Odpisano ze stanu (transfer)'
             });
 
             let transactionType = 'standard';
