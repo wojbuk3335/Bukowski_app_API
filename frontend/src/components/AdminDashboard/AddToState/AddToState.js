@@ -16,6 +16,15 @@ const AddToState = ({ onAdd }) => {
   const [warehouseSearch, setWarehouseSearch] = useState('');
   const [filteredWarehouseItems, setFilteredWarehouseItems] = useState([]);
 
+  // Stan dla sprzedaży
+  const [sales, setSales] = useState([]);
+  
+  // Stan do śledzenia przetworzonych sprzedaży (po ID)
+  const [processedSales, setProcessedSales] = useState(new Set());
+  
+  // Stan dla wszystkich stanów (do sprawdzania czy przedmiot jeszcze istnieje)
+  const [allStates, setAllStates] = useState([]);
+
   // Fetch users from API
   const fetchUsers = async () => {
     try {
@@ -67,11 +76,39 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  // Fetch sales from API
+  const fetchSales = async () => {
+    try {
+      console.log('🔄 Refreshing sales data...'); // Debug log
+      const response = await fetch(`${API_BASE_URL}/api/sales/get-all-sales`);
+      const data = await response.json();
+      setSales(data || []);
+      console.log('✅ Sales data refreshed:', data?.length || 0, 'items'); // Debug log
+    } catch (error) {
+      console.error('Error fetching sales:', error);
+    }
+  };
+
+  // Fetch all states from API (for checking if sold items still exist)
+  const fetchAllStates = async () => {
+    try {
+      console.log('🔄 Refreshing all states data...'); // Debug log
+      const response = await fetch(`${API_BASE_URL}/api/state`);
+      const data = await response.json();
+      setAllStates(data || []);
+      console.log('✅ All states data refreshed:', data?.length || 0, 'items'); // Debug log
+    } catch (error) {
+      console.error('Error fetching all states:', error);
+    }
+  };
+
   // Initial data loading
   useEffect(() => {
     fetchUsers();
     fetchTransfers();
     fetchWarehouseItems();
+    fetchSales();
+    fetchAllStates();
     checkLastTransaction();
   }, []);
 
@@ -79,8 +116,11 @@ const AddToState = ({ onAdd }) => {
   useEffect(() => {
     if (selectedUser) {
       console.log('👤 User changed to:', selectedUser, '- refreshing data...');
+      setProcessedSales(new Set()); // Reset przetworzonych sprzedaży
       fetchTransfers();
       fetchWarehouseItems();
+      fetchSales(); // Dodaj odświeżanie sprzedaży
+      fetchAllStates(); // Dodaj odświeżanie wszystkich stanów
       checkLastTransaction();
     }
   }, [selectedUser]);
@@ -89,7 +129,10 @@ const AddToState = ({ onAdd }) => {
   useEffect(() => {
     if (selectedDate) {
       console.log('📅 Date changed to:', selectedDate, '- refreshing data...');
+      setProcessedSales(new Set()); // Reset przetworzonych sprzedaży
       fetchTransfers();
+      fetchSales(); // Dodaj odświeżanie sprzedaży
+      fetchAllStates(); // Dodaj odświeżanie wszystkich stanów
     }
   }, [selectedDate]);
 
@@ -122,6 +165,7 @@ const AddToState = ({ onAdd }) => {
   useEffect(() => {
     // Filter items based on selected date and user
     let filtered = Array.isArray(transfers) ? transfers : [];
+    let salesItems = [];
 
     // Jeśli nie wybrano użytkownika, nie pokazuj żadnych transferów
     if (!selectedUser) {
@@ -129,6 +173,7 @@ const AddToState = ({ onAdd }) => {
       return;
     }
 
+    // Filtruj transfery
     if (selectedDate) {
       filtered = filtered.filter(transfer => {
         const transferDate = new Date(transfer.date).toISOString().split('T')[0];
@@ -152,11 +197,55 @@ const AddToState = ({ onAdd }) => {
           
           return isStandardTransfer || isWarehouseTransfer;
         });
+
+        // Filtruj sprzedaże - pokaż tylko te z wybranego stanu (from)
+        let filteredSales = Array.isArray(sales) ? sales : [];
+        
+        if (selectedDate) {
+          filteredSales = filteredSales.filter(sale => {
+            const saleDate = new Date(sale.timestamp).toISOString().split('T')[0];
+            return saleDate === selectedDate;
+          });
+        }
+
+        // Filtruj sprzedaże po 'from' - pokazuj tylko te ze stanu wybranego użytkownika
+        filteredSales = filteredSales.filter(sale => {
+          return sale.from === selectedUserData.symbol;
+        });
+
+        // NOWE: Filtruj sprzedaże - pokazuj tylko te, które nie zostały jeszcze przetworzone
+        const salesWithItemsInState = filteredSales.filter(sale => {
+          const isProcessed = processedSales.has(sale._id);
+          console.log(`🔍 Sale ${sale.barcode} (ID: ${sale._id}) processed: ${isProcessed}`);
+          return !isProcessed; // Pokazuj tylko nieprzetworzone
+        });
+
+        // Przekształć sprzedaże na format podobny do transferów
+        salesItems = salesWithItemsInState.map(sale => ({
+          ...sale,
+          isFromSale: true, // Oznacz jako sprzedaż
+          transfer_from: sale.from,
+          transfer_to: sale.sellingPoint,
+          isBlueBullet: true, // Niebieska kulka
+          date: sale.timestamp,
+          // fullName i size pozostają jako stringi z obiektu sale
+          // NIE tworzymy obiektów - sprzedaże już mają stringi
+        }));
       }
     }
 
-    setFilteredItems(filtered);
-  }, [selectedDate, selectedUser, transfers, users]);
+    // Połącz sprzedaże (na górze) z transferami (na dole)
+    const combinedItems = [...salesItems, ...filtered];
+    console.log('🔍 Combined items for rendering:', combinedItems.map(item => ({
+      id: item._id,
+      isFromSale: item.isFromSale,
+      fullName: item.fullName,
+      size: item.size,
+      fullNameType: typeof item.fullName,
+      sizeType: typeof item.size
+    })));
+    setFilteredItems(combinedItems);
+  }, [selectedDate, selectedUser, transfers, users, sales, allStates]);
 
   // useEffect do filtrowania produktów magazynowych
   useEffect(() => {
@@ -293,9 +382,10 @@ const AddToState = ({ onAdd }) => {
     }
 
     try {
-      // Rozdziel produkty z magazynu od standardowych transferów
-      const warehouseItems = filteredItems.filter(item => item.fromWarehouse);
-      const standardTransfers = filteredItems.filter(item => !item.fromWarehouse);
+      // Rozdziel produkty według typu
+      const warehouseItems = filteredItems.filter(item => item.fromWarehouse && !item.isFromSale);
+      const standardTransfers = filteredItems.filter(item => !item.fromWarehouse && !item.isFromSale);
+      const salesItems = filteredItems.filter(item => item.isFromSale);
 
       // Wygeneruj wspólny transactionId dla całej operacji
       const sharedTransactionId = Date.now().toString() + 'x' + Math.random().toString(36).substr(2, 9);
@@ -352,12 +442,54 @@ const AddToState = ({ onAdd }) => {
         }
       }
 
-      alert(`Przetworzono ${processedCount} elementów:\n- ${warehouseItems.length} produktów z magazynu dodano do stanu\n- ${standardTransfers.length} standardowych transferów odpisano ze stanu`);
+      // 3. Przetwórz sprzedaże - odpisz ze stanu przez backend
+      if (salesItems.length > 0) {
+        console.log('Processing sales items:', salesItems);
+        console.log('Sales items count:', salesItems.length);
+        console.log('Sales items data:', JSON.stringify(salesItems, null, 2));
+        
+        const salesResponse = await fetch(`${API_BASE_URL}/api/transfer/process-sales`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            salesItems: salesItems,
+            selectedUser: selectedUser,
+            transactionId: sharedTransactionId // Przekaż wspólny transactionId
+          }),
+        });
+
+        console.log('Sales response status:', salesResponse.status);
+        console.log('Sales response ok:', salesResponse.ok);
+
+        if (salesResponse.ok) {
+          const salesResult = await salesResponse.json();
+          console.log('Sales result:', JSON.stringify(salesResult, null, 2));
+          processedCount += salesResult.processedCount || salesItems.length;
+          console.log('Sales items processed successfully');
+          
+          // Oznacz sprzedaże jako przetworzone
+          salesItems.forEach(sale => {
+            setProcessedSales(prev => new Set([...prev, sale._id]));
+          });
+        } else {
+          console.error('Failed to process sales items');
+          const errorText = await salesResponse.text();
+          console.error('Sales processing error:', errorText);
+        }
+      } else {
+        console.log('No sales items to process');
+      }
+
+      alert(`Przetworzono ${processedCount} elementów:\n- ${warehouseItems.length} produktów z magazynu dodano do stanu\n- ${standardTransfers.length} standardowych transferów odpisano ze stanu\n- ${salesItems.length} sprzedaży odpisano ze stanu`);
       
       // Odśwież wszystkie dane po przetworzeniu
       console.log('🔄 Refreshing all data after processing transfers...');
+      await fetchAllStates(); // Najpierw odśwież stany
       await fetchTransfers();
       await fetchWarehouseItems();
+      await fetchSales(); // Dodaj odświeżanie sprzedaży
       console.log('✅ All data refreshed after processing');
       
       // Sprawdź ostatnią transakcję
@@ -450,8 +582,12 @@ const AddToState = ({ onAdd }) => {
         
         // Odśwież wszystkie dane po cofnięciu
         console.log('🔄 Refreshing all data after undo...');
+        console.log('🧹 Clearing processedSales before refresh');
+        setProcessedSales(new Set()); // Reset przetworzonych sprzedaży po cofnięciu transakcji
+        await fetchAllStates(); // Najpierw odśwież stany
         await fetchTransfers();
         await fetchWarehouseItems();
+        await fetchSales(); // Dodaj odświeżanie sprzedaży
         console.log('✅ All data refreshed after undo');
         
         // Odśwież stan po cofnięciu
@@ -774,23 +910,47 @@ const AddToState = ({ onAdd }) => {
             <tbody>
               {Array.isArray(filteredItems) && filteredItems.map((transfer) => (
                 <tr key={transfer._id} style={{ 
-                  backgroundColor: transfer.fromWarehouse ? '#ff8c00' : '#007bff', 
+                  backgroundColor: transfer.isFromSale ? '#007bff' : 
+                                  transfer.fromWarehouse ? '#ff8c00' : '#007bff', 
                   color: 'white' 
                 }}>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.fullName}</td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.size}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale 
+                      ? (transfer.fullName || 'N/A')
+                      : (typeof transfer.fullName === 'object' 
+                          ? (transfer.fullName?.fullName || 'N/A')
+                          : (transfer.fullName || 'N/A'))}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale 
+                      ? (transfer.size || 'N/A')
+                      : (typeof transfer.size === 'object' 
+                          ? (transfer.size?.Roz_Opis || 'N/A')
+                          : (transfer.size || 'N/A'))}
+                  </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {new Date(transfer.date).toLocaleDateString()}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_from}</td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_to}</td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.productId}</td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.reason || 'N/A'}</td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.advancePayment} {transfer.advancePaymentCurrency}
+                    {transfer.isFromSale ? `SPRZEDANO w ${transfer.transfer_to}` : transfer.transfer_to}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.fromWarehouse ? (
+                    {transfer.isFromSale ? transfer.barcode || 'N/A' : transfer.productId || 'N/A'}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale ? 'SPRZEDAŻ' : (transfer.reason || 'N/A')}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale ? 
+                      `${transfer.cash?.[0]?.price || 0} PLN` : 
+                      `${transfer.advancePayment || ''} ${transfer.advancePaymentCurrency || ''}`.trim() || 'N/A'}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale ? (
+                      // Dla sprzedaży - brak przycisków akcji (nie można cofnąć sprzedaży tutaj)
+                      <span style={{ fontStyle: 'italic' }}>Sprzedano</span>
+                    ) : transfer.fromWarehouse ? (
                       // Przyciski dla produktów z magazynu - tylko przycisk Cofnij
                       <button 
                         onClick={() => handleReturnToWarehouse(transfer)}

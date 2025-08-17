@@ -188,6 +188,122 @@ class TransferProcessingController {
         }
     }
 
+    // Process sales items - remove from state with history tracking
+    async processSalesItems(req, res) {
+        try {
+            console.log('🔄 Processing sales request received');
+            console.log('Request body:', JSON.stringify(req.body, null, 2));
+            
+            const { salesItems, selectedUser, transactionId } = req.body;
+            
+            if (!salesItems || !Array.isArray(salesItems) || salesItems.length === 0) {
+                console.log('❌ No sales items provided or empty array');
+                return res.status(400).json({
+                    message: 'No sales items provided for processing'
+                });
+            }
+
+            console.log(`📊 Processing ${salesItems.length} sales items`);
+            let processedCount = 0;
+            const errors = [];
+            const finalTransactionId = transactionId || generateTransactionId();
+            console.log('Using transactionId:', finalTransactionId);
+
+            // Process each sale
+            for (const sale of salesItems) {
+                try {
+                    console.log(`🔍 Processing sale: ${sale.fullName}, barcode: ${sale.barcode}, from symbol: ${sale.from}`);
+                    
+                    // First, get the user ID for the "from" symbol
+                    const User = require('../db/models/user');
+                    const fromUser = await User.findOne({ symbol: sale.from });
+                    if (!fromUser) {
+                        console.error(`❌ User with symbol ${sale.from} not found`);
+                        errors.push(`User with symbol ${sale.from} not found`);
+                        continue;
+                    }
+
+                    // Find item in state that matches this barcode AND is from the correct symbol (sale.from)
+                    const stateItem = await State.findOne({
+                        barcode: sale.barcode,
+                        sellingPoint: fromUser._id
+                    }).populate('fullName', 'fullName')
+                      .populate('size', 'Roz_Opis')
+                      .populate('sellingPoint', 'symbol');
+
+                    if (stateItem) {
+                        console.log(`🎯 Found matching item in correct state ${sale.from}:`, stateItem.sellingPoint.symbol);
+                    } else {
+                        console.warn(`❌ No item found in state ${sale.from} for barcode ${sale.barcode}`);
+                        errors.push(`Item ${sale.barcode} not found in state ${sale.from}`);
+                        continue;
+                    }
+
+                    if (stateItem) {
+                        console.log(`🎯 Found matching item in state:`, stateItem.sellingPoint.symbol);
+                        
+                        // Store complete item data for potential restoration
+                        const itemData = {
+                            originalId: stateItem._id,
+                            fullName: stateItem.fullName._id,
+                            fullNameText: stateItem.fullName.fullName,
+                            size: stateItem.size._id,
+                            sizeText: stateItem.size.Roz_Opis,
+                            barcode: stateItem.barcode,
+                            sellingPoint: stateItem.sellingPoint._id,
+                            sellingPointSymbol: stateItem.sellingPoint.symbol,
+                            price: stateItem.price,
+                            discount_price: stateItem.discount_price,
+                            originalFromSymbol: sale.from, // Gdzie była sprzedana
+                            saleId: sale._id // ID sprzedaży
+                        };
+
+                        // Remove the item from state
+                        await State.findByIdAndDelete(stateItem._id);
+                        console.log(`🗑️ Removed sold item ${sale.barcode} from state (was in ${stateItem.sellingPoint.symbol})`);
+
+                        // Add to history for potential undo
+                        const historyEntry = new History({
+                            collectionName: 'state', // Dodaj wymagane pole
+                            operation: 'Odpisano ze stanu (sprzedaż)',
+                            details: JSON.stringify(itemData),
+                            timestamp: new Date(),
+                            transactionId: finalTransactionId,
+                            from: stateItem.sellingPoint.symbol,
+                            to: 'SPRZEDANE',
+                            product: `${stateItem.fullName.fullName} ${stateItem.size.Roz_Opis}`
+                        });
+                        await historyEntry.save();
+                        console.log('📝 History entry saved for sale:', sale.barcode);
+
+                        processedCount++;
+                    } else {
+                        console.warn(`⚠️ Sold item ${sale.barcode} not found in any state`);
+                        errors.push(`Item ${sale.barcode} not found in state`);
+                    }
+                } catch (error) {
+                    console.error(`Error processing sale ${sale.barcode}:`, error);
+                    errors.push(`Error processing sale ${sale.barcode}: ${error.message}`);
+                }
+            }
+
+            res.status(200).json({
+                message: 'Sales processing completed',
+                processedCount: processedCount,
+                totalItems: salesItems.length,
+                errors: errors,
+                transactionId: finalTransactionId
+            });
+
+        } catch (error) {
+            console.error('Error processing sales:', error);
+            res.status(500).json({
+                message: 'Failed to process sales',
+                error: error.message
+            });
+        }
+    }
+
     // Undo last transaction - restore items to state and DELETE original history (clean approach)
     async undoLastTransaction(req, res) {
         try {
@@ -195,7 +311,8 @@ class TransferProcessingController {
             const lastTransaction = await History.findOne({
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
-                    { operation: 'Dodano do stanu (z magazynu)' }
+                    { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Odpisano ze stanu (sprzedaż)' }
                 ],
                 transactionId: { $exists: true, $ne: null }
             }).sort({ timestamp: -1 });
@@ -228,6 +345,7 @@ class TransferProcessingController {
                     
                     // Determine type of undo based on operation
                     const isWarehouseEntry = entry.operation === 'Dodano do stanu (z magazynu)';
+                    const isSalesEntry = entry.operation === 'Odpisano ze stanu (sprzedaż)';
                     
                     if (isWarehouseEntry) {
                         // WAREHOUSE UNDO: Remove from user state and restore to warehouse
@@ -261,6 +379,39 @@ class TransferProcessingController {
                             size: itemData.sizeText,
                             barcode: itemData.barcode,
                             action: 'restored_to_warehouse'
+                        });
+
+                    } else if (isSalesEntry) {
+                        // SALES UNDO: Restore sold item back to the state it was sold from
+                        console.log('Processing sales undo for:', itemData.barcode);
+                        
+                        // Restore item back to the original state (symbol where it was sold from)
+                        const originalUser = await User.findById(itemData.sellingPoint);
+                        if (!originalUser) {
+                            throw new Error(`Original selling point user not found: ${itemData.sellingPoint}`);
+                        }
+
+                        const restoredSaleItem = new State({
+                            _id: new mongoose.Types.ObjectId(itemData.originalId),
+                            fullName: itemData.fullName,
+                            size: itemData.size,
+                            barcode: itemData.barcode,
+                            sellingPoint: itemData.sellingPoint,
+                            price: itemData.price,
+                            discount_price: itemData.discount_price || 0,
+                            date: new Date()
+                        });
+
+                        await restoredSaleItem.save();
+                        console.log(`✅ Restored sold item ${itemData.barcode} back to state ${originalUser.symbol}`);
+
+                        restoredItems.push({
+                            id: itemData.originalId,
+                            fullName: itemData.fullNameText,
+                            size: itemData.sizeText,
+                            barcode: itemData.barcode,
+                            action: 'restored_from_sale',
+                            originalSymbol: originalUser.symbol
                         });
 
                     } else {

@@ -8,6 +8,9 @@ router.post('/process-all', TransferProcessingController.processAllTransfers);
 // POST /api/transfer/process-warehouse - Process warehouse items and add to user state
 router.post('/process-warehouse', TransferProcessingController.processWarehouseItems);
 
+// POST /api/transfer/process-sales - Process sales items and remove from state with history
+router.post('/process-sales', TransferProcessingController.processSalesItems);
+
 // POST /api/transfer/process-single - Process single transfer and remove item from state
 router.post('/process-single', TransferProcessingController.processSingleTransfer);
 
