@@ -22,6 +22,9 @@ const AddToState = ({ onAdd }) => {
   // Stan do śledzenia przetworzonych sprzedaży (po ID)
   const [processedSales, setProcessedSales] = useState(new Set());
   
+  // Stan do śledzenia przetworzonych transferów (po ID) 
+  const [processedTransfers, setProcessedTransfers] = useState(new Set());
+  
   // Stan dla wszystkich stanów (do sprawdzania czy przedmiot jeszcze istnieje)
   const [allStates, setAllStates] = useState([]);
 
@@ -49,6 +52,7 @@ const AddToState = ({ onAdd }) => {
       console.log('🔄 Refreshing transfers data...'); // Debug log
       const response = await fetch(`${API_BASE_URL}/api/transfer`);
       const data = await response.json();
+      console.log('📥 Raw transfers from backend:', data); // DEBUG: Show raw data
       setTransfers(data || []);
       console.log('✅ Transfers refreshed:', data?.length || 0, 'items'); // Debug log
     } catch (error) {
@@ -112,11 +116,12 @@ const AddToState = ({ onAdd }) => {
     checkLastTransaction();
   }, []);
 
-  // Refresh data when user selection changes
+    // Refresh data when user selection changes
   useEffect(() => {
     if (selectedUser) {
       console.log('👤 User changed to:', selectedUser, '- refreshing data...');
       setProcessedSales(new Set()); // Reset przetworzonych sprzedaży
+      setProcessedTransfers(new Set()); // Reset przetworzonych transferów
       fetchTransfers();
       fetchWarehouseItems();
       fetchSales(); // Dodaj odświeżanie sprzedaży
@@ -125,14 +130,17 @@ const AddToState = ({ onAdd }) => {
     }
   }, [selectedUser]);
 
-  // Refresh data when date changes
+  // Refresh data when date selection changes
   useEffect(() => {
     if (selectedDate) {
       console.log('📅 Date changed to:', selectedDate, '- refreshing data...');
       setProcessedSales(new Set()); // Reset przetworzonych sprzedaży
+      setProcessedTransfers(new Set()); // Reset przetworzonych transferów
       fetchTransfers();
+      fetchWarehouseItems();
       fetchSales(); // Dodaj odświeżanie sprzedaży
       fetchAllStates(); // Dodaj odświeżanie wszystkich stanów
+      checkLastTransaction();
     }
   }, [selectedDate]);
 
@@ -198,6 +206,15 @@ const AddToState = ({ onAdd }) => {
           return isStandardTransfer || isWarehouseTransfer;
         });
 
+        // WAŻNE: Filtruj przetworzonych transfery - pokazuj tylko nieprzetworzone
+        filtered = filtered.filter(transfer => {
+          const isProcessed = transfer.processed || processedTransfers.has(transfer._id);
+          console.log(`🔍 Transfer ${transfer.fullName} (ID: ${transfer._id}) processed: ${isProcessed}`);
+          return !isProcessed; // Pokazuj tylko nieprzetworzone (jak sprzedaże)
+        });
+        
+        console.log('🎯 Transfers after processing filter:', filtered.length);
+
         // Filtruj sprzedaże - pokaż tylko te z wybranego stanu (from)
         let filteredSales = Array.isArray(sales) ? sales : [];
         
@@ -241,11 +258,12 @@ const AddToState = ({ onAdd }) => {
       isFromSale: item.isFromSale,
       fullName: item.fullName,
       size: item.size,
+      processed: item.processed, // DEBUG: Show processed flag
       fullNameType: typeof item.fullName,
       sizeType: typeof item.size
     })));
     setFilteredItems(combinedItems);
-  }, [selectedDate, selectedUser, transfers, users, sales, allStates]);
+  }, [selectedDate, selectedUser, transfers, users, sales, allStates, processedSales, processedTransfers]);
 
   // useEffect do filtrowania produktów magazynowych
   useEffect(() => {
@@ -437,6 +455,11 @@ const AddToState = ({ onAdd }) => {
         if (response.ok) {
           const result = await response.json();
           processedCount += result.processedCount;
+          
+          // Oznacz transfery jako przetworzone  
+          standardTransfers.forEach(transfer => {
+            setProcessedTransfers(prev => new Set([...prev, transfer._id]));
+          });
         } else {
           console.error('Error processing standard transfers');
         }
@@ -582,8 +605,11 @@ const AddToState = ({ onAdd }) => {
         
         // Odśwież wszystkie dane po cofnięciu
         console.log('🔄 Refreshing all data after undo...');
-        console.log('🧹 Clearing processedSales before refresh');
+        console.log('🧹 Clearing processedSales and processedTransfers before refresh');
+        console.log('🧹 Clearing processedSales and processedTransfers before refresh');
         setProcessedSales(new Set()); // Reset przetworzonych sprzedaży po cofnięciu transakcji
+        setProcessedTransfers(new Set()); // Reset przetworzonych transferów po cofnięciu transakcji po cofnięciu transakcji
+        setProcessedTransfers(new Set()); // Reset przetworzonych transferów po cofnięciu transakcji
         await fetchAllStates(); // Najpierw odśwież stany
         await fetchTransfers();
         await fetchWarehouseItems();
@@ -908,13 +934,21 @@ const AddToState = ({ onAdd }) => {
               </tr>
             </thead>
             <tbody>
-              {Array.isArray(filteredItems) && filteredItems.map((transfer) => (
+              {Array.isArray(filteredItems) && filteredItems.map((transfer) => {
+                // Sprawdź czy transfer został już przetworzony
+                const isProcessed = transfer.isFromSale ? 
+                  processedSales.has(transfer._id) :
+                  (transfer.processed || processedTransfers.has(transfer._id));
+                
+                return (
                 <tr key={transfer._id} style={{ 
                   backgroundColor: transfer.isFromSale ? '#007bff' : 
                                   transfer.fromWarehouse ? '#ff8c00' : '#007bff', 
-                  color: 'white' 
+                  color: 'white',
+                  opacity: isProcessed ? 0.7 : 1.0 // Przezroczystość dla przetworzonych
                 }}>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {isProcessed && '✓ '}
                     {transfer.isFromSale 
                       ? (transfer.fullName || 'N/A')
                       : (typeof transfer.fullName === 'object' 
@@ -975,7 +1009,8 @@ const AddToState = ({ onAdd }) => {
                     )}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
           {(!Array.isArray(filteredItems) || filteredItems.length === 0) && (

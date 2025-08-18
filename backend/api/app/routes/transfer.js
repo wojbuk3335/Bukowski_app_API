@@ -10,6 +10,7 @@ router.get('/test', (req, res) => {
 // Transfer API routes
 router.post('/', transferController.createTransfer);
 router.get('/', transferController.getTransfers);
+router.get('/debug/all', transferController.getAllTransfersDebug); // DEBUG endpoint
 router.get('/:id', transferController.getTransferById);
 router.put('/:id', transferController.updateTransfer);
 router.delete('/all', transferController.deleteAllTransfers); // Define this route first

@@ -58,7 +58,8 @@ class TransferProcessingController {
                             price: itemToRemove.price,
                             discount_price: itemToRemove.discount_price,
                             date: itemToRemove.date,
-                            transferData: transfer
+                            transferData: transfer,
+                            transferId: transfer._id // Store transfer ID for undo
                         };
 
                         // Create history entry with complete restoration data
@@ -82,8 +83,11 @@ class TransferProcessingController {
                         processedCount++;
                     }
 
-                    // Remove transfer after processing
-                    await Transfer.findByIdAndDelete(transfer._id);
+                    // Mark transfer as processed instead of deleting
+                    await Transfer.findByIdAndUpdate(transfer._id, {
+                        processed: true,
+                        processedAt: new Date()
+                    });
 
                 } catch (transferError) {
                     console.error(`Error processing transfer ${transfer._id}:`, transferError);
@@ -165,8 +169,11 @@ class TransferProcessingController {
             // Remove item from state
             await State.findByIdAndDelete(itemToRemove._id);
 
-            // Remove transfer after processing
-            await Transfer.findByIdAndDelete(transferId);
+            // Mark transfer as processed instead of deleting
+            await Transfer.findByIdAndUpdate(transferId, {
+                processed: true,
+                processedAt: new Date()
+            });
 
             res.status(200).json({
                 message: 'Transfer processed successfully',
@@ -415,7 +422,7 @@ class TransferProcessingController {
                         });
 
                     } else {
-                        // STANDARD UNDO: Restore to state and recreate transfer
+                        // STANDARD UNDO: Restore to state and mark transfer as unprocessed
                         console.log('Processing standard undo for:', itemData.barcode);
                         
                         // Create new State document with original ID
@@ -432,23 +439,14 @@ class TransferProcessingController {
 
                         await restoredItem.save();
 
-                        // Recreate transfer entry so it appears in the list again
-                        const Transfer = require('../db/models/transfer');
-                        const currentDate = new Date();
-                        const recreatedTransfer = new Transfer({
-                            fullName: itemData.fullNameText,
-                            size: itemData.sizeText,
-                            date: currentDate,
-                            dateString: currentDate.toISOString().split('T')[0],
-                            transfer_from: itemData.transferData.transfer_from,
-                            transfer_to: itemData.transferData.transfer_to,
-                            productId: itemData.originalId,
-                            reason: itemData.transferData.reason || 'Przywrócony po cofnięciu',
-                            advancePayment: itemData.transferData.advancePayment || 0,
-                            advancePaymentCurrency: itemData.transferData.advancePaymentCurrency || 'PLN'
-                        });
-
-                        await recreatedTransfer.save();
+                        // Mark transfer as unprocessed instead of creating new one
+                        if (itemData.transferId) {
+                            await Transfer.findByIdAndUpdate(itemData.transferId, {
+                                processed: false,
+                                processedAt: null
+                            });
+                            console.log(`✅ Transfer ${itemData.transferId} marked as unprocessed`);
+                        }
 
                         restoredItems.push({
                             id: itemData.originalId,
