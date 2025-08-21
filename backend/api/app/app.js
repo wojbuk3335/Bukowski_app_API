@@ -34,7 +34,9 @@ const localizationRoutes = require('./routes/locatization'); // Import localizat
 const deductionsRoutes = require('./routes/deductions'); // Import deductions routes
 const transferProcessingRoutes = require('./routes/transferProcessing'); // Import transfer processing routes
 const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
+const correctionsRoutes = require('./routes/corrections'); // Import corrections routes
 
+app.use('/api/corrections', correctionsRoutes); // Use corrections routes
 app.use('/api/sales', salesRoutes); // Use sales routes
 app.use('/api/warehouse', warehouseRoutes); // Use warehouse routes
 app.use('/api/transfer', transferProcessingRoutes); // Use transfer processing routes

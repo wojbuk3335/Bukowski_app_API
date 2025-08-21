@@ -393,6 +393,110 @@ const AddToState = ({ onAdd }) => {
     console.log('Item returned to warehouse');
   };
 
+  // Funkcja sprawdzania braków w stanie i zapisywania korekt
+  const checkForMissingItems = async (itemsToCheck, userSymbol, sellingPoint) => {
+    try {
+      // Filtruj stan tylko dla wybranego użytkownika
+      const userStateItems = allStates.filter(item => item.symbol === userSymbol);
+      
+      // Lista brakujących kurtek
+      const missingItems = [];
+      
+      // Sprawdź każdą kurtkę czy istnieje w stanie użytkownika
+      itemsToCheck.forEach(item => {
+        const foundInState = userStateItems.find(stateItem => 
+          stateItem.barcode === item.barcode &&
+          stateItem.fullName === item.fullName &&
+          stateItem.size === item.size
+        );
+        
+        if (!foundInState) {
+          const operationType = item.isFromSale ? 'SPRZEDAŻY' : 'TRANSFERU';
+          const operationDetails = item.isFromSale 
+            ? `sprzedaży za ${item.price || 'N/A'} PLN` 
+            : `transferu do punktu ${sellingPoint}`;
+          
+          const detailedDescription = 
+            `🚨 BRAK W STANIE: Próba odpisania kurtki "${item.fullName}" (${item.size}) ` +
+            `z punktu "${sellingPoint}" w ramach ${operationDetails}. ` +
+            `Kurtka o kodzie ${item.barcode} nie została znaleziona w aktualnym stanie punktu. ` +
+            `Możliwe przyczyny: już sprzedana, przeniesiona, zagubiona lub błąd w ewidencji. ` +
+            `Data wykrycia: ${new Date().toLocaleString('pl-PL')}.`;
+          
+          missingItems.push({
+            fullName: item.fullName,
+            size: item.size,
+            barcode: item.barcode,
+            sellingPoint: sellingPoint,
+            symbol: userSymbol,
+            errorType: 'MISSING_IN_STATE',
+            attemptedOperation: item.isFromSale ? 'SALE' : 'TRANSFER',
+            description: detailedDescription,
+            originalPrice: item.price,
+            discountPrice: item.discount_price
+          });
+        }
+      });
+      
+      // Jeśli są braki, zapisz je w tabeli korekt
+      if (missingItems.length > 0) {
+        console.log('Missing items detected:', missingItems);
+        console.log('Sending corrections data:', JSON.stringify(missingItems, null, 2));
+        
+        const correctionsResponse = await fetch(`${API_BASE_URL}/api/corrections/multiple`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(missingItems),
+        });
+        
+        console.log('Corrections response status:', correctionsResponse.status);
+        console.log('Corrections response ok:', correctionsResponse.ok);
+        
+        if (correctionsResponse.ok) {
+          console.log('Corrections saved successfully');
+          
+          // Pokaż modal z brakującymi kurtkami
+          const missingItemsList = missingItems.map(item => 
+            `• ${item.fullName} ${item.size} (${item.barcode})`
+          ).join('\n');
+          
+          alert(`⚠️ UWAGA - WYKRYTO BRAKI W STANIE!\n\nNastępujące kurtki nie zostały znalezione w stanie punktu ${sellingPoint}:\n\n${missingItemsList}\n\n✅ Problemy zostały zapisane w tabeli Korekty do rozwiązania.\n\n🔄 Operacja zostanie kontynuowana z dostępnymi kurtkami.`);
+          
+        } else {
+          console.error('Failed to save corrections');
+          const errorText = await correctionsResponse.text();
+          console.error('Corrections error response:', errorText);
+          
+          // Pokaż komunikat o błędzie ale kontynuuj operację
+          alert(`⚠️ UWAGA - WYKRYTO BRAKI ale wystąpił błąd zapisu!\n\nNastępujące kurtki nie zostały znalezione w stanie punktu ${sellingPoint}:\n\n${missingItems.map(item => `• ${item.fullName} ${item.size} (${item.barcode})`).join('\n')}\n\n❌ BŁĄD: Nie udało się zapisać problemów w tabeli Korekty!\n\n🔄 Operacja zostanie kontynuowana z dostępnymi kurtkami.`);
+        }
+      }
+      
+      // Zwróć listę kurtek do przetworzenia (usuń brakujące)
+      const availableItems = itemsToCheck.filter(item => 
+        !missingItems.some(missing => 
+          missing.barcode === item.barcode &&
+          missing.fullName === item.fullName &&
+          missing.size === item.size
+        )
+      );
+      
+      return {
+        availableItems,
+        missingCount: missingItems.length
+      };
+      
+    } catch (error) {
+      console.error('Error checking for missing items:', error);
+      return {
+        availableItems: itemsToCheck,
+        missingCount: 0
+      };
+    }
+  };
+
   const handleProcessAllTransfers = async () => {
     if (!Array.isArray(filteredItems) || filteredItems.length === 0) {
       alert('Brak transferów do przetworzenia');
@@ -437,75 +541,131 @@ const AddToState = ({ onAdd }) => {
         }
       }
 
-      // 2. Przetwórz standardowe transfery
+      // 2. Przetwórz standardowe transfery - sprawdź braki w stanie
+      let validStandardTransfers = standardTransfers;
+      let standardTransfersMissingCount = 0;
+      
       if (standardTransfers.length > 0) {
-        const response = await fetch(`${API_BASE_URL}/api/transfer/process-all`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transfers: standardTransfers,
-            selectedDate: selectedDate,
-            selectedUser: selectedUser,
-            transactionId: sharedTransactionId // Przekaż wspólny transactionId
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          processedCount += result.processedCount;
-          
-          // Oznacz transfery jako przetworzone  
-          standardTransfers.forEach(transfer => {
-            setProcessedTransfers(prev => new Set([...prev, transfer._id]));
+        console.log('Checking standard transfers for missing items...');
+        
+        // Znajdź obiekt użytkownika na podstawie selectedUser ID
+        const selectedUserObject = users.find(user => user._id === selectedUser);
+        const userSymbol = selectedUserObject?.symbol;
+        const sellingPoint = selectedUserObject?.sellingPoint || selectedUserObject?.symbol;
+        
+        const checkResult = await checkForMissingItems(standardTransfers, userSymbol, sellingPoint);
+        validStandardTransfers = checkResult.availableItems;
+        standardTransfersMissingCount = checkResult.missingCount;
+        
+        if (validStandardTransfers.length > 0) {
+          const response = await fetch(`${API_BASE_URL}/api/transfer/process-all`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              transfers: validStandardTransfers,
+              selectedDate: selectedDate,
+              selectedUser: selectedUser,
+              transactionId: sharedTransactionId // Przekaż wspólny transactionId
+            }),
           });
-        } else {
-          console.error('Error processing standard transfers');
+
+          if (response.ok) {
+            const result = await response.json();
+            processedCount += result.processedCount;
+            
+            // Oznacz transfery jako przetworzone  
+            validStandardTransfers.forEach(transfer => {
+              setProcessedTransfers(prev => new Set([...prev, transfer._id]));
+            });
+          } else {
+            console.error('Error processing standard transfers');
+          }
         }
       }
 
-      // 3. Przetwórz sprzedaże - odpisz ze stanu przez backend
+      // 3. Przetwórz sprzedaże - sprawdź braki w stanie przed odpisaniem
+      let validSalesItems = salesItems;
+      let salesMissingCount = 0;
+      
       if (salesItems.length > 0) {
-        console.log('Processing sales items:', salesItems);
-        console.log('Sales items count:', salesItems.length);
-        console.log('Sales items data:', JSON.stringify(salesItems, null, 2));
+        console.log('Checking sales items for missing items...');
         
-        const salesResponse = await fetch(`${API_BASE_URL}/api/transfer/process-sales`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            salesItems: salesItems,
-            selectedUser: selectedUser,
-            transactionId: sharedTransactionId // Przekaż wspólny transactionId
-          }),
-        });
-
-        console.log('Sales response status:', salesResponse.status);
-        console.log('Sales response ok:', salesResponse.ok);
-
-        if (salesResponse.ok) {
-          const salesResult = await salesResponse.json();
-          console.log('Sales result:', JSON.stringify(salesResult, null, 2));
-          processedCount += salesResult.processedCount || salesItems.length;
-          console.log('Sales items processed successfully');
+        // Znajdź obiekt użytkownika na podstawie selectedUser ID
+        const selectedUserObject = users.find(user => user._id === selectedUser);
+        const userSymbol = selectedUserObject?.symbol;
+        const sellingPoint = selectedUserObject?.sellingPoint || selectedUserObject?.symbol;
+        
+        console.log('Selected user object:', selectedUserObject);
+        console.log('User symbol:', userSymbol);
+        console.log('Selling point:', sellingPoint);
+        
+        const checkResult = await checkForMissingItems(salesItems, userSymbol, sellingPoint);
+        validSalesItems = checkResult.availableItems;
+        salesMissingCount = checkResult.missingCount;
+        
+        if (validSalesItems.length > 0) {
+          console.log('Processing valid sales items:', validSalesItems);
+          console.log('Valid sales items count:', validSalesItems.length);
           
-          // Oznacz sprzedaże jako przetworzone
-          salesItems.forEach(sale => {
-            setProcessedSales(prev => new Set([...prev, sale._id]));
+          const salesResponse = await fetch(`${API_BASE_URL}/api/transfer/process-sales`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              salesItems: validSalesItems,
+              selectedUser: selectedUser,
+              transactionId: sharedTransactionId // Przekaż wspólny transactionId
+            }),
           });
+
+          console.log('Sales response status:', salesResponse.status);
+          console.log('Sales response ok:', salesResponse.ok);
+
+          if (salesResponse.ok) {
+            const salesResult = await salesResponse.json();
+            console.log('Sales result:', JSON.stringify(salesResult, null, 2));
+            processedCount += salesResult.processedCount || validSalesItems.length;
+            console.log('Sales items processed successfully');
+            
+            // Oznacz sprzedaże jako przetworzone
+            validSalesItems.forEach(sale => {
+              setProcessedSales(prev => new Set([...prev, sale._id]));
+            });
+          } else {
+            console.error('Failed to process sales items');
+            const errorText = await salesResponse.text();
+            console.error('Sales processing error:', errorText);
+          }
         } else {
-          console.error('Failed to process sales items');
-          const errorText = await salesResponse.text();
-          console.error('Sales processing error:', errorText);
+          console.log('No valid sales items to process after missing items check');
         }
       } else {
         console.log('No sales items to process');
       }
 
-      alert(`Przetworzono ${processedCount} elementów:\n- ${warehouseItems.length} produktów z magazynu dodano do stanu\n- ${standardTransfers.length} standardowych transferów odpisano ze stanu\n- ${salesItems.length} sprzedaży odpisano ze stanu`);
+      // Przygotuj szczegółowy komunikat z informacjami o brakach
+      const totalMissingCount = standardTransfersMissingCount + salesMissingCount;
+      let alertMessage = `✅ OPERACJA ZAKOŃCZONA\n\n`;
+      alertMessage += `Przetworzono ${processedCount} elementów:\n`;
+      alertMessage += `- ${warehouseItems.length} produktów z magazynu dodano do stanu\n`;
+      alertMessage += `- ${validStandardTransfers.length} standardowych transferów odpisano ze stanu\n`;
+      alertMessage += `- ${validSalesItems.length} sprzedaży odpisano ze stanu\n`;
+      
+      if (totalMissingCount > 0) {
+        alertMessage += `\n⚠️ WYKRYTO BRAKI:\n`;
+        if (standardTransfersMissingCount > 0) {
+          alertMessage += `- ${standardTransfersMissingCount} transferów bez pokrycia w stanie\n`;
+        }
+        if (salesMissingCount > 0) {
+          alertMessage += `- ${salesMissingCount} sprzedaży bez pokrycia w stanie\n`;
+        }
+        alertMessage += `\n📋 Wszystkie braki zostały zapisane w tabeli KOREKTY do rozwiązania.`;
+      }
+      
+      alert(alertMessage);
       
       // Odśwież wszystkie dane po przetworzeniu
       console.log('🔄 Refreshing all data after processing transfers...');
