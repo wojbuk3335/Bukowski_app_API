@@ -457,6 +457,26 @@ const AddToState = ({ onAdd }) => {
         if (correctionsResponse.ok) {
           console.log('Corrections saved successfully');
           
+          // NOWE: Oznacz brakujące produkty jako przetworzone aby zniknęły z listy
+          missingItems.forEach(missingItem => {
+            // Znajdź oryginalny item w itemsToCheck i oznacz go jako przetworzone
+            const originalItem = itemsToCheck.find(item => 
+              item.barcode === missingItem.barcode &&
+              item.fullName === missingItem.fullName &&
+              item.size === missingItem.size
+            );
+            
+            if (originalItem && originalItem._id) {
+              if (originalItem.isFromSale) {
+                console.log(`Marking missing sale as processed: ${originalItem._id}`);
+                setProcessedSales(prev => new Set([...prev, originalItem._id]));
+              } else {
+                console.log(`Marking missing transfer as processed: ${originalItem._id}`);
+                setProcessedTransfers(prev => new Set([...prev, originalItem._id]));
+              }
+            }
+          });
+          
           // Pokaż modal z brakującymi kurtkami
           const missingItemsList = missingItems.map(item => 
             `• ${item.fullName} ${item.size} (${item.barcode})`
