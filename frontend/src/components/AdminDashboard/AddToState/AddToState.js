@@ -457,9 +457,11 @@ const AddToState = ({ onAdd }) => {
         if (correctionsResponse.ok) {
           console.log('Corrections saved successfully');
           
-          // NOWE: Oznacz brakujące produkty jako przetworzone aby zniknęły z listy
-          missingItems.forEach(missingItem => {
-            // Znajdź oryginalny item w itemsToCheck i oznacz go jako przetworzone
+          // NOWE: Usuń brakujące produkty z oryginalnych tabel (transfers/sales)
+          console.log('🗑️ Deleting missing items from original tables...');
+          
+          for (const missingItem of missingItems) {
+            // Znajdź oryginalny item w itemsToCheck
             const originalItem = itemsToCheck.find(item => 
               item.barcode === missingItem.barcode &&
               item.fullName === missingItem.fullName &&
@@ -467,22 +469,44 @@ const AddToState = ({ onAdd }) => {
             );
             
             if (originalItem && originalItem._id) {
-              if (originalItem.isFromSale) {
-                console.log(`Marking missing sale as processed: ${originalItem._id}`);
-                setProcessedSales(prev => new Set([...prev, originalItem._id]));
-              } else {
-                console.log(`Marking missing transfer as processed: ${originalItem._id}`);
-                setProcessedTransfers(prev => new Set([...prev, originalItem._id]));
+              try {
+                if (originalItem.isFromSale) {
+                  // Usuń sprzedaż
+                  console.log(`�️ Deleting sale: ${originalItem._id}`);
+                  const deleteResponse = await fetch(`${API_BASE_URL}/api/sales/delete-sale/${originalItem._id}`, {
+                    method: 'DELETE'
+                  });
+                  
+                  if (deleteResponse.ok) {
+                    console.log(`✅ Sale deleted successfully: ${originalItem._id}`);
+                  } else {
+                    console.error(`❌ Failed to delete sale: ${originalItem._id}`);
+                  }
+                } else {
+                  // Usuń transfer
+                  console.log(`🗑️ Deleting transfer: ${originalItem._id}`);
+                  const deleteResponse = await fetch(`${API_BASE_URL}/api/transfer/${originalItem._id}`, {
+                    method: 'DELETE'
+                  });
+                  
+                  if (deleteResponse.ok) {
+                    console.log(`✅ Transfer deleted successfully: ${originalItem._id}`);
+                  } else {
+                    console.error(`❌ Failed to delete transfer: ${originalItem._id}`);
+                  }
+                }
+              } catch (deleteError) {
+                console.error(`Error deleting item ${originalItem._id}:`, deleteError);
               }
             }
-          });
+          }
           
           // Pokaż modal z brakującymi kurtkami
           const missingItemsList = missingItems.map(item => 
             `• ${item.fullName} ${item.size} (${item.barcode})`
           ).join('\n');
           
-          alert(`⚠️ UWAGA - WYKRYTO BRAKI W STANIE!\n\nNastępujące kurtki nie zostały znalezione w stanie punktu ${sellingPoint}:\n\n${missingItemsList}\n\n✅ Problemy zostały zapisane w tabeli Korekty do rozwiązania.\n\n🔄 Operacja zostanie kontynuowana z dostępnymi kurtkami.`);
+          alert(`⚠️ UWAGA - WYKRYTO BRAKI W STANIE!\n\nNastępujące kurtki nie zostały znalezione w stanie punktu ${sellingPoint}:\n\n${missingItemsList}\n\n✅ Problemy zostały zapisane w tabeli Korekty do rozwiązania.\n🗑️ Nieistniejące pozycje zostały usunięte z listy.\n\n🔄 Operacja zostanie kontynuowana z dostępnymi kurtkami.`);
           
         } else {
           console.error('Failed to save corrections');
