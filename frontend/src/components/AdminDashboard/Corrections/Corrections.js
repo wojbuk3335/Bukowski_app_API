@@ -9,6 +9,12 @@ function Corrections() {
     resolved: 0,
     total: 0
   });
+  
+  // Modal dla wskazywania produktu
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedCorrection, setSelectedCorrection] = useState(null);
+  const [availableLocations, setAvailableLocations] = useState([]);
+  const [searchingProduct, setSearchingProduct] = useState(false);
 
   useEffect(() => {
     fetchCorrections();
@@ -99,6 +105,99 @@ function Corrections() {
     } catch (error) {
       console.error('Błąd podczas usuwania:', error);
       alert('Błąd podczas usuwania korekty');
+    }
+  };
+
+  const handleFindProduct = async (correction) => {
+    try {
+      setSearchingProduct(true);
+      setSelectedCorrection(correction);
+      
+      // Pobierz wszystkie stany z API
+      const stateResponse = await fetch('http://localhost:3000/api/state');
+      const allStates = await stateResponse.json();
+      
+      // Znajdź wszystkie lokalizacje gdzie ten produkt istnieje
+      const matchingItems = allStates.filter(item => 
+        item.barcode === correction.barcode &&
+        item.fullName === correction.fullName &&
+        item.size === correction.size
+      );
+      
+      // Pogrupuj według symbolu punktu sprzedaży
+      const locationGroups = matchingItems.reduce((acc, item) => {
+        if (!acc[item.symbol]) {
+          acc[item.symbol] = {
+            symbol: item.symbol,
+            items: [],
+            count: 0
+          };
+        }
+        acc[item.symbol].items.push(item);
+        acc[item.symbol].count++;
+        return acc;
+      }, {});
+      
+      const locations = Object.values(locationGroups);
+      
+      console.log('Found product in locations:', locations);
+      setAvailableLocations(locations);
+      setShowProductModal(true);
+      
+    } catch (error) {
+      console.error('Błąd podczas szukania produktu:', error);
+      alert('Błąd podczas wyszukiwania produktu w stanach');
+    } finally {
+      setSearchingProduct(false);
+    }
+  };
+
+  const handleWriteOffFromLocation = async (fromSymbol) => {
+    try {
+      if (!selectedCorrection) return;
+      
+      // Znajdź konkretny item do odpisania
+      const itemToWriteOff = availableLocations
+        .find(loc => loc.symbol === fromSymbol)
+        ?.items[0]; // Bierzemy pierwszy dostępny
+        
+      if (!itemToWriteOff) {
+        alert('Nie znaleziono produktu do odpisania');
+        return;
+      }
+      
+      if (!window.confirm(`Czy na pewno chcesz odpisać produkt "${selectedCorrection.fullName}" ze stanu w punkcie ${fromSymbol}?`)) {
+        return;
+      }
+      
+      console.log(`Writing off from ${fromSymbol}:`, itemToWriteOff);
+      
+      // Wywołanie API do odpisania produktu używając istniejącego endpointu
+      const writeOffResponse = await fetch(`http://localhost:3000/api/state/barcode/${itemToWriteOff.barcode}/symbol/${fromSymbol}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'operation-type': 'write-off' // Dodajemy header określający typ operacji
+        }
+      });
+      
+      if (writeOffResponse.ok) {
+        // Oznacz korektę jako rozwiązaną
+        await handleStatusUpdate(selectedCorrection._id, 'RESOLVED');
+        setShowProductModal(false);
+        alert(`Produkt został odpisany ze stanu w punkcie ${fromSymbol}`);
+        
+        // Odśwież listę dostępnych lokalizacji (usuń tę lokalizację jeśli nie ma już produktów)
+        const updatedLocations = availableLocations.filter(loc => loc.symbol !== fromSymbol);
+        setAvailableLocations(updatedLocations);
+      } else {
+        const errorData = await writeOffResponse.json();
+        alert(`Błąd podczas odpisywania: ${errorData.message || 'Nieznany błąd'}`);
+      }
+      
+    } catch (error) {
+      console.error('Błąd podczas odpisywania:', error);
+      alert('Błąd podczas odpisywania produktu');
     }
   };
 
@@ -217,10 +316,10 @@ function Corrections() {
                               </button>
                               <button 
                                 className="btn btn-warning btn-sm"
-                                onClick={() => handleStatusUpdate(correction._id, 'IGNORED')}
-                                title="Ignoruj ten problem"
+                                onClick={() => handleFindProduct(correction)}
+                                title="Znajdź produkt w innych punktach"
                               >
-                                Ignoruj
+                                Wskaż produkt
                               </button>
                             </>
                           )}
@@ -241,6 +340,80 @@ function Corrections() {
           </div>
         </div>
       </div>
+
+      {/* Modal do wyświetlania znalezionych lokalizacji */}
+      {showProductModal && selectedCorrection && (
+        <div className="modal-overlay" onClick={() => setShowProductModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Lokalizacje produktu</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowProductModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="product-info">
+                <h4>{selectedCorrection.fullName}</h4>
+                <p>Rozmiar: {selectedCorrection.size}</p>
+                <p>Barcode: {selectedCorrection.barcode}</p>
+                <p>Brakuje w punkcie: <strong>{selectedCorrection.sellingPoint}</strong></p>
+              </div>
+              
+              {availableLocations.length > 0 ? (
+                <div className="locations-list">
+                  <h5>Znaleziono produkt w następujących punktach:</h5>
+                  {availableLocations.map((location) => (
+                    <div key={location.symbol} className="location-item">
+                      <div className="location-info">
+                        <strong>{location.symbol}</strong>
+                        <span className="count">({location.count} szt.)</span>
+                      </div>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => handleWriteOffFromLocation(location.symbol)}
+                      >
+                        Odpisz ze stanu
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="no-locations">
+                  <p>Nie znaleziono tego produktu w żadnym innym punkcie sprzedaży.</p>
+                  <p>Możliwe rozwiązania:</p>
+                  <ul>
+                    <li>Sprawdź czy produkt nie został źle zeskanowany</li>
+                    <li>Skontaktuj się z dostawcą</li>
+                    <li>Oznacz jako rozwiązane jeśli problem został rozwiązany inaczej</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowProductModal(false)}
+              >
+                Anuluj
+              </button>
+              <button 
+                className="btn btn-success"
+                onClick={() => {
+                  handleStatusUpdate(selectedCorrection._id, 'RESOLVED');
+                  setShowProductModal(false);
+                }}
+              >
+                Oznacz jako rozwiązane
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
