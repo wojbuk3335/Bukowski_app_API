@@ -394,18 +394,31 @@ const AddToState = ({ onAdd }) => {
   };
 
   // Funkcja sprawdzania braków w stanie i zapisywania korekt
-  const checkForMissingItems = async (itemsToCheck, userSymbol, sellingPoint) => {
+  const checkForMissingItems = async (itemsToCheck, userSymbol, sellingPoint, transactionId = null) => {
     try {
-      // Filtruj stan tylko dla wybranego użytkownika
-      const userStateItems = allStates.filter(item => item.symbol === userSymbol);
+      // Pobierz wszystkie stany
+      const allStatesResponse = await fetch(`${API_BASE_URL}/api/state`);
+      const allStates = await allStatesResponse.json();
       
       // Lista brakujących kurtek
       const missingItems = [];
       
-      // Sprawdź każdą kurtkę czy istnieje w stanie użytkownika
+      // Sprawdź każdą kurtkę czy istnieje w odpowiednim stanie
       itemsToCheck.forEach(item => {
-        const foundInState = userStateItems.find(stateItem => 
-          stateItem.barcode === item.barcode &&
+        let foundInState = false;
+        let sourceSymbol = userSymbol; // Domyślnie sprawdzaj stan wybranego użytkownika
+        
+        // Dla transferów sprawdź stan punktu źródłowego (transfer_from)
+        if (item.transfer_from && !item.isFromSale) {
+          sourceSymbol = item.transfer_from;
+        }
+        
+        // Filtruj stan według właściwego symbolu
+        const userStateItems = allStates.filter(item => item.symbol === sourceSymbol);
+        
+        const itemBarcode = item.barcode || item.productId; // Używaj productId dla transferów
+        foundInState = userStateItems.find(stateItem => 
+          (stateItem.barcode === itemBarcode || stateItem.id === itemBarcode) &&
           stateItem.fullName === item.fullName &&
           stateItem.size === item.size
         );
@@ -414,26 +427,27 @@ const AddToState = ({ onAdd }) => {
           const operationType = item.isFromSale ? 'SPRZEDAŻY' : 'TRANSFERU';
           const operationDetails = item.isFromSale 
             ? `sprzedaży za ${item.price || 'N/A'} PLN` 
-            : `transferu do punktu ${sellingPoint}`;
+            : `transferu z punktu ${sourceSymbol} do punktu ${item.transfer_to || sellingPoint}`;
           
           const detailedDescription = 
             `🚨 BRAK W STANIE: Próba odpisania kurtki "${item.fullName}" (${item.size}) ` +
-            `z punktu "${sellingPoint}" w ramach ${operationDetails}. ` +
-            `Kurtka o kodzie ${item.barcode} nie została znaleziona w aktualnym stanie punktu. ` +
+            `z punktu "${sourceSymbol}" w ramach ${operationDetails}. ` +
+            `Kurtka o kodzie ${item.barcode || item.productId} nie została znaleziona w aktualnym stanie punktu. ` +
             `Możliwe przyczyny: już sprzedana, przeniesiona, zagubiona lub błąd w ewidencji. ` +
             `Data wykrycia: ${new Date().toLocaleString('pl-PL')}.`;
           
           missingItems.push({
             fullName: item.fullName,
             size: item.size,
-            barcode: item.barcode,
+            barcode: item.barcode || item.productId, // Używaj productId jeśli barcode nie istnieje
             sellingPoint: sellingPoint,
             symbol: userSymbol,
             errorType: 'MISSING_IN_STATE',
             attemptedOperation: item.isFromSale ? 'SALE' : 'TRANSFER',
             description: detailedDescription,
             originalPrice: item.price,
-            discountPrice: item.discount_price
+            discountPrice: item.discount_price,
+            transactionId: transactionId // Dodaj transactionId do korekty
           });
         }
       });
@@ -597,7 +611,7 @@ const AddToState = ({ onAdd }) => {
         const userSymbol = selectedUserObject?.symbol;
         const sellingPoint = selectedUserObject?.sellingPoint || selectedUserObject?.symbol;
         
-        const checkResult = await checkForMissingItems(standardTransfers, userSymbol, sellingPoint);
+        const checkResult = await checkForMissingItems(standardTransfers, userSymbol, sellingPoint, sharedTransactionId);
         validStandardTransfers = checkResult.availableItems;
         standardTransfersMissingCount = checkResult.missingCount;
         
@@ -645,7 +659,7 @@ const AddToState = ({ onAdd }) => {
         console.log('User symbol:', userSymbol);
         console.log('Selling point:', sellingPoint);
         
-        const checkResult = await checkForMissingItems(salesItems, userSymbol, sellingPoint);
+        const checkResult = await checkForMissingItems(salesItems, userSymbol, sellingPoint, sharedTransactionId);
         validSalesItems = checkResult.availableItems;
         salesMissingCount = checkResult.missingCount;
         

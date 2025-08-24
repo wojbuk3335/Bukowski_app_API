@@ -64,6 +64,10 @@ const correctionsSchema = mongoose.Schema({
     discountPrice: {
         type: Number,
         required: false
+    },
+    transactionId: {
+        type: String,
+        required: false
     }
 });
 

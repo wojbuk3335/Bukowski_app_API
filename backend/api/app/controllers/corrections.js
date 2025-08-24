@@ -1,4 +1,5 @@
 const Corrections = require('../db/models/corrections');
+const History = require('../db/models/history');
 const mongoose = require('mongoose');
 
 class CorrectionsController {
@@ -15,7 +16,8 @@ class CorrectionsController {
                 description, 
                 attemptedOperation,
                 originalPrice,
-                discountPrice
+                discountPrice,
+                transactionId
             } = req.body;
 
             const correction = new Corrections({
@@ -31,7 +33,8 @@ class CorrectionsController {
                 status: 'PENDING',
                 createdAt: new Date(),
                 originalPrice,
-                discountPrice
+                discountPrice,
+                transactionId
             });
 
             await correction.save();
@@ -60,10 +63,34 @@ class CorrectionsController {
                 status: 'PENDING',
                 createdAt: new Date(),
                 originalPrice: item.originalPrice,
-                discountPrice: item.discountPrice
+                discountPrice: item.discountPrice,
+                transactionId: item.transactionId
             }));
 
             const savedCorrections = await Corrections.insertMany(corrections);
+            
+            // Zapisz w historii jeśli mamy transactionId
+            if (req.body.length > 0 && req.body[0].transactionId) {
+                const transactionId = req.body[0].transactionId;
+                console.log(`📝 Creating history entries for corrections with transactionId: ${transactionId}`);
+                
+                // Utwórz wpisy historii dla każdej korekty
+                const historyEntries = savedCorrections.map(correction => ({
+                    _id: new mongoose.Types.ObjectId(),
+                    collectionName: 'corrections',
+                    operation: 'Przeniesiono do korekt',
+                    from: correction.symbol,
+                    to: 'KOREKTY',
+                    timestamp: new Date(),
+                    product: `${correction.fullName} ${correction.size} (${correction.barcode})`,
+                    details: `Brak pokrycia w stanie - ${correction.description}`,
+                    transactionId: transactionId
+                }));
+                
+                await History.insertMany(historyEntries);
+                console.log(`✅ Created ${historyEntries.length} history entries for corrections`);
+            }
+            
             res.status(201).json({ 
                 message: `${savedCorrections.length} corrections saved successfully`, 
                 corrections: savedCorrections 

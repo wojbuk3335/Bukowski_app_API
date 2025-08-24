@@ -319,7 +319,8 @@ class TransferProcessingController {
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
                     { operation: 'Dodano do stanu (z magazynu)' },
-                    { operation: 'Odpisano ze stanu (sprzedaż)' }
+                    { operation: 'Odpisano ze stanu (sprzedaż)' },
+                    { operation: 'Przeniesiono do korekt' }
                 ],
                 transactionId: { $exists: true, $ne: null }
             }).sort({ timestamp: -1 });
@@ -348,13 +349,15 @@ class TransferProcessingController {
             // Process each entry in the transaction
             for (const entry of transactionEntries) {
                 try {
-                    const itemData = JSON.parse(entry.details);
-                    
                     // Determine type of undo based on operation
                     const isWarehouseEntry = entry.operation === 'Dodano do stanu (z magazynu)';
                     const isSalesEntry = entry.operation === 'Odpisano ze stanu (sprzedaż)';
+                    const isCorrectionsEntry = entry.operation === 'Przeniesiono do korekt';
                     
                     if (isWarehouseEntry) {
+                        // Parse JSON details for warehouse operations
+                        const itemData = JSON.parse(entry.details);
+                        
                         // WAREHOUSE UNDO: Remove from user state and restore to warehouse
                         console.log('Processing warehouse undo for:', itemData.barcode);
                         
@@ -389,6 +392,9 @@ class TransferProcessingController {
                         });
 
                     } else if (isSalesEntry) {
+                        // Parse JSON details for sales operations
+                        const itemData = JSON.parse(entry.details);
+                        
                         // SALES UNDO: Restore sold item back to the state it was sold from
                         console.log('Processing sales undo for:', itemData.barcode);
                         
@@ -421,7 +427,76 @@ class TransferProcessingController {
                             originalSymbol: originalUser.symbol
                         });
 
+                    } else if (isCorrectionsEntry) {
+                        // CORRECTIONS UNDO: Restore item from corrections back to original table
+                        console.log('Processing corrections undo for:', entry.product);
+                        
+                        // Parsuj informacje o produkcie z pola product (nie z details!)
+                        const productInfo = entry.product.match(/^(.+)\s+\((.+)\)$/);
+                        if (!productInfo) {
+                            throw new Error(`Cannot parse product info: ${entry.product}`);
+                        }
+                        
+                        const [, nameSizePart, barcode] = productInfo;
+                        const parts = nameSizePart.split(' ');
+                        const size = parts[parts.length - 1]; // Ostatnia część to rozmiar
+                        const fullName = parts.slice(0, -1).join(' '); // Reszta to nazwa
+                        
+                        // Usuń korektę z bazy danych
+                        const Corrections = require('../db/models/corrections');
+                        await Corrections.findOneAndDelete({
+                            barcode: barcode,
+                            fullName: fullName,
+                            size: size,
+                            transactionId: entry.transactionId
+                        });
+                        console.log(`✅ Removed correction for ${barcode}`);
+                        
+                        // Przywróć item do oryginalnej tabeli (transfers lub sales)
+                        // Na podstawie entry.details sprawdzamy czy to był transfer czy sprzedaż
+                        if (entry.details && entry.details.includes('SPRZEDAŻY')) {
+                            // Przywróć sprzedaż
+                            const Sales = require('../db/models/sales');
+                            const restoredSale = new Sales({
+                                _id: new mongoose.Types.ObjectId(),
+                                fullName: fullName,
+                                size: size,
+                                barcode: barcode,
+                                from: entry.from,
+                                sellingPoint: entry.from,
+                                timestamp: new Date()
+                            });
+                            await restoredSale.save();
+                            console.log(`✅ Restored sale ${barcode} back to sales table`);
+                        } else {
+                            // Przywróć transfer
+                            const Transfer = require('../db/models/transfer');
+                            const restoredTransfer = new Transfer({
+                                _id: new mongoose.Types.ObjectId(),
+                                fullName: fullName,
+                                size: size,
+                                productId: barcode,
+                                transfer_from: entry.from,
+                                transfer_to: entry.from, // Przywróć do punktu źródłowego
+                                date: new Date(),
+                                dateString: new Date().toISOString().split('T')[0],
+                                processed: false
+                            });
+                            await restoredTransfer.save();
+                            console.log(`✅ Restored transfer ${barcode} back to transfers table`);
+                        }
+
+                        restoredItems.push({
+                            fullName: fullName,
+                            size: size,
+                            barcode: barcode,
+                            action: 'restored_from_corrections'
+                        });
+
                     } else {
+                        // Parse JSON details for standard operations
+                        const itemData = JSON.parse(entry.details);
+                        
                         // STANDARD UNDO: Restore to state and mark transfer as unprocessed
                         console.log('Processing standard undo for:', itemData.barcode);
                         
@@ -628,7 +703,9 @@ class TransferProcessingController {
             const lastTransaction = await History.findOne({
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
-                    { operation: 'Dodano do stanu (z magazynu)' }
+                    { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Przeniesiono do korekt' },
+                    { operation: 'Odpisano ze stanu (sprzedaż)' }
                 ],
                 transactionId: { $exists: true, $ne: null }
             }).sort({ timestamp: -1 });
