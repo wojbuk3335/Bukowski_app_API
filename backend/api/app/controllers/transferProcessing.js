@@ -428,10 +428,10 @@ class TransferProcessingController {
                         });
 
                     } else if (isCorrectionsEntry) {
-                        // CORRECTIONS UNDO: Restore item from corrections back to original table
+                        // CORRECTIONS UNDO: Remove correction and RECREATE original deleted item
                         console.log('Processing corrections undo for:', entry.product);
                         
-                        // Parsuj informacje o produkcie z pola product (nie z details!)
+                        // Parsuj informacje o produkcie z pola product
                         const productInfo = entry.product.match(/^(.+)\s+\((.+)\)$/);
                         if (!productInfo) {
                             throw new Error(`Cannot parse product info: ${entry.product}`);
@@ -439,53 +439,59 @@ class TransferProcessingController {
                         
                         const [, nameSizePart, barcode] = productInfo;
                         const parts = nameSizePart.split(' ');
-                        const size = parts[parts.length - 1]; // Ostatnia część to rozmiar
-                        const fullName = parts.slice(0, -1).join(' '); // Reszta to nazwa
+                        const size = parts[parts.length - 1];
+                        const fullName = parts.slice(0, -1).join(' ');
                         
                         // Usuń korektę z bazy danych
                         const Corrections = require('../db/models/corrections');
-                        await Corrections.findOneAndDelete({
+                        const deletedCorrection = await Corrections.findOneAndDelete({
                             barcode: barcode,
                             fullName: fullName,
                             size: size,
                             transactionId: entry.transactionId
                         });
-                        console.log(`✅ Removed correction for ${barcode}`);
                         
-                        // Przywróć item do oryginalnej tabeli (transfers lub sales)
-                        // Na podstawie entry.details sprawdzamy czy to był transfer czy sprzedaż
-                        if (entry.details && entry.details.includes('SPRZEDAŻY')) {
-                            // Przywróć sprzedaż
-                            const Sales = require('../db/models/sales');
-                            const restoredSale = new Sales({
-                                _id: new mongoose.Types.ObjectId(),
-                                fullName: fullName,
-                                size: size,
-                                barcode: barcode,
-                                from: entry.from,
-                                sellingPoint: entry.from,
-                                timestamp: new Date()
-                            });
-                            await restoredSale.save();
-                            console.log(`✅ Restored sale ${barcode} back to sales table`);
-                        } else {
-                            // Przywróć transfer
-                            const Transfer = require('../db/models/transfer');
-                            const restoredTransfer = new Transfer({
-                                _id: new mongoose.Types.ObjectId(),
-                                fullName: fullName,
-                                size: size,
-                                productId: barcode,
-                                transfer_from: entry.from,
-                                transfer_to: entry.from, // Przywróć do punktu źródłowego
-                                date: new Date(),
-                                dateString: new Date().toISOString().split('T')[0],
-                                processed: false
-                            });
-                            await restoredTransfer.save();
-                            console.log(`✅ Restored transfer ${barcode} back to transfers table`);
+                        if (deletedCorrection) {
+                            console.log(`✅ Removed correction for ${barcode}`);
+                            
+                            // KLUCZOWE: Odtwórz usunięty transfer/sprzedaż
+                            // Po utworzeniu korekty, oryginalny wpis został USUNIĘTY z tabeli
+                            // Cofnięcie korekty = odtworzenie usuniętego wpisu
+                            
+                            if (entry.details && entry.details.includes('SPRZEDAŻY')) {
+                                // Odtwórz sprzedaż
+                                const Sales = require('../db/models/sales');
+                                const recreatedSale = new Sales({
+                                    _id: new mongoose.Types.ObjectId(),
+                                    fullName: fullName,
+                                    size: size,
+                                    barcode: barcode,
+                                    sellingPoint: entry.from,
+                                    from: entry.from,
+                                    timestamp: new Date(),
+                                    date: new Date().toISOString().split('T')[0]
+                                });
+                                await recreatedSale.save();
+                                console.log(`✅ Recreated sale ${barcode} in sales table`);
+                            } else {
+                                // Odtwórz transfer
+                                const Transfer = require('../db/models/transfer');
+                                const recreatedTransfer = new Transfer({
+                                    _id: new mongoose.Types.ObjectId(),
+                                    fullName: fullName,
+                                    size: size,
+                                    productId: barcode,
+                                    transfer_from: entry.from,
+                                    transfer_to: entry.to || entry.from,
+                                    date: new Date(),
+                                    dateString: new Date().toISOString().split('T')[0],
+                                    processed: false // KLUCZOWE: odtworzony transfer jest nieprzetworzone
+                                });
+                                await recreatedTransfer.save();
+                                console.log(`✅ Recreated transfer ${barcode} in transfers table`);
+                            }
                         }
-
+                        
                         restoredItems.push({
                             fullName: fullName,
                             size: size,

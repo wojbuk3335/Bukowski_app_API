@@ -107,6 +107,23 @@ class TransferController {
         }
     };
 
+    // TEMPORARY: Delete transfer by _id to remove duplicates
+    deleteTransferById = async (req, res) => {
+        try {
+            console.log("Received _id for deletion:", req.params.id);
+
+            const transfer = await Transfer.findByIdAndDelete(req.params.id);
+            if (!transfer) {
+                console.log("Transfer not found for _id:", req.params.id);
+                return res.status(404).json({ message: 'Transfer not found' });
+            }
+            res.status(200).json({ message: 'Transfer deleted successfully', deletedTransfer: transfer });
+        } catch (error) {
+            console.error("Error deleting transfer by _id:", error);
+            res.status(500).json({ error: error.message });
+        }
+    };
+
     // New method to manage indexes
     manageIndexes = async (req, res) => {
         try {
@@ -138,8 +155,8 @@ class TransferController {
             // Get indexes after changes
             const newIndexes = await collection.indexes();
             
-            res.status(200).json({ 
-                message: 'Index management completed',
+            res.status(200).json({
+                message: "Index management completed",
                 oldIndexes: indexes,
                 newIndexes: newIndexes
             });

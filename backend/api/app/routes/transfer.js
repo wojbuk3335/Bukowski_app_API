@@ -14,6 +14,7 @@ router.get('/debug/all', transferController.getAllTransfersDebug); // DEBUG endp
 router.get('/:id', transferController.getTransferById);
 router.put('/:id', transferController.updateTransfer);
 router.delete('/all', transferController.deleteAllTransfers); // Define this route first
+router.delete('/by-id/:id', transferController.deleteTransferById); // TEMPORARY: Delete by _id
 router.delete('/:productId', transferController.deleteTransferByProductId); // Use productId for deletion
 router.patch('/:id/cancel', transferController.cancelTransfer);
 router.post('/manage-indexes', transferController.manageIndexes); // New endpoint for index management
