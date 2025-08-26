@@ -74,21 +74,27 @@ class CorrectionsController {
                 const transactionId = req.body[0].transactionId;
                 console.log(`📝 Creating history entries for corrections with transactionId: ${transactionId}`);
                 
-                // Utwórz wpisy historii dla każdej korekty
-                const historyEntries = savedCorrections.map(correction => ({
-                    _id: new mongoose.Types.ObjectId(),
-                    collectionName: 'corrections',
-                    operation: 'Przeniesiono do korekt',
-                    from: correction.symbol,
-                    to: 'KOREKTY',
-                    timestamp: new Date(),
-                    product: `${correction.fullName} ${correction.size} (${correction.barcode})`,
-                    details: `Brak pokrycia w stanie - ${correction.description}`,
-                    transactionId: transactionId
-                }));
+                // Utwórz wpisy historii dla KAŻDEJ korekty (bez deduplikacji)
+                // WAŻNE: Każda kurtka musi mieć swój wpis w historii, nawet jeśli są identyczne
+                const historyEntries = savedCorrections.map((correction, index) => {
+                    const originalData = req.body[index]?.originalData;
+                    return {
+                        _id: new mongoose.Types.ObjectId(),
+                        collectionName: 'corrections',
+                        operation: 'Przeniesiono do korekt',
+                        from: correction.symbol,
+                        to: 'KOREKTY',
+                        timestamp: new Date(),
+                        product: `${correction.fullName} ${correction.size} (${correction.barcode})`,
+                        details: `Brak pokrycia w stanie - ${correction.description}`,
+                        transactionId: transactionId,
+                        // NOWE: Zapisz oryginalne dane do przywrócenia
+                        originalData: originalData ? JSON.stringify(originalData) : null
+                    };
+                });
                 
                 await History.insertMany(historyEntries);
-                console.log(`✅ Created ${historyEntries.length} history entries for corrections`);
+                console.log(`✅ Created ${historyEntries.length} history entries for corrections (one per item, no deduplication)`);
             }
             
             res.status(201).json({ 

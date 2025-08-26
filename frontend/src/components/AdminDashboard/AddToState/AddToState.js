@@ -447,7 +447,22 @@ const AddToState = ({ onAdd }) => {
             description: detailedDescription,
             originalPrice: item.price,
             discountPrice: item.discount_price,
-            transactionId: transactionId // Dodaj transactionId do korekty
+            transactionId: transactionId, // Dodaj transactionId do korekty
+            // NOWE: Zapisz oryginalne dane do przywrócenia
+            originalData: {
+              _id: item._id,
+              fullName: item.fullName,
+              size: item.size,
+              barcode: item.barcode || item.productId,
+              isFromSale: item.isFromSale,
+              price: item.price,
+              advancePayment: item.advancePayment,
+              reason: item.reason,
+              transfer_from: item.transfer_from || item.from,
+              transfer_to: item.transfer_to,
+              timestamp: item.timestamp,
+              date: item.date
+            }
           });
         }
       });
@@ -475,14 +490,18 @@ const AddToState = ({ onAdd }) => {
           console.log('🗑️ Deleting missing items from original tables...');
           
           for (const missingItem of missingItems) {
-            // Znajdź oryginalny item w itemsToCheck
-            const originalItem = itemsToCheck.find(item => 
+            // Znajdź WSZYSTKIE oryginalne itemy w itemsToCheck (nie tylko pierwszy!)
+            const originalItems = itemsToCheck.filter(item => 
               item.barcode === missingItem.barcode &&
               item.fullName === missingItem.fullName &&
               item.size === missingItem.size
             );
             
-            if (originalItem && originalItem._id) {
+            console.log(`🔍 Found ${originalItems.length} items to delete for ${missingItem.fullName} ${missingItem.size}`);
+            
+            // Usuń WSZYSTKIE znalezione itemy
+            for (const originalItem of originalItems) {
+              if (originalItem && originalItem._id) {
               try {
                 if (originalItem.isFromSale) {
                   // Usuń sprzedaż
@@ -513,6 +532,7 @@ const AddToState = ({ onAdd }) => {
                 console.error(`Error deleting item ${originalItem._id}:`, deleteError);
               }
             }
+          }
           }
           
           // Pokaż modal z brakującymi kurtkami

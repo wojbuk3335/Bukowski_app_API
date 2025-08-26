@@ -454,12 +454,22 @@ class TransferProcessingController {
                         if (deletedCorrection) {
                             console.log(`✅ Removed correction for ${barcode}`);
                             
-                            // KLUCZOWE: Odtwórz usunięty transfer/sprzedaż
+                            // KLUCZOWE: Odtwórz usunięty transfer/sprzedaż z oryginalnych danych
                             // Po utworzeniu korekty, oryginalny wpis został USUNIĘTY z tabeli
-                            // Cofnięcie korekty = odtworzenie usuniętego wpisu
+                            // Cofnięcie korekty = odtworzenie usuniętego wpisu z oryginalnymi danymi
                             
-                            if (entry.details && entry.details.includes('SPRZEDAŻY')) {
-                                // Odtwórz sprzedaż
+                            // Sprawdź czy mamy oryginalne dane w historii
+                            let originalData = null;
+                            if (entry.originalData) {
+                                try {
+                                    originalData = JSON.parse(entry.originalData);
+                                } catch (e) {
+                                    console.log('⚠️ Could not parse originalData from history');
+                                }
+                            }
+                            
+                            if (entry.details && (entry.details.includes('SPRZEDAŻY') || entry.details.includes('sprzedaży'))) {
+                                // Odtwórz sprzedaż z oryginalnymi danymi
                                 const Sales = require('../db/models/sales');
                                 const recreatedSale = new Sales({
                                     _id: new mongoose.Types.ObjectId(),
@@ -468,27 +478,38 @@ class TransferProcessingController {
                                     barcode: barcode,
                                     sellingPoint: entry.from,
                                     from: entry.from,
-                                    timestamp: new Date(),
-                                    date: new Date().toISOString().split('T')[0]
+                                    timestamp: originalData?.timestamp || new Date(),
+                                    date: originalData?.date || new Date().toISOString().split('T')[0],
+                                    // Przywróć oryginalne dane finansowe jeśli dostępne
+                                    cash: originalData?.price ? [{
+                                        price: originalData.price,
+                                        currency: 'PLN'
+                                    }] : [],
+                                    card: [],
+                                    symbol: entry.from
                                 });
                                 await recreatedSale.save();
-                                console.log(`✅ Recreated sale ${barcode} in sales table`);
+                                console.log(`✅ Recreated sale ${barcode} with original data`);
                             } else {
-                                // Odtwórz transfer
+                                // Odtwórz transfer z oryginalnymi danymi
                                 const Transfer = require('../db/models/transfer');
                                 const recreatedTransfer = new Transfer({
                                     _id: new mongoose.Types.ObjectId(),
                                     fullName: fullName,
                                     size: size,
                                     productId: barcode,
-                                    transfer_from: entry.from,
-                                    transfer_to: entry.to || entry.from,
-                                    date: new Date(),
-                                    dateString: new Date().toISOString().split('T')[0],
-                                    processed: false // KLUCZOWE: odtworzony transfer jest nieprzetworzone
+                                    transfer_from: originalData?.transfer_from || entry.from,
+                                    transfer_to: originalData?.transfer_to || entry.to || entry.from,
+                                    date: originalData?.date || new Date(),
+                                    dateString: originalData?.date ? originalData.date.split('T')[0] : new Date().toISOString().split('T')[0],
+                                    processed: false,
+                                    // Przywróć oryginalne dane finansowe jeśli dostępne
+                                    reason: originalData?.reason || null,
+                                    advancePayment: originalData?.advancePayment || 0,
+                                    advancePaymentCurrency: 'PLN'
                                 });
                                 await recreatedTransfer.save();
-                                console.log(`✅ Recreated transfer ${barcode} in transfers table`);
+                                console.log(`✅ Recreated transfer ${barcode} with original data`);
                             }
                         }
                         
