@@ -28,6 +28,40 @@ const AddToState = ({ onAdd }) => {
   // Stan dla wszystkich stanów (do sprawdzania czy przedmiot jeszcze istnieje)
   const [allStates, setAllStates] = useState([]);
 
+  // NOWE STANY dla synchronizacji jeden-do-jednego
+  const [matchedPairs, setMatchedPairs] = useState([]); // Sparowane pary
+  const [greyedWarehouseItems, setGreyedWarehouseItems] = useState(new Set()); // Wyszarzone elementy magazynu
+
+  // Funkcje pomocnicze dla synchronizacji
+  const isProductMatched = (productId, type) => {
+    return matchedPairs.some(pair => 
+      pair.blueProduct.id === productId && pair.blueProduct.type === type
+    );
+  };
+
+  const isWarehouseItemGreyed = (warehouseItemId) => {
+    return greyedWarehouseItems.has(warehouseItemId);
+  };
+
+  const getBackgroundColor = (item, fromWarehouse, isFromSale) => {
+    // Sprawdź czy jest sparowany (niebieski → zielony)
+    const matchedAsSale = isFromSale && isProductMatched(item._id, 'sale');
+    const matchedAsTransfer = !fromWarehouse && isProductMatched(item._id, 'transfer');
+    
+    if (matchedAsSale || matchedAsTransfer) {
+      return '#28a745'; // ZIELONY - sparowany
+    }
+    
+    // Standardowe kolory
+    if (isFromSale) {
+      return '#007bff'; // Niebieski - sprzedaż
+    } else if (fromWarehouse) {
+      return '#ff8c00'; // Pomarańczowy - transfer z magazynu
+    } else {
+      return '#007bff'; // Niebieski - transfer zwykły
+    }
+  };
+
   // Fetch users from API
   const fetchUsers = async () => {
     try {
@@ -962,6 +996,93 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  const handleSynchronize = async () => {
+    try {
+      // Pobierz listę niebieskich produktów (sprzedaż + transfery)
+      const blueProducts = [];
+      
+      // Dodaj sprzedaże (niebieskie) - wszystkie produkty ze sprzedaży są niebieskie
+      if (sales && sales.length > 0) {
+        sales.forEach((sale, index) => {
+          blueProducts.push({
+            id: sale._id,
+            type: 'sale',
+            barcode: sale.barcode, // Używamy sale.barcode zamiast sale.productId
+            fullName: sale.fullName,
+            size: sale.size,
+            source: sale
+          });
+        });
+      }
+      
+      // Dodaj transfery (niebieskie - fromWarehouse: false)
+      if (transfers && transfers.length > 0) {
+        transfers.forEach((transfer, index) => {
+          if (!transfer.fromWarehouse) {
+            blueProducts.push({
+              id: transfer._id,
+              type: 'transfer',
+              barcode: transfer.productId, // Transfer używa productId jako barcode
+              fullName: transfer.fullName,
+              size: transfer.size,
+              source: transfer
+            });
+          }
+        });
+      }
+      
+      // Przygotuj kopię produktów magazynowych (dostępnych do sparowania)
+      const availableWarehouseItems = [...(warehouseItems || [])];
+      const pairedItems = [];
+      const greyedWarehouseItems = new Set();
+      
+      // Algorytm sparowania jeden-do-jednego
+      blueProducts.forEach((blueProduct, index) => {
+        // Znajdź pierwszý pasujący produkt w magazynie
+        const matchIndex = availableWarehouseItems.findIndex(warehouseItem => {
+          const barcodeMatch = warehouseItem.barcode === blueProduct.barcode;
+          
+          // Wyciągnij nazwę z obiektu lub użyj jako string
+          const warehouseName = warehouseItem.fullName && typeof warehouseItem.fullName === 'object' 
+            ? warehouseItem.fullName.name || warehouseItem.fullName.fullName
+            : warehouseItem.fullName;
+          const nameMatch = warehouseName === blueProduct.fullName;
+          
+          // Wyciągnij rozmiar z obiektu lub użyj jako string
+          const warehouseSize = warehouseItem.size && typeof warehouseItem.size === 'object' 
+            ? warehouseItem.size.Roz_Opis || warehouseItem.size.name || warehouseItem.size.size
+            : warehouseItem.size;
+          const sizeMatch = warehouseSize === blueProduct.size;
+          
+          return barcodeMatch && nameMatch && sizeMatch;
+        });
+        
+        if (matchIndex !== -1) {
+          const matchedWarehouseItem = availableWarehouseItems[matchIndex];
+          
+          // Zapisz sparowanie
+          pairedItems.push({
+            blueProduct: blueProduct,
+            warehouseProduct: matchedWarehouseItem
+          });
+          
+          // Dodaj do wyszarzonych
+          greyedWarehouseItems.add(matchedWarehouseItem._id);
+          
+          // Usuń z dostępnych (nie może być użyty ponownie)
+          availableWarehouseItems.splice(matchIndex, 1);
+        }
+      });
+      
+      // Zapisz informacje o sparowaniu w state
+      setMatchedPairs(pairedItems);
+      setGreyedWarehouseItems(greyedWarehouseItems);
+      
+    } catch (error) {
+      console.error('Błąd podczas synchronizacji:', error);
+    }
+  };
+
   return (
     <>
     <div style={{ display: 'flex', height: '100vh', gap: '20px' }}>
@@ -1014,10 +1135,13 @@ const AddToState = ({ onAdd }) => {
               </tr>
             </thead>
             <tbody>
-              {filteredWarehouseItems.map((item) => (
+              {filteredWarehouseItems.map((item) => {
+                const isGreyed = isWarehouseItemGreyed(item._id);
+                return (
                 <tr key={item._id} style={{ 
-                  backgroundColor: '#e8f5e8',
-                  '&:hover': { backgroundColor: '#d4edda' }
+                  backgroundColor: isGreyed ? '#d6d6d6' : '#e8f5e8', // Wyszarzony jeśli sparowany
+                  opacity: isGreyed ? 0.6 : 1.0,
+                  '&:hover': { backgroundColor: isGreyed ? '#c0c0c0' : '#d4edda' }
                 }}>
                   <td style={{ border: '1px solid #28a745', padding: '6px' }}>
                     {item.fullName?.fullName || 'Nieznana nazwa'}
@@ -1033,23 +1157,26 @@ const AddToState = ({ onAdd }) => {
                   </td>
                   <td style={{ border: '1px solid #28a745', padding: '6px', textAlign: 'center' }}>
                     <button
-                      onClick={() => handleMoveFromWarehouse(item)}
+                      onClick={() => !isGreyed && handleMoveFromWarehouse(item)}
+                      disabled={isGreyed}
                       style={{
-                        backgroundColor: '#17a2b8',
+                        backgroundColor: isGreyed ? '#6c757d' : '#17a2b8',
                         color: 'white',
                         border: 'none',
                         padding: '4px 8px',
                         borderRadius: '3px',
-                        cursor: 'pointer',
-                        fontSize: '11px'
+                        cursor: isGreyed ? 'not-allowed' : 'pointer',
+                        fontSize: '11px',
+                        opacity: isGreyed ? 0.6 : 1.0
                       }}
-                      title="Przenieś produkt do obszaru transferów"
+                      title={isGreyed ? "Produkt sparowany - niedostępny" : "Przenieś produkt do obszaru transferów"}
                     >
-                      � Przenieś
+                      {isGreyed ? '🔒 Sparowany' : '➤ Przenieś'}
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           
@@ -1110,6 +1237,61 @@ const AddToState = ({ onAdd }) => {
             </select>
           </div>
         </form>
+
+        {/* Przyciski Synchronizacji */}
+        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+          <button
+            onClick={handleSynchronize}
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              transition: 'background-color 0.3s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginRight: '10px'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+            title="Sparuj produkty jeden-do-jednego: niebieski → zielony, magazyn → wyszarzony"
+          >
+            🔄 Synchronizuj z magazynem
+          </button>
+
+          <button
+            onClick={() => {
+              setMatchedPairs([]);
+              setGreyedWarehouseItems(new Set());
+            }}
+            style={{
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              transition: 'background-color 0.3s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
+            title="Resetuj synchronizację - przywróć domyślne kolory"
+          >
+            🔄 Reset synchronizacji
+          </button>
+        </div>
 
         <div style={{ marginTop: '20px', marginBottom: '20px', textAlign: 'center' }}>
           <button 
@@ -1180,8 +1362,7 @@ const AddToState = ({ onAdd }) => {
                 
                 return (
                 <tr key={transfer._id} style={{ 
-                  backgroundColor: transfer.isFromSale ? '#007bff' : 
-                                  transfer.fromWarehouse ? '#ff8c00' : '#007bff', 
+                  backgroundColor: getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale),
                   color: 'white',
                   opacity: isProcessed ? 0.7 : 1.0 // Przezroczystość dla przetworzonych
                 }}>
