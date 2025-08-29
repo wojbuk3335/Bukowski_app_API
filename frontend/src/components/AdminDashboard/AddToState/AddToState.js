@@ -31,12 +31,29 @@ const AddToState = ({ onAdd }) => {
   // NOWE STANY dla synchronizacji jeden-do-jednego
   const [matchedPairs, setMatchedPairs] = useState([]); // Sparowane pary
   const [greyedWarehouseItems, setGreyedWarehouseItems] = useState(new Set()); // Wyszarzone elementy magazynu
+  const [message, setMessage] = useState(''); // Komunikaty synchronizacji
 
   // Funkcje pomocnicze dla synchronizacji
   const isProductMatched = (productId, type) => {
-    return matchedPairs.some(pair => 
+    const matched = matchedPairs.some(pair => 
       pair.blueProduct.id === productId && pair.blueProduct.type === type
     );
+    
+    console.log(`🔍 isProductMatched(${productId}, ${type}):`, {
+      matched,
+      matchedPairsCount: matchedPairs.length,
+      searchingFor: { productId, type },
+      matchedPairs: matchedPairs.map(p => ({
+        blueId: p.blueProduct.id,
+        blueType: p.blueProduct.type,
+        blueName: p.blueProduct.fullName,
+        blueSize: p.blueProduct.size,
+        warehouseId: p.warehouseProduct._id,
+        exactMatch: p.blueProduct.id === productId && p.blueProduct.type === type
+      }))
+    });
+    
+    return matched;
   };
 
   const isWarehouseItemGreyed = (warehouseItemId) => {
@@ -48,16 +65,29 @@ const AddToState = ({ onAdd }) => {
     const matchedAsSale = isFromSale && isProductMatched(item._id, 'sale');
     const matchedAsTransfer = !fromWarehouse && isProductMatched(item._id, 'transfer');
     
+    console.log(`🎨 Sprawdzam kolor dla ${item._id}:`, {
+      isFromSale,
+      fromWarehouse,
+      matchedAsSale,
+      matchedAsTransfer,
+      matchedPairsCount: matchedPairs.length,
+      isFirstProduct: item._id === '68adff169284cd8488a9003e'
+    });
+    
     if (matchedAsSale || matchedAsTransfer) {
+      console.log(`   ✅ ZIELONY (sparowany) - ID: ${item._id}`);
       return '#28a745'; // ZIELONY - sparowany
     }
     
     // Standardowe kolory
     if (isFromSale) {
+      console.log(`   🔵 NIEBIESKI (sprzedaż) - ID: ${item._id}`);
       return '#007bff'; // Niebieski - sprzedaż
     } else if (fromWarehouse) {
+      console.log(`   🟠 POMARAŃCZOWY (magazyn) - ID: ${item._id}`);
       return '#ff8c00'; // Pomarańczowy - transfer z magazynu
     } else {
+      console.log(`   🔵 NIEBIESKI (transfer) - ID: ${item._id}`);
       return '#007bff'; // Niebieski - transfer zwykły
     }
   };
@@ -921,6 +951,12 @@ const AddToState = ({ onAdd }) => {
       await fetchSales(); // Dodaj odświeżanie sprzedaży
       console.log('✅ All data refreshed after processing');
       
+      // Reset synchronizacji po przetworzeniu - wszystkie produkty wrócą do normalnego stanu
+      console.log('🔄 Resetting synchronization state after processing...');
+      setMatchedPairs([]);
+      setGreyedWarehouseItems(new Set());
+      console.log('✅ Synchronization state reset - all products back to normal colors');
+      
       // Sprawdź ostatnią transakcję
       await checkLastTransaction();
     } catch (error) {
@@ -1134,90 +1170,271 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  // Funkcja do usuwania pojedynczego produktu ze stanu
+  const handleRemoveFromState = async (transfer) => {
+    try {
+      console.log('🗑️ Usuwam ze stanu:', transfer);
+      
+      // Remove the product from state based on transfer data
+      const response = await fetch(`/api/state/barcode/${transfer.productId}/symbol/${transfer.transfer_from}?count=1`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Also remove the transfer record
+        await fetch(`/api/transfer/${transfer._id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        // Update local state - remove this transfer
+        setTransfers(prevTransfers => 
+          prevTransfers.filter(t => t._id !== transfer._id)
+        );
+        
+        console.log('✅ Pomyślnie usunięto ze stanu');
+      } else {
+        console.error(`❌ Failed to remove transfer ${transfer._id}`);
+        alert('Błąd podczas usuwania produktu ze stanu');
+      }
+    } catch (error) {
+      console.error(`❌ Error processing transfer ${transfer._id}:`, error);
+      alert('Błąd podczas usuwania produktu ze stanu');
+    }
+  };
+
   const handleSynchronize = async () => {
     try {
-      // Pobierz listę niebieskich produktów (sprzedaż + transfery)
-      const blueProducts = [];
+      console.log('🔄 SYNCHRONIZACJA: Rozpoczynam synchronizację...');
+      console.log('📊 DANE WEJŚCIOWE:');
+      console.log('   - FilteredItems:', filteredItems?.length || 0, 'items');
+      console.log('   - Warehouse:', filteredWarehouseItems?.length || 0, 'items');
+      console.log('   - Raw sales data:', sales?.length || 0, 'items');
+      console.log('   - Raw transfers data:', transfers?.length || 0, 'items');
+      console.log('   - Selected date:', selectedDate);
+      console.log('   - Selected user:', selectedUser);
       
-      // Dodaj sprzedaże (niebieskie) - wszystkie produkty ze sprzedaży są niebieskie
+      // Debug filtrowania
+      console.log('🔍 ANALIZA FILTROWANIA:');
       if (sales && sales.length > 0) {
         sales.forEach((sale, index) => {
-          blueProducts.push({
-            id: sale._id,
-            type: 'sale',
-            barcode: sale.barcode, // Używamy sale.barcode zamiast sale.productId
-            fullName: sale.fullName,
-            size: sale.size,
-            source: sale
-          });
+          const dateMatch = !selectedDate || sale.date?.startsWith(selectedDate);
+          const userMatch = !selectedUser || sale.user === selectedUser;
+          const isProcessed = processedSales.has(sale._id);
+          
+          console.log(`   Sale ${index + 1}: ${sale.fullName} ${sale.size} (${sale._id})`);
+          console.log(`      Date: ${sale.date} | Match: ${dateMatch}`);
+          console.log(`      User: ${sale.user} | Match: ${userMatch}`);
+          console.log(`      Processed: ${isProcessed}`);
+          console.log(`      Should be included: ${dateMatch && userMatch && !isProcessed}`);
         });
       }
       
-      // Dodaj transfery (niebieskie - fromWarehouse: false)
-      if (transfers && transfers.length > 0) {
-        transfers.forEach((transfer, index) => {
-          if (!transfer.fromWarehouse) {
+      // Pobierz listę niebieskich produktów z WIDOCZNYCH elementów (po filtrach)
+      const blueProducts = [];
+      
+      // Dodaj produkty ze sprzedaży i transferów z filteredItems
+      if (filteredItems && filteredItems.length > 0) {
+        console.log('📋 PRZETWARZANIE WIDOCZNYCH PRODUKTÓW:');
+        filteredItems.forEach((item, index) => {
+          console.log(`   Produkt ${index + 1}:`, {
+            id: item._id,
+            fullName: item.fullName,
+            size: item.size,
+            barcode: item.barcode || item.productId,
+            isFromSale: item.isFromSale,
+            fromWarehouse: item.fromWarehouse
+          });
+          
+          // Tylko niebieskie produkty (nie z magazynu)
+          if (!item.fromWarehouse) {
             blueProducts.push({
-              id: transfer._id,
-              type: 'transfer',
-              barcode: transfer.productId, // Transfer używa productId jako barcode
-              fullName: transfer.fullName,
-              size: transfer.size,
-              source: transfer
+              id: item._id,
+              type: item.isFromSale ? 'sale' : 'transfer',
+              barcode: item.barcode || item.productId,
+              fullName: item.fullName,
+              size: item.size,
+              source: item
             });
           }
         });
       }
       
-      // Przygotuj kopię produktów magazynowych (dostępnych do sparowania)
-      const availableWarehouseItems = [...(warehouseItems || [])];
-      const pairedItems = [];
-      const greyedWarehouseItems = new Set();
-      
-      // Algorytm sparowania jeden-do-jednego
-      blueProducts.forEach((blueProduct, index) => {
-        // Znajdź pierwszý pasujący produkt w magazynie
-        const matchIndex = availableWarehouseItems.findIndex(warehouseItem => {
-          const barcodeMatch = warehouseItem.barcode === blueProduct.barcode;
-          
-          // Wyciągnij nazwę z obiektu lub użyj jako string
-          const warehouseName = warehouseItem.fullName && typeof warehouseItem.fullName === 'object' 
-            ? warehouseItem.fullName.name || warehouseItem.fullName.fullName
-            : warehouseItem.fullName;
-          const nameMatch = warehouseName === blueProduct.fullName;
-          
-          // Wyciągnij rozmiar z obiektu lub użyj jako string
-          const warehouseSize = warehouseItem.size && typeof warehouseItem.size === 'object' 
-            ? warehouseItem.size.Roz_Opis || warehouseItem.size.name || warehouseItem.size.size
-            : warehouseItem.size;
-          const sizeMatch = warehouseSize === blueProduct.size;
-          
-          return barcodeMatch && nameMatch && sizeMatch;
+      // Dodaj przefiltrowane transfer'y (niebieskie)
+      if (Array.isArray(filteredItems)) {
+        filteredItems.forEach(item => {
+          // Sprawdź czy to transfer (ma productId zamiast barcode)
+          if (item.productId && !item.barcode) {
+            const backgroundColor = getBackgroundColor(item, false, false); // transfer: nie z magazynu, nie sprzedaż
+            if (backgroundColor === '#007bff') { // Niebieski kolor hex
+              blueProducts.push({
+                type: 'transfer',
+                barcode: item.productId, // Transfer używa productId jako barcode
+                fullName: item.fullName,
+                size: item.size,
+                source: item
+              });
+            }
+          } else {
+            // To jest sale
+            const backgroundColor = getBackgroundColor(item, false, true); // sale: nie z magazynu, jest sprzedażą
+            if (backgroundColor === '#007bff') { // Niebieski kolor hex
+              blueProducts.push({
+                type: 'sale',
+                barcode: item.barcode,
+                fullName: item.fullName,
+                size: item.size,
+                source: item
+              });
+            }
+          }
         });
-        
-        if (matchIndex !== -1) {
-          const matchedWarehouseItem = availableWarehouseItems[matchIndex];
-          
-          // Zapisz sparowanie
-          pairedItems.push({
-            blueProduct: blueProduct,
-            warehouseProduct: matchedWarehouseItem
-          });
-          
-          // Dodaj do wyszarzonych
-          greyedWarehouseItems.add(matchedWarehouseItem._id);
-          
-          // Usuń z dostępnych (nie może być użyty ponownie)
-          availableWarehouseItems.splice(matchIndex, 1);
-        }
+      }
+      
+      console.log('📊 NIEBIESKIE PRODUKTY (do sparowania):', blueProducts.length);
+      blueProducts.forEach((bp, i) => {
+        console.log(`   ${i + 1}. ${bp.fullName} ${bp.size} - ${bp.barcode} (${bp.type})`);
       });
       
-      // Zapisz informacje o sparowaniu w state
-      setMatchedPairs(pairedItems);
-      setGreyedWarehouseItems(greyedWarehouseItems);
+      // Przygotuj pomarańczowe produkty (magazyn) z filteredWarehouseItems
+      let orangeProducts = [];
       
+      console.log('🔍 DEBUGOWANIE PRODUKTÓW MAGAZYNOWYCH:');
+      console.log('   filteredWarehouseItems:', filteredWarehouseItems);
+      
+      if (Array.isArray(filteredWarehouseItems)) {
+        filteredWarehouseItems.forEach((warehouse, index) => {
+          console.log(`   Produkt magazynowy ${index + 1}:`, warehouse);
+          console.log(`   ID: ${warehouse._id}, barcode: ${warehouse.barcode}`);
+          
+          const backgroundColor = getBackgroundColor(warehouse, true, false); // magazyn: z magazynu, nie sprzedaż
+          console.log(`   Kolor tła: ${backgroundColor}`);
+          
+          if (backgroundColor === '#ff8c00') { // Pomarańczowy kolor hex
+            orangeProducts.push({
+              type: 'warehouse',
+              barcode: warehouse.barcode || '', // barcode jest bezpośrednio na warehouse
+              fullName: warehouse.fullName?.fullName || '',
+              size: warehouse.size?.Roz_Opis || '',
+              source: warehouse
+            });
+          }
+        });
+      }
+      
+      console.log('🧡 POMARAŃCZOWE PRODUKTY (do sparowania):', orangeProducts.length);
+      orangeProducts.forEach((op, i) => {
+        console.log(`   ${i + 1}. ${op.fullName} ${op.size} - ${op.barcode} (${op.type})`);
+      });
+
+      // GŁÓWNY ALGORYTM PAROWANIA
+      console.log('\n🔄 ROZPOCZYNAM PAROWANIE...');
+      
+      const newPairs = [];
+      const pairedBlueIndexes = new Set();
+      const pairedOrangeIndexes = new Set();
+
+      for (let b = 0; b < blueProducts.length; b++) {
+        if (pairedBlueIndexes.has(b)) continue;
+
+        const blueProduct = blueProducts[b];
+        console.log(`\n🔍 Szukam pary dla niebieskiego produktu ${b + 1}: ${blueProduct.fullName} ${blueProduct.size} (${blueProduct.barcode})`);
+
+        for (let o = 0; o < orangeProducts.length; o++) {
+          if (pairedOrangeIndexes.has(o)) continue;
+
+          const orangeProduct = orangeProducts[o];
+          console.log(`   🧪 Sprawdzam pomarańczowy ${o + 1}: ${orangeProduct.fullName} ${orangeProduct.size} (${orangeProduct.barcode})`);
+
+          // Sprawdź czy produkty pasują do siebie (barcode, nazwa, rozmiar)
+          const barcodeMatch = blueProduct.barcode === orangeProduct.barcode;
+          const nameMatch = blueProduct.fullName === orangeProduct.fullName;
+          const sizeMatch = blueProduct.size === orangeProduct.size;
+          const isMatched = barcodeMatch && nameMatch && sizeMatch;
+          
+          console.log(`      Dopasowania: barcode=${barcodeMatch}, nazwa=${nameMatch}, rozmiar=${sizeMatch} → ${isMatched}`);
+          
+          if (isMatched) {
+            console.log(`   ✅ ZNALEZIONO PARĘ! Niebieski ${b + 1} ↔ Pomarańczowy ${o + 1}`);
+            
+            // Znajdź dane użytkownika dla transfer_to
+            const selectedUserData = users.find(user => user._id === selectedUser);
+            const userSymbol = selectedUserData?.symbol || 'UNKNOWN';
+            
+            newPairs.push({
+              id: Date.now() + Math.random(),
+              blueProduct: {
+                id: blueProduct.source._id,
+                type: blueProduct.type,
+                fullName: blueProduct.fullName,
+                size: blueProduct.size,
+                barcode: blueProduct.barcode
+              },
+              warehouseProduct: {
+                _id: orangeProduct.source._id,
+                fullName: orangeProduct.fullName,
+                size: orangeProduct.size,
+                barcode: orangeProduct.barcode,
+                transfer_to: userSymbol, // DODANO: Wymagane przez backend
+                transfer_from: 'MAGAZYN',
+                price: orangeProduct.source.price || 0,
+                discount_price: orangeProduct.source.discount_price || 0
+              }
+            });
+
+            pairedBlueIndexes.add(b);
+            pairedOrangeIndexes.add(o);
+            break;
+          } else {
+            console.log(`   ❌ Nie pasuje`);
+          }
+        }
+
+        if (!pairedBlueIndexes.has(b)) {
+          console.log(`   😞 Brak pary dla niebieskiego produktu ${b + 1}`);
+        }
+      }
+
+      console.log(`\n🎯 WYNIKI PAROWANIA:`);
+      console.log(`   Znaleziono ${newPairs.length} nowych par`);
+      console.log(`   Sparowane niebieskie produkty: ${pairedBlueIndexes.size}/${blueProducts.length}`);
+      console.log(`   Sparowane pomarańczowe produkty: ${pairedOrangeIndexes.size}/${orangeProducts.length}`);
+
+      if (newPairs.length > 0) {
+        console.log('\n📝 SZCZEGÓŁY NOWYCH PAR:');
+        newPairs.forEach((pair, index) => {
+          console.log(`   Para ${index + 1}:`, pair);
+        });
+
+        setMatchedPairs(prevPairs => {
+          const updatedPairs = [...prevPairs, ...newPairs];
+          console.log('\n💾 AKTUALIZACJA STANU - nowa lista par:', updatedPairs);
+          return updatedPairs;
+        });
+
+        // Wyszarzenie produktów z magazynu które zostały sparowane
+        const warehouseIdsToGrey = newPairs.map(pair => pair.warehouseProduct._id);
+        console.log('\n🔒 WYSZARZANIE PRODUKTÓW Z MAGAZYNU:', warehouseIdsToGrey);
+        
+        setGreyedWarehouseItems(prevGreyed => {
+          const newGreyed = new Set([...prevGreyed, ...warehouseIdsToGrey]);
+          console.log('   Nowy stan wyszarzonych produktów:', newGreyed);
+          return newGreyed;
+        });
+
+        setMessage(`Synchronizacja zakończona! Znaleziono ${newPairs.length} nowych par produktów.`);
+      } else {
+        setMessage('Synchronizacja zakończona. Nie znaleziono nowych par do utworzenia.');
+      }
+
     } catch (error) {
-      console.error('Błąd podczas synchronizacji:', error);
+      console.error('❌ BŁĄD PODCZAS SYNCHRONIZACJI:', error);
+      setMessage('Błąd podczas synchronizacji: ' + error.message);
     }
   };
 
@@ -1558,12 +1775,68 @@ const AddToState = ({ onAdd }) => {
                       >
                         ↩️ Cofnij
                       </button>
-                    ) : (
-                      // Brak akcji dla standardowych transferów
-                      <span style={{ color: '#ccc', fontSize: '12px' }}>
-                        -
-                      </span>
-                    )}
+                    ) : (() => {
+                      // Sprawdź kolor produktu dla niebieskich i zielonych
+                      const backgroundColor = getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale);
+                      const isBlue = backgroundColor === '#007bff';
+                      const isGreen = backgroundColor === '#28a745';
+                      
+                      if (isBlue || isGreen) {
+                        return (
+                          <button 
+                            onClick={() => {
+                              if (isGreen) {
+                                // Zielone produkty: najpierw usuń ze stanu, potem dodaj do magazynu
+                                console.log('🟢 Kliknięto zielony produkt - wykonuję podwójną akcję');
+                                handleRemoveFromState(transfer);
+                                // Znajdź pasujący produkt z magazynu i dodaj go
+                                const matchingWarehouseItem = warehouseItems.find(item => {
+                                  const transferBarcode = transfer.isFromSale ? transfer.barcode : transfer.productId;
+                                  const transferName = transfer.isFromSale ? transfer.fullName : (transfer.fullName?.fullName || transfer.fullName);
+                                  const transferSize = transfer.isFromSale ? transfer.size : (transfer.size?.Roz_Opis || transfer.size);
+                                  
+                                  const itemBarcode = item.barcode;
+                                  const itemName = item.fullName?.fullName || item.fullName;
+                                  const itemSize = item.size?.Roz_Opis || item.size;
+                                  
+                                  const barcodeMatch = transferBarcode === itemBarcode;
+                                  const nameMatch = transferName === itemName;
+                                  const sizeMatch = transferSize === itemSize;
+                                  
+                                  return barcodeMatch && nameMatch && sizeMatch;
+                                });
+                                if (matchingWarehouseItem) {
+                                  setTimeout(() => handleMoveFromWarehouse(matchingWarehouseItem), 100);
+                                }
+                              } else {
+                                // Niebieskie produkty: tylko usuń ze stanu
+                                console.log('🔵 Kliknięto niebieski produkt - usuwam ze stanu');
+                                handleRemoveFromState(transfer);
+                              }
+                            }}
+                            style={{
+                              backgroundColor: isGreen ? '#28a745' : '#007bff',
+                              color: 'white',
+                              border: 'none',
+                              padding: '5px 8px',
+                              borderRadius: '3px',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                            title={isGreen ? "Sparowany: usuń ze stanu i dodaj z magazynu" : "Usuń ze stanu"}
+                          >
+                            {isGreen ? '🔄 Sparowany' : '❌ Usuń'}
+                          </button>
+                        );
+                      } else {
+                        // Brak akcji dla innych transferów
+                        return (
+                          <span style={{ color: '#ccc', fontSize: '12px' }}>
+                            -
+                          </span>
+                        );
+                      }
+                    })()}
                   </td>
                 </tr>
                 )
