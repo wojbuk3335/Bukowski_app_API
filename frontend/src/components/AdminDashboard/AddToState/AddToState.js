@@ -616,10 +616,17 @@ const AddToState = ({ onAdd }) => {
     }
 
     try {
-      // Rozdziel produkty według typu
-      const warehouseItems = filteredItems.filter(item => item.fromWarehouse && !item.isFromSale);
-      const standardTransfers = filteredItems.filter(item => !item.fromWarehouse && !item.isFromSale);
-      const salesItems = filteredItems.filter(item => item.isFromSale);
+      // Rozdziel produkty według typu - DODANO obsługę ZIELONYCH produktów
+      const warehouseItems = filteredItems.filter(item => item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer'));
+      
+      // ZIELONE transfery standardowe (sparowane) - wymagają operacji podwójnej  
+      const greenStandardTransfers = filteredItems.filter(item => !item.fromWarehouse && !item.isFromSale && isProductMatched(item._id, 'transfer'));
+      
+      // ZIELONE sprzedaże (sparowane) - wymagają operacji podwójnej
+      const greenSalesItems = filteredItems.filter(item => item.isFromSale && isProductMatched(item._id, 'sale'));
+      
+      const standardTransfers = filteredItems.filter(item => !item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer'));
+      const salesItems = filteredItems.filter(item => item.isFromSale && !isProductMatched(item._id, 'sale'));
 
       // Wygeneruj wspólny transactionId dla całej operacji
       const sharedTransactionId = Date.now().toString() + 'x' + Math.random().toString(36).substr(2, 9);
@@ -653,7 +660,130 @@ const AddToState = ({ onAdd }) => {
         }
       }
 
-      // 2. Przetwórz standardowe transfery - sprawdź braki w stanie
+      // 🟢 2. ZIELONE PRODUKTY - Operacja podwójna (niebieski + pomarańczowy)
+      let greenProcessedCount = 0;
+      let greenMissingCount = 0;
+      const allGreenItems = [...greenStandardTransfers, ...greenSalesItems];
+      
+      if (allGreenItems.length > 0) {
+        console.log('🟢 Processing GREEN products (double operation):', allGreenItems);
+        
+        // Znajdź obiekt użytkownika na podstawie selectedUser ID
+        const selectedUserObject = users.find(user => user._id === selectedUser);
+        const userSymbol = selectedUserObject?.symbol;
+        const sellingPoint = selectedUserObject?.sellingPoint || selectedUserObject?.symbol;
+        
+        // KROK 1 dla każdego zielonego produktu: Operacja NIEBIESKA (odpisanie ze stanu)
+        for (const greenItem of allGreenItems) {
+          try {
+            console.log(`🟢 Processing green item ${greenItem._id} - Step 1: Blue operation (write-off)`);
+            
+            // Sprawdź czy produkt istnieje w stanie przed odpisaniem
+            const checkResult = await checkForMissingItems([greenItem], userSymbol, sellingPoint, sharedTransactionId);
+            
+            if (checkResult.availableItems.length === 0) {
+              // Produkt nie istnieje w stanie - przejdź do korekt
+              console.log(`🟢 Green item ${greenItem._id} - missing in state, sent to corrections`);
+              greenMissingCount++;
+              continue; // Pomiń ten produkt - nie wykonuj operacji pomarańczowej
+            }
+            
+            // Wykonaj operację niebieską (odpisanie ze stanu)
+            let blueOperationSuccess = false;
+            
+            if (greenItem.isFromSale) {
+              // Dla sprzedaży
+              const salesResponse = await fetch(`${API_BASE_URL}/api/transfer/process-sales`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  salesItems: [greenItem],
+                  selectedUser: selectedUser,
+                  transactionId: sharedTransactionId
+                }),
+              });
+              
+              if (salesResponse.ok) {
+                blueOperationSuccess = true;
+                console.log(`🟢 Green item ${greenItem._id} - Blue operation (sales) successful`);
+              }
+            } else {
+              // Dla transferów
+              const transferResponse = await fetch(`${API_BASE_URL}/api/transfer/process-all`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  transfers: [greenItem],
+                  selectedDate: selectedDate,
+                  selectedUser: selectedUser,
+                  transactionId: sharedTransactionId
+                }),
+              });
+              
+              if (transferResponse.ok) {
+                blueOperationSuccess = true;
+                console.log(`🟢 Green item ${greenItem._id} - Blue operation (transfer) successful`);
+              }
+            }
+            
+            // KROK 2: Operacja POMARAŃCZOWA (przeniesienie z magazynu) - tylko jeśli operacja niebieska się udała
+            if (blueOperationSuccess) {
+              console.log(`🟢 Green item ${greenItem._id} - Step 2: Orange operation (warehouse transfer)`);
+              
+              // Znajdź sparowany produkt z magazynu
+              const matchedPair = matchedPairs.find(pair => 
+                pair.blueProduct.id === greenItem._id && 
+                pair.blueProduct.type === (greenItem.isFromSale ? 'sale' : 'transfer')
+              );
+              
+              if (matchedPair && matchedPair.warehouseProduct) {
+                // Wykonaj operację pomarańczową (przeniesienie z magazynu)
+                const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    warehouseItems: [matchedPair.warehouseProduct],
+                    selectedDate: selectedDate,
+                    selectedUser: selectedUser,
+                    transactionId: sharedTransactionId
+                  }),
+                });
+                
+                if (warehouseResponse.ok) {
+                  greenProcessedCount++;
+                  console.log(`🟢 Green item ${greenItem._id} - Orange operation successful - DOUBLE OPERATION COMPLETE`);
+                  
+                  // Oznacz jako przetworzone
+                  if (greenItem.isFromSale) {
+                    setProcessedSales(prev => new Set([...prev, greenItem._id]));
+                  } else {
+                    setProcessedTransfers(prev => new Set([...prev, greenItem._id]));
+                  }
+                } else {
+                  console.error(`🟢 Green item ${greenItem._id} - Orange operation failed`);
+                }
+              } else {
+                console.error(`🟢 Green item ${greenItem._id} - No matched warehouse product found`);
+              }
+            } else {
+              console.error(`🟢 Green item ${greenItem._id} - Blue operation failed, skipping orange operation`);
+            }
+            
+          } catch (error) {
+            console.error(`🟢 Error processing green item ${greenItem._id}:`, error);
+          }
+        }
+        
+        console.log(`🟢 Green products processing complete: ${greenProcessedCount} successful, ${greenMissingCount} missing`);
+      }
+
+      // 3. Przetwórz standardowe transfery - sprawdź braki w stanie
       let validStandardTransfers = standardTransfers;
       let standardTransfersMissingCount = 0;
       
@@ -697,7 +827,7 @@ const AddToState = ({ onAdd }) => {
         }
       }
 
-      // 3. Przetwórz sprzedaże - sprawdź braki w stanie przed odpisaniem
+      // 4. Przetwórz sprzedaże - sprawdź braki w stanie przed odpisaniem
       let validSalesItems = salesItems;
       let salesMissingCount = 0;
       
@@ -759,15 +889,19 @@ const AddToState = ({ onAdd }) => {
       }
 
       // Przygotuj szczegółowy komunikat z informacjami o brakach
-      const totalMissingCount = standardTransfersMissingCount + salesMissingCount;
+      const totalMissingCount = standardTransfersMissingCount + salesMissingCount + greenMissingCount;
       let alertMessage = `✅ OPERACJA ZAKOŃCZONA\n\n`;
-      alertMessage += `Przetworzono ${processedCount} elementów:\n`;
+      alertMessage += `Przetworzono ${processedCount + greenProcessedCount} elementów:\n`;
       alertMessage += `- ${warehouseItems.length} produktów z magazynu dodano do stanu\n`;
+      alertMessage += `- ${greenProcessedCount} zielonych produktów przetworzono (operacja podwójna)\n`;
       alertMessage += `- ${validStandardTransfers.length} standardowych transferów odpisano ze stanu\n`;
       alertMessage += `- ${validSalesItems.length} sprzedaży odpisano ze stanu\n`;
       
       if (totalMissingCount > 0) {
         alertMessage += `\n⚠️ WYKRYTO BRAKI:\n`;
+        if (greenMissingCount > 0) {
+          alertMessage += `- ${greenMissingCount} zielonych produktów bez pokrycia w stanie\n`;
+        }
         if (standardTransfersMissingCount > 0) {
           alertMessage += `- ${standardTransfersMissingCount} transferów bez pokrycia w stanie\n`;
         }
@@ -878,10 +1012,14 @@ const AddToState = ({ onAdd }) => {
         // Odśwież wszystkie dane po cofnięciu
         console.log('🔄 Refreshing all data after undo...');
         console.log('🧹 Clearing processedSales and processedTransfers before refresh');
-        console.log('🧹 Clearing processedSales and processedTransfers before refresh');
         setProcessedSales(new Set()); // Reset przetworzonych sprzedaży po cofnięciu transakcji
-        setProcessedTransfers(new Set()); // Reset przetworzonych transferów po cofnięciu transakcji po cofnięciu transakcji
         setProcessedTransfers(new Set()); // Reset przetworzonych transferów po cofnięciu transakcji
+        
+        // 🟢 Reset synchronizacji po cofnięciu transakcji (zielone produkty wrócą do niebieskich)
+        setMatchedPairs([]);
+        setGreyedWarehouseItems(new Set());
+        console.log('🟢 Synchronization reset after undo - green products restored to blue');
+        
         await fetchAllStates(); // Najpierw odśwież stany
         await fetchTransfers();
         await fetchWarehouseItems();
