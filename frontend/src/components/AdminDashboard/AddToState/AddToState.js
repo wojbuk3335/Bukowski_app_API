@@ -57,7 +57,19 @@ const AddToState = ({ onAdd }) => {
   };
 
   const isWarehouseItemGreyed = (warehouseItemId) => {
-    return greyedWarehouseItems.has(warehouseItemId);
+    const isGreyed = greyedWarehouseItems.has(warehouseItemId);
+    
+    // Debugging dla Laura RUDY XS
+    if (warehouseItemId && (warehouseItemId.includes('Laura') || warehouseItemId.length > 10)) {
+      console.log(`🔍 isWarehouseItemGreyed(${warehouseItemId}):`, {
+        isGreyed,
+        greyedItemsSize: greyedWarehouseItems.size,
+        greyedItems: Array.from(greyedWarehouseItems),
+        matchedPairsCount: matchedPairs.length
+      });
+    }
+    
+    return isGreyed;
   };
 
   const getBackgroundColor = (item, fromWarehouse, isFromSale) => {
@@ -1211,6 +1223,12 @@ const AddToState = ({ onAdd }) => {
   const handleSynchronize = async () => {
     try {
       console.log('🔄 SYNCHRONIZACJA: Rozpoczynam synchronizację...');
+      
+      // 🔄 RESET stanu synchronizacji przed nową synchronizacją
+      console.log('🔄 RESET: Czyszczenie poprzednich wyników synchronizacji...');
+      setMatchedPairs([]);
+      setGreyedWarehouseItems(new Set());
+      
       console.log('📊 DANE WEJŚCIOWE:');
       console.log('   - FilteredItems:', filteredItems?.length || 0, 'items');
       console.log('   - Warehouse:', filteredWarehouseItems?.length || 0, 'items');
@@ -1261,37 +1279,6 @@ const AddToState = ({ onAdd }) => {
               size: item.size,
               source: item
             });
-          }
-        });
-      }
-      
-      // Dodaj przefiltrowane transfer'y (niebieskie)
-      if (Array.isArray(filteredItems)) {
-        filteredItems.forEach(item => {
-          // Sprawdź czy to transfer (ma productId zamiast barcode)
-          if (item.productId && !item.barcode) {
-            const backgroundColor = getBackgroundColor(item, false, false); // transfer: nie z magazynu, nie sprzedaż
-            if (backgroundColor === '#007bff') { // Niebieski kolor hex
-              blueProducts.push({
-                type: 'transfer',
-                barcode: item.productId, // Transfer używa productId jako barcode
-                fullName: item.fullName,
-                size: item.size,
-                source: item
-              });
-            }
-          } else {
-            // To jest sale
-            const backgroundColor = getBackgroundColor(item, false, true); // sale: nie z magazynu, jest sprzedażą
-            if (backgroundColor === '#007bff') { // Niebieski kolor hex
-              blueProducts.push({
-                type: 'sale',
-                barcode: item.barcode,
-                fullName: item.fullName,
-                size: item.size,
-                source: item
-              });
-            }
           }
         });
       }
@@ -1361,6 +1348,18 @@ const AddToState = ({ onAdd }) => {
           
           if (isMatched) {
             console.log(`   ✅ ZNALEZIONO PARĘ! Niebieski ${b + 1} ↔ Pomarańczowy ${o + 1}`);
+            console.log(`      🔍 IDs: Blue=${blueProduct.source._id}, Orange=${orangeProduct.source._id}`);
+            
+            // Sprawdź czy ta para już istnieje
+            const existingPair = newPairs.find(pair => 
+              pair.warehouseProduct._id === orangeProduct.source._id
+            );
+            
+            if (existingPair) {
+              console.log(`   ⚠️ UWAGA: Produkt z magazynu ${orangeProduct.source._id} już został sparowany!`);
+              console.log(`      Pomijam duplikat...`);
+              continue;
+            }
             
             // Znajdź dane użytkownika dla transfer_to
             const selectedUserData = users.find(user => user._id === selectedUser);
@@ -1421,9 +1420,23 @@ const AddToState = ({ onAdd }) => {
         const warehouseIdsToGrey = newPairs.map(pair => pair.warehouseProduct._id);
         console.log('\n🔒 WYSZARZANIE PRODUKTÓW Z MAGAZYNU:', warehouseIdsToGrey);
         
+        // Debug dla każdej pary
+        newPairs.forEach((pair, index) => {
+          console.log(`   Para ${index + 1}:`, {
+            blueId: pair.blueProduct.id,
+            blueName: pair.blueProduct.fullName,
+            blueSize: pair.blueProduct.size,
+            warehouseId: pair.warehouseProduct._id,
+            warehouseName: pair.warehouseProduct.fullName,
+            warehouseSize: pair.warehouseProduct.size
+          });
+        });
+        
         setGreyedWarehouseItems(prevGreyed => {
           const newGreyed = new Set([...prevGreyed, ...warehouseIdsToGrey]);
-          console.log('   Nowy stan wyszarzonych produktów:', newGreyed);
+          console.log('   Stary stan wyszarzonych:', Array.from(prevGreyed));
+          console.log('   Dodaję do wyszarzonych:', warehouseIdsToGrey);
+          console.log('   Nowy stan wyszarzonych produktów:', Array.from(newGreyed));
           return newGreyed;
         });
 
