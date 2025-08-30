@@ -635,16 +635,25 @@ class TransferProcessingController {
                     }
 
                     // Remove from warehouse (original warehouse item)
+                    console.log(`🏪 REMOVING from warehouse: ${item._id} (${item.barcode})`);
                     const removedFromWarehouse = await State.findByIdAndDelete(item._id);
                     
                     if (!removedFromWarehouse) {
                         errors.push(`Warehouse item ${item._id} not found in database`);
                         continue;
                     }
+                    console.log(`✅ REMOVED from warehouse: ${item._id}`);
+
+                    // Check current count for this user BEFORE adding
+                    const currentCountBefore = await State.countDocuments({ sellingPoint: user._id });
+                    console.log(`📊 Current state count for ${user.symbol} BEFORE adding: ${currentCountBefore}`);
 
                     // Create new State document for user
+                    const newStateId = new mongoose.Types.ObjectId();
+                    console.log(`➕ CREATING new state item: ${newStateId} for ${user.symbol} (${item.barcode})`);
+                    
                     const newStateItem = new State({
-                        _id: new mongoose.Types.ObjectId(),
+                        _id: newStateId,
                         fullName: goods._id,
                         size: size._id,
                         barcode: item.barcode,
@@ -655,6 +664,11 @@ class TransferProcessingController {
                     });
 
                     await newStateItem.save();
+                    console.log(`✅ SAVED new state item: ${newStateId}`);
+                    
+                    // Check current count for this user AFTER adding
+                    const currentCountAfter = await State.countDocuments({ sellingPoint: user._id });
+                    console.log(`📊 Current state count for ${user.symbol} AFTER adding: ${currentCountAfter}`);
 
                     // Create history entry
                     const historyEntry = new History({
@@ -700,6 +714,17 @@ class TransferProcessingController {
                 } catch (itemError) {
                     console.error(`Error processing warehouse item:`, itemError);
                     errors.push(`Warehouse item processing error: ${itemError.message}`);
+                }
+            }
+
+            // Final check - count all items for all users
+            const finalStateCount = await State.countDocuments({});
+            const allUsers = await User.find({});
+            console.log(`🏁 FINAL STATE SUMMARY: Total items in database: ${finalStateCount}`);
+            for (const user of allUsers) {
+                const userCount = await State.countDocuments({ sellingPoint: user._id });
+                if (userCount > 0) {
+                    console.log(`  - ${user.symbol}: ${userCount} items`);
                 }
             }
 

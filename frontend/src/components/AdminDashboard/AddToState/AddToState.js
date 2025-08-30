@@ -715,11 +715,15 @@ const AddToState = ({ onAdd }) => {
         const userSymbol = selectedUserObject?.symbol;
         const sellingPoint = selectedUserObject?.sellingPoint || selectedUserObject?.symbol;
         
-        // KROK 1 dla każdego zielonego produktu: Operacja NIEBIESKA (odpisanie ze stanu)
-        for (const greenItem of allGreenItems) {
+        // POPRAWIONA LOGIKA (sugestia użytkownika): Najpierw wszystkie blue operations, potem wszystkie orange operations
+        console.log('🟢 Processing GREEN products (double operation): Step 1 - All blue operations first');
+        
+        // KROK 1: Wykonaj wszystkie blue operations (sales/transfers write-offs)
+        for (let i = 0; i < allGreenItems.length; i++) {
+          const greenItem = allGreenItems[i];
+          console.log(`🟢 Processing green item ${greenItem._id} (${i + 1}/${allGreenItems.length}) - Blue operation (write-off)`);
+          
           try {
-            console.log(`🟢 Processing green item ${greenItem._id} - Step 1: Blue operation (write-off)`);
-            
             // Sprawdź czy produkt istnieje w stanie przed odpisaniem
             const checkResult = await checkForMissingItems([greenItem], userSymbol, sellingPoint, sharedTransactionId);
             
@@ -727,98 +731,114 @@ const AddToState = ({ onAdd }) => {
               // Produkt nie istnieje w stanie - przejdź do korekt
               console.log(`🟢 Green item ${greenItem._id} - missing in state, sent to corrections`);
               greenMissingCount++;
-              continue; // Pomiń ten produkt - nie wykonuj operacji pomarańczowej
-            }
-            
-            // Wykonaj operację niebieską (odpisanie ze stanu)
-            let blueOperationSuccess = false;
-            
-            if (greenItem.isFromSale) {
-              // Dla sprzedaży
-              const salesResponse = await fetch(`${API_BASE_URL}/api/transfer/process-sales`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  salesItems: [greenItem],
-                  selectedUser: selectedUser,
-                  transactionId: sharedTransactionId
-                }),
-              });
-              
-              if (salesResponse.ok) {
-                blueOperationSuccess = true;
-                console.log(`🟢 Green item ${greenItem._id} - Blue operation (sales) successful`);
-              }
             } else {
-              // Dla transferów
-              const transferResponse = await fetch(`${API_BASE_URL}/api/transfer/process-all`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  transfers: [greenItem],
-                  selectedDate: selectedDate,
-                  selectedUser: selectedUser,
-                  transactionId: sharedTransactionId
-                }),
-              });
-              
-              if (transferResponse.ok) {
-                blueOperationSuccess = true;
-                console.log(`🟢 Green item ${greenItem._id} - Blue operation (transfer) successful`);
-              }
-            }
-            
-            // KROK 2: Operacja POMARAŃCZOWA (przeniesienie z magazynu) - tylko jeśli operacja niebieska się udała
-            if (blueOperationSuccess) {
-              console.log(`🟢 Green item ${greenItem._id} - Step 2: Orange operation (warehouse transfer)`);
-              
-              // Znajdź sparowany produkt z magazynu
-              const matchedPair = matchedPairs.find(pair => 
-                pair.blueProduct.id === greenItem._id && 
-                pair.blueProduct.type === (greenItem.isFromSale ? 'sale' : 'transfer')
-              );
-              
-              if (matchedPair && matchedPair.warehouseProduct) {
-                // Wykonaj operację pomarańczową (przeniesienie z magazynu)
-                const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
+              // Produkt istnieje - wykonaj operację niebieską
+              if (greenItem.isFromSale) {
+                // Dla sprzedaży
+                const salesResponse = await fetch(`${API_BASE_URL}/api/transfer/process-sales`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
-                    warehouseItems: [matchedPair.warehouseProduct],
+                    salesItems: [greenItem],
+                    selectedUser: selectedUser,
+                    transactionId: sharedTransactionId
+                  }),
+                });
+                
+                if (salesResponse.ok) {
+                  console.log(`🟢 Green item ${greenItem._id} - Blue operation (sales) successful`);
+                }
+              } else {
+                // Dla transferów
+                const transferResponse = await fetch(`${API_BASE_URL}/api/transfer/process-all`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    transfers: [greenItem],
                     selectedDate: selectedDate,
                     selectedUser: selectedUser,
                     transactionId: sharedTransactionId
                   }),
                 });
                 
-                if (warehouseResponse.ok) {
-                  greenProcessedCount++;
-                  console.log(`🟢 Green item ${greenItem._id} - Orange operation successful - DOUBLE OPERATION COMPLETE`);
-                  
-                  // Oznacz jako przetworzone
-                  if (greenItem.isFromSale) {
-                    setProcessedSales(prev => new Set([...prev, greenItem._id]));
-                  } else {
-                    setProcessedTransfers(prev => new Set([...prev, greenItem._id]));
-                  }
-                } else {
-                  console.error(`🟢 Green item ${greenItem._id} - Orange operation failed`);
+                if (transferResponse.ok) {
+                  console.log(`🟢 Green item ${greenItem._id} - Blue operation (transfer) successful`);
                 }
-              } else {
-                console.error(`🟢 Green item ${greenItem._id} - No matched warehouse product found`);
               }
-            } else {
-              console.error(`🟢 Green item ${greenItem._id} - Blue operation failed, skipping orange operation`);
+            }
+          } catch (error) {
+            console.error(`🟢 Error processing green item blue operation ${greenItem._id}:`, error);
+          }
+        }
+
+        console.log('🟢 GREEN products Step 1 complete - All blue operations done');
+        console.log('🟢 Processing GREEN products: Step 2 - All orange operations');
+
+        // KROK 2: Wykonaj wszystkie orange operations (warehouse transfers)
+        for (let i = 0; i < allGreenItems.length; i++) {
+          const greenItem = allGreenItems[i];
+          console.log(`🟢 Processing green item ${greenItem._id} (${i + 1}/${allGreenItems.length}) - Orange operation (warehouse transfer)`);
+          
+          // Znajdź sparowany produkt z magazynu
+          const matchedPair = matchedPairs.find(pair => 
+            pair.blueProduct.id === greenItem._id && 
+            pair.blueProduct.type === (greenItem.isFromSale ? 'sale' : 'transfer')
+          );
+          
+          if (matchedPair && matchedPair.warehouseProduct) {
+            // DODANE OPÓŹNIENIE dla uniknięcia race condition
+            if (i > 0) {
+              console.log(`🟢 Green item ${greenItem._id} - Adding delay to prevent race condition (${i * 100}ms)`);
+              await new Promise(resolve => setTimeout(resolve, i * 100));
             }
             
-          } catch (error) {
-            console.error(`🟢 Error processing green item ${greenItem._id}:`, error);
+            // Wykonaj operację pomarańczową (przeniesienie z magazynu)
+            console.log(`🟢 Green item ${greenItem._id} - Sending warehouse request:`, {
+              warehouseProduct: matchedPair.warehouseProduct,
+              transactionId: sharedTransactionId
+            });
+            
+            const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                warehouseItems: [matchedPair.warehouseProduct],
+                selectedDate: selectedDate,
+                selectedUser: selectedUser,
+                transactionId: sharedTransactionId
+              }),
+            });
+            
+            const warehouseResponseData = await warehouseResponse.json();
+            console.log(`🟢 Green item ${greenItem._id} - Warehouse response:`, warehouseResponseData);
+            
+            // DODATKOWE SPRAWDZENIE STANU PO KAŻDEJ OPERACJI
+            const stateCheckResponse = await fetch(`${API_BASE_URL}/api/state/barcode/${matchedPair.warehouseProduct.barcode}`);
+            const currentState = await stateCheckResponse.json();
+            const userStates = currentState.filter(s => s.symbol === 'P');
+            console.log(`🟢 Green item ${greenItem._id} - Current state after operation: ${userStates.length} items for user P`);
+            
+            if (warehouseResponse.ok) {
+              console.log(`🟢 Green item ${greenItem._id} - Orange operation successful - Warehouse product transferred`);
+              greenProcessedCount++;
+              
+              // Oznacz jako przetworzone
+              if (greenItem.isFromSale) {
+                setProcessedSales(prev => new Set([...prev, greenItem._id]));
+              } else {
+                setProcessedTransfers(prev => new Set([...prev, greenItem._id]));
+              }
+            } else {
+              console.error(`🟢 Green item ${greenItem._id} - Orange operation failed:`, warehouseResponseData);
+            }
+          } else {
+            console.error(`🟢 Green item ${greenItem._id} - No matched warehouse product found for orange operation`);
           }
         }
         
