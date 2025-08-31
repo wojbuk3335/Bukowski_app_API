@@ -32,6 +32,7 @@ const AddToState = ({ onAdd }) => {
   const [matchedPairs, setMatchedPairs] = useState([]); // Sparowane pary
   const [greyedWarehouseItems, setGreyedWarehouseItems] = useState(new Set()); // Wyszarzone elementy magazynu
   const [message, setMessage] = useState(''); // Komunikaty synchronizacji
+  const [combinedItems, setCombinedItems] = useState([]); // Elementy łącznie z żółtymi produktami
 
   // Funkcje pomocnicze dla synchronizacji
   const isProductMatched = (productId, type) => {
@@ -72,7 +73,7 @@ const AddToState = ({ onAdd }) => {
     return isGreyed;
   };
 
-  const getBackgroundColor = (item, fromWarehouse, isFromSale) => {
+  const getBackgroundColor = (item, fromWarehouse, isFromSale, isIncomingTransfer) => {
     // Sprawdź czy jest sparowany (niebieski → zielony)
     const matchedAsSale = isFromSale && isProductMatched(item._id, 'sale');
     const matchedAsTransfer = !fromWarehouse && isProductMatched(item._id, 'transfer');
@@ -80,6 +81,7 @@ const AddToState = ({ onAdd }) => {
     console.log(`🎨 Sprawdzam kolor dla ${item._id}:`, {
       isFromSale,
       fromWarehouse,
+      isIncomingTransfer,
       matchedAsSale,
       matchedAsTransfer,
       matchedPairsCount: matchedPairs.length,
@@ -89,6 +91,12 @@ const AddToState = ({ onAdd }) => {
     if (matchedAsSale || matchedAsTransfer) {
       console.log(`   ✅ ZIELONY (sparowany) - ID: ${item._id}`);
       return '#28a745'; // ZIELONY - sparowany
+    }
+    
+    // NOWY: Żółty kolor dla transferów przychodzących
+    if (isIncomingTransfer) {
+      console.log(`   🟡 ŻÓŁTY (transfer przychodzący) - ID: ${item._id}`);
+      return '#ffc107'; // ŻÓŁTY - transfer przychodzący do punktu
     }
     
     // Standardowe kolory
@@ -250,6 +258,7 @@ const AddToState = ({ onAdd }) => {
     // Filter items based on selected date and user
     let filtered = Array.isArray(transfers) ? transfers : [];
     let salesItems = [];
+    let yellowTransferItems = [];
 
     // Jeśli nie wybrano użytkownika, nie pokazuj żadnych transferów
     if (!selectedUser) {
@@ -324,21 +333,58 @@ const AddToState = ({ onAdd }) => {
           // fullName i size pozostają jako stringi z obiektu sale
           // NIE tworzymy obiektów - sprzedaże już mają stringi
         }));
+
+        // NOWE: Filtruj transfery PRZYCHODZĄCE do wybranego punktu (ŻÓŁTE)
+        let incomingTransfers = Array.isArray(transfers) ? transfers : [];
+        
+        if (selectedDate) {
+          incomingTransfers = incomingTransfers.filter(transfer => {
+            const transferDate = new Date(transfer.date).toISOString().split('T')[0];
+            return transferDate === selectedDate;
+          });
+        }
+
+        // Pokazuj transfery które PRZYCHODZĄ do wybranego punktu
+        incomingTransfers = incomingTransfers.filter(transfer => {
+          // Transfer przychodzi do tego punktu (wybrany użytkownik jest odbiorcą)
+          const isIncomingTransfer = transfer.transfer_to === selectedUserData.symbol && 
+                                   !transfer.fromWarehouse; // Nie z magazynu (magazyn już ma pomarańczowy)
+          
+          return isIncomingTransfer;
+        });
+
+        // Filtruj nieprzetworzone transfery przychodzące
+        incomingTransfers = incomingTransfers.filter(transfer => {
+          const isProcessed = transfer.processed || processedTransfers.has(transfer._id);
+          console.log(`🟡 Incoming transfer ${transfer.fullName} (ID: ${transfer._id}) processed: ${isProcessed}`);
+          return !isProcessed; // Pokazuj tylko nieprzetworzone
+        });
+
+        // Oznacz transfery przychodzące jako żółte
+        yellowTransferItems = incomingTransfers.map(transfer => ({
+          ...transfer,
+          isIncomingTransfer: true, // Oznacz jako transfer przychodzący (żółty)
+          isYellowBullet: true, // Żółta kulka
+        }));
+        
+        console.log('🟡 Yellow incoming transfers:', yellowTransferItems.length);
       }
     }
 
-    // Połącz sprzedaże (na górze) z transferami (na dole)
-    const combinedItems = [...salesItems, ...filtered];
-    console.log('🔍 Combined items for rendering:', combinedItems.map(item => ({
+    // Połącz sprzedaże (niebieskie), transfery przychodzące (żółte) i standardowe transfery (niebieskie/pomarańczowe) 
+    const combinedItemsData = [...salesItems, ...yellowTransferItems, ...filtered];
+    console.log('🔍 Combined items for rendering:', combinedItemsData.map(item => ({
       id: item._id,
       isFromSale: item.isFromSale,
+      isIncomingTransfer: item.isIncomingTransfer,
       fullName: item.fullName,
       size: item.size,
       processed: item.processed, // DEBUG: Show processed flag
       fullNameType: typeof item.fullName,
       sizeType: typeof item.size
     })));
-    setFilteredItems(combinedItems);
+    setFilteredItems(combinedItemsData);
+    setCombinedItems(combinedItemsData); // Zapisz także jako oddzielny stan
   }, [selectedDate, selectedUser, transfers, users, sales, allStates, processedSales, processedTransfers]);
 
   // useEffect do filtrowania produktów magazynowych
@@ -652,23 +698,38 @@ const AddToState = ({ onAdd }) => {
   };
 
   const handleProcessAllTransfers = async () => {
-    if (!Array.isArray(filteredItems) || filteredItems.length === 0) {
+    // Sprawdź czy mamy kombinowane elementy (zawierające żółte produkty)
+    const itemsToProcess = combinedItems && combinedItems.length > 0 ? combinedItems : filteredItems;
+    
+    if (!Array.isArray(itemsToProcess) || itemsToProcess.length === 0) {
       alert('Brak transferów do przetworzenia');
       return;
     }
 
     try {
-      // Rozdziel produkty według typu - DODANO obsługę ZIELONYCH produktów
-      const warehouseItems = filteredItems.filter(item => item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer'));
+      // Rozdziel produkty według typu - DODANO obsługę ZIELONYCH i ŻÓŁTYCH produktów
+      const warehouseItems = itemsToProcess.filter(item => item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer'));
+      
+      // ŻÓŁTE produkty (transfery przychodzące) - wymagają dopisania do stanu
+      const incomingTransfers = itemsToProcess.filter(item => item.isIncomingTransfer && !item.isFromSale);
+      
+      console.log('🟡 DEBUG: Filtered incoming transfers:', incomingTransfers.length);
+      console.log('🟡 DEBUG: Incoming transfers details:', incomingTransfers.map(item => ({
+        id: item._id,
+        fullName: item.fullName,
+        size: item.size,
+        isIncomingTransfer: item.isIncomingTransfer,
+        barcode: item.barcode
+      })));
       
       // ZIELONE transfery standardowe (sparowane) - wymagają operacji podwójnej  
-      const greenStandardTransfers = filteredItems.filter(item => !item.fromWarehouse && !item.isFromSale && isProductMatched(item._id, 'transfer'));
+      const greenStandardTransfers = itemsToProcess.filter(item => !item.fromWarehouse && !item.isFromSale && isProductMatched(item._id, 'transfer'));
       
       // ZIELONE sprzedaże (sparowane) - wymagają operacji podwójnej
-      const greenSalesItems = filteredItems.filter(item => item.isFromSale && isProductMatched(item._id, 'sale'));
+      const greenSalesItems = itemsToProcess.filter(item => item.isFromSale && isProductMatched(item._id, 'sale'));
       
-      const standardTransfers = filteredItems.filter(item => !item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer'));
-      const salesItems = filteredItems.filter(item => item.isFromSale && !isProductMatched(item._id, 'sale'));
+      const standardTransfers = itemsToProcess.filter(item => !item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer') && !item.isIncomingTransfer);
+      const salesItems = itemsToProcess.filter(item => item.isFromSale && !isProductMatched(item._id, 'sale'));
 
       // Wygeneruj wspólny transactionId dla całej operacji
       const sharedTransactionId = Date.now().toString() + 'x' + Math.random().toString(36).substr(2, 9);
@@ -702,7 +763,42 @@ const AddToState = ({ onAdd }) => {
         }
       }
 
-      // 🟢 2. ZIELONE PRODUKTY - Operacja podwójna (niebieski + pomarańczowy)
+      // � 2. ŻÓŁTE PRODUKTY - Transfery przychodzące (dopisanie do stanu)
+      if (incomingTransfers.length > 0) {
+        console.log('🟡 Processing YELLOW products (incoming transfers):', incomingTransfers);
+        
+        // Przekształć żółte transfery na format produktów z magazynu
+        const yellowAsWarehouse = incomingTransfers.map(transfer => ({
+          ...transfer,
+          fullName: transfer.fullName,
+          size: transfer.size,
+          transfer_to: users.find(user => user._id === selectedUser)?.symbol, // Cel transferu
+        }));
+        
+        const yellowResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            warehouseItems: yellowAsWarehouse,
+            selectedDate: selectedDate,
+            selectedUser: selectedUser,
+            transactionId: sharedTransactionId,
+            isIncomingTransfer: true // Oznacz jako transfer przychodzący
+          }),
+        });
+
+        if (yellowResponse.ok) {
+          const yellowResult = await yellowResponse.json();
+          processedCount += yellowResult.processedCount || incomingTransfers.length;
+          console.log('🟡 Yellow incoming transfers processed successfully');
+        } else {
+          console.error('🟡 Failed to process yellow incoming transfers');
+        }
+      }
+
+      // �🟢 3. ZIELONE PRODUKTY - Operacja podwójna (niebieski + pomarańczowy)
       let greenProcessedCount = 0;
       let greenMissingCount = 0;
       const allGreenItems = [...greenStandardTransfers, ...greenSalesItems];
@@ -1319,7 +1415,7 @@ const AddToState = ({ onAdd }) => {
           console.log(`   Produkt magazynowy ${index + 1}:`, warehouse);
           console.log(`   ID: ${warehouse._id}, barcode: ${warehouse.barcode}`);
           
-          const backgroundColor = getBackgroundColor(warehouse, true, false); // magazyn: z magazynu, nie sprzedaż
+          const backgroundColor = getBackgroundColor(warehouse, true, false, false); // magazyn: z magazynu, nie sprzedaż, nie przychodzący
           console.log(`   Kolor tła: ${backgroundColor}`);
           
           if (backgroundColor === '#ff8c00') { // Pomarańczowy kolor hex
@@ -1750,7 +1846,7 @@ const AddToState = ({ onAdd }) => {
                 
                 return (
                 <tr key={transfer._id} style={{ 
-                  backgroundColor: getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale),
+                  backgroundColor: getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale, transfer.isIncomingTransfer),
                   color: 'white',
                   opacity: isProcessed ? 0.7 : 1.0 // Przezroczystość dla przetworzonych
                 }}>
@@ -1810,7 +1906,7 @@ const AddToState = ({ onAdd }) => {
                       </button>
                     ) : (() => {
                       // Sprawdź kolor produktu dla niebieskich i zielonych
-                      const backgroundColor = getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale);
+                      const backgroundColor = getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale, transfer.isIncomingTransfer);
                       const isBlue = backgroundColor === '#007bff';
                       const isGreen = backgroundColor === '#28a745';
                       

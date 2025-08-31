@@ -319,6 +319,7 @@ class TransferProcessingController {
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
                     { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Dodano do stanu (transfer przychodzący)' }, // DODANO: obsługa żółtych produktów
                     { operation: 'Odpisano ze stanu (sprzedaż)' },
                     { operation: 'Przeniesiono do korekt' }
                 ],
@@ -351,6 +352,7 @@ class TransferProcessingController {
                 try {
                     // Determine type of undo based on operation
                     const isWarehouseEntry = entry.operation === 'Dodano do stanu (z magazynu)';
+                    const isIncomingTransferEntry = entry.operation === 'Dodano do stanu (transfer przychodzący)'; // DODANO: żółte produkty
                     const isSalesEntry = entry.operation === 'Odpisano ze stanu (sprzedaż)';
                     const isCorrectionsEntry = entry.operation === 'Przeniesiono do korekt';
                     
@@ -389,6 +391,29 @@ class TransferProcessingController {
                             size: itemData.sizeText,
                             barcode: itemData.barcode,
                             action: 'restored_to_warehouse'
+                        });
+
+                    } else if (isIncomingTransferEntry) {
+                        // ŻÓŁTE PRODUKTY - INCOMING TRANSFER UNDO: Remove from user state and restore to transfer list
+                        const itemData = JSON.parse(entry.details);
+                        
+                        console.log('🟡 Processing incoming transfer undo for:', itemData.stateId);
+                        
+                        // Remove the item from user state
+                        await State.findByIdAndDelete(itemData.stateId);
+                        
+                        // Restore transfer back to unprocessed status
+                        const Transfer = require('../db/models/transfer');
+                        await Transfer.findByIdAndUpdate(itemData.transferId || itemData.originalTransferId, {
+                            processed: false,
+                            processedAt: null
+                        });
+                        
+                        restoredItems.push({
+                            id: itemData.stateId,
+                            fullName: entry.product,
+                            barcode: itemData.barcode || 'Generated',
+                            action: 'restored_to_transfer_list'
                         });
 
                     } else if (isSalesEntry) {
@@ -593,7 +618,11 @@ class TransferProcessingController {
     // Process warehouse items - transfer from warehouse to user
     async processWarehouseItems(req, res) {
         try {
-            const { warehouseItems, transactionId } = req.body;
+            const { warehouseItems, transactionId, isIncomingTransfer } = req.body;
+            
+            console.log('🟡 DEBUG: Received processWarehouseItems request');
+            console.log('🟡 DEBUG: isIncomingTransfer:', isIncomingTransfer);
+            console.log('🟡 DEBUG: warehouseItems count:', warehouseItems ? warehouseItems.length : 0);
             
             if (!warehouseItems || !Array.isArray(warehouseItems) || warehouseItems.length === 0) {
                 return res.status(400).json({
@@ -633,6 +662,70 @@ class TransferProcessingController {
                         errors.push(`Product or size not found for ${item.fullName} ${item.size}`);
                         continue;
                     }
+
+                    // RÓŻNE LOGIKI DLA RÓŻNYCH TYPÓW TRANSFERÓW
+                    if (isIncomingTransfer) {
+                        // 🟡 ŻÓŁTE PRODUKTY - Transfer przychodzący (nie usuwamy z magazynu, tylko dodajemy do stanu)
+                        console.log(`🟡 INCOMING TRANSFER: Adding ${item.fullName} to ${user.symbol} state`);
+                        
+                        // Wygeneruj barcode dla transferu przychodzącego (transfery nie mają barcode)
+                        const generatedBarcode = item.barcode || `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                        console.log(`🟡 Generated barcode for incoming transfer: ${generatedBarcode}`);
+                        
+                        // Create new State document for user
+                        const newStateId = new mongoose.Types.ObjectId();
+                        console.log(`➕ CREATING new state item: ${newStateId} for ${user.symbol} (incoming)`);
+                        
+                        const newStateItem = new State({
+                            _id: newStateId,
+                            fullName: goods._id,
+                            size: size._id,
+                            barcode: generatedBarcode,
+                            sellingPoint: user._id,
+                            price: item.price || 0,
+                            discount_price: item.discount_price || 0,
+                            date: new Date()
+                        });
+
+                        await newStateItem.save();
+                        console.log(`✅ SAVED incoming transfer item: ${newStateId}`);
+                        
+                        // OZNACZ TRANSFER JAKO PRZETWORZONY
+                        const Transfer = require('../db/models/transfer');
+                        await Transfer.findByIdAndUpdate(item._id, {
+                            processed: true,
+                            processedAt: new Date()
+                        });
+                        console.log(`✅ MARKED incoming transfer as processed: ${item._id}`);
+                        
+                        // Create history entry for incoming transfer
+                        const historyEntry = new History({
+                            collectionName: 'Stan',
+                            operation: 'Dodano do stanu (transfer przychodzący)',
+                            product: `${item.fullName} ${item.size}`,
+                            details: JSON.stringify({
+                                stateId: newStateItem._id,
+                                transferId: item._id, // DODANO: ID transferu dla cofania
+                                fromTransfer: true,
+                                isIncomingTransfer: true,
+                                targetUser: user.symbol,
+                                barcode: generatedBarcode
+                            }),
+                            timestamp: new Date(),
+                            transactionId: finalTransactionId
+                        });
+
+                        await historyEntry.save();
+                        
+                        // Dodaj do listy przetworzonych z flagą incoming transfer
+                        addedItems.push({
+                            ...newStateItem.toObject(),
+                            isIncomingTransfer: true
+                        });
+                        
+                    } else {
+                        // 🟠 POMARAŃCZOWE PRODUKTY - Normalne przeniesienie z magazynu (usuwamy z magazynu i dodajemy do stanu)
+                        console.log(`🟠 WAREHOUSE TRANSFER: Moving ${item.fullName} from warehouse to ${user.symbol}`);
 
                     // Remove from warehouse (original warehouse item)
                     console.log(`🏪 REMOVING from warehouse: ${item._id} (${item.barcode})`);
@@ -702,6 +795,8 @@ class TransferProcessingController {
                     });
 
                     await historyEntry.save();
+                    addedItems.push(newStateItem);
+                    }
 
                     addedItems.push({
                         id: newStateItem._id,
@@ -726,6 +821,27 @@ class TransferProcessingController {
                 if (userCount > 0) {
                     console.log(`  - ${user.symbol}: ${userCount} items`);
                 }
+            }
+
+            // Aktualizuj ostatnią transakcję dla cofania
+            if (addedItems.length > 0) {
+                const LastTransaction = require('../db/models/lastTransaction');
+                
+                // Określ typ transakcji
+                const transactionType = addedItems.some(item => item.isIncomingTransfer) ? 'incoming_transfer' : 'warehouse';
+                
+                await LastTransaction.findOneAndUpdate(
+                    {}, 
+                    {
+                        transactionId: finalTransactionId,
+                        timestamp: new Date(),
+                        itemCount: addedItems.length,
+                        transactionType: transactionType,
+                        canUndo: true
+                    },
+                    { upsert: true }
+                );
+                console.log(`💾 Updated last transaction: ${finalTransactionId} (${transactionType})`);
             }
 
             res.status(200).json({
@@ -756,6 +872,7 @@ class TransferProcessingController {
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
                     { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Dodano do stanu (transfer przychodzący)' }, // DODANO: żółte produkty
                     { operation: 'Przeniesiono do korekt' },
                     { operation: 'Odpisano ze stanu (sprzedaż)' }
                 ],
@@ -784,6 +901,11 @@ class TransferProcessingController {
                 operation: 'Dodano do stanu (z magazynu)'
             });
 
+            const hasIncomingTransfers = await History.findOne({
+                transactionId: lastTransaction.transactionId,
+                operation: 'Dodano do stanu (transfer przychodzący)'
+            });
+
             const hasStandardItems = await History.findOne({
                 transactionId: lastTransaction.transactionId,
                 operation: 'Odpisano ze stanu (transfer)'
@@ -794,6 +916,8 @@ class TransferProcessingController {
                 transactionType = 'mixed';
             } else if (hasWarehouseItems) {
                 transactionType = 'warehouse';
+            } else if (hasIncomingTransfers) {
+                transactionType = 'incoming'; // DODANO: typ dla żółtych produktów
             }
 
             res.status(200).json({
