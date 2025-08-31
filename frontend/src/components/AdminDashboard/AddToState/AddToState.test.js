@@ -240,7 +240,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
     });
 
     await waitFor(() => {
-      const przeniesButton = screen.getAllByText('➡️ Przenieś')[0];
+      const przeniesButton = screen.getAllByText('➤ Przenieś')[0];
       fireEvent.click(przeniesButton);
     });
 
@@ -297,7 +297,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
     });
 
     await waitFor(() => {
-      const przeniesButton = screen.getAllByText('➡️ Przenieś')[0];
+      const przeniesButton = screen.getAllByText('➤ Przenieś')[0];
       fireEvent.click(przeniesButton);
     });
 
@@ -338,7 +338,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
     });
 
     await waitFor(() => {
-      const przeniesButton = screen.getAllByText('➡️ Przenieś')[0];
+      const przeniesButton = screen.getAllByText('➤ Przenieś')[0];
       fireEvent.click(przeniesButton);
     });
 
