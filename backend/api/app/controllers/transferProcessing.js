@@ -372,8 +372,7 @@ class TransferProcessingController {
                             throw new Error('MAGAZYN user not found');
                         }
 
-                        const warehouseItem = new State({
-                            _id: new mongoose.Types.ObjectId(),
+                        const warehouseItem = await State.create({
                             fullName: itemData.fullName,
                             size: itemData.size,
                             barcode: itemData.barcode,
@@ -382,8 +381,6 @@ class TransferProcessingController {
                             discount_price: itemData.discount_price || 0,
                             date: new Date()
                         });
-
-                        await warehouseItem.save();
 
                         restoredItems.push({
                             id: itemData.originalId,
@@ -429,7 +426,7 @@ class TransferProcessingController {
                             throw new Error(`Original selling point user not found: ${itemData.sellingPoint}`);
                         }
 
-                        const restoredSaleItem = new State({
+                        const restoredSaleItem = await State.create({
                             _id: new mongoose.Types.ObjectId(itemData.originalId),
                             fullName: itemData.fullName,
                             size: itemData.size,
@@ -439,8 +436,6 @@ class TransferProcessingController {
                             discount_price: itemData.discount_price || 0,
                             date: new Date()
                         });
-
-                        await restoredSaleItem.save();
                         console.log(`✅ Restored sold item ${itemData.barcode} back to state ${originalUser.symbol}`);
 
                         restoredItems.push({
@@ -553,7 +548,7 @@ class TransferProcessingController {
                         console.log('Processing standard undo for:', itemData.barcode);
                         
                         // Create new State document with original ID
-                        const restoredItem = new State({
+                        const restoredItem = await State.create({
                             _id: new mongoose.Types.ObjectId(itemData.originalId),
                             fullName: itemData.fullName,
                             size: itemData.size,
@@ -563,8 +558,6 @@ class TransferProcessingController {
                             discount_price: itemData.discount_price,
                             date: itemData.date
                         });
-
-                        await restoredItem.save();
 
                         // Mark transfer as unprocessed instead of creating new one
                         if (itemData.transferId) {
@@ -596,6 +589,12 @@ class TransferProcessingController {
             });
 
             console.log(`CLEAN UNDO: Deleted ${transactionEntries.length} history entries for transaction ${lastTransaction.transactionId}`);
+
+            // DODANE: Usuń LastTransaction entry
+            const LastTransaction = require('../db/models/lastTransaction');
+            await LastTransaction.deleteOne({
+                transactionId: lastTransaction.transactionId
+            });
 
             res.status(200).json({
                 message: 'Transaction successfully undone (history cleaned)',
@@ -676,7 +675,7 @@ class TransferProcessingController {
                         const newStateId = new mongoose.Types.ObjectId();
                         console.log(`➕ CREATING new state item: ${newStateId} for ${user.symbol} (incoming)`);
                         
-                        const newStateItem = new State({
+                        const newStateItem = await State.create({
                             _id: newStateId,
                             fullName: goods._id,
                             size: size._id,
@@ -686,8 +685,6 @@ class TransferProcessingController {
                             discount_price: item.discount_price || 0,
                             date: new Date()
                         });
-
-                        await newStateItem.save();
                         console.log(`✅ SAVED incoming transfer item: ${newStateId}`);
                         
                         // OZNACZ TRANSFER JAKO PRZETWORZONY
@@ -745,7 +742,7 @@ class TransferProcessingController {
                     const newStateId = new mongoose.Types.ObjectId();
                     console.log(`➕ CREATING new state item: ${newStateId} for ${user.symbol} (${item.barcode})`);
                     
-                    const newStateItem = new State({
+                    const newStateItem = await State.create({
                         _id: newStateId,
                         fullName: goods._id,
                         size: size._id,
@@ -755,8 +752,6 @@ class TransferProcessingController {
                         discount_price: item.discount_price || 0,
                         date: new Date()
                     });
-
-                    await newStateItem.save();
                     console.log(`✅ SAVED new state item: ${newStateId}`);
                     
                     // Check current count for this user AFTER adding
@@ -795,9 +790,7 @@ class TransferProcessingController {
                     });
 
                     await historyEntry.save();
-                    addedItems.push(newStateItem);
-                    }
-
+                    
                     addedItems.push({
                         id: newStateItem._id,
                         fullName: item.fullName,
@@ -805,6 +798,8 @@ class TransferProcessingController {
                         barcode: item.barcode,
                         transfer_to: item.transfer_to
                     });
+                    
+                    } // Koniec bloku else dla POMARAŃCZOWYCH PRODUKTÓW
 
                 } catch (itemError) {
                     console.error(`Error processing warehouse item:`, itemError);

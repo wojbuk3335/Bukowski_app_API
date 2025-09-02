@@ -1,0 +1,625 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import AddToState from '../AddToState';
+
+// Mock fetch globalnie
+global.fetch = jest.fn();
+
+// Mock console methods to avoid cluttering test output
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+
+beforeAll(() => {
+  console.log = jest.fn();
+  console.error = jest.fn();
+});
+
+afterAll(() => {
+  console.log = originalConsoleLog;
+  console.error = originalConsoleError;
+});
+
+describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () => {
+  const mockYellowTransfer = {
+    _id: 'yellow-transfer-1',
+    transfer_from: 'Magazyn A',
+    transfer_to: 'user1',
+    fullName: 'Yellow Test Product',
+    size: 'L',
+    barcode: 'INCOMING_123456',
+    price: 150,
+    date: '2025-08-31',
+    processed: false,
+    isIncomingTransfer: true
+  };
+
+  const mockUsers = [
+    { _id: 'user1', symbol: 'user1', name: 'Test User' },
+    { _id: 'user2', symbol: 'Admin', name: 'Administrator' }
+  ];
+
+  const mockApiResponses = {
+    transfers: () => Promise.resolve({
+      ok: true,
+      json: async () => [mockYellowTransfer]
+    }),
+    users: () => Promise.resolve({
+      ok: true,
+      json: async () => ({ users: mockUsers })
+    }),
+    state: () => Promise.resolve({
+      ok: true,
+      json: async () => []
+    }),
+    sales: () => Promise.resolve({
+      ok: true,
+      json: async () => []
+    }),
+    warehouse: () => Promise.resolve({
+      ok: true,
+      json: async () => []
+    }),
+    lastTransaction: () => Promise.resolve({
+      status: 404,
+      json: async () => ({ message: 'No transaction found' })
+    })
+  };
+
+  beforeEach(() => {
+    fetch.mockClear();
+    jest.clearAllMocks();
+    
+    // Setup global mock that responds based on URL
+    fetch.mockImplementation((url) => {
+      console.log('Mock fetch called with URL:', url);
+      if (url.includes('/api/transfer')) {
+        return mockApiResponses.transfers();
+      }
+      if (url.includes('/api/user')) {
+        return mockApiResponses.users();
+      }
+      if (url.includes('/api/state')) {
+        return mockApiResponses.state();
+      }
+      if (url.includes('/api/sales')) {
+        return mockApiResponses.sales();
+      }
+      if (url.includes('/api/warehouseItems') || url.includes('/api/state/warehouse')) {
+        return mockApiResponses.warehouse();
+      }
+      if (url.includes('/api/lastTransaction') || url.includes('/api/transfer/last-transaction')) {
+        return mockApiResponses.lastTransaction();
+      }
+      // Default response
+      return Promise.resolve({
+        ok: true,
+        json: async () => ([])
+      });
+    });
+  });
+
+  test('1. Wyświetlanie żółtych produktów w odpowiednim kolorze', async () => {
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Wybierz użytkownika TestUser
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    await waitFor(() => {
+      const productElement = screen.getByText('Yellow Test Product');
+      expect(productElement).toBeInTheDocument();
+      
+      // Sprawdź czy element ma żółte tło
+      const productRow = productElement.closest('tr');
+      expect(productRow).toHaveStyle({ backgroundColor: 'rgb(255, 193, 7)' });
+    });
+  });
+
+  test('2. Filtrowanie żółtych produktów według daty', async () => {
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Ustaw filtr daty na dzisiaj
+    const dateInput = screen.getByLabelText(/select date/i);
+    await act(async () => {
+      fireEvent.change(dateInput, { target: { value: '2025-08-31' } });
+    });
+
+    // Wybierz użytkownika
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Yellow Test Product')).toBeInTheDocument();
+    });
+  });
+
+  test('3. Przetwarzanie żółtych produktów - dodanie do stanu', async () => {
+    // Mock successful processing response
+    fetch
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce(mockApiResponses.users())
+      .mockResolvedValueOnce(mockApiResponses.lastTransaction())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: 'Warehouse items processed successfully',
+          transactionId: 'test_transaction_123',
+          processedCount: 1,
+          addedItems: [{
+            id: 'state_123',
+            fullName: 'Yellow Test Product',
+            barcode: 'INCOMING_123456',
+            action: 'added_to_state'
+          }]
+        })
+      })
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          transactionId: 'test_transaction_123',
+          timestamp: new Date().toISOString(),
+          itemCount: 1,
+          canUndo: true,
+          transactionType: 'incoming'
+        })
+      });
+
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Wybierz użytkownika
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Yellow Test Product')).toBeInTheDocument();
+    });
+
+    // Kliknij przycisk przetwarzania
+    const processButton = screen.getByText(/przetwórz wszystkie transfery/i);
+    await act(async () => {
+      fireEvent.click(processButton);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/transfer/process-warehouse'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: expect.stringContaining('isIncomingTransfer')
+        })
+      );
+    });
+  });
+
+  test('4. Synchronizacja z kombinowanymi elementami', async () => {
+    const mockWarehouseItem = {
+      _id: 'warehouse-1',
+      fullName: 'Warehouse Product',
+      size: 'M',
+      barcode: '789012',
+      symbol: 'MAGAZYN',
+      price: 100,
+      fromWarehouse: true
+    };
+
+    // Mock responses with both yellow transfer and warehouse item
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [mockYellowTransfer]
+      })
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [mockWarehouseItem]
+      })
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce(mockApiResponses.users())
+      .mockResolvedValueOnce(mockApiResponses.lastTransaction());
+
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Wybierz użytkownika
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    // Kliknij synchronizację
+    const syncButton = screen.getByText(/synchronizuj/i);
+    await act(async () => {
+      fireEvent.click(syncButton);
+    });
+
+    await waitFor(() => {
+      // Sprawdź czy oba produkty są widoczne
+      expect(screen.getByText('Yellow Test Product')).toBeInTheDocument();
+      expect(screen.getByText('Warehouse Product')).toBeInTheDocument();
+    });
+  });
+
+  test('5. Funkcja getBackgroundColor dla incoming transfers', async () => {
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Wybierz użytkownika
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    await waitFor(() => {
+      const yellowProduct = screen.getByText('Yellow Test Product');
+      const productRow = yellowProduct.closest('tr');
+      
+      // Sprawdź czy background-color to żółty (#ffc107)
+      expect(productRow).toHaveStyle({
+        backgroundColor: 'rgb(255, 193, 7)'
+      });
+    });
+  });
+
+  test('6. Sprawdzenie aktualizacji licznika po przetworzeniu żółtych produktów', async () => {
+    // Mock successful processing and updated transaction count
+    fetch
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce(mockApiResponses.users())
+      .mockResolvedValueOnce(mockApiResponses.lastTransaction())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: 'Warehouse items processed successfully',
+          transactionId: 'test_transaction_456',
+          processedCount: 1
+        })
+      })
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          transactionId: 'test_transaction_456',
+          timestamp: new Date().toISOString(),
+          itemCount: 1,
+          canUndo: true,
+          transactionType: 'incoming'
+        })
+      });
+
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Wybierz użytkownika i przetwórz
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    const processButton = screen.getByText(/przetwórz wszystkie transfery/i);
+    await act(async () => {
+      fireEvent.click(processButton);
+    });
+
+    await waitFor(() => {
+      // Sprawdź czy przycisk undo został zaktualizowany
+      expect(screen.getByText(/anuluj ostatnią transakcję \(1 produkt/i)).toBeInTheDocument();
+    });
+  });
+
+  test('7. Resetowanie synchronizacji po przetworzeniu', async () => {
+    fetch
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce(mockApiResponses.users())
+      .mockResolvedValueOnce(mockApiResponses.lastTransaction())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: 'Warehouse items processed successfully',
+          transactionId: 'test_transaction_789'
+        })
+      })
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          transactionId: 'test_transaction_789',
+          timestamp: new Date().toISOString(),
+          itemCount: 1,
+          canUndo: true,
+          transactionType: 'incoming'
+        })
+      });
+
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Wybierz użytkownika
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    // Synchronizuj
+    const syncButton = screen.getByText(/synchronizuj/i);
+    await act(async () => {
+      fireEvent.click(syncButton);
+    });
+
+    // Przetwórz
+    const processButton = screen.getByText(/przetwórz wszystkie transfery/i);
+    await act(async () => {
+      fireEvent.click(processButton);
+    });
+
+    await waitFor(() => {
+      // Sprawdź czy stan synchronizacji został zresetowany
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer/last-transaction'));
+    });
+  });
+
+  test('8. Obsługa błędów podczas przetwarzania żółtych produktów', async () => {
+    fetch
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce(mockApiResponses.users())
+      .mockResolvedValueOnce(mockApiResponses.lastTransaction())
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          error: 'Processing failed for incoming transfer'
+        })
+      });
+
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Mock window.alert
+    window.alert = jest.fn();
+
+    // Wybierz użytkownika i spróbuj przetworzyć
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    const processButton = screen.getByText(/przetwórz wszystkie transfery/i);
+    await act(async () => {
+      fireEvent.click(processButton);
+    });
+
+    await waitFor(() => {
+      // Sprawdź czy alert został wywołany przy błędzie
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Błąd'));
+    });
+  });
+
+  test('9. Sprawdzenie filterItemsByDate dla żółtych produktów', async () => {
+    const pastTransfer = {
+      ...mockYellowTransfer,
+      _id: 'past-transfer',
+      date: '2025-08-01', // Past date
+      fullName: 'Past Yellow Product'
+    };
+
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [mockYellowTransfer, pastTransfer]
+      })
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce(mockApiResponses.users())
+      .mockResolvedValueOnce(mockApiResponses.lastTransaction());
+
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // Ustaw filtr daty na dzisiaj
+    const dateInput = screen.getByLabelText(/select date/i);
+    await act(async () => {
+      fireEvent.change(dateInput, { target: { value: '2025-08-31' } });
+    });
+
+    // Wybierz użytkownika
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    await waitFor(() => {
+      // Sprawdź czy tylko dzisiejszy transfer jest widoczny
+      expect(screen.getByText('Yellow Test Product')).toBeInTheDocument();
+      expect(screen.queryByText('Past Yellow Product')).not.toBeInTheDocument();
+    });
+  });
+
+  test('10. Test kompleksowy - pełny workflow żółtych produktów', async () => {
+    // Mock complete workflow responses
+    fetch
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce(mockApiResponses.users())
+      .mockResolvedValueOnce(mockApiResponses.lastTransaction())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: 'Warehouse items processed successfully',
+          transactionId: 'workflow_test_123',
+          processedCount: 1,
+          addedItems: [{
+            id: 'state_workflow_123',
+            fullName: 'Yellow Test Product',
+            barcode: 'INCOMING_123456',
+            action: 'added_to_state'
+          }]
+        })
+      })
+      .mockResolvedValueOnce(mockApiResponses.transfers())
+      .mockResolvedValueOnce(mockApiResponses.sales())
+      .mockResolvedValueOnce(mockApiResponses.warehouse())
+      .mockResolvedValueOnce(mockApiResponses.state())
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          transactionId: 'workflow_test_123',
+          timestamp: new Date().toISOString(),
+          itemCount: 1,
+          canUndo: true,
+          transactionType: 'incoming'
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: 'Transaction successfully undone (history cleaned)',
+          transactionId: 'workflow_test_123',
+          restoredCount: 1,
+          restoredItems: [{
+            id: 'state_workflow_123',
+            fullName: 'Yellow Test Product',
+            action: 'restored_to_transfer_list'
+          }]
+        })
+      });
+
+    await act(async () => {
+      render(<AddToState />);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/transfer'));
+    });
+
+    // 1. Wybierz użytkownika
+    const userSelect = screen.getByLabelText(/select user/i);
+    await act(async () => {
+      fireEvent.change(userSelect, { target: { value: 'user1' } });
+    });
+
+    // 2. Sprawdź żółty kolor
+    await waitFor(() => {
+      const yellowProduct = screen.getByText('Yellow Test Product');
+      const productRow = yellowProduct.closest('tr');
+      expect(productRow).toHaveStyle({ backgroundColor: 'rgb(255, 193, 7)' });
+    });
+
+    // 3. Przetwórz produkt
+    const processButton = screen.getByText(/przetwórz wszystkie transfery/i);
+    await act(async () => {
+      fireEvent.click(processButton);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/transfer/process-warehouse'),
+        expect.objectContaining({
+          method: 'POST'
+        })
+      );
+    });
+
+    // 4. Sprawdź przycisk undo
+    await waitFor(() => {
+      expect(screen.getByText(/anuluj ostatnią transakcję/i)).toBeInTheDocument();
+    });
+
+    // 5. Cofnij transakcję
+    const undoButton = screen.getByText(/anuluj ostatnią transakcję/i);
+    
+    // Mock window.confirm
+    window.confirm = jest.fn(() => true);
+    
+    await act(async () => {
+      fireEvent.click(undoButton);
+    });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/transfer/undo-last'),
+        expect.objectContaining({
+          method: 'POST'
+        })
+      );
+    });
+  });
+});

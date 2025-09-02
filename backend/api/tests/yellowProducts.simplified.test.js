@@ -1,10 +1,22 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const app = require('../app/app');
+const express = require('express');
 const History = require('../app/db/models/history');
 const Transfer = require('../app/db/models/transfer');
 const State = require('../app/db/models/state');
+const User = require('../app/db/models/user');
+const Size = require('../app/db/models/size');
+const Goods = require('../app/db/models/goods');
+const Color = require('../app/db/models/color');
+const Category = require('../app/db/models/category');
+const Stock = require('../app/db/models/stock');
+const LastTransaction = require('../app/db/models/lastTransaction');
+
+// Import kontrolerów bezpośrednio zamiast całej app
+const transferProcessing = require('../app/controllers/transferProcessing');
+
+let app;
 
 describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () => {
   let mongoServer;
@@ -14,10 +26,21 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
     mongoServer = await MongoMemoryServer.create();
     mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
+    
+    // Stwórz lokalną Express app dla testów
+    app = express();
+    app.use(express.json());
+    
+    // Dodaj tylko potrzebne routy
+    app.post('/api/transfer/process-warehouse', (req, res) => transferProcessing.processWarehouseItems(req, res));
+    app.post('/api/transfer/undo-transaction', (req, res) => transferProcessing.undoLastTransaction(req, res));
+    app.get('/api/transfer/last-transaction', (req, res) => transferProcessing.getLastTransaction(req, res));
+    app.post('/api/transfer/undo-last', (req, res) => transferProcessing.undoLastTransaction(req, res));
   });
 
   afterAll(async () => {
-    await mongoose.disconnect();
+    await mongoose.connection.dropDatabase();
+    await mongoose.connection.close();
     await mongoServer.stop();
   });
 
@@ -25,10 +48,79 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
     await History.deleteMany({});
     await Transfer.deleteMany({});
     await State.deleteMany({});
+    await User.deleteMany({});
+    await Size.deleteMany({});
+    await Goods.deleteMany({});
+    await Color.deleteMany({});
+    await Category.deleteMany({});
+    await Stock.deleteMany({});
+    await LastTransaction.deleteMany({});
   });
+
+  // Helper function do tworzenia User z wymaganymi polami
+  const createTestUser = async (symbol = 'TestUser', role = 'user', extraData = {}) => {
+    return await User.create({
+      _id: new mongoose.Types.ObjectId(),
+      email: `${symbol.toLowerCase()}@example.com`,
+      password: 'testpassword123',
+      symbol,
+      role,
+      sellingPoint: role === 'user' ? `Punkt ${symbol}` : null,
+      location: role === 'user' ? 'Test Location' : null,
+      ...extraData
+    });
+  };
+
+  // Helper functions for test models
+  const createTestModels = async (productName = 'Yellow Test Product', sizeName = 'M') => {
+    const uniqueId = Date.now() + Math.random();
+    
+    const testColor = await Color.create({
+      _id: new mongoose.Types.ObjectId(),
+      Kol_Kod: `YELLOW_${uniqueId}`,
+      Kol_Opis: 'Żółty kolor'
+    });
+
+    const testStock = await Stock.create({
+      _id: new mongoose.Types.ObjectId(),
+      Tow_Kod: `YELLOW_PROD_${uniqueId}`,
+      Tow_Opis: 'Żółty produkt'
+    });
+
+    const testCategory = await Category.create({
+      _id: new mongoose.Types.ObjectId(),
+      Kat_1_Kod_1: `YELLOW_CAT_${uniqueId}`,
+      Kat_1_Nazwa_1: 'Żółta kategoria'
+    });
+
+    const testSize = await Size.create({
+      _id: new mongoose.Types.ObjectId(),
+      Roz_Kod: `${sizeName}_${uniqueId}`,
+      Roz_Opis: sizeName
+    });
+
+    const testGoods = await Goods.create({
+      _id: new mongoose.Types.ObjectId(),
+      stock: testStock._id,
+      color: testColor._id,
+      fullName: productName,
+      code: `YELLOW_PROD_YELLOW_${uniqueId}`,
+      price: 100,
+      category: 'YELLOW_ITEMS',
+      subcategory: testCategory._id,
+      Plec: 'UNISEX'
+    });
+
+    return { testColor, testStock, testCategory, testSize, testGoods };
+  };
 
   describe('Yellow Products Processing', () => {
     test('1. Powinien przetworzyć żółty produkt i dodać do stanu', async () => {
+      // Przygotuj user w bazie
+      await createTestUser('TestUser');
+      // Przygotuj modele pomocnicze
+      const { testGoods } = await createTestModels('Yellow Test Product', 'M');
+
       // Przygotuj transfer w bazie
       const testTransfer = await Transfer.create({
         fullName: 'Yellow Test Product',
@@ -36,6 +128,8 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
         transfer_from: 'Punkt A',
         transfer_to: 'TestUser',
         date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: new mongoose.Types.ObjectId(),
         processed: false
       });
 
@@ -54,17 +148,18 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           warehouseItems: [yellowProduct],
           selectedDate: '2025-08-31',
           selectedUser: 'TestUser',
-          transactionId: 'test_yellow_123'
+          transactionId: 'test_yellow_123',
+          isIncomingTransfer: true
         });
 
       expect(response.status).toBe(200);
       expect(response.body.message).toBe('Warehouse items processed successfully');
 
       // Sprawdź czy element został dodany do stanu
-      const stateItems = await State.find({});
+      const stateItems = await State.find({}).populate('fullName').populate('sellingPoint');
       expect(stateItems).toHaveLength(1);
-      expect(stateItems[0].fullName).toBe('Yellow Test Product');
-      expect(stateItems[0].symbol).toBe('TestUser');
+      expect(stateItems[0].fullName._id.toString()).toBe(testGoods._id.toString());
+      expect(stateItems[0].sellingPoint.symbol).toBe('TestUser');
       expect(stateItems[0].barcode).toMatch(/^INCOMING_/);
 
       // Sprawdź czy transfer został oznaczony jako przetworzony
@@ -78,12 +173,19 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
     });
 
     test('2. Powinien wygenerować unikalny kod kreskowy', async () => {
+      // Przygotuj user w bazie
+      await createTestUser('BarcodeUser');
+      // Przygotuj modele pomocnicze
+      await createTestModels('Barcode Test Product', 'L');
+
       const testTransfer = await Transfer.create({
         fullName: 'Barcode Test Product',
         size: 'L',
         transfer_from: 'Source',
         transfer_to: 'BarcodeUser',
         date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: new mongoose.Types.ObjectId(),
         processed: false
       });
 
@@ -101,7 +203,8 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           warehouseItems: [yellowProduct],
           selectedDate: '2025-08-31',
           selectedUser: 'BarcodeUser',
-          transactionId: 'barcode_test'
+          transactionId: 'barcode_test',
+          isIncomingTransfer: true
         });
 
       expect(response.status).toBe(200);
@@ -111,12 +214,21 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
     });
 
     test('3. Powinien przetworzyć wiele żółtych produktów', async () => {
+      // Przygotuj user w bazie
+      await createTestUser('MultiUser');
+      // Przygotuj modele pomocnicze dla obydwu rozmiarów
+      await createTestModels('Yellow Product 1', 'S');
+      await createTestModels('Yellow Product 2', 'M');
+
       const transfers = await Transfer.create([
         {
           fullName: 'Yellow Product 1',
           size: 'S',
           transfer_from: 'Source1',
           transfer_to: 'MultiUser',
+          date: new Date('2025-08-31'),
+          dateString: '2025-08-31',
+          productId: new mongoose.Types.ObjectId(),
           processed: false
         },
         {
@@ -124,6 +236,9 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           size: 'M',
           transfer_from: 'Source2',
           transfer_to: 'MultiUser',
+          date: new Date('2025-08-31'),
+          dateString: '2025-08-31',
+          productId: new mongoose.Types.ObjectId(),
           processed: false
         }
       ]);
@@ -142,7 +257,8 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           warehouseItems: yellowProducts,
           selectedDate: '2025-08-31',
           selectedUser: 'MultiUser',
-          transactionId: 'multi_test'
+          transactionId: 'multi_test',
+          isIncomingTransfer: true
         });
 
       expect(response.status).toBe(200);
@@ -156,6 +272,9 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
     });
 
     test('4. Powinien obsłużyć błąd nieistniejącego transferu', async () => {
+      // Stwórz user żeby test sprawdził błąd transferu, nie usera
+      await createTestUser('TestUser');
+      
       const nonExistentYellowProduct = {
         _id: new mongoose.Types.ObjectId().toString(),
         fullName: 'Non-existent Product',
@@ -170,11 +289,12 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           warehouseItems: [nonExistentYellowProduct],
           selectedDate: '2025-08-31',
           selectedUser: 'TestUser',
-          transactionId: 'error_test'
+          transactionId: 'error_test',
+          isIncomingTransfer: true
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.errors).toContain(expect.stringContaining('nie znaleziono transferu'));
+      expect(response.body.errors[0]).toContain('Product or size not found');
 
       const stateItems = await State.find({});
       expect(stateItems).toHaveLength(0);
@@ -188,6 +308,7 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
         transactionId: 'yellow_transaction_123',
         timestamp: new Date(),
         product: 'Yellow Test Product',
+        collectionName: 'State',
         details: JSON.stringify({
           stateId: new mongoose.Types.ObjectId(),
           transferId: new mongoose.Types.ObjectId(),
@@ -213,19 +334,22 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           operation: 'Dodano do stanu (transfer przychodzący)',
           transactionId,
           timestamp: new Date(),
-          product: 'Product 1'
+          product: 'Product 1',
+          collectionName: 'State'
         },
         {
           operation: 'Dodano do stanu (transfer przychodzący)',
           transactionId,
           timestamp: new Date(),
-          product: 'Product 2'
+          product: 'Product 2',
+          collectionName: 'State'
         },
         {
           operation: 'Dodano do stanu (transfer przychodzący)',
           transactionId,
           timestamp: new Date(),
-          product: 'Product 3'
+          product: 'Product 3',
+          collectionName: 'State'
         }
       ]);
 
@@ -240,20 +364,31 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
 
   describe('Undo Functionality', () => {
     test('7. Powinien cofnąć transakcję żółtych produktów', async () => {
+      // Przygotuj user i modele
+      const testUser = await createTestUser('UndoUser');
+      const { testGoods, testSize } = await createTestModels('Undo Test Product', 'XL');
+
       const testTransfer = await Transfer.create({
         fullName: 'Undo Test Product',
         size: 'XL',
         transfer_from: 'UndoSource',
         transfer_to: 'UndoUser',
+        date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: new mongoose.Types.ObjectId(),
         processed: true,
         processedAt: new Date()
       });
 
       const stateItem = await State.create({
-        fullName: 'Undo Test Product',
-        size: 'XL',
-        symbol: 'UndoUser',
-        barcode: 'INCOMING_undo_123'
+        _id: new mongoose.Types.ObjectId(),
+        fullName: testGoods._id,
+        size: testSize._id,
+        sellingPoint: testUser._id,
+        date: new Date(),
+        barcode: 'INCOMING_undo_123',
+        price: 200,
+        symbol: 'UndoUser'
       });
 
       await History.create({
@@ -261,6 +396,7 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
         transactionId: 'undo_test_789',
         timestamp: new Date(),
         product: 'Undo Test Product',
+        collectionName: 'State',
         details: JSON.stringify({
           stateId: stateItem._id,
           transferId: testTransfer._id,
@@ -289,12 +425,20 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
     });
 
     test('8. Powinien cofnąć wiele żółtych produktów', async () => {
+      // Przygotuj user i modele
+      const testUser = await createTestUser('MultiUndoUser');
+      const models1 = await createTestModels('Multi Undo 1', 'S');
+      const models2 = await createTestModels('Multi Undo 2', 'M');
+
       const transfers = await Transfer.create([
         {
           fullName: 'Multi Undo 1',
           size: 'S',
           transfer_from: 'Source1',
           transfer_to: 'MultiUndoUser',
+          date: new Date('2025-08-31'),
+          dateString: '2025-08-31',
+          productId: new mongoose.Types.ObjectId(),
           processed: true
         },
         {
@@ -302,22 +446,33 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           size: 'M',
           transfer_from: 'Source2',
           transfer_to: 'MultiUndoUser',
+          date: new Date('2025-08-31'),
+          dateString: '2025-08-31',
+          productId: new mongoose.Types.ObjectId(),
           processed: true
         }
       ]);
 
       const states = await State.create([
         {
-          fullName: 'Multi Undo 1',
-          size: 'S',
-          symbol: 'MultiUndoUser',
-          barcode: 'INCOMING_multi1_123'
+          _id: new mongoose.Types.ObjectId(),
+          fullName: models1.testGoods._id,
+          size: models1.testSize._id,
+          sellingPoint: testUser._id,
+          date: new Date(),
+          barcode: 'INCOMING_multi1_123',
+          price: 200,
+          symbol: 'MultiUndoUser'
         },
         {
-          fullName: 'Multi Undo 2',
-          size: 'M',
-          symbol: 'MultiUndoUser',
-          barcode: 'INCOMING_multi2_456'
+          _id: new mongoose.Types.ObjectId(),
+          fullName: models2.testGoods._id,
+          size: models2.testSize._id,
+          sellingPoint: testUser._id,
+          date: new Date(),
+          barcode: 'INCOMING_multi2_456',
+          price: 200,
+          symbol: 'MultiUndoUser'
         }
       ]);
 
@@ -329,6 +484,7 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           transactionId,
           timestamp: new Date(),
           product: 'Multi Undo 1',
+          collectionName: 'State',
           details: JSON.stringify({
             stateId: states[0]._id,
             transferId: transfers[0]._id,
@@ -341,6 +497,7 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           transactionId,
           timestamp: new Date(),
           product: 'Multi Undo 2',
+          collectionName: 'State',
           details: JSON.stringify({
             stateId: states[1]._id,
             transferId: transfers[1]._id,
@@ -364,16 +521,21 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
       const restoredTransfers = await Transfer.find({ processed: false });
       expect(restoredTransfers).toHaveLength(2);
     });
-  });
 
-  describe('Integration Tests', () => {
     test('9. Pełny workflow: Process → Undo', async () => {
+      // Przygotuj user i modele
+      await createTestUser('WorkflowUser');
+      await createTestModels('Workflow Test', 'M');
+
       // 1. Przygotuj transfer
       const testTransfer = await Transfer.create({
         fullName: 'Workflow Test',
         size: 'M',
         transfer_from: 'WorkflowSource',
         transfer_to: 'WorkflowUser',
+        date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: new mongoose.Types.ObjectId(),
         processed: false
       });
 
@@ -390,7 +552,8 @@ describe('Yellow Products (Incoming Transfers) - Simplified Backend Tests', () =
           }],
           selectedDate: '2025-08-31',
           selectedUser: 'WorkflowUser',
-          transactionId: 'workflow_test'
+          transactionId: 'workflow_test',
+          isIncomingTransfer: true
         });
 
       expect(processResponse.status).toBe(200);

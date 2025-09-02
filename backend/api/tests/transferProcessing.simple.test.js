@@ -1,14 +1,30 @@
-const transferProcessing = require('../app/controllers/transferProcessing');
+// Mock wszystkich zależności MongoDB/Mongoose PRZED importem
+const mockSchema = jest.fn().mockImplementation(() => ({
+  post: jest.fn(),
+  pre: jest.fn()
+}));
 
-// Mock wszystkich zależności MongoDB/Mongoose
+mockSchema.Types = {
+  ObjectId: jest.fn()
+};
+
 jest.mock('mongoose', () => ({
   connect: jest.fn(),
   connection: {
     on: jest.fn(),
     once: jest.fn(),
     readyState: 1
-  }
+  },
+  Schema: mockSchema,
+  model: jest.fn().mockReturnValue({
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    deleteMany: jest.fn()
+  })
 }));
+
+const transferProcessing = require('../app/controllers/transferProcessing');
 
 // Mock modeli bazodanowych
 jest.mock('../app/db/models/user', () => ({

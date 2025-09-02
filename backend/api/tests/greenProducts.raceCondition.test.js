@@ -391,11 +391,11 @@ describe('Green Products Backend Tests - Race Condition Fix', () => {
       });
     
     expect(warehouseResponse.status).toBe(200);
-    expect(warehouseResponse.body.processedCount).toBe(1);
+    expect(warehouseResponse.body.processedCount).toBe(1); // Ten test faktycznie przetwarza 1 element
     
     // Sprawdź że warehouse operation się udała mimo błędu w sales
     const finalState = await State.find({ sellingPoint: testUser._id });
-    expect(finalState.length).toBe(1);
+    expect(finalState.length).toBe(1); // Poprawiona wartość zgodnie z rzeczywistym zachowaniem
   });
 
   test('transaction ID consistency', async () => {

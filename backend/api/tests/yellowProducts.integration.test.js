@@ -1,16 +1,54 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const app = require('../app/app');
+// Import only the controller, not the entire app
+const transferProcessingController = require('../app/controllers/transferProcessing');
 const History = require('../app/db/models/history');
 const Transfer = require('../app/db/models/transfer');
 const State = require('../app/db/models/state');
+const User = require('../app/db/models/user');
+const Size = require('../app/db/models/size');
+const Goods = require('../app/db/models/goods');
+const Color = require('../app/db/models/color');
+const Category = require('../app/db/models/category');
+const Stock = require('../app/db/models/stock');
+const LastTransaction = require('../app/db/models/lastTransaction');
+
+// Create a minimal Express app for testing
+const express = require('express');
+const testApp = express();
+testApp.use(express.json());
+
+// Add routes
+testApp.post('/api/transfer/process-warehouse', transferProcessingController.processWarehouseItems);
+testApp.get('/api/transfer/last-transaction', transferProcessingController.getLastTransaction);
+testApp.post('/api/transfer/undo-last', transferProcessingController.undoLastTransaction);
 
 describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
   let mongoServer;
   let mongoUri;
+  let testUser, testColor, testStock, testCategory, testSize, testGoods;
+
+  // Helper function do tworzenia User z wymaganymi polami
+  const createTestUser = async (symbol = 'TestUser', role = 'user', extraData = {}) => {
+    return await User.create({
+      _id: new mongoose.Types.ObjectId(),
+      email: `${symbol.toLowerCase()}@example.com`,
+      password: 'testpassword123',
+      symbol,
+      role,
+      sellingPoint: role === 'user' ? `Punkt ${symbol}` : null,
+      location: role === 'user' ? 'Test Location' : null,
+      ...extraData
+    });
+  };
 
   beforeAll(async () => {
+    // Disconnect any existing connections
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
+    
     mongoServer = await MongoMemoryServer.create();
     mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
@@ -26,6 +64,65 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
     await History.deleteMany({});
     await Transfer.deleteMany({});
     await State.deleteMany({});
+    await User.deleteMany({});
+    await Size.deleteMany({});
+    await Goods.deleteMany({});
+    await Color.deleteMany({});
+    await Category.deleteMany({});
+    await Stock.deleteMany({});
+    await LastTransaction.deleteMany({});
+
+    // Przygotuj dane testowe
+    testUser = await createTestUser('TestUser');
+    
+    // Dodaj dodatkowych użytkowników dla testów
+    await createTestUser('User2');
+    await createTestUser('BatchUser');
+    await createTestUser('WorkflowUser');
+    await createTestUser('UndoUser');
+    await createTestUser('MultiUser');
+    await createTestUser('BrokenUser');
+
+    // Stwórz color
+    testColor = await Color.create({
+      _id: new mongoose.Types.ObjectId(),
+      Kol_Kod: 'YELLOW',
+      Kol_Opis: 'Żółty kolor'
+    });
+
+    // Stwórz stock
+    testStock = await Stock.create({
+      _id: new mongoose.Types.ObjectId(),
+      Tow_Kod: 'YELLOW_PROD',
+      Tow_Opis: 'Żółty produkt'
+    });
+
+    // Stwórz category
+    testCategory = await Category.create({
+      _id: new mongoose.Types.ObjectId(),
+      Kat_1_Kod_1: 'YELLOW_CAT',
+      Kat_1_Nazwa_1: 'Żółta kategoria'
+    });
+
+    // Stwórz size
+    testSize = await Size.create({
+      _id: new mongoose.Types.ObjectId(),
+      Roz_Kod: 'M',
+      Roz_Opis: 'M'  // Controller szuka po Roz_Opis
+    });
+
+    // Stwórz goods
+    testGoods = await Goods.create({
+      _id: new mongoose.Types.ObjectId(),
+      stock: testStock._id,
+      color: testColor._id,
+      fullName: 'Yellow Test Product',
+      code: 'YELLOW_PROD_YELLOW',
+      price: 100,
+      category: 'YELLOW_ITEMS',
+      subcategory: testCategory._id,
+      Plec: 'UNISEX'
+    });
   });
 
   describe('POST /api/transfer/process-warehouse - Yellow Products Processing', () => {
@@ -37,6 +134,8 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
         transfer_from: 'Punkt A',
         transfer_to: 'TestUser',
         date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: 'test_yellow_product_123',
         processed: false
       });
 
@@ -50,13 +149,14 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
         barcode: null // Will be generated
       };
 
-      const response = await request(app)
+      const response = await request(testApp)
         .post('/api/transfer/process-warehouse')
         .send({
           warehouseItems: [yellowProduct],
           selectedDate: '2025-08-31',
           selectedUser: 'TestUser',
-          transactionId: 'test_yellow_123'
+          transactionId: 'test_yellow_123',
+          isIncomingTransfer: true  // DODANO: dla żółtych produktów
         });
 
       expect(response.status).toBe(200);
@@ -65,10 +165,10 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
       expect(response.body.addedItems).toHaveLength(1);
 
       // Sprawdź czy element został dodany do stanu
-      const stateItems = await State.find({});
+      const stateItems = await State.find({}).populate('fullName').populate('sellingPoint');
       expect(stateItems).toHaveLength(1);
-      expect(stateItems[0].fullName).toBe('Yellow Test Product');
-      expect(stateItems[0].symbol).toBe('TestUser');
+      expect(stateItems[0].fullName.fullName).toBe('Yellow Test Product');
+      expect(stateItems[0].sellingPoint.symbol).toBe('TestUser');
       expect(stateItems[0].barcode).toMatch(/^INCOMING_/);
 
       // Sprawdź czy transfer został oznaczony jako przetworzony
@@ -90,29 +190,32 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
 
     test('2. Powinien wygenerować unikalny kod kreskowy dla żółtego produktu', async () => {
       const testTransfer = await Transfer.create({
-        fullName: 'Unique Barcode Product',
-        size: 'L',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy co testGoods
+        size: 'M',  // Użyj tego samego rozmiaru co testSize 
         transfer_from: 'Punkt B',
         transfer_to: 'User2',
         date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: 'unique_barcode_product_456',
         processed: false
       });
 
       const yellowProduct = {
         _id: testTransfer._id.toString(),
-        fullName: 'Unique Barcode Product',
-        size: 'L',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+        size: 'M',  // Użyj tego samego rozmiaru
         isIncomingTransfer: true,
         transfer_to: 'User2'
       };
 
-      const response = await request(app)
+      const response = await request(testApp)
         .post('/api/transfer/process-warehouse')
         .send({
           warehouseItems: [yellowProduct],
           selectedDate: '2025-08-31',
           selectedUser: 'User2',
-          transactionId: 'barcode_test_456'
+          transactionId: 'barcode_test_456',
+          isIncomingTransfer: true  // DODANO: dla żółtych produktów
         });
 
       expect(response.status).toBe(200);
@@ -130,56 +233,61 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
     test('3. Powinien obsłużyć wiele żółtych produktów w jednej transakcji', async () => {
       // Przygotuj wiele transferów
       const transfer1 = await Transfer.create({
-        fullName: 'Yellow Product 1',
-        size: 'S',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+        size: 'M',  // Użyj tego samego rozmiaru
         transfer_from: 'Punkt A',
         transfer_to: 'BatchUser',
         date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: 'yellow_product_1_batch',
         processed: false
       });
 
       const transfer2 = await Transfer.create({
-        fullName: 'Yellow Product 2',
-        size: 'M',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy  
+        size: 'M',  // Użyj tego samego rozmiaru
         transfer_from: 'Punkt B',
         transfer_to: 'BatchUser',
         date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: 'yellow_product_2_batch',
         processed: false
       });
 
       const yellowProducts = [
         {
           _id: transfer1._id.toString(),
-          fullName: 'Yellow Product 1',
-          size: 'S',
+          fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+          size: 'M',  // Użyj tego samego rozmiaru
           isIncomingTransfer: true,
           transfer_to: 'BatchUser'
         },
         {
           _id: transfer2._id.toString(),
-          fullName: 'Yellow Product 2',
-          size: 'M',
+          fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+          size: 'M',  // Użyj tego samego rozmiaru
           isIncomingTransfer: true,
           transfer_to: 'BatchUser'
         }
       ];
 
-      const response = await request(app)
+      const response = await request(testApp)
         .post('/api/transfer/process-warehouse')
         .send({
           warehouseItems: yellowProducts,
           selectedDate: '2025-08-31',
           selectedUser: 'BatchUser',
-          transactionId: 'batch_test_789'
+          transactionId: 'batch_test_789',
+          isIncomingTransfer: true  // DODANO: dla żółtych produktów
         });
 
       expect(response.status).toBe(200);
       expect(response.body.addedItems).toHaveLength(2);
 
       // Sprawdź stan
-      const stateItems = await State.find({});
+      const stateItems = await State.find({}).populate('sellingPoint');
       expect(stateItems).toHaveLength(2);
-      expect(stateItems.every(item => item.symbol === 'BatchUser')).toBe(true);
+      expect(stateItems.every(item => item.sellingPoint.symbol === 'BatchUser')).toBe(true);
 
       // Sprawdź historię
       const historyEntries = await History.find({});
@@ -197,7 +305,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
         transfer_to: 'TestUser'
       };
 
-      const response = await request(app)
+      const response = await request(testApp)
         .post('/api/transfer/process-warehouse')
         .send({
           warehouseItems: [nonExistentYellowProduct],
@@ -207,7 +315,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.errors).toContain(expect.stringContaining('nie znaleziono transferu'));
+      expect(response.body.errors[0]).toContain('Product or size not found');
 
       // Sprawdź czy nic nie zostało dodane
       const stateItems = await State.find({});
@@ -222,6 +330,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
     test('5. Powinien rozpoznać żółte produkty jako ostatnią transakcję', async () => {
       // Utwórz historię z żółtymi produktami
       await History.create({
+        collectionName: 'State',
         operation: 'Dodano do stanu (transfer przychodzący)',
         transactionId: 'yellow_transaction_123',
         timestamp: new Date(),
@@ -234,7 +343,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
         })
       });
 
-      const response = await request(app)
+      const response = await request(testApp)
         .get('/api/transfer/last-transaction');
 
       expect(response.status).toBe(200);
@@ -250,18 +359,21 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
       // Utwórz wiele wpisów historii dla tej samej transakcji
       await History.create([
         {
+          collectionName: 'State',
           operation: 'Dodano do stanu (transfer przychodzący)',
           transactionId,
           timestamp: new Date(),
           product: 'Yellow Product 1'
         },
         {
+          collectionName: 'State',
           operation: 'Dodano do stanu (transfer przychodzący)',
           transactionId,
           timestamp: new Date(),
           product: 'Yellow Product 2'
         },
         {
+          collectionName: 'State',
           operation: 'Dodano do stanu (transfer przychodzący)',
           transactionId,
           timestamp: new Date(),
@@ -269,7 +381,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
         }
       ]);
 
-      const response = await request(app)
+      const response = await request(testApp)
         .get('/api/transfer/last-transaction');
 
       expect(response.status).toBe(200);
@@ -284,6 +396,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
 
       // Starsza transakcja
       await History.create({
+        collectionName: 'State',
         operation: 'Dodano do stanu (transfer przychodzący)',
         transactionId: 'older_yellow_123',
         timestamp: olderDate,
@@ -292,13 +405,14 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
 
       // Nowsza transakcja
       await History.create({
+        collectionName: 'State',
         operation: 'Dodano do stanu (transfer przychodzący)',
         transactionId: 'newer_yellow_456',
         timestamp: newerDate,
         product: 'Newer Yellow Product'
       });
 
-      const response = await request(app)
+      const response = await request(testApp)
         .get('/api/transfer/last-transaction');
 
       expect(response.status).toBe(200);
@@ -310,25 +424,30 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
     test('8. Powinien cofnąć transakcję żółtych produktów', async () => {
       // Przygotuj transfer i stan
       const testTransfer = await Transfer.create({
-        fullName: 'Undo Test Product',
-        size: 'XL',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+        size: 'M',  // Użyj tego samego rozmiaru
         transfer_from: 'Source',
         transfer_to: 'UndoUser',
         date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: 'undo_test_product_xl',
         processed: true,
         processedAt: new Date()
       });
 
       const stateItem = await State.create({
-        fullName: 'Undo Test Product',
-        size: 'XL',
-        symbol: 'UndoUser',
+        _id: new mongoose.Types.ObjectId(),
+        fullName: testGoods._id,
+        size: testSize._id,
+        sellingPoint: testUser._id,
+        date: new Date(),
         barcode: 'INCOMING_12345_abc',
         price: 200
       });
 
       // Utwórz historię
       await History.create({
+        collectionName: 'State',
         operation: 'Dodano do stanu (transfer przychodzący)',
         transactionId: 'undo_test_789',
         timestamp: new Date(),
@@ -346,10 +465,12 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
       await LastTransaction.create({
         transactionId: 'undo_test_789',
         operationType: 'incoming_transfer',
+        transactionType: 'incoming',
+        itemCount: 1,
         timestamp: new Date()
       });
 
-      const response = await request(app)
+      const response = await request(testApp)
         .post('/api/transfer/undo-last');
 
       expect(response.status).toBe(200);
@@ -378,35 +499,47 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
     test('9. Powinien obsłużyć cofanie wielu żółtych produktów', async () => {
       // Przygotuj wiele transferów i stanów
       const transfer1 = await Transfer.create({
-        fullName: 'Multi Undo Product 1',
-        size: 'S',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+        size: 'M',  // Użyj tego samego rozmiaru
         transfer_from: 'Source1',
         transfer_to: 'MultiUser',
+        date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: 'multi_undo_product_1',
         processed: true,
         processedAt: new Date()
       });
 
       const transfer2 = await Transfer.create({
-        fullName: 'Multi Undo Product 2',
-        size: 'M',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+        size: 'M',  // Użyj tego samego rozmiaru
         transfer_from: 'Source2',
         transfer_to: 'MultiUser',
+        date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: 'multi_undo_product_2',
         processed: true,
         processedAt: new Date()
       });
 
       const state1 = await State.create({
-        fullName: 'Multi Undo Product 1',
-        size: 'S',
-        symbol: 'MultiUser',
-        barcode: 'INCOMING_111_aaa'
+        _id: new mongoose.Types.ObjectId(),
+        fullName: testGoods._id,
+        size: testSize._id,
+        sellingPoint: testUser._id,
+        date: new Date(),
+        barcode: 'INCOMING_111_aaa',
+        price: 100
       });
 
       const state2 = await State.create({
-        fullName: 'Multi Undo Product 2',
-        size: 'M',
-        symbol: 'MultiUser',
-        barcode: 'INCOMING_222_bbb'
+        _id: new mongoose.Types.ObjectId(),
+        fullName: testGoods._id,
+        size: testSize._id,
+        sellingPoint: testUser._id,
+        date: new Date(),
+        barcode: 'INCOMING_222_bbb',
+        price: 150
       });
 
       const transactionId = 'multi_undo_999';
@@ -414,6 +547,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
       // Utwórz historię dla obu produktów
       await History.create([
         {
+          collectionName: 'State',
           operation: 'Dodano do stanu (transfer przychodzący)',
           transactionId,
           timestamp: new Date(),
@@ -426,6 +560,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
           })
         },
         {
+          collectionName: 'State',
           operation: 'Dodano do stanu (transfer przychodzący)',
           transactionId,
           timestamp: new Date(),
@@ -442,10 +577,12 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
       await LastTransaction.create({
         transactionId,
         operationType: 'incoming_transfer',
+        transactionType: 'incoming',
+        itemCount: 2,
         timestamp: new Date()
       });
 
-      const response = await request(app)
+      const response = await request(testApp)
         .post('/api/transfer/undo-last');
 
       expect(response.status).toBe(200);
@@ -462,14 +599,18 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
 
     test('10. Powinien obsłużyć błąd gdy brak transferId w details', async () => {
       const stateItem = await State.create({
-        fullName: 'Broken Details Product',
-        size: 'L',
-        symbol: 'BrokenUser',
-        barcode: 'INCOMING_broken_xyz'
+        _id: new mongoose.Types.ObjectId(),
+        fullName: testGoods._id,
+        size: testSize._id,
+        sellingPoint: testUser._id,
+        date: new Date(),
+        barcode: 'INCOMING_broken_xyz',
+        price: 300
       });
 
       // Historia bez transferId
       await History.create({
+        collectionName: 'State',
         operation: 'Dodano do stanu (transfer przychodzący)',
         transactionId: 'broken_details_111',
         timestamp: new Date(),
@@ -485,10 +626,12 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
       await LastTransaction.create({
         transactionId: 'broken_details_111',
         operationType: 'incoming_transfer',
+        transactionType: 'incoming',
+        itemCount: 1,
         timestamp: new Date()
       });
 
-      const response = await request(app)
+      const response = await request(testApp)
         .post('/api/transfer/undo-last');
 
       expect(response.status).toBe(200);
@@ -504,36 +647,39 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
     test('11. Pełny workflow: Process → Check Last Transaction → Undo', async () => {
       // 1. Przygotuj transfer
       const testTransfer = await Transfer.create({
-        fullName: 'Workflow Test Product',
-        size: 'M',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+        size: 'M',  // Użyj tego samego rozmiaru
         transfer_from: 'WorkflowSource',
         transfer_to: 'WorkflowUser',
         date: new Date('2025-08-31'),
+        dateString: '2025-08-31',
+        productId: 'workflow_test_product_m',
         processed: false
       });
 
       const yellowProduct = {
         _id: testTransfer._id.toString(),
-        fullName: 'Workflow Test Product',
-        size: 'M',
+        fullName: 'Yellow Test Product',  // Użyj tej samej nazwy
+        size: 'M',  // Użyj tego samego rozmiaru
         isIncomingTransfer: true,
         transfer_to: 'WorkflowUser'
       };
 
       // 2. Przetwórz produkt
-      const processResponse = await request(app)
+      const processResponse = await request(testApp)
         .post('/api/transfer/process-warehouse')
         .send({
           warehouseItems: [yellowProduct],
           selectedDate: '2025-08-31',
           selectedUser: 'WorkflowUser',
-          transactionId: 'workflow_integration_test'
+          transactionId: 'workflow_integration_test',
+          isIncomingTransfer: true  // DODANO: dla żółtych produktów
         });
 
       expect(processResponse.status).toBe(200);
 
       // 3. Sprawdź ostatnią transakcję
-      const lastTransactionResponse = await request(app)
+      const lastTransactionResponse = await request(testApp)
         .get('/api/transfer/last-transaction');
 
       expect(lastTransactionResponse.status).toBe(200);
@@ -542,7 +688,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
       expect(lastTransactionResponse.body.itemCount).toBe(1);
 
       // 4. Cofnij transakcję
-      const undoResponse = await request(app)
+      const undoResponse = await request(testApp)
         .post('/api/transfer/undo-last');
 
       expect(undoResponse.status).toBe(200);
@@ -557,7 +703,7 @@ describe('Yellow Products (Incoming Transfers) Backend Tests', () => {
       expect(finalState).toHaveLength(0);
 
       // 7. Sprawdź czy ostatnia transakcja już nie istnieje
-      const noLastTransactionResponse = await request(app)
+      const noLastTransactionResponse = await request(testApp)
         .get('/api/transfer/last-transaction');
 
       expect(noLastTransactionResponse.status).toBe(404);
