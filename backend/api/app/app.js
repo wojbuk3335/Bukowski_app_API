@@ -60,16 +60,16 @@ app.use('/api', printRoutes); // Use print routes
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Catch-all route to serve React's index.html for unmatched routes
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public', 'index.html'));
-});
-
-// Error handling for unmatched API routes
-app.use((req, res, next) => {
-    const error = new Error('Not Found');
+// Error handling for unmatched API routes - ONLY for /api paths
+app.use('/api/*', (req, res, next) => {
+    const error = new Error('API endpoint not found');
     error.status = 404;
     next(error);
+});
+
+// Catch-all route to serve React's index.html for NON-API routes only
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
 
 app.use((error, req, res, next) => {

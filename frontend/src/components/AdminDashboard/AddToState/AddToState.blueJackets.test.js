@@ -79,6 +79,7 @@ beforeEach(() => {
             fullName: { fullName: 'Blue Bullet Test' },
             size: { Roz_Opis: 'M' },
             barcode: 'BLUE123',
+            symbol: 'TestUser1', // POPRAWKA: symbol powinien być zgodny z sale.from
             sellingPoint: { symbol: 'TestShop1' },
             isFromSale: true,
             isBlueBullet: true,
@@ -93,6 +94,7 @@ beforeEach(() => {
             fullName: { fullName: 'Another Blue Sale' },
             size: { Roz_Opis: 'L' },
             barcode: 'BLUE456',
+            symbol: 'TestUser1', // POPRAWKA: symbol powinien być zgodny z sale.from
             sellingPoint: { symbol: 'TestShop2' },
             isFromSale: true,
             isBlueBullet: true,
@@ -100,6 +102,37 @@ beforeEach(() => {
             reason: 'SPRZEDAŻ',
             advancePayment: 75,
             timestamp: '2024-01-16T14:20:00Z'
+          },
+          // Dodajemy state elementy dla transferów
+          {
+            _id: 'state3',
+            productId: 'BLUETRANS123',
+            fullName: { fullName: 'Blue Transfer Test' },
+            size: { Roz_Opis: 'XL' },
+            barcode: 'BLUETRANS123',
+            symbol: 'TestUser1', // Zgodny z transfer_from
+            sellingPoint: { symbol: 'TestShop1' },
+            isFromSale: false,
+            isBlueBullet: true,
+            transfer_to: 'TestShop3',
+            reason: 'TRANSFER',
+            advancePayment: 100,
+            timestamp: '2024-01-17T15:00:00Z'
+          },
+          {
+            _id: 'state4',
+            productId: 'BLUETRANS456',
+            fullName: { fullName: 'Another Blue Transfer' },
+            size: { Roz_Opis: 'M' },
+            barcode: 'BLUETRANS456',
+            symbol: 'TestUser1', // Zgodny z transfer_from
+            sellingPoint: { symbol: 'TestShop1' },
+            isFromSale: false,
+            isBlueBullet: true,
+            transfer_to: 'TestShop4',
+            reason: 'EXCHANGE',
+            advancePayment: 80,
+            timestamp: '2024-01-18T16:00:00Z'
           }
         ])
       });

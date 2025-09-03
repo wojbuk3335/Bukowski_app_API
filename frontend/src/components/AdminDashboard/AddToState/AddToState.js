@@ -317,8 +317,16 @@ const AddToState = ({ onAdd }) => {
 
         // NOWE: Filtruj sprzedaże - pokazuj tylko te, które nie zostały jeszcze przetworzone
         const salesWithItemsInState = filteredSales.filter(sale => {
-          const isProcessed = processedSales.has(sale._id);
-          console.log(`🔍 Sale ${sale.barcode} (ID: ${sale._id}) processed: ${isProcessed}`);
+          // Sprawdź czy jest już lokalnie oznaczona jako przetworzona
+          const isLocallyProcessed = processedSales.has(sale._id);
+          
+          // Sprawdź czy przedmiot jeszcze istnieje w stanie - jeśli nie, to sprzedaż została przetworzona
+          const itemExistsInState = allStates.some(stateItem => 
+            stateItem.barcode === sale.barcode && stateItem.symbol === sale.from
+          );
+          
+          const isProcessed = isLocallyProcessed || !itemExistsInState;
+          console.log(`🔍 Sale ${sale.barcode} (ID: ${sale._id}) - locally processed: ${isLocallyProcessed}, exists in state: ${itemExistsInState}, final processed: ${isProcessed}`);
           return !isProcessed; // Pokazuj tylko nieprzetworzone
         });
 
@@ -845,6 +853,10 @@ const AddToState = ({ onAdd }) => {
                 
                 if (salesResponse.ok) {
                   console.log(`🟢 Green item ${greenItem._id} - Blue operation (sales) successful`);
+                  
+                  // POPRAWKA: Oznacz sprzedaż jako przetworzoną już po pierwszej operacji
+                  setProcessedSales(prev => new Set([...prev, greenItem._id]));
+                  console.log(`🟢 Green item ${greenItem._id} - Marked as processed (sales)`);
                 }
               } else {
                 // Dla transferów
@@ -863,6 +875,10 @@ const AddToState = ({ onAdd }) => {
                 
                 if (transferResponse.ok) {
                   console.log(`🟢 Green item ${greenItem._id} - Blue operation (transfer) successful`);
+                  
+                  // POPRAWKA: Oznacz transfer jako przetworzony już po pierwszej operacji
+                  setProcessedTransfers(prev => new Set([...prev, greenItem._id]));
+                  console.log(`🟢 Green item ${greenItem._id} - Marked as processed (transfer)`);
                 }
               }
             }
@@ -924,12 +940,8 @@ const AddToState = ({ onAdd }) => {
               console.log(`🟢 Green item ${greenItem._id} - Orange operation successful - Warehouse product transferred`);
               greenProcessedCount++;
               
-              // Oznacz jako przetworzone
-              if (greenItem.isFromSale) {
-                setProcessedSales(prev => new Set([...prev, greenItem._id]));
-              } else {
-                setProcessedTransfers(prev => new Set([...prev, greenItem._id]));
-              }
+              // Produkt już oznaczony jako przetworzony po pierwszej operacji (blue)
+              // Nie trzeba ponownie oznaczać - tylko zliczamy
             } else {
               console.error(`🟢 Green item ${greenItem._id} - Orange operation failed:`, warehouseResponseData);
             }
