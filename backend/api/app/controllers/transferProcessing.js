@@ -373,6 +373,7 @@ class TransferProcessingController {
                         }
 
                         const warehouseItem = await State.create({
+                            _id: new mongoose.Types.ObjectId(),
                             fullName: itemData.fullName,
                             size: itemData.size,
                             barcode: itemData.barcode,
