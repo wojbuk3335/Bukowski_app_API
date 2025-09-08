@@ -145,14 +145,16 @@ const State = () => {
         // Fetch user data from the API
         const fetchUsers = async () => {
             try {
-                const response = await axios.get('/api/user');                if (response.data && Array.isArray(response.data.users)) {
-                    // Get only users with role "user"
-                    const userRoleUsers = response.data.users.filter(user => user.role === 'user');
-                    setUsers(userRoleUsers);
+                const response = await axios.get('/api/user');
+                console.log('API Response users:', response.data); // Debug log
+                if (response.data && Array.isArray(response.data.users)) {
+                    // Get all users (remove role filter)
+                    console.log('All users fetched:', response.data.users); // Debug log
+                    setUsers(response.data.users);
 
                     // Auto-select first user to filter data immediately
-                    if (userRoleUsers.length > 0) {
-                        setSelectedSellingPoint(userRoleUsers[0].symbol);
+                    if (response.data.users.length > 0) {
+                        setSelectedSellingPoint(response.data.users[0].symbol);
                     }
                 } else {
                     console.error('Unexpected API response format:', response.data);

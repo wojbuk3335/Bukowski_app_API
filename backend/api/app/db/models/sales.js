@@ -53,6 +53,14 @@ const salesSchema = mongoose.Schema({
     date: {
         type: Date,
         required: true
+    },
+    processed: {
+        type: Boolean,
+        default: false
+    },
+    processedAt: {
+        type: Date,
+        default: null
     }
 });
 

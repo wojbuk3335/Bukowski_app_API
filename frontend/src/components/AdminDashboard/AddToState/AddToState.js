@@ -1,3301 +1,1884 @@
-import React, { useState, useEffect, forwardRef, useRef } from 'react';
-import axios from 'axios';
-import DatePicker, { registerLocale } from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
-import { pl } from 'date-fns/locale';
-import styles from '../Warehouse/Warehouse.module.css'; // Use the same styles as Warehouse.js
-import TransactionReportModal from './TransactionReportModal';
+import React, { useState, useEffect } from 'react';
 
-// Register Polish locale
-registerLocale('pl', pl);
+const AddToState = ({ onAdd }) => {
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+  
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedUser, setSelectedUser] = useState('');
+  const [users, setUsers] = useState([]);
+  const [transfers, setTransfers] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [lastTransaction, setLastTransaction] = useState(null);
+  const [canUndoTransaction, setCanUndoTransaction] = useState(false);
+  
+  // Nowe stany dla magazynu
+  const [warehouseItems, setWarehouseItems] = useState([]);
+  const [warehouseSearch, setWarehouseSearch] = useState('');
+  const [filteredWarehouseItems, setFilteredWarehouseItems] = useState([]);
 
-const AddToState = () => {
-  const [magazynItems, setMagazynItems] = useState([]);
-  const [salesData, setSalesData] = useState([]);
-  const [filteredSales, setFilteredSales] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedSellingPoint, setSelectedSellingPoint] = useState('');
-  const [sellingPoints, setSellingPoints] = useState([]);
-  const [usersData, setUsersData] = useState([]); // Store users data for symbol lookup
-  const [magazynSymbol, setMagazynSymbol] = useState('MAGAZYN'); // Dynamic magazyn symbol
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [synchronizedItems, setSynchronizedItems] = useState(new Set());
-  const [manuallyAddedItems, setManuallyAddedItems] = useState([]); // Track manually added items
-  const [addedMagazynIds, setAddedMagazynIds] = useState(new Set()); // Track which magazyn items have been manually added
-  const [operationType, setOperationType] = useState('sprzedaz'); // 'sprzedaz' or 'przepisanie'
-  const [targetSellingPoint, setTargetSellingPoint] = useState(''); // For "przepisanie" mode
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  // Stan dla sprzedaży
+  const [sales, setSales] = useState([]);
   
-  // Transaction management states
-  const [isTransactionInProgress, setIsTransactionInProgress] = useState(false);
-  const [lastTransaction, setLastTransaction] = useState(null); // Store details for potential undo
+  // Stan do śledzenia przetworzonych sprzedaży (po ID)
+  const [processedSales, setProcessedSales] = useState(new Set());
   
-  // History search states
-  const [historySearchTerm, setHistorySearchTerm] = useState('');
+  // Stan do śledzenia przetworzonych transferów (po ID) 
+  const [processedTransfers, setProcessedTransfers] = useState(new Set());
   
-  // Magazyn search states
-  const [magazynSearchTerm, setMagazynSearchTerm] = useState('');
-  const [transactionHistory, setTransactionHistory] = useState([]); // List of transactions that can be undone
-  const [showUndoOptions, setShowUndoOptions] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false); // For modal display
-  const [showClearStorageInfo, setShowClearStorageInfo] = useState(false); // For clear storage info modal
-  
-  // Persistent sales view states
-  const [persistentSalesView, setPersistentSalesView] = useState({
-    filteredSales: [],
-    manuallyAddedItems: [],
-    synchronizedItems: new Set(),
-    addedMagazynIds: new Set(),
-    timestamp: null
-  });
-  const [isTransactionSaved, setIsTransactionSaved] = useState(false); // Track if transaction was saved
-  const [lastTransactionDetails, setLastTransactionDetails] = useState(null); // Store details of last transaction for cancellation
-  const [savedItemsForDisplay, setSavedItemsForDisplay] = useState([]); // Items to keep displaying after save
-  const [processedSalesIds, setProcessedSalesIds] = useState(new Set()); // Track which sales have been processed to prevent double-processing
-  
-  // Printing states
-  const [selectedForPrint, setSelectedForPrint] = useState(new Set()); // Track selected items for printing
-  const [printer, setPrinter] = useState(null); // Store printer instance
-  const [printerError, setPrinterError] = useState(null); // Track printer errors
-  
-  // Transaction report states
-  const [showTransactionReport, setShowTransactionReport] = useState(false);
-  const [selectedTransactionForReport, setSelectedTransactionForReport] = useState(null);
-  
-  // State for showing/hiding transaction details
-  const [expandedTransactions, setExpandedTransactions] = useState(new Set());
-  
-  // Modal states for alerts
-  const [showNotificationModal, setShowNotificationModal] = useState(false);
-  const [notificationModal, setNotificationModal] = useState({
-    title: '',
-    message: '',
-    type: 'info' // 'info', 'success', 'warning', 'error'
-  });
-  
-  // Modal states for confirmation dialogs
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmModal, setConfirmModal] = useState({
-    title: '',
-    message: '',
-    onConfirm: null,
-    onCancel: null,
-    confirmText: 'Tak',
-    cancelText: 'Anuluj'
-  });
-  
-  // Add CSS for DatePicker responsiveness and history scrollbar
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .react-datepicker-wrapper {
-        width: 100% !important;
-      }
-      .react-datepicker__input-container {
-        width: 100% !important;
-      }
-      .react-datepicker__input-container input {
-        width: 100% !important;
-        text-align: center !important;
-        box-sizing: border-box !important;
-      }
-      
-      /* Custom scrollbar for history list */
-      .history-scrollable::-webkit-scrollbar {
-        width: 8px;
-      }
-      .history-scrollable::-webkit-scrollbar-track {
-        background: #000;
-        border-radius: 4px;
-      }
-      .history-scrollable::-webkit-scrollbar-thumb {
-        background: #000;
-        border-radius: 4px;
-      }
-      .history-scrollable::-webkit-scrollbar-thumb:hover {
-        background: #000;
-      }
-      
-      /* History search input focus effect */
-      .history-search-input:focus {
-        outline: none;
-        border-color: #0066cc !important;
-        box-shadow: 0 0 5px rgba(0, 102, 204, 0.3);
-      }
-      
-      /* Custom scrollbar for magazyn table */
-      .magazyn-scrollable::-webkit-scrollbar {
-        width: 8px;
-      }
-      .magazyn-scrollable::-webkit-scrollbar-track {
-        background: #000;
-        border-radius: 4px;
-      }
-      .magazyn-scrollable::-webkit-scrollbar-thumb {
-        background: #000;
-        border-radius: 4px;
-      }
-      .magazyn-scrollable::-webkit-scrollbar-thumb:hover {
-        background: #000;
-      }
-      
-      /* Magazyn search input focus effect */
-      .magazyn-search-input:focus {
-        outline: none;
-        border-color: #0d6efd !important;
-        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
-      }
-      
-      /* White placeholder for magazyn search input */
-      .magazyn-search-input::placeholder {
-        color: white !important;
-        opacity: 0.7;
-      }
-      .magazyn-search-input::-webkit-input-placeholder {
-        color: white !important;
-        opacity: 0.7;
-      }
-      .magazyn-search-input::-moz-placeholder {
-        color: white !important;
-        opacity: 0.7;
-      }
-      .magazyn-search-input:-ms-input-placeholder {
-        color: white !important;
-        opacity: 0.7;
-      }
-      
-      @media (max-width: 1024px) {
-        .react-datepicker-wrapper {
-          width: 100% !important;
-        }
-        .react-datepicker__input-container {
-          width: 100% !important;
-        }
-        .react-datepicker__input-container input {
-          width: 100% !important;
-          text-align: center !important;
-          box-sizing: border-box !important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
+  // Stan dla wszystkich stanów (do sprawdzania czy przedmiot jeszcze istnieje)
+  const [allStates, setAllStates] = useState([]);
+
+  // NOWE STANY dla synchronizacji jeden-do-jednego
+  const [matchedPairs, setMatchedPairs] = useState([]); // Sparowane pary
+  const [greyedWarehouseItems, setGreyedWarehouseItems] = useState(new Set()); // Wyszarzone elementy magazynu
+  const [message, setMessage] = useState(''); // Komunikaty synchronizacji
+  const [combinedItems, setCombinedItems] = useState([]); // Elementy łącznie z żółtymi produktami
+
+  // Funkcje pomocnicze dla synchronizacji
+  const isProductMatched = (productId, type) => {
+    const matched = matchedPairs.some(pair => 
+      pair.blueProduct.id === productId && pair.blueProduct.type === type
+    );
+
+    return matched;
+  };
+
+  const isWarehouseItemGreyed = (warehouseItemId) => {
+    const isGreyed = greyedWarehouseItems.has(warehouseItemId);
     
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
-  
-  // Handle window resize for responsive design
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 1024);
-    };
+    // Debugging dla Laura RUDY XS
+    if (warehouseItemId && (warehouseItemId.includes('Laura') || warehouseItemId.length > 10)) {
+
+    }
     
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  
-  // Initialize default values when sellingPoints are loaded
-  useEffect(() => {
-    if (sellingPoints.length > 0) {
-      // Set default selectedSellingPoint for sprzedaz mode
-      if (operationType === 'sprzedaz' && !selectedSellingPoint) {
-        setSelectedSellingPoint(sellingPoints[0]);
+    return isGreyed;
+  };
+
+  const getBackgroundColor = (item, fromWarehouse, isFromSale, isIncomingTransfer) => {
+    // Sprawdź czy jest sparowany (niebieski → zielony)
+    const matchedAsSale = isFromSale && isProductMatched(item._id, 'sale');
+    const matchedAsTransfer = !fromWarehouse && isProductMatched(item._id, 'transfer');
+
+    if (matchedAsSale || matchedAsTransfer) {
+
+      return '#28a745'; // ZIELONY - sparowany
+    }
+    
+    // NOWY: Żółty kolor dla transferów przychodzących
+    if (isIncomingTransfer) {
+
+      return '#ffc107'; // ŻÓŁTY - transfer przychodzący do punktu
+    }
+    
+    // Standardowe kolory
+    if (isFromSale) {
+
+      return '#007bff'; // Niebieski - sprzedaż
+    } else if (fromWarehouse) {
+
+      return '#ff8c00'; // Pomarańczowy - transfer z magazynu
+    } else {
+
+      return '#007bff'; // Niebieski - transfer zwykły
+    }
+  };
+
+  // Fetch users from API
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user`);
+      const data = await response.json();
+      
+      // Filtruj użytkowników - usuń admin, magazyn i dom
+      const filteredUsers = (data.users || []).filter(user => {
+        const symbol = user.symbol?.toLowerCase();
+        return symbol !== 'admin' && symbol !== 'magazyn' && symbol !== 'dom';
+      });
+      
+      setUsers(filteredUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  // Fetch transfers from API
+  const fetchTransfers = async () => {
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/api/transfer`);
+      const data = await response.json();
+
+      setTransfers(data || []);
+
+    } catch (error) {
+      console.error('Error fetching transfers:', error);
+    }
+  };
+
+  // Fetch warehouse items from API
+  const fetchWarehouseItems = async () => {
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/api/state/warehouse`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      // Set default targetSellingPoint for przepisanie mode
-      if (operationType === 'przepisanie' && !targetSellingPoint) {
-        setTargetSellingPoint(sellingPoints[0]);
+      
+      const warehouseProducts = await response.json();
+
+      setWarehouseItems(warehouseProducts);
+      setFilteredWarehouseItems(warehouseProducts);
+    } catch (error) {
+      console.error('Error fetching warehouse items:', error);
+    }
+  };
+
+  // Fetch sales from API
+  const fetchSales = async () => {
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/api/sales/get-all-sales`);
+      const data = await response.json();
+      setSales(data || []);
+
+    } catch (error) {
+      console.error('Error fetching sales:', error);
+    }
+  };
+
+  // Fetch all states from API (for checking if sold items still exist)
+  const fetchAllStates = async () => {
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/api/state`);
+      const data = await response.json();
+      setAllStates(data || []);
+
+    } catch (error) {
+      console.error('Error fetching all states:', error);
+    }
+  };
+
+  // Initial data loading
+  useEffect(() => {
+    fetchUsers();
+    fetchTransfers();
+    fetchWarehouseItems();
+    fetchSales();
+    fetchAllStates();
+    checkLastTransaction();
+  }, []);
+
+    // Refresh data when user selection changes
+  useEffect(() => {
+    if (selectedUser) {
+
+      setProcessedSales(new Set()); // Reset przetworzonych sprzedaży
+      setProcessedTransfers(new Set()); // Reset przetworzonych transferów
+      fetchTransfers();
+      fetchWarehouseItems();
+      fetchSales(); // Dodaj odświeżanie sprzedaży
+      fetchAllStates(); // Dodaj odświeżanie wszystkich stanów
+      checkLastTransaction();
+    }
+  }, [selectedUser]);
+
+  // Refresh data when date selection changes
+  useEffect(() => {
+    if (selectedDate) {
+
+      setProcessedSales(new Set()); // Reset przetworzonych sprzedaży
+      setProcessedTransfers(new Set()); // Reset przetworzonych transferów
+      fetchTransfers();
+      fetchWarehouseItems();
+      fetchSales(); // Dodaj odświeżanie sprzedaży
+      fetchAllStates(); // Dodaj odświeżanie wszystkich stanów
+      checkLastTransaction();
+    }
+  }, [selectedDate]);
+
+  // Function to check if there's a last transaction that can be undone
+  const checkLastTransaction = async () => {
+    try {
+
+      const response = await fetch(`${API_BASE_URL}/api/transfer/last-transaction`);
+      if (response.ok) {
+        const data = await response.json();
+
+        setLastTransaction(data);
+        setCanUndoTransaction(data.canUndo);
+      } else if (response.status === 404) {
+
+        setLastTransaction(null);
+        setCanUndoTransaction(false);
+      } else {
+
+        setLastTransaction(null);
+        setCanUndoTransaction(false);
+      }
+    } catch (error) {
+      console.error('Error checking last transaction:', error);
+      setLastTransaction(null);
+      setCanUndoTransaction(false);
+    }
+  };
+
+  useEffect(() => {
+    // Filter items based on selected date and user
+    let filtered = Array.isArray(transfers) ? transfers : [];
+    let salesItems = [];
+    let yellowTransferItems = [];
+
+    // Jeśli nie wybrano użytkownika, nie pokazuj żadnych transferów
+    if (!selectedUser) {
+      setFilteredItems([]);
+      return;
+    }
+
+    // Filtruj transfery
+    if (selectedDate) {
+      filtered = filtered.filter(transfer => {
+        const transferDate = new Date(transfer.date).toISOString().split('T')[0];
+        return transferDate === selectedDate;
+      });
+    }
+
+    if (selectedUser) {
+      const selectedUserData = users.find(user => user._id === selectedUser);
+      if (selectedUserData) {
+        // Pokazuj transfery gdy:
+        // 1. Wybrany użytkownik jest ŹRÓDŁEM transferu (transfer_from) - standardowe transfery
+        // 2. Transfer pochodzi z magazynu (fromWarehouse = true) i ma odpowiedniego odbiorcy
+        filtered = filtered.filter(transfer => {
+          // Standardowe transfery - użytkownik jest źródłem
+          const isStandardTransfer = transfer.transfer_from === selectedUserData.symbol;
+          
+          // Transfery z magazynu - użytkownik jest odbiorcą
+          const isWarehouseTransfer = transfer.fromWarehouse && 
+                                    transfer.transfer_to === selectedUserData.symbol;
+          
+          return isStandardTransfer || isWarehouseTransfer;
+        });
+
+        // WAŻNE: Filtruj przetworzonych transfery - pokazuj tylko nieprzetworzone
+        filtered = filtered.filter(transfer => {
+          const isProcessed = transfer.processed || processedTransfers.has(transfer._id);
+
+          return !isProcessed; // Pokazuj tylko nieprzetworzone (jak sprzedaże)
+        });
+
+        let filteredSales = Array.isArray(sales) ? sales : [];
+        
+        if (selectedDate) {
+          filteredSales = filteredSales.filter(sale => {
+            const saleDate = new Date(sale.timestamp).toISOString().split('T')[0];
+            return saleDate === selectedDate;
+          });
+        }
+
+        // Filtruj sprzedaże po 'from' - pokazuj tylko te ze stanu wybranego użytkownika
+        filteredSales = filteredSales.filter(sale => {
+          return sale.from === selectedUserData.symbol;
+        });
+
+        // NOWE: Filtruj sprzedaże - pokazuj tylko te, które nie zostały jeszcze przetworzone
+        const salesWithItemsInState = filteredSales.filter(sale => {
+          // Sprawdź czy jest już lokalnie oznaczona jako przetworzona
+          const isLocallyProcessed = processedSales.has(sale._id);
+          
+          // POPRAWKA: Jeśli sale ma pole processed, użyj go zamiast sprawdzania states
+          // To naprawia problem gdy states zostanie usunięte z bazy danych
+          let isProcessed = isLocallyProcessed;
+          
+          // Jeśli sale ma pole processed, użyj go jako głównego kryterium
+          if (sale.hasOwnProperty('processed')) {
+            isProcessed = isLocallyProcessed || sale.processed;
+
+          } else {
+            // Fallback dla starych sales bez pola processed: sprawdź states
+            const itemExistsInState = allStates.some(stateItem => 
+              stateItem.barcode === sale.barcode && stateItem.symbol === sale.from
+            );
+            isProcessed = isLocallyProcessed || !itemExistsInState;
+
+          }
+          
+          return !isProcessed; // Pokazuj tylko nieprzetworzone
+        });
+
+        // Przekształć sprzedaże na format podobny do transferów
+        salesItems = salesWithItemsInState.map(sale => ({
+          ...sale,
+          isFromSale: true, // Oznacz jako sprzedaż
+          transfer_from: sale.from,
+          transfer_to: sale.sellingPoint,
+          isBlueBullet: true, // Niebieska kulka
+          date: sale.timestamp,
+          // fullName i size pozostają jako stringi z obiektu sale
+          // NIE tworzymy obiektów - sprzedaże już mają stringi
+        }));
+
+        // NOWE: Filtruj transfery PRZYCHODZĄCE do wybranego punktu (ŻÓŁTE)
+        let incomingTransfers = Array.isArray(transfers) ? transfers : [];
+        
+        if (selectedDate) {
+          incomingTransfers = incomingTransfers.filter(transfer => {
+            const transferDate = new Date(transfer.date).toISOString().split('T')[0];
+            return transferDate === selectedDate;
+          });
+        }
+
+        // Pokazuj transfery które PRZYCHODZĄ do wybranego punktu
+        incomingTransfers = incomingTransfers.filter(transfer => {
+          // Transfer przychodzi do tego punktu (wybrany użytkownik jest odbiorcą)
+          const isIncomingTransfer = transfer.transfer_to === selectedUserData.symbol && 
+                                   !transfer.fromWarehouse; // Nie z magazynu (magazyn już ma pomarańczowy)
+          
+          return isIncomingTransfer;
+        });
+
+        // Filtruj nieprzetworzone transfery przychodzące
+        incomingTransfers = incomingTransfers.filter(transfer => {
+          const isProcessed = transfer.processed || processedTransfers.has(transfer._id);
+
+          return !isProcessed; // Pokazuj tylko nieprzetworzone
+        });
+
+        // Oznacz transfery przychodzące jako żółte
+        yellowTransferItems = incomingTransfers.map(transfer => ({
+          ...transfer,
+          isIncomingTransfer: true, // Oznacz jako transfer przychodzący (żółty)
+          isYellowBullet: true, // Żółta kulka
+        }));
+
       }
     }
-  }, [sellingPoints, operationType, selectedSellingPoint, targetSellingPoint]);
 
-  // Initialize targetSellingPoint when switching to przepisanie and sellingPoints are available
+    // NOWA KOLEJNOŚĆ: Podziel filtered na niebieskie (standardowe) i pomarańczowe (z magazynu)
+    const blueTransfers = filtered.filter(transfer => !transfer.fromWarehouse); // Standardowe transfery wychodzące
+    const orangeTransfers = filtered.filter(transfer => transfer.fromWarehouse); // Transfery z magazynu
+    
+    // Połącz w właściwej kolejności: 
+    // 1. 🔵 Niebieskie (sprzedaże + transfery wychodzące)
+    // 2. 🟡 Żółte (transfery przychodzące) 
+    // 3. 🟠 Pomarańczowe (transfery z magazynu)
+    const combinedItemsData = [...salesItems, ...blueTransfers, ...yellowTransferItems, ...orangeTransfers];
+
+    setFilteredItems(combinedItemsData);
+    setCombinedItems(combinedItemsData); // Zapisz także jako oddzielny stan
+  }, [selectedDate, selectedUser, transfers, users, sales, allStates, processedSales, processedTransfers]);
+
+  // useEffect do filtrowania produktów magazynowych
   useEffect(() => {
-    if (operationType === 'przepisanie' && sellingPoints.length > 0 && !targetSellingPoint) {
-      setTargetSellingPoint(sellingPoints[0]);
+    if (!warehouseSearch.trim()) {
+      setFilteredWarehouseItems(warehouseItems);
+    } else {
+      const searchTerm = warehouseSearch.toLowerCase();
+      const filtered = warehouseItems.filter(item => {
+        const fullName = item.fullName?.fullName?.toLowerCase() || '';
+        const size = item.size?.Roz_Opis?.toLowerCase() || '';
+        const barcode = item.barcode?.toLowerCase() || '';
+        
+        return fullName.includes(searchTerm) || 
+               size.includes(searchTerm) || 
+               barcode.includes(searchTerm);
+      });
+      setFilteredWarehouseItems(filtered);
     }
-  }, [operationType, sellingPoints, targetSellingPoint]);
+  }, [warehouseSearch, warehouseItems]);
 
-  // Update sellingPoint in all manually added items when targetSellingPoint changes
-  useEffect(() => {
-    if (operationType === 'przepisanie' && targetSellingPoint && manuallyAddedItems.length > 0) {
-      setManuallyAddedItems(prev => 
-        prev.map(item => ({
-          ...item,
-          sellingPoint: targetSellingPoint
-        }))
+  const handleDateChange = (e) => {
+    setSelectedDate(e.target.value);
+  };
+
+  const handleUserChange = (e) => {
+    const newUser = e.target.value;
+
+    setSelectedUser(newUser);
+    
+    // Zawsze odśwież dane, nawet jeśli wybrano tę samą wartość
+    if (newUser) {
+
+      setProcessedSales(new Set());
+      setProcessedTransfers(new Set());
+      fetchTransfers();
+      fetchWarehouseItems();
+      fetchSales();
+      fetchAllStates();
+      checkLastTransaction();
+    }
+  };
+
+  const handleWarehouseSearchChange = (e) => {
+    const searchValue = e.target.value;
+    setWarehouseSearch(searchValue);
+    
+    if (searchValue === '') {
+      setFilteredWarehouseItems(warehouseItems);
+    } else {
+      const filtered = warehouseItems.filter(item => {
+        const name = item.fullName?.fullName?.toLowerCase() || '';
+        const size = item.size?.Roz_Opis?.toLowerCase() || '';
+        const barcode = item.barcode?.toLowerCase() || '';
+        const search = searchValue.toLowerCase();
+        
+        return name.includes(search) || 
+               size.includes(search) || 
+               barcode.includes(search);
+      });
+      setFilteredWarehouseItems(filtered);
+    }
+  };
+
+  // Funkcja przenoszenia produktu z magazynu do tabeli transferów
+  const handleMoveFromWarehouse = (warehouseItem) => {
+
+    if (!selectedUser) {
+      alert('Najpierw wybierz użytkownika do którego chcesz przenieść produkt!');
+      return;
+    }
+    
+    // Znajdź dane wybranego użytkownika
+    const selectedUserData = users.find(user => user._id === selectedUser);
+    if (!selectedUserData) {
+      alert('Błąd: nie można znaleźć danych wybranego użytkownika');
+      return;
+    }
+    
+    // Dodaj produkt do głównej listy transferów (items)
+    const newTransferItem = {
+      id: warehouseItem._id,
+      date: new Date().toISOString(),
+      fullName: warehouseItem.fullName?.fullName || 'Nieznana nazwa',
+      size: warehouseItem.size?.Roz_Opis || 'Nieznany rozmiar',
+      barcode: warehouseItem.barcode || 'Brak kodu',
+      symbol: selectedUserData.symbol,
+      price: warehouseItem.price || 0,
+      fromWarehouse: true, // Flaga oznaczająca że pochodzi z magazynu (do kolorowania)
+      _id: warehouseItem._id,
+      transfer_from: 'MAGAZYN',
+      transfer_to: selectedUserData.symbol, // Używaj symbolu, nie ID
+      productId: warehouseItem.barcode,
+      reason: 'Przeniesienie z magazynu'
+    };
+    
+    setTransfers(prev => [...prev, newTransferItem]);
+    setFilteredItems(prev => [...prev, newTransferItem]);
+    
+    // Usuń z listy magazynu (wizualnie)
+    setFilteredWarehouseItems(prev => prev.filter(item => item._id !== warehouseItem._id));
+    setWarehouseItems(prev => prev.filter(item => item._id !== warehouseItem._id));
+
+  };
+
+  // Funkcja cofania produktu z tabeli transferów z powrotem do magazynu
+  const handleReturnToWarehouse = (transferItem) => {
+
+    if (!transferItem.fromWarehouse) {
+      alert('Można cofnąć tylko produkty przeniesione z magazynu!');
+      return;
+    }
+    
+    // Przywróć produkt do magazynu
+    const warehouseItem = {
+      _id: transferItem._id,
+      fullName: {
+        fullName: transferItem.fullName
+      },
+      size: {
+        Roz_Opis: transferItem.size
+      },
+      barcode: transferItem.barcode,
+      sellingPoint: {
+        symbol: 'MAGAZYN'
+      },
+      price: transferItem.price,
+      date: transferItem.date
+    };
+    
+    setWarehouseItems(prev => [...prev, warehouseItem]);
+    setFilteredWarehouseItems(prev => [...prev, warehouseItem]);
+    
+    // Usuń z listy transferów
+    setTransfers(prev => prev.filter(item => item._id !== transferItem._id));
+    setFilteredItems(prev => prev.filter(item => item._id !== transferItem._id));
+
+  };
+
+  // Funkcja sprawdzania braków w stanie i zapisywania korekt
+  const checkForMissingItems = async (itemsToCheck, userSymbol, sellingPoint, transactionId = null) => {
+    try {
+      // Pobierz wszystkie stany
+      const allStatesResponse = await fetch(`${API_BASE_URL}/api/state`);
+      const allStates = await allStatesResponse.json();
+      
+      // Lista brakujących kurtek
+      const missingItems = [];
+      
+      // Sprawdź każdą kurtkę czy istnieje w odpowiednim stanie
+      itemsToCheck.forEach(item => {
+        let foundInState = false;
+        let sourceSymbol = userSymbol; // Domyślnie sprawdzaj stan wybranego użytkownika
+        
+        // Dla transferów sprawdź stan punktu źródłowego (transfer_from)
+        if (item.transfer_from && !item.isFromSale) {
+          sourceSymbol = item.transfer_from;
+        }
+        
+        // Filtruj stan według właściwego symbolu
+        const userStateItems = allStates.filter(item => item.symbol === sourceSymbol);
+        
+        const itemBarcode = item.barcode || item.productId; // Używaj productId dla transferów
+        foundInState = userStateItems.find(stateItem => 
+          (stateItem.barcode === itemBarcode || stateItem.id === itemBarcode) &&
+          stateItem.fullName === item.fullName &&
+          stateItem.size === item.size
+        );
+        
+        if (!foundInState) {
+          const operationType = item.isFromSale ? 'SPRZEDAŻY' : 'TRANSFERU';
+          const operationDetails = item.isFromSale 
+            ? `sprzedaży za ${item.price || 'N/A'} PLN` 
+            : `transferu z punktu ${sourceSymbol} do punktu ${item.transfer_to || sellingPoint}`;
+          
+          const detailedDescription = 
+            `🚨 BRAK W STANIE: Próba odpisania kurtki "${item.fullName}" (${item.size}) ` +
+            `z punktu "${sourceSymbol}" w ramach ${operationDetails}. ` +
+            `Kurtka o kodzie ${item.barcode || item.productId} nie została znaleziona w aktualnym stanie punktu. ` +
+            `Możliwe przyczyny: już sprzedana, przeniesiona, zagubiona lub błąd w ewidencji. ` +
+            `Data wykrycia: ${new Date().toLocaleString('pl-PL')}.`;
+          
+          missingItems.push({
+            fullName: item.fullName,
+            size: item.size,
+            barcode: item.barcode || item.productId, // Używaj productId jeśli barcode nie istnieje
+            sellingPoint: sellingPoint,
+            symbol: userSymbol,
+            errorType: 'MISSING_IN_STATE',
+            attemptedOperation: item.isFromSale ? 'SALE' : 'TRANSFER',
+            description: detailedDescription,
+            originalPrice: item.price,
+            discountPrice: item.discount_price,
+            transactionId: transactionId, // Dodaj transactionId do korekty
+            // NOWE: Zapisz oryginalne dane do przywrócenia
+            originalData: {
+              _id: item._id,
+              fullName: item.fullName,
+              size: item.size,
+              barcode: item.barcode || item.productId,
+              isFromSale: item.isFromSale,
+              price: item.price,
+              advancePayment: item.advancePayment,
+              reason: item.reason,
+              transfer_from: item.transfer_from || item.from,
+              transfer_to: item.transfer_to,
+              timestamp: item.timestamp,
+              date: item.date
+            }
+          });
+        }
+      });
+      
+      // Jeśli są braki, zapisz je w tabeli korekt
+      if (missingItems.length > 0) {
+
+        const correctionsResponse = await fetch(`${API_BASE_URL}/api/corrections/multiple`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(missingItems),
+        });
+
+        if (correctionsResponse.ok) {
+
+          for (const missingItem of missingItems) {
+            // Znajdź WSZYSTKIE oryginalne itemy w itemsToCheck (nie tylko pierwszy!)
+            const originalItems = itemsToCheck.filter(item => 
+              item.barcode === missingItem.barcode &&
+              item.fullName === missingItem.fullName &&
+              item.size === missingItem.size
+            );
+
+            for (const originalItem of originalItems) {
+              if (originalItem && originalItem._id) {
+              try {
+                if (originalItem.isFromSale) {
+                  // Usuń sprzedaż
+
+                  const deleteResponse = await fetch(`${API_BASE_URL}/api/sales/delete-sale/${originalItem._id}`, {
+                    method: 'DELETE'
+                  });
+                  
+                  if (deleteResponse.ok) {
+
+                  } else {
+                    console.error(`❌ Failed to delete sale: ${originalItem._id}`);
+                  }
+                } else {
+                  // Usuń transfer
+
+                  const deleteResponse = await fetch(`${API_BASE_URL}/api/transfer/${originalItem._id}`, {
+                    method: 'DELETE'
+                  });
+                  
+                  if (deleteResponse.ok) {
+
+                  } else {
+                    console.error(`❌ Failed to delete transfer: ${originalItem._id}`);
+                  }
+                }
+              } catch (deleteError) {
+                console.error(`Error deleting item ${originalItem._id}:`, deleteError);
+              }
+            }
+          }
+          }
+          
+          // Pokaż modal z brakującymi kurtkami
+          const missingItemsList = missingItems.map(item => 
+            `• ${item.fullName} ${item.size} (${item.barcode})`
+          ).join('\n');
+          
+          alert(`⚠️ UWAGA - WYKRYTO BRAKI W STANIE!\n\nNastępujące kurtki nie zostały znalezione w stanie punktu ${sellingPoint}:\n\n${missingItemsList}\n\n✅ Problemy zostały zapisane w tabeli Korekty do rozwiązania.\n🗑️ Nieistniejące pozycje zostały usunięte z listy.\n\n🔄 Operacja zostanie kontynuowana z dostępnymi kurtkami.`);
+          
+        } else {
+          console.error('Failed to save corrections');
+          const errorText = await correctionsResponse.text();
+          console.error('Corrections error response:', errorText);
+          
+          // Pokaż komunikat o błędzie ale kontynuuj operację
+          alert(`⚠️ UWAGA - WYKRYTO BRAKI ale wystąpił błąd zapisu!\n\nNastępujące kurtki nie zostały znalezione w stanie punktu ${sellingPoint}:\n\n${missingItems.map(item => `• ${item.fullName} ${item.size} (${item.barcode})`).join('\n')}\n\n❌ BŁĄD: Nie udało się zapisać problemów w tabeli Korekty!\n\n🔄 Operacja zostanie kontynuowana z dostępnymi kurtkami.`);
+        }
+      }
+      
+      // Zwróć listę kurtek do przetworzenia (usuń brakujące)
+      const availableItems = itemsToCheck.filter(item => 
+        !missingItems.some(missing => 
+          missing.barcode === item.barcode &&
+          missing.fullName === item.fullName &&
+          missing.size === item.size
+        )
       );
+      
+      return {
+        availableItems,
+        missingCount: missingItems.length
+      };
+      
+    } catch (error) {
+      console.error('Error checking for missing items:', error);
+      return {
+        availableItems: itemsToCheck,
+        missingCount: 0
+      };
     }
-  }, [targetSellingPoint, operationType]);
+  };
 
+  const handleProcessAllTransfers = async () => {
+    // Sprawdź czy mamy kombinowane elementy (zawierające żółte produkty)
+    const itemsToProcess = combinedItems && combinedItems.length > 0 ? combinedItems : filteredItems;
+    
+    if (!Array.isArray(itemsToProcess) || itemsToProcess.length === 0) {
+      alert('Brak transferów do przetworzenia');
+      return;
+    }
 
+    try {
+      // Rozdziel produkty według typu - DODANO obsługę ZIELONYCH i ŻÓŁTYCH produktów
+      const warehouseItems = itemsToProcess.filter(item => item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer'));
+      
+      // ŻÓŁTE produkty (transfery przychodzące) - wymagają dopisania do stanu
+      const incomingTransfers = itemsToProcess.filter(item => item.isIncomingTransfer && !item.isFromSale);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get current magazyn symbol
-        const currentMagazynSymbol = await getMagazynSymbol();
+      const greenStandardTransfers = itemsToProcess.filter(item => !item.fromWarehouse && !item.isFromSale && isProductMatched(item._id, 'transfer'));
+      
+      // ZIELONE sprzedaże (sparowane) - wymagają operacji podwójnej
+      const greenSalesItems = itemsToProcess.filter(item => item.isFromSale && isProductMatched(item._id, 'sale'));
+      
+      const standardTransfers = itemsToProcess.filter(item => !item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer') && !item.isIncomingTransfer);
+      const salesItems = itemsToProcess.filter(item => item.isFromSale && !isProductMatched(item._id, 'sale'));
+
+      // Wygeneruj wspólny transactionId dla całej operacji
+      const sharedTransactionId = Date.now().toString() + 'x' + Math.random().toString(36).substr(2, 9);
+
+      let processedCount = 0;
+
+      // 🔵 KROK 1: NIEBIESKIE PRODUKTY - Transfery i sprzedaże (odpisanie ze stanu) - PIERWSZEŃSTWO!
+
+      let validStandardTransfers = standardTransfers;
+      let standardTransfersMissingCount = 0;
+      
+      if (standardTransfers.length > 0) {
+
+        const selectedUserObject = users.find(user => user._id === selectedUser);
+        const userSymbol = selectedUserObject?.symbol;
+        const sellingPoint = selectedUserObject?.sellingPoint || selectedUserObject?.symbol;
         
-        // Fetch magazyn items
-        const stateResponse = await axios.get('/api/state');
-        const magazynDataRaw = stateResponse.data.filter(item => item.symbol === currentMagazynSymbol);
+        const checkResult = await checkForMissingItems(standardTransfers, userSymbol, sellingPoint, sharedTransactionId);
+        validStandardTransfers = checkResult.availableItems;
+        standardTransfersMissingCount = checkResult.missingCount;
         
-        // Process magazyn data to combine prices with semicolon separator
-        const magazynData = magazynDataRaw.map(item => ({
-          ...item,
-          price: item.discount_price && Number(item.discount_price) !== 0
-            ? `${item.price};${item.discount_price}` // Combine price and discount_price with semicolon
-            : item.price // Use only price if discount_price is not valid
+        if (validStandardTransfers.length > 0) {
+          const response = await fetch(`${API_BASE_URL}/api/transfer/process-all`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              transfers: validStandardTransfers,
+              selectedDate: selectedDate,
+              selectedUser: selectedUser,
+              transactionId: sharedTransactionId
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            processedCount += result.processedCount;
+            
+            // Oznacz transfery jako przetworzone  
+            validStandardTransfers.forEach(transfer => {
+              setProcessedTransfers(prev => new Set([...prev, transfer._id]));
+            });
+
+          } else {
+            console.error('🔵 Error processing standard transfers');
+          }
+        }
+      }
+
+      // 1.2. Przetwórz sprzedaże - sprawdź braki w stanie przed odpisaniem
+      let validSalesItems = salesItems;
+      let salesMissingCount = 0;
+      
+      if (salesItems.length > 0) {
+
+        const selectedUserObject = users.find(user => user._id === selectedUser);
+        const userSymbol = selectedUserObject?.symbol;
+        const sellingPoint = selectedUserObject?.sellingPoint || selectedUserObject?.symbol;
+        
+        const checkResult = await checkForMissingItems(salesItems, userSymbol, sellingPoint, sharedTransactionId);
+        validSalesItems = checkResult.availableItems;
+        salesMissingCount = checkResult.missingCount;
+        
+        if (validSalesItems.length > 0) {
+
+          const salesResponse = await fetch(`${API_BASE_URL}/api/transfer/process-sales`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              salesItems: validSalesItems,
+              selectedUser: selectedUser,
+              transactionId: sharedTransactionId
+            }),
+          });
+
+          if (salesResponse.ok) {
+            const salesResult = await salesResponse.json();
+            processedCount += salesResult.processedCount || validSalesItems.length;
+
+            validSalesItems.forEach(sale => {
+              setProcessedSales(prev => new Set([...prev, sale._id]));
+            });
+          } else {
+            console.error('🔵 Failed to process sales items');
+            const errorText = await salesResponse.text();
+            console.error('🔵 Sales processing error:', errorText);
+          }
+        }
+      }
+
+      // 🟡 KROK 2: ŻÓŁTE PRODUKTY - Transfery przychodzące (dopisanie do stanu)
+      if (warehouseItems.length > 0) {
+
+        const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            warehouseItems: warehouseItems,
+            selectedDate: selectedDate,
+            selectedUser: selectedUser,
+            transactionId: sharedTransactionId // Przekaż wspólny transactionId
+          }),
+        });
+
+        if (warehouseResponse.ok) {
+          const warehouseResult = await warehouseResponse.json();
+          processedCount += warehouseResult.processedCount || warehouseItems.length;
+
+        } else {
+          console.error('Failed to process warehouse items');
+        }
+      }
+
+      // � 2. ŻÓŁTE PRODUKTY - Transfery przychodzące (dopisanie do stanu)
+      if (incomingTransfers.length > 0) {
+
+        const yellowAsWarehouse = incomingTransfers.map(transfer => ({
+          ...transfer,
+          fullName: transfer.fullName,
+          size: transfer.size,
+          transfer_to: users.find(user => user._id === selectedUser)?.symbol, // Cel transferu
         }));
         
-        setMagazynItems(magazynData);
-
-        // Fetch sales data
-        const salesResponse = await axios.get('/api/sales/get-all-sales');
-        setSalesData(salesResponse.data);
-        
-        // Fetch selling points from users API
-        let uniqueSellingPointsFromUsers = [];
-        try {
-          const usersResponse = await axios.get('/api/user');
-          
-          // API returns {count: X, users: [...]} structure
-          const usersDataArray = Array.isArray(usersResponse.data.users) ? usersResponse.data.users : [];
-          setUsersData(usersDataArray); // Store users data for later symbol lookup
-          
-          uniqueSellingPointsFromUsers = [...new Set(
-            usersDataArray
-              .filter(user => user && user.sellingPoint && user.sellingPoint !== currentMagazynSymbol && user.sellingPoint !== 'Magazyn') // Exclude current magazyn symbol and Magazyn
-              .map(user => user.sellingPoint)
-          )];
-        } catch (userError) {
-          console.error('Error fetching users:', userError);
-          uniqueSellingPointsFromUsers = [];
-        }
-        
-        // Get unique selling points from sales data
-        const uniqueSellingPointsFromSales = [...new Set(salesResponse.data.map(sale => sale.sellingPoint))];
-        
-        // Combine and deduplicate selling points from both sources
-        const allSellingPoints = [...new Set([...uniqueSellingPointsFromUsers, ...uniqueSellingPointsFromSales])]
-          .filter(point => point && point !== currentMagazynSymbol); // Additional filter to exclude current magazyn symbol
-        
-
-        
-        setSellingPoints(allSellingPoints);
-        
-        // Set default selectedSellingPoint for sprzedaz mode
-        if (operationType === 'sprzedaz' && !selectedSellingPoint && allSellingPoints.length > 0) {
-          setSelectedSellingPoint(allSellingPoints[0]);
-        }
-        
-        // Set default target selling point if in przepisanie mode and no target is selected
-        if (operationType === 'przepisanie' && !targetSellingPoint && allSellingPoints.length > 0) {
-          setTargetSellingPoint(allSellingPoints[0]);
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to fetch data. Please try again later.');
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    // Reset transaction saved state when date or selling point changes
-    setIsTransactionSaved(false);
-    
-    // Filter sales based on selected date and selling point (only for "sprzedaz" mode)
-    if (operationType === 'sprzedaz') {
-
-      
-      let filtered = salesData.filter(sale => {
-        const selectedDateString = selectedDate.toDateString();
-        let finalSaleDate;
-        
-        // PRIORYTET: Jeśli istnieje pole 'date', użyj go. W przeciwnym razie użyj 'timestamp'
-        if (sale.date) {
-          // Użyj pola 'date' jako głównego źródła daty
-          finalSaleDate = new Date(sale.date).toDateString();
-
-        } else {
-          // Fallback do 'timestamp' tylko jeśli nie ma pola 'date'
-          if (typeof sale.timestamp === 'string' && sale.timestamp.includes('.')) {
-            const datePart = sale.timestamp.split(',')[0]; // Weź tylko część z datą, usuń czas
-            const parts = datePart.split('.');
-            if (parts.length === 3) {
-              // Konwertuj z DD.MM.YYYY na poprawny format MM/DD/YYYY
-              const [day, month, year] = parts;
-              finalSaleDate = new Date(`${month}/${day}/${year}`).toDateString();
-            } else {
-              finalSaleDate = new Date(sale.timestamp).toDateString();
-            }
-          } else {
-            finalSaleDate = new Date(sale.timestamp).toDateString();
-          }
-
-        }
-        
-        // Porównaj tylko jedną ostateczną datę
-        const matches = finalSaleDate === selectedDateString;
-
-        
-        return matches;
-      });
-      
-      // USUNIĘTE: Tymczasowe wyłączenie filtrowania dat
-      // filtered = salesData; // Ta linia powodowała pokazywanie wszystkich sprzedaży
-      
-
-
-      if (selectedSellingPoint) {
-        // Find the symbol for the selected selling point
-        const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
-
-        const selectedSymbol = selectedUser ? selectedUser.symbol : null;
-
-        
-        if (selectedSymbol) {
-          // Filter sales by 'from' field matching the selected symbol
-          const beforeFilter = filtered.length;
-          filtered = filtered.filter(sale => {
-
-            return sale.from === selectedSymbol;
-          });
-
-        } else {
-
-        }
-      } else {
-
-      }
-
-      // IMPORTANT: Filter out already processed sales to prevent double-processing
-      // BUT keep synchronized sales visible (they should show as green)
-      const beforeProcessedFilter = filtered.length;
-      filtered = filtered.filter(sale => {
-        const isProcessed = processedSalesIds.has(sale._id);
-        const isSynchronized = synchronizedItems.sales && synchronizedItems.sales.has(sale._id);
-        
-        // Keep if not processed OR if synchronized (to show green)
-        return !isProcessed || isSynchronized;
-      });
-
-
-
-      setFilteredSales(filtered);
-    } else {
-      // For "przepisanie" mode, clear sales
-      setFilteredSales([]);
-    }
-  }, [salesData, selectedDate, selectedSellingPoint, operationType, usersData, processedSalesIds, synchronizedItems]);
-
-  const handleSynchronize = async () => {
-    // Synchronization only available in "sprzedaz" mode
-    if (operationType !== 'sprzedaz') {
-      showNotification('Błąd', 'Synchronizacja dostępna tylko w trybie "Sprzedaż"', 'error');
-      return;
-    }
-
-    if (!selectedDate || !selectedSellingPoint) {
-      showNotification('Błąd', 'Wybierz datę i punkt sprzedaży przed synchronizacją', 'error');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      
-      // Format date for API call (YYYY-MM-DD)
-      const formattedDate = selectedDate.toISOString().split('T')[0];
-      
-      // Find the symbol for the selected selling point
-      const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
-      const selectedSymbol = selectedUser ? selectedUser.symbol : null;
-      
-
-      
-      if (!selectedSymbol) {
-        showNotification('Błąd', `Nie znaleziono symbolu dla punktu sprzedaży "${selectedSellingPoint}"`, 'error');
-        setLoading(false);
-        return;
-      }
-      
-      // Fetch sales data for the selected date and selling point
-      // Use selectedSymbol instead of selectedSellingPoint for API call
-      const salesResponse = await axios.get('/api/sales/filter-by-date-and-point', {
-        params: {
-          date: formattedDate,
-          sellingPoint: selectedSymbol  // Use symbol instead of selling point name
-        }
-      });
-      
-
-
-      const freshSalesData = salesResponse.data;
-
-      // Don't show notification about fetched data here - show it after synchronization
-
-      // Now perform synchronization between currently visible sales and magazyn items
-      const matchedMagazynIds = new Set();
-      const matchedSalesIds = new Set();
-      const synchronizedMagazynItems = new Set();
-      const synchronizedSalesItems = new Set();
-      
-
-      
-      // Use currently filtered sales for synchronization (not fresh API data)
-      // This ensures we work with what user can see on screen
-      const salesForSync = filteredSales.length > 0 ? filteredSales : freshSalesData;
-
-      
-      // Find one-to-one matches between visible sales and magazyn items
-      salesForSync.forEach(sale => {
-        if (matchedSalesIds.has(sale._id)) return;
-        
-        for (let i = 0; i < magazynItems.length; i++) {
-          const magazynItem = magazynItems[i];
-          
-          if (matchedMagazynIds.has(magazynItem.id)) continue;
-          
-
-          
-          if (sale.barcode === magazynItem.barcode && sale.size === magazynItem.size) {
-            matchedMagazynIds.add(magazynItem.id);
-            matchedSalesIds.add(sale._id);
-            synchronizedMagazynItems.add(magazynItem.id);
-            synchronizedSalesItems.add(sale._id);
-
-            break;
-          }
-        }
-      });
-      
-      // Update synchronized items first
-      setSynchronizedItems({ magazyn: synchronizedMagazynItems, sales: synchronizedSalesItems });
-      
-
-      
-      // Synchronization completed - no modal notification needed
-      // Results are visible through color changes in the UI
-      
-      // DO NOT update salesData - this would trigger useEffect and clear existing filteredSales
-      // Just keep the synchronized items marked as green
-      // setSalesData(freshSalesData); // REMOVED - this was causing the blue items to disappear
-      
-    } catch (error) {
-      console.error('Error during synchronization:', error);
-      showNotification(
-        'Błąd synchronizacji', 
-        `Nie udało się pobrać danych sprzedaży: ${error.response?.data?.error || error.message}`, 
-        'error'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddToSales = (magazynItem) => {
-    // Check if this item is already added
-    if (addedMagazynIds.has(magazynItem.id)) {
-      return;
-    }
-
-    // For "przepisanie" mode, require target selling point to be selected
-    if (operationType === 'przepisanie' && !targetSellingPoint) {
-      alert('Wybierz najpierw docelowy punkt sprzedaży');
-      return;
-    }
-
-    // Create a new sales item based on the magazyn item
-    const newSalesItem = {
-      _id: `manual-${Date.now()}-${Math.random()}`, // Generate unique ID for manually added item
-      fullName: magazynItem.fullName,
-      size: magazynItem.size,
-      barcode: magazynItem.barcode,
-      cash: [{ price: magazynItem.price, currency: 'PLN' }],
-      card: [],
-      timestamp: new Date().toISOString(),
-      sellingPoint: operationType === 'sprzedaz' ? (selectedSellingPoint || 'Manual') : targetSellingPoint,
-      isManuallyAdded: true, // Flag to identify manually added items
-      originalMagazynId: magazynItem.id // Reference to original magazyn item
-    };
-
-    // Add to manually added items list and track the magazyn ID
-    setManuallyAddedItems(prev => [...prev, newSalesItem]);
-    setAddedMagazynIds(prev => new Set([...prev, magazynItem.id]));
-  };
-
-  const handleRemoveFromSales = (salesItem) => {
-    // Remove from manually added items and unblock the magazyn item
-    setManuallyAddedItems(prev => prev.filter(item => item._id !== salesItem._id));
-    setAddedMagazynIds(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(salesItem.originalMagazynId);
-      return newSet;
-    });
-  };
-
-  const handleSave = async () => {
-    if (isTransactionSaved) {
-      alert('Transakcja została już zapisana. Użyj przycisku "Anuluj transakcję" aby cofnąć zmiany.');
-      return;
-    }
-
-    if (isTransactionInProgress) {
-      alert('Transakcja jest już w trakcie przetwarzania. Proszę czekać...');
-      return;
-    }
-
-    const targetSymbol = operationType === 'przepisanie' ? targetSellingPoint.symbol : selectedSellingPoint.symbol;
-    
-    // Check if selling point is selected
-    if (operationType === 'sprzedaz' && !selectedSellingPoint) {
-      alert('Proszę wybrać punkt sprzedaży');
-      return;
-    }
-    
-    if (operationType === 'przepisanie' && !targetSellingPoint) {
-      alert('Proszę wybrać docelowy punkt sprzedaży');
-      return;
-    }
-
-    if (filteredSales.length === 0 && manuallyAddedItems.length === 0) {
-      alert('Brak elementów do zapisania');
-      return;
-    }
-
-    setIsTransactionInProgress(true);
-
-    try {
-      // STEP 1: Validate that all items exist in current state before processing
-
-      
-      // Fetch current state from API
-      const currentStateResponse = await axios.get('/api/state');
-      const currentStateItems = currentStateResponse.data || [];
-
-      
-      // Collect all items that need to be validated
-      const itemsToValidate = [];
-      const missingItems = [];
-      const validItems = [];
-      
-      // Add sales items (blue) to validation
-      filteredSales.forEach(sale => {
-        if (!synchronizedItems.sales || !synchronizedItems.sales.has(sale._id)) {
-          itemsToValidate.push({
-            type: 'sales',
-            data: sale,
-            barcode: sale.barcode,
-            expectedSymbol: sale.from,
-            displayName: `${sale.fullName} (${sale.size})`
-          });
-        }
-      });
-      
-      // Add manually added items (orange) to validation - these should be in MAGAZYN
-      addedMagazynIds.forEach(id => {
-        const magazynItem = magazynItems.find(item => item.id === id);
-        if (magazynItem) {
-          itemsToValidate.push({
-            type: 'magazyn',
-            data: magazynItem,
-            barcode: magazynItem.barcode,
-            expectedSymbol: magazynSymbol,
-            displayName: `${magazynItem.fullName} (${magazynItem.size})`
-          });
-        }
-      });
-      
-      // Add synchronized items (green) to validation
-      if (synchronizedItems.magazyn) {
-        synchronizedItems.magazyn.forEach(id => {
-          const magazynItem = magazynItems.find(item => item.id === id);
-          if (magazynItem) {
-            itemsToValidate.push({
-              type: 'synchronized',
-              data: magazynItem,
-              barcode: magazynItem.barcode,
-              expectedSymbol: magazynSymbol,
-              displayName: `${magazynItem.fullName} (${magazynItem.size})`
-            });
-          }
-        });
-      }
-      
-
-      
-      // Validate each item against current state
-      itemsToValidate.forEach(item => {
-        const existsInState = currentStateItems.some(stateItem => 
-          stateItem.barcode === item.barcode && 
-          stateItem.symbol === item.expectedSymbol
-        );
-        
-        if (existsInState) {
-          validItems.push(item);
-        } else {
-          missingItems.push(item);
-          console.warn(`❌ Missing from state: ${item.displayName} (barcode: ${item.barcode}, symbol: ${item.expectedSymbol})`);
-        }
-      });
-      
-
-      
-      // If there are missing items, show warning but continue with valid items
-      if (missingItems.length > 0) {
-        const missingList = missingItems.map(item => `• ${item.displayName} (${item.barcode})`).join('\n');
-        showNotification(
-          'Ostrzeżenie - Brakujące elementy', 
-          `Następujące elementy nie znajdują się na stanie i zostaną pominięte:\n\n${missingList}\n\nPozostałe elementy (${validItems.length}) zostały pomyślnie odpisane.`,
-          'warning'
-        );
-      }
-      
-      // If no valid items, stop processing
-      if (validItems.length === 0) {
-        showNotification('Błąd', 'Żaden z wybranych elementów nie znajduje się na stanie. Operacja anulowana.', 'error');
-        setIsTransactionInProgress(false);
-        return;
-      }
-
-      // STEP 2: Prepare transaction details for history (only valid items)
-      const transactionId = Date.now().toString();
-      const processedItems = [];
-      
-      // Separate items by their colors/types (only valid items)
-      const blueItems = new Set(); // Regular sales items (blue) - to be deleted
-      const greenItems = new Set(); // Synchronized items (green) - to be transferred within same selling point
-      const orangeItems = new Set(); // Manually added items (orange) - to be transferred from MAGAZYN
-
-      // Process sales items for deletion (blue) - only valid ones
-      const blueItemsBarcodes = []; // Use array instead of Set to keep duplicates
-      const validSalesItems = validItems.filter(item => item.type === 'sales');
-      validSalesItems.forEach(validItem => {
-        const sale = validItem.data;
-        // For blue items, we use barcode directly from sales data
-        blueItemsBarcodes.push(sale.barcode); // Push to array to keep duplicates
-        
-        // Find the original selling point symbol for this sale
-        const originalSymbol = sale.from; // This should contain the symbol from which it was sold
-        
-        processedItems.push({
-          fullName: sale.fullName,
-          size: sale.size,
-          barcode: sale.barcode,
-          price: sale.cash[0]?.price || 0,
-          processType: 'sold',
-          originalId: sale._id,
-          originalSymbol: originalSymbol || selectedSellingPoint, // Where it should be restored
-          sellingPoint: selectedSellingPoint
-        });
-      });
-
-      // Group barcodes by count to know how many to delete
-      const barcodeCount = {};
-      blueItemsBarcodes.forEach(barcode => {
-        barcodeCount[barcode] = (barcodeCount[barcode] || 0) + 1;
-      });
-
-      // Process synchronized items (green) - only valid ones
-      const validSynchronizedItems = validItems.filter(item => item.type === 'synchronized');
-      validSynchronizedItems.forEach(validItem => {
-        const magazynItem = validItem.data;
-        greenItems.add(magazynItem.id);
-        
-        // Handle price format for transaction history - split if contains semicolon
-        let itemPrice = 0;
-        let itemDiscountPrice = 0;
-        
-        if (magazynItem.price && typeof magazynItem.price === 'string' && magazynItem.price.includes(';')) {
-          const prices = magazynItem.price.split(';');
-          itemPrice = Number(prices[0]) || 0;
-          itemDiscountPrice = Number(prices[1]) || 0;
-        } else {
-          itemPrice = Number(magazynItem.price) || 0;
-        }
-        
-        processedItems.push({
-          fullName: magazynItem.fullName,
-          size: magazynItem.size,
-          barcode: magazynItem.barcode,
-          price: itemPrice,
-          discount_price: itemDiscountPrice,
-          processType: 'synchronized',
-          originalId: magazynItem.id,
-          originalSymbol: magazynSymbol // Items came from current magazyn symbol originally
-        });
-      });
-
-      // Process manually added items (orange) - only valid ones
-      const validMagazynItems = validItems.filter(item => item.type === 'magazyn');
-      validMagazynItems.forEach(validItem => {
-        const magazynItem = validItem.data;
-        orangeItems.add(magazynItem.id);
-        
-        // Handle price format for transaction history - split if contains semicolon
-        let itemPrice = 0;
-        let itemDiscountPrice = 0;
-        
-        if (magazynItem.price && typeof magazynItem.price === 'string' && magazynItem.price.includes(';')) {
-          const prices = magazynItem.price.split(';');
-          itemPrice = Number(prices[0]) || 0;
-          itemDiscountPrice = Number(prices[1]) || 0;
-        } else {
-          itemPrice = Number(magazynItem.price) || 0;
-        }
-        
-        processedItems.push({
-          fullName: magazynItem.fullName,
-          size: magazynItem.size,
-          barcode: magazynItem.barcode,
-          price: itemPrice,
-          discount_price: itemDiscountPrice,
-          processType: 'transferred',
-          originalId: magazynItem.id,
-          originalSymbol: magazynSymbol // Items came from current magazyn symbol originally
-        });
-      });
-
-      // Store transaction details for potential cancellation
-      const transactionDetails = {
-        transactionId: transactionId, // Changed from 'id' to 'transactionId'
-        timestamp: new Date().toLocaleString('pl-PL'),
-        operationType: operationType,
-        selectedSellingPoint: selectedSellingPoint,
-        targetSellingPoint: targetSellingPoint,
-        targetSymbol,
-        processedItems,
-        itemsCount: processedItems.length
-      };
-
-      // Determine target symbol for operations
-      let actualTargetSymbol;
-      
-      if (operationType === 'sprzedaz') {
-        // Find the symbol for the selected selling point
-        const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
-        actualTargetSymbol = selectedUser ? selectedUser.symbol : (selectedSellingPoint || 'Manual');
-      } else {
-        // For 'przepisanie' mode, find the symbol for the selected targetSellingPoint
-        actualTargetSymbol = 'Manual'; // Default fallback
-        
-        if (targetSellingPoint) {
-          const targetUser = usersData.find(user => user.sellingPoint === targetSellingPoint);
-          
-          if (targetUser && targetUser.symbol) {
-            actualTargetSymbol = targetUser.symbol;
-          }
-        }
-      }
-
-      // Process blue items (delete from state by barcode and symbol)
-      const bluePromises = Object.entries(barcodeCount).map(async ([barcode, count]) => {
-        try {
-          // Find the symbol for the selected selling point
-          let symbolToDelete = '';
-          if (selectedSellingPoint) {
-            const user = usersData.find(user => user.sellingPoint === selectedSellingPoint);
-            if (user && user.symbol) {
-              symbolToDelete = user.symbol;
-            } else {
-              console.error(`No user found for sellingPoint: ${selectedSellingPoint}`);
-              return; // Skip this deletion
-            }
-          } else {
-            console.error('No selectedSellingPoint');
-            return; // Skip this deletion
-          }
-          
-          await axios.delete(`/api/state/barcode/${barcode}/symbol/${symbolToDelete}?count=${count}`, {
-            headers: {
-              'target-symbol': 'Sprzedano', // Blue items are sold
-              'operation-type': 'delete',
-              'transactionid': transactionId // Changed from transaction-id to transactionid
-            }
-          });
-        } catch (error) {
-          console.error(`Error deleting blue items with barcode ${barcode}:`, error);
-          if (error.response && error.response.status === 404) {
-            // Items not found - this might be expected
-          } else {
-            throw error;
-          }
-        }
-      });
-
-      // Process green items (transfer within same selling point or to target point)
-      const greenPromises = Array.from(greenItems).map(async (itemId) => {
-        try {
-          // For "przepisanie" mode, we need to restore items to target selling point
-          if (operationType === 'przepisanie') {
-            // First, get the item data before deleting it
-            const magazynItem = magazynItems.find(item => item.id === itemId);
-            if (!magazynItem) {
-              console.warn(`Magazyn item ${itemId} not found for green transfer`);
-              return;
-            }
-
-            // Step 1: Delete from MAGAZYN
-            await axios.delete(`/api/state/${itemId}`, {
-              headers: {
-                'target-symbol': actualTargetSymbol,
-                'operation-type': 'transfer-from-magazyn', // Changed for przepisanie mode
-                'transactionid': transactionId
-              }
-            });
-
-            // Step 2: Restore to target selling point
-            const restoreData = {
-              fullName: magazynItem.fullName.fullName || magazynItem.fullName,
-              size: magazynItem.size.Roz_Opis || magazynItem.size,
-              barcode: magazynItem.barcode,
-              symbol: actualTargetSymbol,
-              price: magazynItem.price,
-              discount_price: magazynItem.discount_price,
-              operationType: 'transfer-green-to-target'
-            };
-
-            await axios.post('/api/state/restore-silent', restoreData);
-
-
-          } else {
-            // For "sprzedaz" mode, use original logic (delete only - simulates sale)
-            await axios.delete(`/api/state/${itemId}`, {
-              headers: {
-                'target-symbol': actualTargetSymbol, // Same symbol (M → M)
-                'operation-type': 'transfer-same',
-                'transactionid': transactionId
-              }
-            });
-          }
-        } catch (error) {
-          console.error(`Error transferring green item ${itemId}:`, error);
-          if (error.response && error.response.status === 404) {
-            console.warn(`Green item ${itemId} not found - may have been already processed`);
-            // Don't throw error for 404, just log warning
-          } else {
-            throw error;
-          }
-        }
-      });
-
-      // Process orange items (transfer from MAGAZYN to target/selling point)
-      const orangePromises = Array.from(orangeItems).map(async (itemId) => {
-        try {
-          // First, get the item data before deleting it
-          const magazynItem = magazynItems.find(item => item.id === itemId);
-          if (!magazynItem) {
-            console.warn(`Magazyn item ${itemId} not found`);
-            return;
-          }
-
-          // Step 1: Delete from MAGAZYN
-          await axios.delete(`/api/state/${itemId}`, {
-            headers: {
-              'target-symbol': actualTargetSymbol, // MAGAZYN → targetSymbol
-              'operation-type': 'transfer-from-magazyn',
-              'transactionid': transactionId
-            }
-          });
-
-          // Step 2: Restore to target selling point (for both sprzedaz and przepisanie)
-          const restoreData = {
-            fullName: magazynItem.fullName.fullName || magazynItem.fullName,
-            size: magazynItem.size.Roz_Opis || magazynItem.size,
-            barcode: magazynItem.barcode,
-            symbol: actualTargetSymbol,
-            price: magazynItem.price,
-            discount_price: magazynItem.discount_price,
-            operationType: `transfer-orange-${operationType}` // transfer-orange-sprzedaz or transfer-orange-przepisanie
-          };
-
-          await axios.post('/api/state/restore-silent', restoreData);
-
-
-        } catch (error) {
-          console.error(`Error transferring orange item ${itemId}:`, error);
-          if (error.response && error.response.status === 404) {
-            console.warn(`Orange item ${itemId} not found - may have been already processed`);
-            // Don't throw error for 404, just log warning
-          } else {
-            throw error;
-          }
-        }
-      });
-
-      // Wait for all operations to complete
-      await Promise.all([...bluePromises, ...greenPromises, ...orangePromises]);
-
-      // Save transaction to database instead of local state
-      await saveTransactionToDatabase(transactionDetails);
-
-      // Store IDs of processed sales to prevent them from showing up again (only successfully processed ones)
-      const processedBlueIds = new Set(processedSalesIds);
-      validSalesItems.forEach(validItem => {
-        processedBlueIds.add(validItem.data._id);
-      });
-      setProcessedSalesIds(processedBlueIds);
-
-      // Store items for display (keeping the view)
-      const itemsForDisplay = processedItems.map(item => ({
-        ...item,
-        isProcessed: true
-      }));
-
-      setSavedItemsForDisplay(itemsForDisplay);
-      // lastTransaction will be set when history is reloaded from database
-      setIsTransactionSaved(true);
-
-      // Clear ALL states after successful save to prevent accidental double-saving
-      setSynchronizedItems(new Set());
-      setManuallyAddedItems([]);
-      setAddedMagazynIds(new Set());
-      setFilteredSales([]); // Clear blue items (sales) to prevent double-saving
-
-      // Refresh magazyn data
-      const stateResponse = await axios.get('/api/state');
-      const magazynData = stateResponse.data.filter(item => item.symbol === magazynSymbol);
-      setMagazynItems(magazynData);
-      showNotification('Sukces!', 'Transakcja została zapisana pomyślnie!', 'success');
-    } catch (error) {
-      console.error('Error saving items:', error);
-      showNotification('Błąd!', 'Błąd podczas zapisywania. Spróbuj ponownie.', 'error');
-    } finally {
-      setIsTransactionInProgress(false);
-    }
-  };
-
-  // Function to load transaction history from database
-  const loadTransactionHistory = async () => {
-    try {
-      const response = await axios.get('/api/transaction-history');
-      const history = response.data || [];
-      setTransactionHistory(history);
-    } catch (error) {
-      console.error('Error loading transaction history:', error);
-      setTransactionHistory([]);
-    }
-  };
-
-  // Function to save transaction to database
-  const saveTransactionToDatabase = async (transactionDetails) => {
-    try {
-      await axios.post('/api/transaction-history', transactionDetails);
-      // Reload history after saving
-      await loadTransactionHistory();
-    } catch (error) {
-      console.error('Error saving transaction to database:', error);
-      throw error;
-    }
-  };
-
-  // Function to deactivate transaction in database
-  const deactivateTransactionInDatabase = async (transactionId) => {
-    try {
-      await axios.delete(`/api/transaction-history/${transactionId}`);
-      // Reload history after deactivating
-      await loadTransactionHistory();
-    } catch (error) {
-      console.error('Błąd podczas usuwania transakcji z bazy danych');
-      throw error;
-    }
-  };
-
-  // Function to show notification modal instead of alert
-  const showNotification = (title, message, type = 'info') => {
-    setNotificationModal({ title, message, type });
-    setShowNotificationModal(true);
-  };
-
-  // Function to show confirmation modal instead of window.confirm
-  const showConfirmation = (title, message, onConfirm, onCancel = null, confirmText = 'Tak', cancelText = 'Anuluj') => {
-    setConfirmModal({ 
-      title, 
-      message, 
-      onConfirm, 
-      onCancel: onCancel || (() => setShowConfirmModal(false)), 
-      confirmText, 
-      cancelText 
-    });
-    setShowConfirmModal(true);
-  };
-
-  // Function to delete all transaction history with confirmation
-  const handleDeleteAllHistory = async () => {
-    const firstMessage = "⚠️ UWAGA! ⚠️\n\n" +
-      "Czy na pewno chcesz usunąć CAŁĄ historię transakcji?\n\n" +
-      "Ta operacja:\n" +
-      "• Usunie wszystkie zapisane transakcje z bazy danych\n" +
-      "• Nie przywróci żadnych produktów do magazynu\n" +
-      "• Jest NIEODWRACALNA\n\n" +
-      "Kliknij OK, aby kontynuować, lub Anuluj, aby przerwać.";
-
-    showConfirmation(
-      '⚠️ UWAGA! ⚠️',
-      firstMessage,
-      () => {
-        setShowConfirmModal(false);
-        showSecondDeleteConfirmation();
-      },
-      () => setShowConfirmModal(false),
-      'Kontynuuj',
-      'Anuluj'
-    );
-  };
-
-  const showSecondDeleteConfirmation = () => {
-    const secondMessage = " OSTATECZNE OSTRZEŻENIE! \n\n" +
-      "To jest Twoja ostatnia szansa!\n\n" +
-      "Usunięcie całej historii transakcji spowoduje:\n" +
-      "• CAŁKOWITĄ UTRATĘ wszystkich zapisanych transakcji\n" +
-      "• Brak możliwości anulowania pojedynczych transakcji\n" +
-      "• Utratę raportów i statystyk\n\n" +
-      "CZY JESTEŚ ABSOLUTNIE PEWIEN?\n\n" +
-      "Kliknij OK, aby BEZPOWROTNIE usunąć całą historię.";
-
-    showConfirmation(
-      ' OSTATECZNE OSTRZEŻENIE! ',
-      secondMessage,
-      () => {
-        setShowConfirmModal(false);
-        performDeleteAllHistory();
-      },
-      () => setShowConfirmModal(false),
-      'USUŃ WSZYSTKO',
-      'Anuluj'
-    );
-  };
-
-  const performDeleteAllHistory = async () => {
-
-    setIsTransactionInProgress(true);
-    
-    try {
-      // Get all transactions first
-      const response = await axios.get('/api/transaction-history');
-      const allTransactions = response.data || [];
-      
-      if (allTransactions.length === 0) {
-        showNotification('Informacja', 'Brak transakcji do usunięcia.', 'info');
-        return;
-      }
-
-      // Delete each transaction individually
-      let deletedCount = 0;
-      const errors = [];
-
-      for (const transaction of allTransactions) {
-        try {
-          await axios.delete(`/api/transaction-history/${transaction.transactionId}`);
-          deletedCount++;
-        } catch (error) {
-          console.error(`Error deleting transaction ${transaction.transactionId}:`, error);
-          errors.push(transaction.transactionId);
-        }
-      }
-
-      // Clear local state
-      setTransactionHistory([]);
-      
-      // Close modal
-      setShowHistoryModal(false);
-      
-      // Show result
-      if (errors.length === 0) {
-        showNotification('Sukces!', `Wszystkie transakcje zostały usunięte! (${deletedCount} transakcji)`, 'success');
-      } else {
-        showNotification('Częściowy sukces', `Usunięto ${deletedCount} z ${allTransactions.length} transakcji.\nBłędy przy usuwaniu: ${errors.length} transakcji.`, 'warning');
-      }
-    } catch (error) {
-      console.error('Error deleting all transaction history:', error);
-      showNotification('Błąd!', 'Błąd podczas usuwania historii transakcji. Spróbuj ponownie.', 'error');
-    } finally {
-      setIsTransactionInProgress(false);
-    }
-  };
-
-  // Function to undo/cancel last transaction
-  const handleUndoTransaction = async (transaction) => {
-    if (!transaction || isTransactionInProgress) return;
-    
-    const confirmMessage = `Czy na pewno chcesz anulować całą transakcję?\n\n` +
-      `Transakcja z: ${new Date(transaction.timestamp).toLocaleString('pl-PL')}\n` +
-      `Liczba elementów: ${transaction.itemsCount}\n` +
-      `Punkt sprzedaży: ${transaction.selectedSellingPoint || 'N/D'}\n\n` +
-      `Ta operacja:\n` +
-      `• Przywróci wszystkie produkty do ich pierwotnych lokalizacji\n` +
-      `• Usunie transakcję z historii\n` +
-      `• Jest NIEODWRACALNA`;
-
-    // Use modal confirmation instead of window.confirm
-    showConfirmation(
-      '⚠️ OSTRZEŻENIE! ⚠️',
-      confirmMessage,
-      () => {
-        setShowConfirmModal(false);
-        performUndoTransaction(transaction);
-      },
-      () => setShowConfirmModal(false),
-      'Anuluj transakcję',
-      'Anuluj'
-    );
-  };
-
-  // Actual implementation moved to separate function
-  const performUndoTransaction = async (transaction) => {
-    
-    setIsTransactionInProgress(true);
-    
-    try {
-      // STEP 1: First remove items from their current locations to prevent duplication
-      const removePromises = [];
-      
-      for (const item of transaction.processedItems) {
-        if (item.processType === 'sold') {
-          // Sold items - they were sold from a selling point, don't need to remove from anywhere
-          // They are already gone from the selling point through sale
-          continue;
-          
-        } else if (item.processType === 'synchronized') {
-          // Synchronized items - they were transferred to selling point and then sold
-          // They are already gone from the selling point through sale, don't need to remove
-          continue;
-          
-        } else if (item.processType === 'transferred') {
-          // Transferred items - they are currently in the target selling point, need to remove them
-          const targetSellingPointName = transaction.selectedSellingPoint || transaction.targetSellingPoint;
-          
-          // Convert selling point name to symbol using usersData
-          let targetSymbol = null;
-          if (targetSellingPointName) {
-            const targetUser = usersData.find(user => user.sellingPoint === targetSellingPointName);
-            targetSymbol = targetUser ? targetUser.symbol : targetSellingPointName; // Fallback to name if symbol not found
-          }
-          
-          if (targetSymbol) {
-            removePromises.push(
-              axios.delete(`/api/state/barcode/${item.barcode}/symbol/${targetSymbol}?count=1`, {
-                headers: {
-                  'operation-type': 'correction-undo-transaction',
-                  'target-symbol': 'MAGAZYN'
-                }
-              })
-            );
-          }
-        } else if (item.processType === 'corrected') {
-          // Corrected items - they were restored to magazyn, need to remove them from magazyn
-          removePromises.push(
-            axios.delete(`/api/state/barcode/${item.barcode}/symbol/${magazynSymbol}?count=1`, {
-              headers: {
-                'operation-type': 'correction-undo-transaction',
-                'target-symbol': item.originalSymbol || 'UNKNOWN'
-              }
-            })
-          );
-        }
-      }
-      
-      // Wait for all items to be removed from their current locations
-      if (removePromises.length > 0) {
-        await Promise.all(removePromises);
-
-      }
-      
-      // STEP 2: Now restore items to their original state
-      const restorePromises = [];
-      
-      for (const item of transaction.processedItems) {
-        let restoreData;
-        let targetSymbol;
-        
-        if (item.processType === 'sold') {
-          // Blue items: restore to original selling point where they were sold from
-          targetSymbol = item.originalSymbol || item.sellingPoint;
-          
-          restoreData = {
-            fullName: item.fullName,
-            size: item.size,
-            barcode: item.barcode,
-            symbol: targetSymbol,
-            price: item.price,
-            operationType: 'restore-sale'
-          };
-          
-        } else if (item.processType === 'synchronized') {
-          // Green items: restore to current magazyn symbol (they were transferred from MAGAZYN then sold)
-          targetSymbol = magazynSymbol;
-          
-          restoreData = {
-            fullName: item.fullName,
-            size: item.size,
-            barcode: item.barcode,
-            symbol: targetSymbol,
-            price: item.price,
-            discount_price: item.discount_price,
-            operationType: 'restore-synchronized'
-          };
-          
-        } else if (item.processType === 'transferred') {
-          // Orange items: restore to current magazyn symbol
-          targetSymbol = magazynSymbol;
-          
-          restoreData = {
-            fullName: item.fullName,
-            size: item.size,
-            barcode: item.barcode,
-            symbol: targetSymbol,
-            price: item.price,
-            discount_price: item.discount_price,
-            operationType: 'restore-transfer'
-          };
-        } else if (item.processType === 'corrected') {
-          // Corrected items: don't restore, they were already removed above
-          continue;
-        }
-        
-        if (restoreData) {
-          restorePromises.push(
-            axios.post('/api/state/restore-silent', restoreData)
-          );
-        }
-      }
-      
-      // Wait for all items to be restored
-      if (restorePromises.length > 0) {
-        await Promise.all(restorePromises);
-
-      }
-      
-      // STEP 3: Now delete all history records associated with this transaction
-      let historyDeleted = false;
-      
-      try {
-        const deleteResponse = await axios.delete(`/api/history/by-transaction/${transaction.transactionId}`, {
+        const yellowResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
+          method: 'POST',
           headers: {
-            'transactionid': transaction.transactionId
-          }
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            warehouseItems: yellowAsWarehouse,
+            selectedDate: selectedDate,
+            selectedUser: selectedUser,
+            transactionId: sharedTransactionId,
+            isIncomingTransfer: true // Oznacz jako transfer przychodzący
+          }),
         });
-        historyDeleted = true;
-      } catch (deleteError) {
-        // Fallback: spróbuj usunąć po szczegółach transakcji
-        const fallbackPayload = {
-          timestamp: transaction.timestamp,
-          processedItems: transaction.processedItems.map(item => ({
-            fullName: item.fullName,
-            size: item.size,
-            barcode: item.barcode,
-            processType: item.processType
-          }))
-        };
-        
-        try {
-          const fallbackResponse = await axios.post('/api/history/delete-by-details', fallbackPayload);
-          historyDeleted = true;
-        } catch (fallbackError) {
-          console.error('❌ Nie udało się usunąć rekordów historii');
+
+        if (yellowResponse.ok) {
+          const yellowResult = await yellowResponse.json();
+          processedCount += yellowResult.processedCount || incomingTransfers.length;
+
+        } else {
+          console.error('🟡 Failed to process yellow incoming transfers');
         }
       }
+
+      // �🟢 3. ZIELONE PRODUKTY - Operacja podwójna (niebieski + pomarańczowy)
+      let greenProcessedCount = 0;
+      let greenMissingCount = 0;
+      const allGreenItems = [...greenStandardTransfers, ...greenSalesItems];
       
-      if (!historyDeleted) {
-        console.error('⚠️ Nie udało się usunąć rekordów historii');
+      if (allGreenItems.length > 0) {
+
+        const selectedUserObject = users.find(user => user._id === selectedUser);
+        const userSymbol = selectedUserObject?.symbol;
+        const sellingPoint = selectedUserObject?.sellingPoint || selectedUserObject?.symbol;
+        
+        // POPRAWIONA LOGIKA (sugestia użytkownika): Najpierw wszystkie blue operations, potem wszystkie orange operations
+
+        for (let i = 0; i < allGreenItems.length; i++) {
+          const greenItem = allGreenItems[i];
+
+          try {
+            // Sprawdź czy produkt istnieje w stanie przed odpisaniem
+            const checkResult = await checkForMissingItems([greenItem], userSymbol, sellingPoint, sharedTransactionId);
+            
+            if (checkResult.availableItems.length === 0) {
+              // Produkt nie istnieje w stanie - przejdź do korekt
+
+              greenMissingCount++;
+            } else {
+              // Produkt istnieje - wykonaj operację niebieską
+              if (greenItem.isFromSale) {
+                // Dla sprzedaży
+                const salesResponse = await fetch(`${API_BASE_URL}/api/transfer/process-sales`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    salesItems: [greenItem],
+                    selectedUser: selectedUser,
+                    transactionId: sharedTransactionId
+                  }),
+                });
+                
+                if (salesResponse.ok) {
+
+                  setProcessedSales(prev => new Set([...prev, greenItem._id]));
+
+                }
+              } else {
+                // Dla transferów
+                const transferResponse = await fetch(`${API_BASE_URL}/api/transfer/process-all`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    transfers: [greenItem],
+                    selectedDate: selectedDate,
+                    selectedUser: selectedUser,
+                    transactionId: sharedTransactionId
+                  }),
+                });
+                
+                if (transferResponse.ok) {
+
+                  setProcessedTransfers(prev => new Set([...prev, greenItem._id]));
+
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`🟢 Error processing green item blue operation ${greenItem._id}:`, error);
+          }
+        }
+
+        for (let i = 0; i < allGreenItems.length; i++) {
+          const greenItem = allGreenItems[i];
+
+          const matchedPair = matchedPairs.find(pair => 
+            pair.blueProduct.id === greenItem._id && 
+            pair.blueProduct.type === (greenItem.isFromSale ? 'sale' : 'transfer')
+          );
+          
+          if (matchedPair && matchedPair.warehouseProduct) {
+            // DODANE OPÓŹNIENIE dla uniknięcia race condition
+            if (i > 0) {
+
+              await new Promise(resolve => setTimeout(resolve, i * 100));
+            }
+            
+            // Wykonaj operację pomarańczową (przeniesienie z magazynu)
+
+            const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                warehouseItems: [matchedPair.warehouseProduct],
+                selectedDate: selectedDate,
+                selectedUser: selectedUser,
+                transactionId: sharedTransactionId
+              }),
+            });
+            
+            const warehouseResponseData = await warehouseResponse.json();
+
+            const stateCheckResponse = await fetch(`${API_BASE_URL}/api/state/barcode/${matchedPair.warehouseProduct.barcode}`);
+            const currentState = await stateCheckResponse.json();
+            const userStates = currentState.filter(s => s.symbol === 'P');
+
+            if (warehouseResponse.ok) {
+
+              greenProcessedCount++;
+              
+              // Produkt już oznaczony jako przetworzony po pierwszej operacji (blue)
+              // Nie trzeba ponownie oznaczać - tylko zliczamy
+            } else {
+              console.error(`🟢 Green item ${greenItem._id} - Orange operation failed:`, warehouseResponseData);
+            }
+          } else {
+            console.error(`🟢 Green item ${greenItem._id} - No matched warehouse product found for orange operation`);
+          }
+        }
+
+      }
+
+      // 🟠 KROK 4: POMARAŃCZOWE PRODUKTY - Produkty z magazynu (dopisanie do stanu) - OSTATNIE!
+
+      if (warehouseItems.length > 0) {
+
+        const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            warehouseItems: warehouseItems,
+            selectedDate: selectedDate,
+            selectedUser: selectedUser,
+            transactionId: sharedTransactionId
+          }),
+        });
+
+        if (warehouseResponse.ok) {
+          const warehouseResult = await warehouseResponse.json();
+          processedCount += warehouseResult.processedCount || warehouseItems.length;
+
+        } else {
+          console.error('🟠 Failed to process warehouse items');
+        }
+      }
+
+      // Przygotuj szczegółowy komunikat z informacjami o brakach
+      const totalMissingCount = standardTransfersMissingCount + salesMissingCount + greenMissingCount;
+      let alertMessage = `✅ OPERACJA ZAKOŃCZONA\n\n`;
+      alertMessage += `🔄 NOWA KOLEJNOŚĆ PRZETWARZANIA:\n`;
+      alertMessage += `1. 🔵 Niebieskie produkty (transfery/sprzedaże) - PIERWSZE\n`;
+      alertMessage += `2. 🟡 Żółte produkty (transfery przychodzące)\n`;
+      alertMessage += `3. 🟢 Zielone produkty (operacja podwójna)\n`;
+      alertMessage += `4. 🟠 Pomarańczowe produkty (z magazynu) - OSTATNIE\n\n`;
+      alertMessage += `Przetworzono ${processedCount + greenProcessedCount} elementów:\n`;
+      alertMessage += `- ${validStandardTransfers.length} standardowych transferów odpisano ze stanu\n`;
+      alertMessage += `- ${validSalesItems.length} sprzedaży odpisano ze stanu\n`;
+      alertMessage += `- ${incomingTransfers.length} żółtych transferów przychodzących dodano do stanu\n`;
+      alertMessage += `- ${greenProcessedCount} zielonych produktów przetworzono (operacja podwójna)\n`;
+      alertMessage += `- ${warehouseItems.length} produktów z magazynu dodano do stanu (na końcu)\n`;
+      
+      if (totalMissingCount > 0) {
+        alertMessage += `\n⚠️ WYKRYTO BRAKI:\n`;
+        if (greenMissingCount > 0) {
+          alertMessage += `- ${greenMissingCount} zielonych produktów bez pokrycia w stanie\n`;
+        }
+        if (standardTransfersMissingCount > 0) {
+          alertMessage += `- ${standardTransfersMissingCount} transferów bez pokrycia w stanie\n`;
+        }
+        if (salesMissingCount > 0) {
+          alertMessage += `- ${salesMissingCount} sprzedaży bez pokrycia w stanie\n`;
+        }
+        alertMessage += `\n📋 Wszystkie braki zostały zapisane w tabeli KOREKTY do rozwiązania.`;
       }
       
-      // STEP 4: Delete the transaction itself from transaction history
-      await deactivateTransactionInDatabase(transaction.transactionId);
+      alert(alertMessage);
       
-      // STEP 5: Refresh data to reflect the changes
-      const salesResponse = await axios.get('/api/sales/get-all-sales');
-      setSalesData(salesResponse.data);
-      
-      const stateResponse = await axios.get('/api/state');
-      const magazynData = stateResponse.data.filter(item => item.symbol === magazynSymbol);
-      setMagazynItems(magazynData);
-      
-      showNotification('Sukces!', `Transakcja z ${new Date(transaction.timestamp).toLocaleString('pl-PL')} została całkowicie anulowana i usunięta z historii!`, 'success');
-      
+      // Odśwież wszystkie dane po przetworzeniu
+
+      await fetchAllStates(); // Najpierw odśwież stany
+      await fetchTransfers();
+      await fetchWarehouseItems();
+      await fetchSales(); // Dodaj odświeżanie sprzedaży
+
+      setMatchedPairs([]);
+      setGreyedWarehouseItems(new Set());
+
+      await checkLastTransaction();
+    } catch (error) {
+      console.error('Error processing transfers:', error);
+      alert('Błąd podczas przetwarzania transferów');
+    }
+  };
+
+  const handleUndoLastTransaction = async () => {
+    if (!canUndoTransaction || !lastTransaction) {
+      alert('Brak transakcji do cofnięcia');
+      return;
+    }
+
+    const confirmUndo = window.confirm(
+      `Czy na pewno chcesz cofnąć ostatnią transakcję?\n\n` +
+      `ID transakcji: ${lastTransaction.transactionId}\n` +
+      `Data: ${new Date(lastTransaction.timestamp).toLocaleString()}\n` +
+      `Liczba produktów: ${lastTransaction.itemCount}\n\n` +
+      `Produkty zostaną przywrócone do odpowiednich stanów.`
+    );
+
+    if (!confirmUndo) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/transfer/undo-last`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        if (result.warehouseItems && result.warehouseItems.length > 0) {
+
+          for (const item of result.warehouseItems) {
+            // Usuń produkt ze stanu użytkownika (fizycznie)
+            try {
+              await fetch(`${API_BASE_URL}/api/state/${item.stateId}`, {
+                method: 'DELETE'
+              });
+
+            } catch (error) {
+              console.error(`Error removing state item ${item.stateId}:`, error);
+            }
+            
+            // Dodaj produkt z powrotem do magazynu (wizualnie)
+            const warehouseItem = {
+              _id: item._id,
+              fullName: {
+                fullName: item.fullName
+              },
+              size: {
+                Roz_Opis: item.size
+              },
+              barcode: item.barcode,
+              sellingPoint: {
+                symbol: 'MAGAZYN'
+              },
+              price: item.price,
+              date: item.date
+            };
+            
+            setWarehouseItems(prev => [...prev, warehouseItem]);
+            setFilteredWarehouseItems(prev => [...prev, warehouseItem]);
+          }
+          
+          alert(
+            `Transakcja została pomyślnie cofnięta!\n\n` +
+            `Przywrócono ${result.restoredCount} standardowych produktów do stanu.\n` +
+            `Przywrócono ${result.warehouseItems.length} produktów z magazynu do magazynu.\n` +
+            `ID transakcji: ${result.transactionId}`
+          );
+        } else {
+          alert(
+            `Transakcja została pomyślnie cofnięta!\n\n` +
+            `Przywrócono ${result.restoredCount} produktów do stanu.\n` +
+            `ID transakcji: ${result.transactionId}\n\n` +
+            `Produkty ponownie pojawiły się na liście transferów.`
+          );
+        }
+        
+        // Odśwież wszystkie dane po cofnięciu
+
+        setProcessedSales(new Set()); // Reset przetworzonych sprzedaży po cofnięciu transakcji
+        setProcessedTransfers(new Set()); // Reset przetworzonych transferów po cofnięciu transakcji
+        
+        // 🟢 Reset synchronizacji po cofnięciu transakcji (zielone produkty wrócą do niebieskich)
+        setMatchedPairs([]);
+        setGreyedWarehouseItems(new Set());
+
+        await fetchAllStates(); // Najpierw odśwież stany
+        await fetchTransfers();
+        await fetchWarehouseItems();
+        await fetchSales(); // Dodaj odświeżanie sprzedaży
+
+        await checkLastTransaction();
+      } else {
+        const errorData = await response.json();
+        alert(`Błąd podczas cofania transakcji: ${errorData.message}`);
+      }
     } catch (error) {
       console.error('Error undoing transaction:', error);
-      showNotification('Błąd!', 'Błąd podczas anulowania transakcji. Spróbuj ponownie.', 'error');
-    } finally {
-      setIsTransactionInProgress(false);
+      alert('Błąd podczas cofania transakcji');
     }
   };
 
-  // Function to undo/cancel single item from transaction
-  const handleUndoSingleItem = async (transaction, itemToUndo) => {
-    if (!transaction || !itemToUndo || isTransactionInProgress) return;
-    
-    const confirmMessage = `Czy na pewno chcesz anulować ten element?\n\n` +
-      `Element: ${itemToUndo.fullName} (${itemToUndo.size})\n` +
-      `Typ operacji: ${
-        itemToUndo.processType === 'sold' ? 'Sprzedano' :
-        itemToUndo.processType === 'synchronized' ? 'Zsynchronizowano' :
-        itemToUndo.processType === 'transferred' ? 'Przeniesiono' :
-        'Nieznane'
-      }\n\n` +
-      `Ta operacja:\n` +
-      `• Przywróci element do magazynu\n` +
-      `• Zaktualizuje transakcję\n` +
-      `• Stworzy rekord korekty\n` +
-      `• Jest NIEODWRACALNA`;
-    
-    // Use modal confirmation instead of window.confirm
-    showConfirmation(
-      '⚠️ OSTRZEŻENIE! ⚠️',
-      confirmMessage,
-      () => {
-        setShowConfirmModal(false);
-        performUndoSingleItem(transaction, itemToUndo);
-      },
-      () => setShowConfirmModal(false),
-      'Anuluj element',
-      'Anuluj'
-    );
-  };
-
-  // Actual implementation moved to separate function
-  const performUndoSingleItem = async (transaction, itemToUndo) => {
-    
-    setIsTransactionInProgress(true);
-    
+  const handleProcessSingleTransfer = async (transferId) => {
     try {
-      // STEP 1: First remove item from its current location to prevent duplication
-      if (itemToUndo.processType === 'sold') {
-        // Sold items - they were sold from a selling point, already gone through sale
-        // Don't need to remove from anywhere
-        
-      } else if (itemToUndo.processType === 'synchronized') {
-        // Synchronized items - they were transferred to selling point and then sold
-        // Already gone through sale, don't need to remove from anywhere
-        
-      } else if (itemToUndo.processType === 'transferred') {
-        // Transferred items - they are currently in the target selling point, need to remove them
-        // For transferred items, the target is where they were moved TO, not FROM
-        const targetSellingPointName = transaction.targetSellingPoint || transaction.selectedSellingPoint;
-        
-        // Convert selling point name to symbol using usersData
-        let targetSymbol = null;
-        if (targetSellingPointName) {
-          const targetUser = usersData.find(user => user.sellingPoint === targetSellingPointName);
-          targetSymbol = targetUser ? targetUser.symbol : targetSellingPointName; // Fallback to name if symbol not found
-        }
-        
-
-        
-        if (targetSymbol) {
-          try {
-            await axios.delete(`/api/state/barcode/${itemToUndo.barcode}/symbol/${targetSymbol}?count=1`, {
-              headers: {
-                'operation-type': 'correction-undo-single',
-                'target-symbol': 'MAGAZYN'
-              }
-            });
-
-          } catch (deleteError) {
-            console.error(`❌ Failed to remove item from ${targetSymbol}:`, deleteError);
-
-            throw deleteError; // Re-throw to handle in outer catch
-          }
-        } else {
-          console.warn(`⚠️ No target symbol found for transferred item. Transaction data:`, transaction);
-          // Continue without removing since we can't determine where the item is
-        }
-      }
-      
-      // STEP 2: Now restore the single item to its original state
-      let restoreData;
-      let targetSymbol;
-      
-      if (itemToUndo.processType === 'sold') {
-        // Blue items: restore to original selling point where they were sold from
-        targetSymbol = itemToUndo.originalSymbol || itemToUndo.sellingPoint;
-        
-        restoreData = {
-          fullName: itemToUndo.fullName,
-          size: itemToUndo.size,
-          barcode: itemToUndo.barcode,
-          symbol: targetSymbol,
-          price: itemToUndo.price,
-          operationType: 'restore-sale-single'
-        };
-        
-      } else if (itemToUndo.processType === 'synchronized') {
-        // Green items: restore to current magazyn symbol
-        targetSymbol = magazynSymbol;
-        
-        restoreData = {
-          fullName: itemToUndo.fullName,
-          size: itemToUndo.size,
-          barcode: itemToUndo.barcode,
-          symbol: targetSymbol,
-          price: itemToUndo.price,
-          discount_price: itemToUndo.discount_price,
-          operationType: 'restore-synchronized-single'
-        };
-        
-      } else if (itemToUndo.processType === 'transferred') {
-        // Orange items: restore to current magazyn symbol
-        targetSymbol = magazynSymbol;
-        
-        restoreData = {
-          fullName: itemToUndo.fullName,
-          size: itemToUndo.size,
-          barcode: itemToUndo.barcode,
-          symbol: targetSymbol,
-          price: itemToUndo.price,
-          discount_price: itemToUndo.discount_price,
-          operationType: 'restore-transfer-single'
-        };
-      }
-      
-      if (restoreData) {
-        await axios.post('/api/state/restore-silent', restoreData);
-
-      }
-      
-      // STEP 3: Create correction transaction for tracking
-      const correctionTransactionId = `correction-${Date.now()}`;
-      const correctionTransaction = {
-        transactionId: correctionTransactionId,
-        timestamp: new Date().toLocaleString('pl-PL'),
-        operationType: 'korekta',
-        selectedSellingPoint: transaction.selectedSellingPoint,
-        targetSellingPoint: transaction.targetSellingPoint,
-        processedItems: [{
-          ...itemToUndo,
-          processType: 'corrected', // Mark as corrected
-          originalTransactionId: transaction.transactionId
-        }],
-        itemsCount: 1,
-        isCorrection: true,
-        originalTransactionId: transaction.transactionId
-      };
-      
-      await saveTransactionToDatabase(correctionTransaction);
-      
-      // STEP 4: Update original transaction - remove the undone item
-      const updatedProcessedItems = transaction.processedItems.filter(item => 
-        !(item.fullName === itemToUndo.fullName && 
-          item.size === itemToUndo.size && 
-          item.barcode === itemToUndo.barcode &&
-          item.processType === itemToUndo.processType)
-      );
-      
-      const updatedTransaction = {
-        ...transaction,
-        processedItems: updatedProcessedItems,
-        itemsCount: updatedProcessedItems.length,
-        lastModified: new Date().toLocaleString('pl-PL'),
-        hasCorrections: true
-      };
-      
-      // Update the transaction in database
-      await axios.put(`/api/transaction-history/${transaction.transactionId}`, updatedTransaction);
-      
-      // STEP 5: Delete specific history record for this item
-      try {
-        const deleteHistoryPayload = {
-          transactionId: transaction.transactionId,
-          itemDetails: {
-            fullName: itemToUndo.fullName,
-            size: itemToUndo.size,
-            barcode: itemToUndo.barcode,
-            processType: itemToUndo.processType,
-            price: itemToUndo.price,
-            originalSymbol: itemToUndo.originalSymbol,
-            timestamp: transaction.timestamp // Add transaction timestamp for better matching
-          }
-        };
-        
-
-        
-        await axios.post('/api/history/delete-single-item', deleteHistoryPayload);
-        
-
-        
-      } catch (historyError) {
-        console.error('Błąd podczas usuwania rekordu historii dla pojedynczego elementu:', historyError);
-        // Don't fail the entire operation if history deletion fails
-        console.warn('Historia nie została usunięta, ale element został przywrócony do magazynu');
-      }
-      
-      // STEP 6: Refresh data to reflect the changes
-      const salesResponse = await axios.get('/api/sales/get-all-sales');
-      setSalesData(salesResponse.data);
-      
-      const stateResponse = await axios.get('/api/state');
-      const magazynData = stateResponse.data.filter(item => item.symbol === magazynSymbol);
-      setMagazynItems(magazynData);
-      
-      // Reload transaction history
-      await loadTransactionHistory();
-      
-      showNotification(
-        'Sukces!', 
-        `Element "${itemToUndo.fullName} (${itemToUndo.size})" został anulowany i przywrócony do magazynu!\n\nUtworzono transakcję korekcyjną: ${correctionTransactionId}`, 
-        'success'
-      );
-      
-    } catch (error) {
-      console.error('Error undoing single item:', error);
-      showNotification('Błąd!', 'Błąd podczas anulowania elementu. Spróbuj ponownie.', 'error');
-    } finally {
-      setIsTransactionInProgress(false);
-    }
-  };
-
-  // Function to clear persistent storage and old transactions
-  const clearPersistentStorage = async () => {
-    try {
-      // Clear old transactions from database
-      await axios.post('/api/transaction-history/clear-old');
-      
-      // Clear localStorage
-      localStorage.removeItem('addToState_persistentView');
-      
-      setPersistentSalesView({
-        filteredSales: [],
-        manuallyAddedItems: [],
-        synchronizedItems: new Set(),
-        addedMagazynIds: new Set(),
-        processedSalesIds: new Set(),
-        timestamp: null
+      const response = await fetch(`${API_BASE_URL}/api/transfer/process-single`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transferId }),
       });
-      
-      // Clear transaction history in component state
-      setTransactionHistory([]);
-      
-      // Reload transaction history from database (to get only remaining active transactions)
-      await loadTransactionHistory();
-      
-      // Reset current states
-      setFilteredSales([]);
-      setManuallyAddedItems([]);
-      setSynchronizedItems(new Set());
-      setAddedMagazynIds(new Set());
-      setSavedItemsForDisplay([]);
-      setProcessedSalesIds(new Set()); // Clear processed sales IDs
-      setIsTransactionSaved(false);
-      
-      setShowClearStorageInfo(false); // Close info modal
-      alert('Pamięć podręczna i stare transakcje zostały wyczyszczone!');
-    } catch (error) {
-      alert('Błąd podczas czyszczenia pamięci. Spróbuj ponownie.');
-    }
-  };
 
-  const handleClearStorageClick = () => {
-    setShowClearStorageInfo(true);
-  };
-
-  // Handle show transaction report
-  const handleShowTransactionReport = (transaction) => {
-    setSelectedTransactionForReport(transaction);
-    setShowTransactionReport(true);
-  };
-
-  // Handle expanding/collapsing transaction details
-  const toggleTransactionDetails = (transactionId) => {
-    setExpandedTransactions(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(transactionId)) {
-        newSet.delete(transactionId);
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Transfer przetworzony - kurtka została odpisana ze stanu`);
+        
+        // Odśwież listę transferów
+        const fetchResponse = await fetch(`${API_BASE_URL}/api/transfer`);
+        const data = await fetchResponse.json();
+        setTransfers(data || []);
+        
+        // Sprawdź ostatnią transakcję
+        await checkLastTransaction();
       } else {
-        newSet.add(transactionId);
+        // Pokazuj szczegółowy błąd z serwera
+        const errorData = await response.json();
+        const errorMessage = errorData.message || 'Nieznany błąd serwera';
+        alert(`Błąd podczas przetwarzania transferu:\n\n${errorMessage}\n\nStatus: ${response.status}`);
       }
-      return newSet;
-    });
-  };
-
-  const handleOperationTypeChange = (type) => {
-    setOperationType(type);
-    // Reset states when changing operation type
-    setSynchronizedItems(new Set());
-    setManuallyAddedItems([]);
-    setAddedMagazynIds(new Set());
-    setFilteredSales([]);
-    setProcessedSalesIds(new Set()); // Clear processed sales IDs
-    setSelectedSellingPoint('');
-    
-    // Set default target selling point when switching to przepisanie mode
-    if (type === 'przepisanie' && sellingPoints.length > 0) {
-      setTargetSellingPoint(sellingPoints[0]);
-    } else {
-      setTargetSellingPoint('');
-    }
-    
-    // Set default selected selling point when switching to sprzedaz mode
-    if (type === 'sprzedaz' && sellingPoints.length > 0) {
-      setSelectedSellingPoint(sellingPoints[0]);
+    } catch (error) {
+      console.error('Error processing single transfer:', error);
+      alert(`Błąd połączenia podczas przetwarzania transferu:\n\n${error.message}`);
     }
   };
 
-  // Load persistent state from localStorage on component mount
-  useEffect(() => {
-    const savedState = localStorage.getItem('addToState_persistentView');
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-        // Only restore if timestamp is recent (within last 24 hours)
-        if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
-          setPersistentSalesView(parsed);
-          if (parsed.filteredSales.length > 0) {
-            setFilteredSales(parsed.filteredSales);
+  const handleRemoveAllFromState = async () => {
+    if (filteredItems.length === 0) {
+      alert('Brak transferów do odpisania ze stanu');
+      return;
+    }
+
+    const confirmMessage = `Czy na pewno chcesz odpisać wszystkie ${filteredItems.length} kurtek ze stanu?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each transfer to remove from state
+      for (const transfer of filteredItems) {
+        try {
+          // Remove the product from state based on transfer data
+          const response = await fetch(`/api/state/barcode/${transfer.productId}/symbol/${transfer.transfer_from}?count=1`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            successCount++;
+            // Also remove the transfer record
+            await fetch(`/api/transfer/${transfer._id}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+          } else {
+            errorCount++;
+            console.error(`Failed to remove transfer ${transfer._id}`);
           }
-          if (parsed.manuallyAddedItems.length > 0) {
-            setManuallyAddedItems(parsed.manuallyAddedItems);
-          }
-          setSynchronizedItems(new Set(parsed.synchronizedItems));
-          setAddedMagazynIds(new Set(parsed.addedMagazynIds));
-          if (parsed.processedSalesIds) {
-            setProcessedSalesIds(new Set(parsed.processedSalesIds));
-          }
+        } catch (error) {
+          errorCount++;
+          console.error(`Error processing transfer ${transfer._id}:`, error);
         }
-      } catch (error) {
-        console.error('Error loading persistent state:', error);
       }
-    }
 
-    // Load transaction history from database
-    loadTransactionHistory();
-  }, []);
+      // Update local state - remove all processed transfers
+      setTransfers(prevTransfers => 
+        prevTransfers.filter(transfer => 
+          !filteredItems.some(filteredItem => filteredItem._id === transfer._id)
+        )
+      );
 
-  // Set lastTransaction to the most recent transaction
-  useEffect(() => {
-    if (transactionHistory.length > 0) {
-      setLastTransaction(transactionHistory[0]);
-    } else {
-      setLastTransaction(null);
-    }
-  }, [transactionHistory]);
-
-  // Save persistent state to localStorage whenever it changes
-  useEffect(() => {
-    const stateToSave = {
-      filteredSales,
-      manuallyAddedItems,
-      synchronizedItems: Array.from(synchronizedItems),
-      addedMagazynIds: Array.from(addedMagazynIds),
-      processedSalesIds: Array.from(processedSalesIds),
-      timestamp: Date.now()
-    };
-    
-    localStorage.setItem('addToState_persistentView', JSON.stringify(stateToSave));
-    setPersistentSalesView(stateToSave);
-  }, [filteredSales, manuallyAddedItems, synchronizedItems, addedMagazynIds, processedSalesIds]);
-
-  // Ref for draggable history modal
-  const historyModalRef = useRef(null);
-
-  // Make history modal draggable
-  const makeHistoryModalDraggable = () => {
-    const modal = historyModalRef.current;
-    if (!modal) return;
-    
-    const header = modal.querySelector('.modalHeader');
-    if (!header) return;
-    
-    let isDragging = false;
-    let startX, startY, initialX, initialY;
-
-    const onMouseDown = (e) => {
-      if (e.target.closest('button')) return; // Don't drag when clicking close button
-      
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      initialX = modal.offsetLeft;
-      initialY = modal.offsetTop;
-      
-      modal.style.position = 'fixed';
-      modal.style.left = `${initialX}px`;
-      modal.style.top = `${initialY}px`;
-      
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-      e.preventDefault();
-    };
-
-    const onMouseMove = (e) => {
-      if (isDragging) {
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        modal.style.left = `${initialX + dx}px`;
-        modal.style.top = `${initialY + dy}px`;
+      if (successCount > 0) {
+        alert(`Pomyślnie odpisano ${successCount} kurtek ze stanu${errorCount > 0 ? `. Błędów: ${errorCount}` : ''}`);
+      } else {
+        alert('Nie udało się odpisać żadnej kurtki ze stanu');
       }
-    };
-
-    const onMouseUp = () => {
-      isDragging = false;
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-
-    // Remove existing listeners to prevent duplicates
-    header.removeEventListener('mousedown', onMouseDown);
-    header.addEventListener('mousedown', onMouseDown);
-    
-    return () => {
-      header.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
+    } catch (error) {
+      console.error('Error removing all from state:', error);
+      alert('Błąd podczas odpisywania kurtek ze stanu');
+    }
   };
 
-  useEffect(() => {
-    if (showHistoryModal) {
-      setTimeout(() => {
-        makeHistoryModalDraggable();
-      }, 300);
-    }
-  }, [showHistoryModal]);
+  // Funkcja do usuwania pojedynczego produktu ze stanu
+  const handleRemoveFromState = async (transfer) => {
+    try {
 
-  // Function to filter transaction history based on search term
-  const getFilteredTransactionHistory = () => {
-    if (!historySearchTerm.trim()) {
-      return transactionHistory;
+      const response = await fetch(`/api/state/barcode/${transfer.productId}/symbol/${transfer.transfer_from}?count=1`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Also remove the transfer record
+        await fetch(`/api/transfer/${transfer._id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        // Update local state - remove this transfer
+        setTransfers(prevTransfers => 
+          prevTransfers.filter(t => t._id !== transfer._id)
+        );
+
+      } else {
+        console.error(`❌ Failed to remove transfer ${transfer._id}`);
+        alert('Błąd podczas usuwania produktu ze stanu');
+      }
+    } catch (error) {
+      console.error(`❌ Error processing transfer ${transfer._id}:`, error);
+      alert('Błąd podczas usuwania produktu ze stanu');
     }
-    
-    const searchLower = historySearchTerm.toLowerCase();
-    
-    return transactionHistory.filter(transaction => {
-      // Search in transaction timestamp
-      const dateStr = new Date(transaction.timestamp).toLocaleString('pl-PL').toLowerCase();
-      if (dateStr.includes(searchLower)) return true;
-      
-      // Search in transaction ID
-      if (transaction.transactionId && transaction.transactionId.toString().includes(searchLower)) return true;
-      
-      // Search in processed items
-      if (transaction.processedItems && transaction.processedItems.length > 0) {
-        return transaction.processedItems.some(item => {
-          const fullName = item.fullName ? item.fullName.toLowerCase() : '';
-          const size = item.size ? item.size.toLowerCase() : '';
-          const barcode = item.barcode ? item.barcode.toLowerCase() : '';
-          const processType = item.processType ? item.processType.toLowerCase() : '';
-          
-          return fullName.includes(searchLower) || 
-                 size.includes(searchLower) || 
-                 barcode.includes(searchLower) || 
-                 processType.includes(searchLower);
+  };
+
+  const handleSynchronize = async () => {
+    try {
+
+      setMatchedPairs([]);
+      setGreyedWarehouseItems(new Set());
+
+      if (sales && sales.length > 0) {
+        sales.forEach((sale, index) => {
+          const dateMatch = !selectedDate || sale.date?.startsWith(selectedDate);
+          const userMatch = !selectedUser || sale.user === selectedUser;
+          const isProcessed = processedSales.has(sale._id);
+
         });
       }
       
-      return false;
-    });
-  };
-
-  // Function to filter magazyn items based on search term
-  const getFilteredMagazynItems = () => {
-    if (!magazynSearchTerm.trim()) {
-      return magazynItems;
-    }
-    
-    const searchLower = magazynSearchTerm.toLowerCase();
-    
-    return magazynItems.filter(item => {
-      // Search in item properties
-      const fullName = item.fullName ? item.fullName.toLowerCase() : '';
-      const size = item.size ? item.size.toLowerCase() : '';
-      const barcode = item.barcode ? item.barcode.toLowerCase() : '';
-      const price = item.price ? item.price.toString() : '';
-      const discountPrice = item.discount_price ? item.discount_price.toString() : '';
+      // Pobierz listę niebieskich produktów z WIDOCZNYCH elementów (po filtrach)
+      const blueProducts = [];
       
-      return fullName.includes(searchLower) || 
-             size.includes(searchLower) || 
-             barcode.includes(searchLower) || 
-             price.includes(searchLower) || 
-             discountPrice.includes(searchLower);
-    });
-  };
+      // Dodaj produkty ze sprzedaży i transferów z filteredItems
+      if (filteredItems && filteredItems.length > 0) {
 
-  // Printer functions
-  const checkPrinter = () => {
-    if (window.BrowserPrint) {
-      window.BrowserPrint.getDefaultDevice("printer",
-        (device) => {
-          setPrinter(device);
-          setPrinterError(null);
-          alert("Drukarka znaleziona!");
-        },
-        (err) => setPrinterError("Nie znaleziono drukarki: " + err)
-      );
-    } else {
-      setPrinterError("Nie załadowano biblioteki BrowserPrint.");
-    }
-  };
+        filteredItems.forEach((item, index) => {
 
-  const printSelectedBarcodes = () => {
-    if (!printer) {
-      alert("Najpierw sprawdź drukarkę!");
-      return;
-    }
-
-    if (selectedForPrint.size === 0) {
-      alert("Nie zaznaczono żadnych kodów kreskowych do druku!");
-      return;
-    }
-
-    // Get all items (sales + manually added)
-    const allItems = [...filteredSales, ...manuallyAddedItems];
-    const selectedItems = allItems.filter(item => selectedForPrint.has(item._id || item.id));
-
-    if (selectedItems.length === 0) {
-      alert("Nie znaleziono zaznaczonych elementów!");
-      return;
-    }
-
-    // Generate ZPL labels for each selected item using the same format as State.js
-    const allLabels = [];
-
-    selectedItems.forEach((item) => {
-      // Handle fullName based on data source
-      let jacketName = "Brak nazwy";
-      if (typeof item.fullName === 'string') {
-        // Sales data - fullName is already a string
-        jacketName = item.fullName;
-      } else if (item.fullName && typeof item.fullName === 'object' && item.fullName.fullName) {
-        // Magazyn data - fullName is an object with nested fullName property
-        jacketName = item.fullName.fullName;
-      } else if (item.fullName) {
-        // Fallback - convert to string
-        jacketName = item.fullName.toString();
+          if (!item.fromWarehouse) {
+            blueProducts.push({
+              id: item._id,
+              type: item.isFromSale ? 'sale' : 'transfer',
+              barcode: item.barcode || item.productId,
+              fullName: item.fullName,
+              size: item.size,
+              source: item
+            });
+          }
+        });
       }
+
+      blueProducts.forEach((bp, i) => {
+
+      });
       
-      // Handle size similarly
-      let size = "Brak rozmiaru";
-      if (typeof item.size === 'string') {
-        // Sales data - size is already a string
-        size = item.size;
-      } else if (item.size && typeof item.size === 'object' && item.size.Roz_Opis) {
-        // Magazyn data - size is an object with Roz_Opis property
-        size = item.size.Roz_Opis;
-      } else if (item.size) {
-        // Fallback - convert to string
-        size = item.size.toString();
+      // Przygotuj pomarańczowe produkty (magazyn) z filteredWarehouseItems
+      let orangeProducts = [];
+
+      if (Array.isArray(filteredWarehouseItems)) {
+        filteredWarehouseItems.forEach((warehouse, index) => {
+
+          const backgroundColor = getBackgroundColor(warehouse, true, false, false); // magazyn: z magazynu, nie sprzedaż, nie przychodzący
+
+          if (backgroundColor === '#ff8c00') { // Pomarańczowy kolor hex
+            orangeProducts.push({
+              type: 'warehouse',
+              barcode: warehouse.barcode || '', // barcode jest bezpośrednio na warehouse
+              fullName: warehouse.fullName?.fullName || '',
+              size: warehouse.size?.Roz_Opis || '',
+              source: warehouse
+            });
+          }
+        });
       }
-      
-      const barcode = item.barcode || "Brak kodu";
-      
-      // Convert Polish characters for ZPL printer compatibility
-      const convertPolishChars = (text) => {
-        if (!text || typeof text !== 'string') {
-          return text || '';
-        }
-        return text
-          .replace(/ą/g, 'a')
-          .replace(/ć/g, 'c')
-          .replace(/ę/g, 'e')
-          .replace(/ł/g, 'l')
-          .replace(/ń/g, 'n')
-          .replace(/ó/g, 'o')
-          .replace(/ś/g, 's')
-          .replace(/ź/g, 'z')
-          .replace(/ż/g, 'z')
-          .replace(/Ą/g, 'A')
-          .replace(/Ć/g, 'C')
-          .replace(/Ę/g, 'E')
-          .replace(/Ł/g, 'L')
-          .replace(/Ń/g, 'N')
-          .replace(/Ó/g, 'O')
-          .replace(/Ś/g, 'S')
-          .replace(/Ź/g, 'Z')
-          .replace(/Ż/g, 'Z');
-      };
-      
-      const printableJacketName = convertPolishChars(jacketName);
-      const printableSize = convertPolishChars(size);
-      
-      // Get symbol for this item
-      let symbol = "Brak symbolu";
-      if (operationType === 'sprzedaz') {
-        // For sales mode, use the selected selling point's symbol
-        const selectedUser = usersData.find(user => user.sellingPoint === selectedSellingPoint);
-        symbol = selectedUser ? selectedUser.symbol : selectedSellingPoint;
-      } else if (operationType === 'przepisanie') {
-        // For transfer mode, use the target selling point's symbol
-        const targetUser = usersData.find(user => user.sellingPoint === targetSellingPoint);
-        symbol = targetUser ? targetUser.symbol : targetSellingPoint;
-      }
-      
-      const printableSymbol = convertPolishChars(symbol);
-      
-      // Handle price - check for comma BEFORE adding PLN
-      let price = "Brak ceny";
-      let rawPrice = null;
-      
-      // Get raw price value without PLN
-      if (item.price) {
-        rawPrice = item.price;
-      } else if (item.cash && item.cash.length > 0 && item.cash[0].price) {
-        rawPrice = item.cash[0].price;
-      }
-      
-      // Handle double prices (separated by semicolon) - create two separate labels
-      if (rawPrice && rawPrice.toString().includes(';')) {
-        // Split prices by semicolon and create two separate labels
-        const prices = rawPrice.toString().split(';');
-        if (prices.length === 2) {
-          const price1 = convertPolishChars(prices[0].trim() + ' PLN');
-          const price2 = convertPolishChars(prices[1].trim() + ' PLN');
-          
-          // Add two separate labels to the array
-          allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${price1}^FS
-^XZ`);
-          
-          allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${price2}^FS
-^XZ`);
-          
-          // Skip single label creation
-        } else {
-          // Single price - format with PLN if needed
-          if (rawPrice) {
-            if (typeof rawPrice === 'number') {
-              price = `${rawPrice} PLN`;
-            } else if (typeof rawPrice === 'string') {
-              // Check if PLN is already included
-              price = rawPrice.includes('PLN') ? rawPrice : `${rawPrice} PLN`;
+
+      orangeProducts.forEach((op, i) => {
+
+      });
+
+      // GŁÓWNY ALGORYTM PAROWANIA
+
+      const newPairs = [];
+      const pairedBlueIndexes = new Set();
+      const pairedOrangeIndexes = new Set();
+
+      for (let b = 0; b < blueProducts.length; b++) {
+        if (pairedBlueIndexes.has(b)) continue;
+
+        const blueProduct = blueProducts[b];
+
+        for (let o = 0; o < orangeProducts.length; o++) {
+          if (pairedOrangeIndexes.has(o)) continue;
+
+          const orangeProduct = orangeProducts[o];
+
+          const barcodeMatch = blueProduct.barcode === orangeProduct.barcode;
+          const nameMatch = blueProduct.fullName === orangeProduct.fullName;
+          const sizeMatch = blueProduct.size === orangeProduct.size;
+          const isMatched = barcodeMatch && nameMatch && sizeMatch;
+
+          if (isMatched) {
+
+            const existingPair = newPairs.find(pair => 
+              pair.warehouseProduct._id === orangeProduct.source._id
+            );
+            
+            if (existingPair) {
+
+              continue;
             }
+            
+            // Znajdź dane użytkownika dla transfer_to
+            const selectedUserData = users.find(user => user._id === selectedUser);
+            const userSymbol = selectedUserData?.symbol || 'UNKNOWN';
+            
+            newPairs.push({
+              id: Date.now() + Math.random(),
+              blueProduct: {
+                id: blueProduct.source._id,
+                type: blueProduct.type,
+                fullName: blueProduct.fullName,
+                size: blueProduct.size,
+                barcode: blueProduct.barcode
+              },
+              warehouseProduct: {
+                _id: orangeProduct.source._id,
+                fullName: orangeProduct.fullName,
+                size: orangeProduct.size,
+                barcode: orangeProduct.barcode,
+                transfer_to: userSymbol, // DODANO: Wymagane przez backend
+                transfer_from: 'MAGAZYN',
+                price: orangeProduct.source.price || 0,
+                discount_price: orangeProduct.source.discount_price || 0
+              }
+            });
+
+            pairedBlueIndexes.add(b);
+            pairedOrangeIndexes.add(o);
+            break;
+          } else {
+
           }
-          
-          // Single price - single label
-          const printablePrice = convertPolishChars(String(price));
-          allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${printablePrice}^FS
-^XZ`);
         }
-      } else {
-        // Single price - format with PLN if needed
-        if (rawPrice) {
-          if (typeof rawPrice === 'number') {
-            price = `${rawPrice} PLN`;
-          } else if (typeof rawPrice === 'string') {
-            // Check if PLN is already included
-            price = rawPrice.includes('PLN') ? rawPrice : `${rawPrice} PLN`;
-          }
+
+        if (!pairedBlueIndexes.has(b)) {
+
         }
+      }
+
+      if (newPairs.length > 0) {
+
+        newPairs.forEach((pair, index) => {
+
+        });
+
+        setMatchedPairs(prevPairs => {
+          const updatedPairs = [...prevPairs, ...newPairs];
+
+          return updatedPairs;
+        });
+
+        // Wyszarzenie produktów z magazynu które zostały sparowane
+        const warehouseIdsToGrey = newPairs.map(pair => pair.warehouseProduct._id);
+
+        newPairs.forEach((pair, index) => {
+
+        });
         
-        // Single price - single label
-        const printablePrice = convertPolishChars(String(price));
-        allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${printablePrice}^FS
-^XZ`);
-      }
-    });
+        setGreyedWarehouseItems(prevGreyed => {
+          const newGreyed = new Set([...prevGreyed, ...warehouseIdsToGrey]);
 
-    // Send each label separately to the printer
-    let labelIndex = 0;
-    const sendNextLabel = () => {
-      if (labelIndex >= allLabels.length) {
-        setSelectedForPrint(new Set()); // Clear selected items after all labels are printed
-        alert(`Wysłano ${allLabels.length} etykiet do drukarki!`);
-        return;
-      }
-      
-      printer.send(
-        allLabels[labelIndex],
-        () => {
-          labelIndex++;
-          // Small delay between labels to ensure proper processing
-          setTimeout(sendNextLabel, 100);
-        },
-        (err) => alert(`Błąd drukowania etykiety ${labelIndex + 1}: ${err}`)
-      );
-    };
-    
-    sendNextLabel();
-  };
+          return newGreyed;
+        });
 
-  const toggleSelectForPrint = (itemId) => {
-    setSelectedForPrint(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId);
+        setMessage(`Synchronizacja zakończona! Znaleziono ${newPairs.length} nowych par produktów.`);
       } else {
-        newSet.add(itemId);
+        setMessage('Synchronizacja zakończona. Nie znaleziono nowych par do utworzenia.');
       }
-      return newSet;
-    });
-  };
 
-  const selectAllForPrint = () => {
-    const allItems = [...filteredSales, ...manuallyAddedItems];
-    const allIds = allItems.map(item => item._id || item.id);
-    setSelectedForPrint(new Set(allIds));
-  };
-
-  const clearPrintSelection = () => {
-    setSelectedForPrint(new Set());
-  };
-
-  // Function to get the current magazyn symbol from users
-  const getMagazynSymbol = async () => {
-    try {
-      const usersResponse = await axios.get('/api/user');
-      const usersDataArray = Array.isArray(usersResponse.data.users) ? usersResponse.data.users : [];
-      const magazynUser = usersDataArray.find(user => user.email === 'magazyn@wp.pl');
-      if (magazynUser && magazynUser.symbol) {
-        setMagazynSymbol(magazynUser.symbol);
-        return magazynUser.symbol;
-      }
-      return 'MAGAZYN'; // Fallback to default
     } catch (error) {
-      console.error('Error fetching magazyn symbol:', error);
-      return 'MAGAZYN'; // Fallback to default
+      console.error('❌ BŁĄD PODCZAS SYNCHRONIZACJI:', error);
+      setMessage('Błąd podczas synchronizacji: ' + error.message);
     }
   };
-
-  // Initial fetch of magazyn symbol
-  useEffect(() => {
-    getMagazynSymbol();
-  }, []);
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div className={styles.error}>{error}</div>;
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      height: isMobile ? 'auto' : '100vh',
-      flexDirection: isMobile ? 'column' : 'row'
-    }}>
-      {/* Transaction History Modal */}
-      {showHistoryModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <div
-            className={styles.customModal + ' custom-modal'}
-            ref={historyModalRef}
-            style={{
-              backgroundColor: 'black',
-              borderRadius: '8px',
-              border: '1px solid white',
-              padding: '0',
-              width: isMobile ? '98%' : '700px',
-              maxWidth: '98vw',
-              maxHeight: '90vh',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              color: 'white',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.7)'
-            }}
-          >
-            <div className={styles.modalHeader + ' modalHeader'} style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 0,
-              borderBottom: '1px solid white',
-              padding: '16px 24px',
-              backgroundColor: 'black',
-              color: 'white',
-              fontWeight: 600,
-              cursor: 'grab',
-              userSelect: 'none'
-            }}
-              onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
-              onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}
-            >
-              <span style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}>Historia transakcji</span>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                style={{
-                  backgroundColor: 'red',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '24px',
-                  height: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 600
-                }}
-                title="Zamknij"
-              >
-                ✕
-              </button>
-            </div>
-            <div className={styles.modalBody + ' modalBody'} style={{
-              flex: 1,
-              overflow: 'hidden',
-              marginBottom: 0,
-              backgroundColor: 'black',
-              color: 'white',
-              padding: '24px'
-            }}>
-              {/* Wyszukiwarka historii */}
-              <div style={{ marginBottom: '20px' }}>
-                <input
-                  type="text"
-                  className="history-search-input"
-                  placeholder=" Wyszukaj po nazwie produktu, kodzie, dacie lub ID transakcji..."
-                  value={historySearchTerm}
-                  onChange={(e) => setHistorySearchTerm(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '4px',
-                    border: '1px solid #444',
-                    backgroundColor: 'black',
-                    color: 'white',
-                    fontSize: '14px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-                {historySearchTerm && (
-                  <div style={{ 
-                    marginTop: '8px', 
-                    fontSize: '12px', 
-                    color: '#ccc' 
-                  }}>
-                    Znaleziono: {getFilteredTransactionHistory().length} z {transactionHistory.length} transakcji
-                  </div>
-                )}
-              </div>
-              
-              {transactionHistory.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'gray' }}>
-                  Brak transakcji do wyświetlenia
-                </div>
-              ) : getFilteredTransactionHistory().length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'gray' }}>
-                  Brak transakcji pasujących do wyszukiwania
-                </div>
-              ) : (
-                <div 
-                  className="history-scrollable"
-                  style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '14px',
-                    maxHeight: 'calc(90vh - 180px)', // Dopasowana wysokość
-                    overflowY: 'auto', // Jeden suwak dla listy transakcji
-                    paddingRight: '8px' // Miejsce na suwak
-                  }}>
-                  {getFilteredTransactionHistory().map((transaction, index) => (
-                    <div
-                      key={transaction.transactionId}
-                      style={{
-                        border: '1px solid #444',
-                        borderRadius: '4px',
-                        padding: '15px',
-                        backgroundColor: 'black',
-                        color: 'white',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                      }}
-                    >
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        marginBottom: '10px'
-                      }}>
-                        <div>
-                          <strong style={{ color: transaction.isCorrection ? '#28a745' : 'white' }}>
-                            #{index + 1} - {new Date(transaction.timestamp).toLocaleString('pl-PL')}
-                            {transaction.isCorrection && (
-                              <span style={{ 
-                                marginLeft: '8px', 
-                                backgroundColor: '#28a745', 
-                                color: 'white', 
-                                padding: '2px 6px', 
-                                borderRadius: '3px', 
-                                fontSize: '10px' 
-                              }}>
-                                KOREKTA
-                              </span>
-                            )}
-                            {transaction.hasCorrections && (
-                              <span style={{ 
-                                marginLeft: '8px', 
-                                backgroundColor: 'white', 
-                                color: 'black', 
-                                padding: '2px 6px', 
-                                borderRadius: '3px', 
-                                fontSize: '10px' 
-                              }}>
-                                ZMIENIONA
-                              </span>
-                            )}
-                          </strong>
-                          <div style={{ color: '#ccc', fontSize: '14px', marginTop: '5px' }}>
-                            Typ: {
-                              transaction.operationType === 'sprzedaz' ? 'Sprzedaż' : 
-                              transaction.operationType === 'przepisanie' ? 'Przepisanie' :
-                              transaction.operationType === 'korekta' ? 'Korekta' :
-                              'Nieznane'
-                            } | 
-                            Elementów: {transaction.itemsCount} | 
-                            Punkt: {transaction.selectedSellingPoint || transaction.targetSellingPoint}
-                            {transaction.isCorrection && transaction.originalTransactionId && (
-                              <div style={{ color: '#28a745', fontSize: '12px', marginTop: '2px' }}>
-                                Korekta dla transakcji: {transaction.originalTransactionId}
-                              </div>
-                            )}
-                            {transaction.lastModified && (
-                              <div style={{ color: 'white', fontSize: '12px', marginTop: '2px' }}>
-                                Ostatnia modyfikacja: {transaction.lastModified}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {transaction.isCorrection ? (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              onClick={() => handleShowTransactionReport(transaction)}
-                              className="btn btn-sm"
-                              style={{
-                                backgroundColor: '#28a745',
-                                color: 'white',
-                                border: 'none'
-                              }}
-                              title="Pokaż raport korekty"
-                            >
-                              Raport korekty
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              onClick={() => toggleTransactionDetails(transaction.transactionId)}
-                              className="btn btn-sm"
-                              style={{
-                                backgroundColor: expandedTransactions.has(transaction.transactionId) ? '#28a745' : '#6c757d',
-                                color: 'white',
-                                border: 'none'
-                              }}
-                              title={expandedTransactions.has(transaction.transactionId) ? "Ukryj szczegóły" : "Pokaż szczegóły"}
-                            >
-                              {expandedTransactions.has(transaction.transactionId) ? 'Ukryj szczegóły' : 'Pokaż szczegóły'}
-                            </button>
-                            <button
-                              onClick={() => handleShowTransactionReport(transaction)}
-                              className="btn btn-sm"
-                              style={{
-                                backgroundColor: '#0d6efd',
-                                color: 'white',
-                                border: 'none'
-                              }}
-                              title="Pokaż raport transakcji"
-                            >
-                              Raport
-                            </button>
-                            <button
-                              onClick={() => {
-                                handleUndoTransaction(transaction);
-                                setShowHistoryModal(false);
-                              }}
-                              className="btn btn-danger btn-sm"
-                              disabled={isTransactionInProgress}
-                              title="Anuluj całą transakcję"
-                            >
-                              {isTransactionInProgress ? 'Anulowanie...' : 'Anuluj całość'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      {expandedTransactions.has(transaction.transactionId) && transaction.processedItems && transaction.processedItems.length > 0 && (
-                        <div style={{ fontSize: '12px', color: 'white' }}>
-                          <strong>Przetworzone elementy:</strong>
-                          <div style={{ marginTop: '5px', maxHeight: '200px', overflowY: 'auto' }}>
-                            {transaction.processedItems.map((item, idx) => (
-                              <div key={idx} style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: '4px 0', 
-                                borderBottom: idx < transaction.processedItems.length - 1 ? '1px solid #333' : 'none'
-                              }}>
-                                <div style={{ flex: 1 }}>
-                                  • {item.fullName} ({item.size}) - {
-                                    item.processType === 'sold' ? 'Sprzedano' :
-                                    item.processType === 'synchronized' ? 'Zsynchronizowano' :
-                                    item.processType === 'transferred' ? 'Przeniesiono' :
-                                    item.processType === 'corrected' ? 'Anulowano (korekta)' :
-                                    'Nieznane'
-                                  }
-                                  {item.processType === 'corrected' && (
-                                    <span style={{ color: '#28a745', marginLeft: '5px', fontSize: '10px' }}>
-                                      ✓ PRZYWRÓCONO
-                                    </span>
-                                  )}
-                                </div>
-                                {item.processType !== 'corrected' && !transaction.isCorrection && (
-                                  <button
-                                    onClick={() => handleUndoSingleItem(transaction, item)}
-                                    disabled={isTransactionInProgress}
-                                    style={{
-                                      backgroundColor: '#dc3545',
-                                      border: 'none',
-                                      borderRadius: '3px',
-                                      color: 'white',
-                                      padding: '2px 6px',
-                                      fontSize: '10px',
-                                      cursor: isTransactionInProgress ? 'not-allowed' : 'pointer',
-                                      marginLeft: '8px',
-                                      opacity: isTransactionInProgress ? 0.6 : 1
-                                    }}
-                                    title={`Anuluj tylko ten element: ${item.fullName} (${item.size})`}
-                                  >
-                                    {isTransactionInProgress ? '...' : 'Anuluj'}
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className={styles.modalFooter + ' modalFooter'} style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '16px 24px',
-              borderTop: '1px solid white',
-              backgroundColor: 'black',
-              color: 'white'
-            }}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={handleClearStorageClick}
-                  className="btn btn-warning btn-sm"
-                >
-                  Wyczyść pamięć
-                </button>
-                <button
-                  onClick={handleDeleteAllHistory}
-                  className="btn btn-sm"
-                  disabled={isTransactionInProgress || transactionHistory.length === 0}
-                  style={{
-                    backgroundColor: '#dc3545',
-                    border: 'none',
-                    color: 'white',
-                    opacity: (isTransactionInProgress || transactionHistory.length === 0) ? 0.6 : 1,
-                    cursor: (isTransactionInProgress || transactionHistory.length === 0) ? 'not-allowed' : 'pointer'
-                  }}
-                  title={transactionHistory.length === 0 ? "Brak historii do usunięcia" : "Usuń całą historię transakcji - NIEODWRACALNE!"}
-                >
-                  {isTransactionInProgress ? 'Usuwanie...' : 'Usuń całą historię'}
-                </button>
-                {historySearchTerm && (
-                  <button
-                    onClick={() => setHistorySearchTerm('')}
-                    className="btn btn-info btn-sm"
-                    title="Wyczyść wyszukiwanie"
-                  >
-                    Wyczyść filtr
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowHistoryModal(false)}
-                  className="btn btn-secondary btn-sm"
-                >
-                  Anuluj
-                </button>
-              </div>
-              {transactionHistory.length > 0 && (
-                <button
-                  onClick={() => {
-                    // Always use the most recent transaction (first in array), not filtered results
-                    handleUndoTransaction(transactionHistory[0]);
-                    setShowHistoryModal(false);
-                  }}
-                  className="btn btn-danger btn-sm"
-                  disabled={isTransactionInProgress}
-                  title="Anuluje najnowszą transakcję (ignoruje filtr wyszukiwania)"
-                >
-                  {isTransactionInProgress ? 'Anulowanie...' : 'Anuluj ostatnią transakcję'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Clear Storage Info Modal */}
-      {showClearStorageInfo && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <div style={{
-            backgroundColor: 'black',
-            borderRadius: '8px',
-            border: '1px solid white',
-            padding: '0',
-            width: isMobile ? '95%' : '500px',
-            maxWidth: '95vw',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            color: 'white',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.7)'
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 0,
-              borderBottom: '1px solid white',
-              padding: '16px 24px',
-              backgroundColor: 'black',
-              color: 'white',
-              fontWeight: 600
-            }}>
-              <span style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}> Informacja o czyszczeniu pamięci</span>
-              <button
-                onClick={() => setShowClearStorageInfo(false)}
-                style={{
-                  backgroundColor: 'red',
-                                   border: 'none',
-                  borderRadius: '50%',
-                  width: '24px',
-                  height: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 600
-                }}
-                title="Zamknij"
-              >
-                ✕
-              </button>
-            </div>
-            <div style={{
-              flex: 1,
-              backgroundColor: 'black',
-              color: 'white',
-              padding: '24px'
-            }}>
-              <div style={{ marginBottom: '20px' }}>
-                <h4 style={{ color: 'white', marginBottom: '15px' }}>Co zostanie wyczyszczone:</h4>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
-                    🗄️ <strong>Pamięć podręczna aplikacji</strong> - zapisane stany transakcji
-                  </li>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
-                    <strong>Stare transakcje z bazy danych</strong> - historia starszych operacji
-                  </li>
-                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>
-                    <strong>Aktualnie wyświetlane dane</strong> - zostanie odświeżone
-                  </li>
-                  <li style={{ padding: '8px 0' }}>
-                    <strong>Lokalne ustawienia</strong> - zapisane filtry i preferencje
-                  </li>
-                </ul>
-              </div>
-              <div style={{ backgroundColor: 'black', padding: '15px', borderRadius: '5px', marginBottom: '20px', border: '1px solid #444' }}>
-                <p style={{ margin: 0, color: 'white', fontWeight: 600 }}>⚠️ Uwaga:</p>
-                <p style={{ margin: '5px 0 0 0', fontSize: '14px' }}>
-                  Ta operacja jest nieodwracalna. Stracisz wszystkie zapisane filtry i tymczasowe dane.
-                  Bieżące niezapisane transakcje również zostaną utracone.
-                </p>
-              </div>
-            </div>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '16px 24px',
-              borderTop: '1px solid white',
-              backgroundColor: 'black',
-              color: 'white',
-              gap: '10px'
-            }}>
-              <button
-                onClick={() => setShowClearStorageInfo(false)}
-                className="btn btn-secondary btn-sm"
-              >
-                Anuluj
-              </button>
-              <button
-                onClick={clearPersistentStorage}
-                className="btn btn-warning btn-sm"
-              >
-                Tak, wyczyść pamięć
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Transaction Report Modal */}
-      <TransactionReportModal
-        showReportModal={showTransactionReport}
-        setShowReportModal={setShowTransactionReport}
-        transaction={selectedTransactionForReport}
-        usersData={usersData}
-      />
-
-      {/* Main Content */}
+    <>
+    <div style={{ display: 'flex', height: '100vh', gap: '20px' }}>
+      {/* LEWA STRONA - Miejsce na nową funkcjonalność */}
       <div style={{ 
-        display: 'flex', 
-        flex: 1,
-        flexDirection: isMobile ? 'column' : 'row'
+        flex: 1, 
+        padding: '20px', 
+        borderRight: '2px solid #ddd',
+        overflowY: 'auto'
       }}>
-        {/* Left side - Magazyn */}
-        <div style={{ 
-          width: isMobile ? '100%' : '50%', 
-          padding: '20px', 
-          borderRight: isMobile ? 'none' : '1px solid #ccc',
-          borderBottom: isMobile ? '1px solid #ccc' : 'none'
-        }}>
-          <h2 style={{color:'white', marginBottom: '5px', display: 'block', textAlign: 'center'}}>Magazyn</h2>
-          
-          {/* Wyszukiwarka magazynu */}
-          <div style={{ marginBottom: '20px', marginTop: '90px' }}>
-            <label style={{ color: 'white', display: 'block', marginBottom: '5px', textAlign: 'center' }}>Wyszukiwarka:</label>
-            <input
-              type="text"
-              className="form-select magazyn-search-input"
-              placeholder="Wyszukaj w magazynie (nazwa, kod, rozmiar, cena...)..."
-              value={magazynSearchTerm}
-              onChange={(e) => setMagazynSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                textAlign: 'center',
-                padding: '10px',
-                borderRadius: '4px',
-                border: '1px solid #ced4da',
-                backgroundColor: 'black',
-                color: 'white',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                marginBottom: '70px'
-              }}
-            />
+        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+          📦 Magazyn
+        </h2>
+        
+        {/* Wyszukiwarka magazynu */}
+        <div style={{ marginBottom: '20px' }}>
+          <label htmlFor="warehouseSearch" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+            🔍 Wyszukaj w magazynie:
+          </label>
+          <input
+            id="warehouseSearch"
+            type="text"
+            value={warehouseSearch}
+            onChange={handleWarehouseSearchChange}
+            placeholder="Wpisz nazwę, rozmiar lub kod kreskowy..."
+            style={{
+              width: '100%',
+              padding: '10px',
+              borderRadius: '5px',
+              border: '1px solid #ddd',
+              fontSize: '14px'
+            }}
+          />
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+            Znaleziono: {filteredWarehouseItems.length} produktów
+
           </div>
-          
-        <div className={styles.tableContainer} style={{
-          maxHeight: 'calc(100vh - 300px)',
-          overflowY: 'auto'
-        }}>
-          <div className="magazyn-scrollable" style={{
-            maxHeight: 'calc(100vh - 300px)',
-            overflowY: 'auto'
-          }}>
-          <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
-            <thead>
+        </div>
+
+        {/* Tabela produktów magazynowych */}
+        <div style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd', fontSize: '12px' }}>
+            <thead style={{ position: 'sticky', top: 0, backgroundColor: '#28a745', color: 'white' }}>
               <tr>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Lp.</th>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Pełna nazwa</th>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Rozmiar</th>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena (PLN)</th>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Kod kreskowy</th>
-                <th className={`${styles.tableHeader} ${styles.noWrap}`}>Akcja</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Nazwa</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Rozmiar</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Kod kreskowy</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Cena</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Akcja</th>
               </tr>
             </thead>
             <tbody>
-              {magazynItems.length === 0 ? (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                    Brak produktów w magazynie
-                  </td>
-                </tr>
-              ) : getFilteredMagazynItems().length === 0 ? (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                    Brak produktów pasujących do wyszukiwania
-                  </td>
-                </tr>
-              ) : (
-                getFilteredMagazynItems().map((item, index) => {
-                const isMatched = synchronizedItems.magazyn && synchronizedItems.magazyn.has(item.id);
-                const isManuallyAdded = addedMagazynIds.has(item.id);
-                const backgroundColor = isMatched ? '#666666' : (isManuallyAdded ? '#666666' : 'inherit');
-                
+              {filteredWarehouseItems.map((item) => {
+                const isGreyed = isWarehouseItemGreyed(item._id);
                 return (
-                  <tr key={item.id} className={styles.tableRow} style={backgroundColor !== 'inherit' ? { backgroundColor: `${backgroundColor} !important` } : {}}>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{index + 1}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.fullName}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.size}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.price}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{item.barcode}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
-                      <button 
-                        onClick={() => handleAddToSales(item)}
-                        disabled={isManuallyAdded || isMatched}
-                        className="btn btn-sm"
-                        style={{ 
-                          backgroundColor: (isManuallyAdded || isMatched) ? '#555' : '#198754',
-                          border: 'none', 
-                          color: 'white', 
-                          fontSize: '14px',
-                          cursor: (isManuallyAdded || isMatched) ? 'not-allowed' : 'pointer',
-                          opacity: (isManuallyAdded || isMatched) ? 0.5 : 1,
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          minWidth: '70px'
-                        }}
-                        title={isManuallyAdded ? "Już dodane" : isMatched ? "Zsynchronizowane" : "Przenieś do punktu sprzedaży"}
-                      >
-                        {isManuallyAdded ? "Dodane" : isMatched ? "Zsync." : "Przenieś"}
-                      </button>
-                    </td>
-                  </tr>
+                <tr key={item._id} style={{ 
+                  backgroundColor: isGreyed ? '#d6d6d6' : '#e8f5e8', // Wyszarzony jeśli sparowany
+                  opacity: isGreyed ? 0.6 : 1.0,
+                  '&:hover': { backgroundColor: isGreyed ? '#c0c0c0' : '#d4edda' }
+                }}>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.fullName?.fullName || 'Nieznana nazwa'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.size?.Roz_Opis || 'Nieznany rozmiar'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.barcode || 'Brak kodu'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.price ? `${item.price} PLN` : 'Brak ceny'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px', textAlign: 'center' }}>
+                    <button
+                      onClick={() => !isGreyed && handleMoveFromWarehouse(item)}
+                      disabled={isGreyed}
+                      style={{
+                        backgroundColor: isGreyed ? '#6c757d' : '#17a2b8',
+                        color: 'white',
+                        border: 'none',
+                        padding: '4px 8px',
+                        borderRadius: '3px',
+                        cursor: isGreyed ? 'not-allowed' : 'pointer',
+                        fontSize: '11px',
+                        opacity: isGreyed ? 0.6 : 1.0
+                      }}
+                      title={isGreyed ? "Produkt sparowany - niedostępny" : "Przenieś produkt do obszaru transferów"}
+                    >
+                      {isGreyed ? '🔒 Sparowany' : '➤ Przenieś'}
+                    </button>
+                  </td>
+                </tr>
                 );
-              })
-              )}
+              })}
             </tbody>
           </table>
-          </div> {/* magazyn-scrollable */}
-        </div> {/* tableContainer */}
-      </div> {/* Magazyn section */}
+          
+          {filteredWarehouseItems.length === 0 && (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '20px', 
+              color: '#666',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '5px',
+              marginTop: '10px'
+            }}>
+              {warehouseSearch ? 
+                `Brak produktów pasujących do "${warehouseSearch}"` : 
+                'Brak produktów w magazynie'
+              }
+            </div>
+          )}
+        </div>
+      </div>
 
-      {/* Right side - Sales data or Manual transfer */}
+      {/* PRAWA STRONA - Obecny mechanizm transferów */}
       <div style={{ 
-        width: isMobile ? '100%' : '50%', 
+        flex: 1, 
         padding: '20px',
-        height: isMobile ? 'auto' : '100vh',
-        overflowY: isMobile ? 'auto' : 'hidden'
+        overflowY: 'auto'
       }}>
-        <h2 style={{color:'white', textAlign: isMobile ? 'center' : 'center'}}>
-          {operationType === 'sprzedaz' ? 'Sprzedaż z danego dnia' : 'Przepisanie do punktu sprzedaży'}
+        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+          Mechanizm Transferów
         </h2>
         
-        {/* All controls in one line */}
-        <div style={{ 
-          marginBottom: '20px', 
-          display: 'flex', 
-          gap: '20px', 
-          justifyContent: 'center', 
-          alignItems: isMobile ? 'center' : 'flex-end', 
-          flexWrap: 'wrap',
-          flexDirection: isMobile ? 'column' : 'row'
-        }}>
+        <form>
+          <div style={{ marginBottom: '15px' }}>
+            <label htmlFor="datepicker">Select Date:</label>
+            <input
+              id="datepicker"
+              type="date"
+              value={selectedDate}
+              onChange={handleDateChange}
+              style={{ marginLeft: '10px', padding: '5px' }}
+            />
+          </div>
           
-          <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-            <label style={{ color: 'white', display: 'block', marginBottom: '5px', textAlign: 'center' }}>Typ operacji:</label>
+          <div style={{ marginBottom: '15px' }}>
+            <label htmlFor="userselect">Select User:</label>
             <select
-              value={operationType}
-              onChange={(e) => handleOperationTypeChange(e.target.value)}
-              className="form-select"
-              style={{ 
-                width: isMobile ? '100%' : '200px',
-                textAlign: 'center'
+              id="userselect"
+              value={selectedUser}
+              onChange={handleUserChange}
+              onClick={() => {
+                // Odśwież dane przy każdym kliknięciu, jeśli użytkownik jest już wybrany
+                if (selectedUser) {
+
+                  setProcessedSales(new Set());
+                  setProcessedTransfers(new Set());
+                  fetchTransfers();
+                  fetchWarehouseItems();
+                  fetchSales();
+                  fetchAllStates();
+                  checkLastTransaction();
+                }
               }}
+              style={{ marginLeft: '10px', padding: '5px' }}
             >
-              <option value="sprzedaz">Sprzedaż</option>
-              <option value="przepisanie">Przepisanie do punktu</option>
+              <option value="">-- Select User --</option>
+              {users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.symbol} - {user.sellingPoint || user.email}
+                </option>
+              ))}
             </select>
           </div>
+        </form>
 
-          {operationType === 'sprzedaz' && (
-            <>
-              <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-                <label style={{ color: 'white', display: 'block', marginBottom: '5px', textAlign: 'center' }}>Wybierz datę:</label>
-                <div style={{ 
-                  width: isMobile ? '100%' : '200px',
-                  position: 'relative'
-                }}>
-                  <DatePicker
-                    selected={selectedDate}
-                    onChange={(date) => setSelectedDate(date)}
-                    className="form-control"
-                    locale="pl"
-                    dateFormat="dd.MM.yyyy"
-                    style={{ 
-                      width: isMobile ? '100%' : '200px',
-                      minWidth: isMobile ? '100%' : '200px',
-                      maxWidth: isMobile ? '100%' : '200px',
-                      textAlign: 'center',
-                      boxSizing: 'border-box',
-                      display: 'block'
-                    }}
-                    wrapperClassName={isMobile ? 'w-100' : ''}
-                    popperProps={{
-                      style: { width: isMobile ? '100%' : '200px' }
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-                <label style={{ color: 'white', display: 'block', marginBottom: '5px', textAlign: 'center' }}>Punkt sprzedaży:</label>
-                <select
-                  value={selectedSellingPoint}
-                  onChange={(e) => setSelectedSellingPoint(e.target.value)}
-                  className="form-select"
-                  style={{ 
-                    width: isMobile ? '100%' : '200px',
-                    textAlign: 'center'
-                  }}
-                >
-                  {sellingPoints.map((point, index) => (
-                    <option key={index} value={point}>
-                      {point}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-                <button 
-                  onClick={handleSynchronize}
-                  className="btn btn-primary"
-                  style={{ height: 'fit-content' }}
-                >
-                  Synchronizuj
-                </button>
-              </div>
-            </>
-          )}
+        {/* Przyciski Synchronizacji */}
+        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+          <button
+            onClick={handleSynchronize}
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              transition: 'background-color 0.3s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginRight: '10px'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+            title="Sparuj produkty jeden-do-jednego: niebieski → zielony, magazyn → wyszarzony"
+          >
+            🔄 Synchronizuj z magazynem
+          </button>
 
-          {operationType === 'przepisanie' && (
-            <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-              <label style={{ color: 'white', display: 'block', marginBottom: '5px', textAlign: 'center' }}>
-                Docelowy punkt sprzedaży: (Aktualna wartość: "{targetSellingPoint}")
-              </label>
-              <select
-                value={targetSellingPoint}
-                onChange={(e) => setTargetSellingPoint(e.target.value)}
-                className="form-select"
-                style={{ 
-                  width: isMobile ? '100%' : '200px',
-                  textAlign: 'center'
-                }}
-                required
-              >
-                {sellingPoints.map((point, index) => (
-                  <option key={index} value={point}>
-                    {point}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          
-          <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-            <button 
-              onClick={handleSave}
-              className="btn btn-success"
-              style={{ height: 'fit-content' }}
-            >
-              {isTransactionInProgress ? 'Zapisywanie...' : 
-               isTransactionSaved ? 'Zapisano' : 
-               'Zapisz'}
-            </button>
-          </div>
-          
-          <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-            <button 
-              onClick={() => setShowHistoryModal(true)}
-              className="btn btn-info"
-              style={{ height: 'fit-content' }}
-            >
-               Historia ({transactionHistory.length})
-            </button>
-          </div>
-          
-          {/* Print controls */}
-          <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-            <button 
-              onClick={checkPrinter}
-              className="btn btn-secondary"
-              style={{ height: 'fit-content', marginRight: '5px' }}
-            >
-               Sprawdź drukarkę
-            </button>
-          </div>
-          
-          <div style={{ width: isMobile ? '100%' : 'auto', textAlign: 'center' }}>
-            <button 
-              onClick={printSelectedBarcodes}
-              className="btn btn-warning"
-              style={{ height: 'fit-content' }}
-              disabled={!printer || selectedForPrint.size === 0}
-            >
-               Drukuj zaznaczone ({selectedForPrint.size})
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setMatchedPairs([]);
+              setGreyedWarehouseItems(new Set());
+            }}
+            style={{
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              transition: 'background-color 0.3s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
+            title="Resetuj synchronizację - przywróć domyślne kolory"
+          >
+            🔄 Reset synchronizacji
+          </button>
         </div>
 
-        {/* Print error display */}
-        {printerError && (
-          <div style={{ textAlign: 'center', color: 'red', marginBottom: '10px' }}>
-            {printerError}
-          </div>
-        )}
+        <div style={{ marginTop: '20px', marginBottom: '20px', textAlign: 'center' }}>
+          <button 
+            onClick={handleProcessAllTransfers}
+            style={{
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              marginRight: '10px'
+            }}
+            disabled={!Array.isArray(filteredItems) || filteredItems.length === 0}
+          >
+            Zapisz - Odpisz wszystkie kurtki ze stanu ({Array.isArray(filteredItems) ? filteredItems.length : 0})
+          </button>
 
-        {/* Print selection controls */}
-        {(filteredSales.length > 0 || manuallyAddedItems.length > 0) && (
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            gap: '10px', 
-            marginBottom: '10px',
-            flexWrap: 'wrap'
-          }}>
+          {canUndoTransaction && lastTransaction && (
             <button 
-              onClick={selectAllForPrint}
-              className="btn btn-sm btn-outline-light"
-            >
-              Zaznacz wszystkie
-            </button>
-            <button 
-              onClick={clearPrintSelection}
-              className="btn btn-sm btn-outline-light"
-            >
-              Odznacz wszystkie
-            </button>
-          </div>
-        )}
-
-        {/* Sales list or Manual transfer list */}
-        {operationType === 'sprzedaz' ? (
-          <div className={styles.tableContainer}>
-            <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
-              <thead>
-                <tr>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>
-                    <input 
-                      type="checkbox" 
-                      onChange={(e) => e.target.checked ? selectAllForPrint() : clearPrintSelection()}
-                      checked={selectedForPrint.size > 0 && selectedForPrint.size === (filteredSales.length + manuallyAddedItems.length)}
-                    />
-                  </th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Lp.</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Pełna nazwa</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Rozmiar</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena (PLN)</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Kod kreskowy</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Akcja</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...filteredSales, ...manuallyAddedItems].map((sale, index) => {
-                  const isMatched = synchronizedItems.sales && synchronizedItems.sales.has(sale._id);
-                  const isManuallyAdded = sale.isManuallyAdded;
-                  let backgroundColor;
-                  
-                  if (isManuallyAdded) {
-                    backgroundColor = '#FF9800'; // Orange for manually added items
-                  } else if (isMatched) {
-                    backgroundColor = '#4CAF50'; // Green if matched
-                  } else {
-                    backgroundColor = '#2196F3'; // Blue as default
-                  }
-                  
-                  // Format price with semicolon separator
-                  let displayPrice = 'Brak ceny';
-                  if (sale.cash && sale.cash.length > 0 && sale.cash[0].price) {
-                    displayPrice = sale.cash[0].price.toString();
-                  } else if (sale.price) {
-                    displayPrice = sale.price.toString();
-                  }
-                  
-                  return (
-                    <tr key={sale._id} className={styles.tableRow} style={{ backgroundColor: `${backgroundColor} !important` }}>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedForPrint.has(sale._id || sale.id)}
-                          onChange={() => toggleSelectForPrint(sale._id || sale.id)}
-                        />
-                      </td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{index + 1}</td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.fullName}</td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.size}</td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{displayPrice}</td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>{sale.barcode}</td>
-                      <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor }}>
-                        {isManuallyAdded ? (
-                          <button 
-                            onClick={() => handleRemoveFromSales(sale)}
-                            className="btn btn-sm"
-                            style={{ 
-                              backgroundColor: '#dc3545',
-                              border: 'none', 
-                              color: 'white', 
-                              fontSize: '14px',
-                              cursor: 'pointer',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              minWidth: '60px'
-                            }}
-                            title="Cofnij przeniesienie"
-                          >
-                            Cofnij
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            
-            {filteredSales.length === 0 && manuallyAddedItems.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'white', marginTop: '20px' }}>
-                Brak sprzedaży dla wybranych kryteriów
-              </div>
-            )}
-          </div>
-        ) : (
-          // Przepisanie mode - show only manually added items
-          <div className={styles.tableContainer}>
-            <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
-              <thead>
-                <tr>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>
-                    <input 
-                      type="checkbox" 
-                      onChange={(e) => e.target.checked ? selectAllForPrint() : clearPrintSelection()}
-                      checked={selectedForPrint.size > 0 && selectedForPrint.size === manuallyAddedItems.length}
-                    />
-                  </th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Lp.</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Pełna nazwa</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Rozmiar</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Cena (PLN)</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Kod kreskowy</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Docelowy punkt</th>
-                  <th className={`${styles.tableHeader} ${styles.noWrap}`}>Akcja</th>
-                </tr>
-              </thead>
-              <tbody>
-                {manuallyAddedItems.map((item, index) => (
-                  <tr key={item._id} className={styles.tableRow} style={{ backgroundColor: '#FF9800 !important' }}>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={selectedForPrint.has(item._id || item.id)}
-                        onChange={() => toggleSelectForPrint(item._id || item.id)}
-                      />
-                    </td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{index + 1}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{item.fullName}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{item.size}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>
-                      {item.price ? item.price.toString() : 'Brak ceny'}
-                    </td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{item.barcode}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>{targetSellingPoint}</td>
-                    <td style={{ textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#FF9800' }}>
-                      <button 
-                        onClick={() => handleRemoveFromSales(item)}
-                        className="btn btn-sm"
-                        style={{ 
-                          backgroundColor: '#dc3545',
-                          border: 'none', 
-                          color: 'white', 
-                          fontSize: '14px',
-                          cursor: 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          fontWeight: 'bold',
-                          minWidth: '60px'
-                        }}
-                        title="Cofnij przeniesienie"
-                      >
-                        Cofnij
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            
-            {manuallyAddedItems.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'white', marginTop: '20px' }}>
-                {!targetSellingPoint 
-                  ? 'Wybierz docelowy punkt sprzedaży aby rozpocząć przepisywanie' 
-                  : 'Kliknij strzałki przy produktach w MAGAZYN aby je dodać do przepisania'
-                }
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-    
-    {/* Notification Modal */}
-    {showNotificationModal && (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        zIndex: 10001,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{
-          backgroundColor: 'black',
-          borderRadius: '8px',
-          border: '2px solid white',
-          padding: '0',
-          width: isMobile ? '95%' : '500px',
-          maxWidth: '95vw',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          color: 'white',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.7)'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 0,
-            borderBottom: '1px solid white',
-            padding: '16px 24px',
-            backgroundColor: 
-              notificationModal.type === 'success' ? '#0d6efd' :
-              notificationModal.type === 'error' ? '#dc3545' :
-              notificationModal.type === 'warning' ? '#ffc107' :
-              '#17a2b8',
-            color: 'white',
-            fontWeight: 600
-          }}>
-            <span style={{ margin: 0, color: 'white', fontSize: '1.2rem' }}>
-              {notificationModal.title}
-            </span>
-            <button
-              onClick={() => setShowNotificationModal(false)}
-              style={{
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '28px',
-                height: '28px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 600
-              }}
-              title="Zamknij"
-            >
-              ✕
-            </button>
-          </div>
-          <div style={{
-            flex: 1,
-            backgroundColor: 'black',
-            color: 'white',
-            padding: '24px'
-          }}>
-            <div style={{ fontSize: '16px', lineHeight: '1.5', whiteSpace: 'pre-line' }}>
-              {notificationModal.message}
-            </div>
-          </div>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: '16px 24px',
-            borderTop: '1px solid white',
-            backgroundColor: 'black',
-            color: 'white'
-          }}>
-            <button
-              onClick={() => setShowNotificationModal(false)}
-              className="btn btn-sm"
-              style={{
-                backgroundColor: 
-                  notificationModal.type === 'success' ? '#0d6efd' :
-                  notificationModal.type === 'error' ? '#dc3545' :
-                  notificationModal.type === 'warning' ? '#ffc107' :
-                  '#17a2b8',
-                border: 'none',
-                color: 'white',
-                padding: '8px 20px',
-                borderRadius: '4px'
-              }}
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Confirmation Modal */}
-    {showConfirmModal && (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10000
-      }}>
-        <div style={{
-          backgroundColor: 'black',
-          border: '2px solid #0d6efd',
-          borderRadius: '8px',
-          minWidth: '400px',
-          maxWidth: '600px',
-          maxHeight: '80vh',
-          overflow: 'auto'
-        }}>
-          <div style={{
-            backgroundColor: '#0d6efd',
-            color: 'white',
-            padding: '16px 24px',
-            fontWeight: 'bold',
-            fontSize: '18px',
-            textAlign: 'center'
-          }}>
-            {confirmModal.title}
-          </div>
-          <div style={{
-            padding: '24px',
-            color: 'white',
-            lineHeight: '1.6',
-            whiteSpace: 'pre-line',
-            textAlign: 'center'
-          }}>
-            {confirmModal.message}
-          </div>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '16px',
-            padding: '16px 24px',
-            borderTop: '1px solid #555',
-            backgroundColor: 'black'
-          }}>
-            <button
-              onClick={confirmModal.onCancel}
-              className="btn btn-sm"
-              style={{
-                backgroundColor: '#6c757d',
-                border: 'none',
-                color: 'white',
-                padding: '8px 20px',
-                borderRadius: '4px'
-              }}
-            >
-              {confirmModal.cancelText}
-            </button>
-            <button
-              onClick={confirmModal.onConfirm}
-              className="btn btn-sm"
+              onClick={handleUndoLastTransaction}
               style={{
                 backgroundColor: '#dc3545',
-                border: 'none',
                 color: 'white',
-                padding: '8px 20px',
-                borderRadius: '4px',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '16px',
                 fontWeight: 'bold'
               }}
+              title={`Cofnij transakcję z ${new Date(lastTransaction.timestamp).toLocaleString()}`}
             >
-              {confirmModal.confirmText}
+              ⟲ Anuluj ostatnią transakcję ({lastTransaction.itemCount} produktów)
             </button>
+          )}
+          {/* Debug info - remove in production */}
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+            Debug: canUndo={canUndoTransaction ? 'true' : 'false'}, hasTransaction={lastTransaction ? 'true' : 'false'}
+            {lastTransaction && `, transactionId=${lastTransaction.transactionId}`}
           </div>
         </div>
+
+        <div style={{ marginTop: '20px' }}>
+          <h3>Transfery</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f2f2f2' }}>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Full Name</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Size</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Date</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>From</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>To</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Product ID</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Reason</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Advance Payment</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.isArray(filteredItems) && filteredItems.map((transfer) => {
+                // Sprawdź czy transfer został już przetworzony
+                const isProcessed = transfer.isFromSale ? 
+                  processedSales.has(transfer._id) :
+                  (transfer.processed || processedTransfers.has(transfer._id));
+                
+                return (
+                <tr key={transfer._id} style={{ 
+                  backgroundColor: getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale, transfer.isIncomingTransfer),
+                  color: 'white',
+                  opacity: isProcessed ? 0.7 : 1.0 // Przezroczystość dla przetworzonych
+                }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {isProcessed && '✓ '}
+                    {transfer.isFromSale 
+                      ? (transfer.fullName || 'N/A')
+                      : (typeof transfer.fullName === 'object' 
+                          ? (transfer.fullName?.fullName || 'N/A')
+                          : (transfer.fullName || 'N/A'))}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale 
+                      ? (transfer.size || 'N/A')
+                      : (typeof transfer.size === 'object' 
+                          ? (transfer.size?.Roz_Opis || 'N/A')
+                          : (transfer.size || 'N/A'))}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {new Date(transfer.date).toLocaleDateString()}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_from}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale ? `SPRZEDANO w ${transfer.transfer_to}` : transfer.transfer_to}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale ? transfer.barcode || 'N/A' : transfer.productId || 'N/A'}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale ? 'SPRZEDAŻ' : (transfer.reason || 'N/A')}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale ? 
+                      `${transfer.cash?.[0]?.price || 0} PLN` : 
+                      `${transfer.advancePayment || ''} ${transfer.advancePaymentCurrency || ''}`.trim() || 'N/A'}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.isFromSale ? (
+                      // Dla sprzedaży - brak przycisków akcji (nie można cofnąć sprzedaży tutaj)
+                      <span style={{ fontStyle: 'italic' }}>Sprzedano</span>
+                    ) : transfer.fromWarehouse ? (
+                      // Przyciski dla produktów z magazynu - tylko przycisk Cofnij
+                      <button 
+                        onClick={() => handleReturnToWarehouse(transfer)}
+                        style={{
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          padding: '5px 8px',
+                          borderRadius: '3px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                        title="Cofnij do magazynu"
+                      >
+                        ↩️ Cofnij
+                      </button>
+                    ) : (() => {
+                      // Sprawdź kolor produktu dla niebieskich i zielonych
+                      const backgroundColor = getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale, transfer.isIncomingTransfer);
+                      const isBlue = backgroundColor === '#007bff';
+                      const isGreen = backgroundColor === '#28a745';
+                      
+                      if (isBlue || isGreen) {
+                        return (
+                          <button 
+                            onClick={() => {
+                              if (isGreen) {
+                                // Zielone produkty: najpierw usuń ze stanu, potem dodaj do magazynu
+
+                                handleRemoveFromState(transfer);
+                                // Znajdź pasujący produkt z magazynu i dodaj go
+                                const matchingWarehouseItem = warehouseItems.find(item => {
+                                  const transferBarcode = transfer.isFromSale ? transfer.barcode : transfer.productId;
+                                  const transferName = transfer.isFromSale ? transfer.fullName : (transfer.fullName?.fullName || transfer.fullName);
+                                  const transferSize = transfer.isFromSale ? transfer.size : (transfer.size?.Roz_Opis || transfer.size);
+                                  
+                                  const itemBarcode = item.barcode;
+                                  const itemName = item.fullName?.fullName || item.fullName;
+                                  const itemSize = item.size?.Roz_Opis || item.size;
+                                  
+                                  const barcodeMatch = transferBarcode === itemBarcode;
+                                  const nameMatch = transferName === itemName;
+                                  const sizeMatch = transferSize === itemSize;
+                                  
+                                  return barcodeMatch && nameMatch && sizeMatch;
+                                });
+                                if (matchingWarehouseItem) {
+                                  setTimeout(() => handleMoveFromWarehouse(matchingWarehouseItem), 100);
+                                }
+                              } else {
+                                // Niebieskie produkty: tylko usuń ze stanu
+
+                                handleRemoveFromState(transfer);
+                              }
+                            }}
+                            style={{
+                              backgroundColor: isGreen ? '#28a745' : '#007bff',
+                              color: 'white',
+                              border: 'none',
+                              padding: '5px 8px',
+                              borderRadius: '3px',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                            title={isGreen ? "Sparowany: usuń ze stanu i dodaj z magazynu" : "Usuń ze stanu"}
+                          >
+                            {isGreen ? '🔄 Sparowany' : '❌ Usuń'}
+                          </button>
+                        );
+                      } else {
+                        // Brak akcji dla innych transferów
+                        return (
+                          <span style={{ color: '#ccc', fontSize: '12px' }}>
+                            -
+                          </span>
+                        );
+                      }
+                    })()}
+                  </td>
+                </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {(!Array.isArray(filteredItems) || filteredItems.length === 0) && (
+            <p style={{ textAlign: 'center', marginTop: '20px', color: '#666' }}>
+              {selectedDate || selectedUser ? 'Brak transferów dla wybranych kryteriów' : 'Brak transferów'}
+            </p>
+          )}
+        </div>
       </div>
-    )}
     </div>
+    </>
   );
 };
 
 export default AddToState;
+

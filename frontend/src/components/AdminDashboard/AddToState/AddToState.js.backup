@@ -1,0 +1,607 @@
+import React, { useState, useEffect } from 'react';
+
+const AddToState = ({ onAdd }) => {
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedUser, setSelectedUser] = useState('');
+  const [users, setUsers] = useState([]);
+  const [transfers, setTransfers] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
+  const [lastTransaction, setLastTransaction] = useState(null);
+  const [canUndoTransaction, setCanUndoTransaction] = useState(false);
+  
+  // Nowe stany dla magazynu
+  const [warehouseItems, setWarehouseItems] = useState([]);
+  const [warehouseSearch, setWarehouseSearch] = useState('');
+  const [filteredWarehouseItems, setFilteredWarehouseItems] = useState([]);
+
+  useEffect(() => {
+    // Fetch users from API
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/user');
+        const data = await response.json();
+        
+        // Filtruj użytkowników - usuń admin, magazyn i dom
+        const filteredUsers = (data.users || []).filter(user => {
+          const symbol = user.symbol?.toLowerCase();
+          return symbol !== 'admin' && symbol !== 'magazyn' && symbol !== 'dom';
+        });
+        
+        setUsers(filteredUsers);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
+
+    // Fetch transfers from API
+    const fetchTransfers = async () => {
+      try {
+        const response = await fetch('/api/transfer');
+        const data = await response.json();
+        setTransfers(data || []);
+      } catch (error) {
+        console.error('Error fetching transfers:', error);
+      }
+    };
+
+    // Fetch warehouse items from API
+    const fetchWarehouseItems = async () => {
+      try {
+        const response = await fetch('/api/state');
+        const data = await response.json();
+        // Filtruj tylko produkty z magazynu (symbol: 'magazyn')
+        const warehouseProducts = data.filter(item => 
+          item.sellingPoint && item.sellingPoint.symbol === 'magazyn'
+        );
+        setWarehouseItems(warehouseProducts);
+        setFilteredWarehouseItems(warehouseProducts);
+      } catch (error) {
+        console.error('Error fetching warehouse items:', error);
+      }
+    };
+
+    fetchUsers();
+    fetchTransfers();
+    fetchWarehouseItems();
+    checkLastTransaction();
+  }, []);
+
+  // Function to check if there's a last transaction that can be undone
+  const checkLastTransaction = async () => {
+    try {
+      console.log('Checking last transaction...'); // Debug log
+      const response = await fetch('/api/transfer/last-transaction');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Last transaction data:', data); // Debug log
+        setLastTransaction(data);
+        setCanUndoTransaction(data.canUndo);
+      } else if (response.status === 404) {
+        console.log('No last transaction found (404)'); // Debug log
+        setLastTransaction(null);
+        setCanUndoTransaction(false);
+      } else {
+        console.log('Server error checking transaction:', response.status); // Debug log
+        setLastTransaction(null);
+        setCanUndoTransaction(false);
+      }
+    } catch (error) {
+      console.error('Error checking last transaction:', error);
+      setLastTransaction(null);
+      setCanUndoTransaction(false);
+    }
+  };
+
+  useEffect(() => {
+    // Filter items based on selected date and user
+    let filtered = Array.isArray(transfers) ? transfers : [];
+
+    if (selectedDate) {
+      filtered = filtered.filter(transfer => {
+        const transferDate = new Date(transfer.date).toISOString().split('T')[0];
+        return transferDate === selectedDate;
+      });
+    }
+
+    if (selectedUser) {
+      const selectedUserData = users.find(user => user._id === selectedUser);
+      if (selectedUserData) {
+        // Pokazuj transfery tylko gdy wybrany użytkownik jest ŹRÓDŁEM transferu (transfer_from)
+        // Czyli punktem z którego ODPISUJEMY towar, nie tam gdzie go dopisujemy
+        filtered = filtered.filter(transfer => 
+          transfer.transfer_from === selectedUserData.symbol
+        );
+      }
+    }
+
+    setFilteredItems(filtered);
+  }, [selectedDate, selectedUser, transfers, users]);
+
+  // useEffect do filtrowania produktów magazynowych
+  useEffect(() => {
+    if (!warehouseSearch.trim()) {
+      setFilteredWarehouseItems(warehouseItems);
+    } else {
+      const searchTerm = warehouseSearch.toLowerCase();
+      const filtered = warehouseItems.filter(item => {
+        const fullName = item.fullName?.fullName?.toLowerCase() || '';
+        const size = item.size?.Roz_Opis?.toLowerCase() || '';
+        const barcode = item.barcode?.toLowerCase() || '';
+        
+        return fullName.includes(searchTerm) || 
+               size.includes(searchTerm) || 
+               barcode.includes(searchTerm);
+      });
+      setFilteredWarehouseItems(filtered);
+    }
+  }, [warehouseSearch, warehouseItems]);
+
+  const handleDateChange = (e) => {
+    setSelectedDate(e.target.value);
+  };
+
+  const handleUserChange = (e) => {
+    setSelectedUser(e.target.value);
+  };
+
+  const handleWarehouseSearchChange = (e) => {
+    setWarehouseSearch(e.target.value);
+  };
+  };
+
+  const handleProcessAllTransfers = async () => {
+    if (!Array.isArray(filteredItems) || filteredItems.length === 0) {
+      alert('Brak transferów do przetworzenia');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/transfer/process-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transfers: filteredItems,
+          selectedDate: selectedDate,
+          selectedUser: selectedUser
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Przetworzono ${result.processedCount} transferów - kurtki zostały odpisane ze stanu`);
+        
+        // Odśwież listę transferów po przetworzeniu
+        const fetchResponse = await fetch('/api/transfer');
+        const data = await fetchResponse.json();
+        setTransfers(data || []);
+        
+        // Sprawdź ostatnią transakcję
+        await checkLastTransaction();
+      } else {
+        alert('Błąd podczas przetwarzania transferów');
+      }
+    } catch (error) {
+      console.error('Error processing transfers:', error);
+      alert('Błąd podczas przetwarzania transferów');
+    }
+  };
+
+  const handleUndoLastTransaction = async () => {
+    if (!canUndoTransaction || !lastTransaction) {
+      alert('Brak transakcji do cofnięcia');
+      return;
+    }
+
+    const confirmUndo = window.confirm(
+      `Czy na pewno chcesz cofnąć ostatnią transakcję?\n\n` +
+      `ID transakcji: ${lastTransaction.transactionId}\n` +
+      `Data: ${new Date(lastTransaction.timestamp).toLocaleString()}\n` +
+      `Liczba produktów: ${lastTransaction.itemCount}\n\n` +
+      `Wszystkie produkty zostaną przywrócone do stanu z oryginalymi ID.`
+    );
+
+    if (!confirmUndo) return;
+
+    try {
+      const response = await fetch('/api/transfer/undo-last', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(
+          `Transakcja została pomyślnie cofnięta!\n\n` +
+          `Przywrócono ${result.restoredCount} produktów do stanu.\n` +
+          `ID transakcji: ${result.transactionId}\n\n` +
+          `Produkty ponownie pojawiły się na liście transferów.`
+        );
+        
+        // Odśwież listę transferów po cofnięciu
+        const fetchResponse = await fetch('/api/transfer');
+        const data = await fetchResponse.json();
+        setTransfers(data || []);
+        
+        // Odśwież stan po cofnięciu
+        await checkLastTransaction();
+      } else {
+        const errorData = await response.json();
+        alert(`Błąd podczas cofania transakcji: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error('Error undoing transaction:', error);
+      alert('Błąd podczas cofania transakcji');
+    }
+  };
+
+  const handleProcessSingleTransfer = async (transferId) => {
+    try {
+      const response = await fetch('/api/transfer/process-single', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transferId }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Transfer przetworzony - kurtka została odpisana ze stanu`);
+        
+        // Odśwież listę transferów
+        const fetchResponse = await fetch('/api/transfer');
+        const data = await fetchResponse.json();
+        setTransfers(data || []);
+        
+        // Sprawdź ostatnią transakcję
+        await checkLastTransaction();
+      } else {
+        // Pokazuj szczegółowy błąd z serwera
+        const errorData = await response.json();
+        const errorMessage = errorData.message || 'Nieznany błąd serwera';
+        alert(`Błąd podczas przetwarzania transferu:\n\n${errorMessage}\n\nStatus: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error processing single transfer:', error);
+      alert(`Błąd połączenia podczas przetwarzania transferu:\n\n${error.message}`);
+    }
+  };
+
+  const handleRemoveAllFromState = async () => {
+    if (filteredItems.length === 0) {
+      alert('Brak transferów do odpisania ze stanu');
+      return;
+    }
+
+    const confirmMessage = `Czy na pewno chcesz odpisać wszystkie ${filteredItems.length} kurtek ze stanu?`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each transfer to remove from state
+      for (const transfer of filteredItems) {
+        try {
+          // Remove the product from state based on transfer data
+          const response = await fetch(`/api/state/barcode/${transfer.productId}/symbol/${transfer.transfer_from}?count=1`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            successCount++;
+            // Also remove the transfer record
+            await fetch(`/api/transfer/${transfer._id}`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+          } else {
+            errorCount++;
+            console.error(`Failed to remove transfer ${transfer._id}`);
+          }
+        } catch (error) {
+          errorCount++;
+          console.error(`Error processing transfer ${transfer._id}:`, error);
+        }
+      }
+
+      // Update local state - remove all processed transfers
+      setTransfers(prevTransfers => 
+        prevTransfers.filter(transfer => 
+          !filteredItems.some(filteredItem => filteredItem._id === transfer._id)
+        )
+      );
+
+      if (successCount > 0) {
+        alert(`Pomyślnie odpisano ${successCount} kurtek ze stanu${errorCount > 0 ? `. Błędów: ${errorCount}` : ''}`);
+      } else {
+        alert('Nie udało się odpisać żadnej kurtki ze stanu');
+      }
+    } catch (error) {
+      console.error('Error removing all from state:', error);
+      alert('Błąd podczas odpisywania kurtek ze stanu');
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', gap: '20px' }}>
+      {/* LEWA STRONA - Miejsce na nową funkcjonalność */}
+      <div style={{ 
+        flex: 1, 
+        padding: '20px', 
+        borderRight: '2px solid #ddd',
+        overflowY: 'auto'
+      }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+          📦 Magazyn
+        </h2>
+        
+        {/* Wyszukiwarka magazynu */}
+        <div style={{ marginBottom: '20px' }}>
+          <label htmlFor="warehouseSearch" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+            🔍 Wyszukaj w magazynie:
+          </label>
+          <input
+            id="warehouseSearch"
+            type="text"
+            value={warehouseSearch}
+            onChange={handleWarehouseSearchChange}
+            placeholder="Wpisz nazwę, rozmiar lub kod kreskowy..."
+            style={{
+              width: '100%',
+              padding: '10px',
+              borderRadius: '5px',
+              border: '1px solid #ddd',
+              fontSize: '14px'
+            }}
+          />
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+            Znaleziono: {filteredWarehouseItems.length} produktów
+          </div>
+        </div>
+
+        {/* Tabela produktów magazynowych */}
+        <div style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd', fontSize: '12px' }}>
+            <thead style={{ position: 'sticky', top: 0, backgroundColor: '#28a745', color: 'white' }}>
+              <tr>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Nazwa</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Rozmiar</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Kod kreskowy</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Cena</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Akcja</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredWarehouseItems.map((item) => (
+                <tr key={item._id} style={{ 
+                  backgroundColor: '#e8f5e8',
+                  '&:hover': { backgroundColor: '#d4edda' }
+                }}>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.fullName?.fullName || 'Nieznana nazwa'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.size?.Roz_Opis || 'Nieznany rozmiar'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.barcode || 'Brak kodu'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.price ? `${item.price} PLN` : 'Brak ceny'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px', textAlign: 'center' }}>
+                    <button
+                      style={{
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        padding: '4px 8px',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                      title="Przejdź do szczegółów produktu"
+                    >
+                      👁️ Zobacz
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          {filteredWarehouseItems.length === 0 && (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '20px', 
+              color: '#666',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '5px',
+              marginTop: '10px'
+            }}>
+              {warehouseSearch ? 
+                `Brak produktów pasujących do "${warehouseSearch}"` : 
+                'Brak produktów w magazynie'
+              }
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* PRAWA STRONA - Obecny mechanizm transferów */}
+      <div style={{ 
+        flex: 1, 
+        padding: '20px',
+        overflowY: 'auto'
+      }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+          Mechanizm Transferów
+        </h2>
+        
+        <form>
+          <div style={{ marginBottom: '15px' }}>
+            <label htmlFor="datepicker">Select Date:</label>
+            <input
+              id="datepicker"
+              type="date"
+              value={selectedDate}
+              onChange={handleDateChange}
+              style={{ marginLeft: '10px', padding: '5px' }}
+            />
+          </div>
+          
+          <div style={{ marginBottom: '15px' }}>
+            <label htmlFor="userselect">Select User:</label>
+            <select
+              id="userselect"
+              value={selectedUser}
+              onChange={handleUserChange}
+              style={{ marginLeft: '10px', padding: '5px' }}
+            >
+              <option value="">-- Select User --</option>
+              {users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.symbol} - {user.sellingPoint || user.email}
+                </option>
+              ))}
+            </select>
+          </div>
+        </form>
+
+        <div style={{ marginTop: '20px', marginBottom: '20px', textAlign: 'center' }}>
+          <button 
+            onClick={handleProcessAllTransfers}
+            style={{
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              marginRight: '10px'
+            }}
+            disabled={!Array.isArray(filteredItems) || filteredItems.length === 0}
+          >
+            Zapisz - Odpisz wszystkie kurtki ze stanu ({Array.isArray(filteredItems) ? filteredItems.length : 0})
+          </button>
+
+          {canUndoTransaction && lastTransaction && (
+            <button 
+              onClick={handleUndoLastTransaction}
+              style={{
+                backgroundColor: '#dc3545',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }}
+              title={`Cofnij transakcję z ${new Date(lastTransaction.timestamp).toLocaleString()}`}
+            >
+              ⟲ Anuluj ostatnią transakcję ({lastTransaction.itemCount} produktów)
+            </button>
+          )}
+
+          {/* Test button - always visible */}
+          <button 
+            onClick={checkLastTransaction}
+            style={{
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              marginLeft: '10px'
+            }}
+          >
+            🔍 Sprawdź ostatnią transakcję
+          </button>
+          
+          {/* Debug info - remove in production */}
+          <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
+            Debug: canUndo={canUndoTransaction ? 'true' : 'false'}, hasTransaction={lastTransaction ? 'true' : 'false'}
+            {lastTransaction && `, transactionId=${lastTransaction.transactionId}`}
+          </div>
+        </div>
+
+        <div style={{ marginTop: '20px' }}>
+          <h3>Transfery</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f2f2f2' }}>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Full Name</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Size</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Date</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>From</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>To</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Product ID</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Reason</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Advance Payment</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.isArray(filteredItems) && filteredItems.map((transfer) => (
+                <tr key={transfer._id} style={{ backgroundColor: '#007bff', color: 'white' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.fullName}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.size}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {new Date(transfer.date).toLocaleDateString()}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_from}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_to}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.productId}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.reason || 'N/A'}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    {transfer.advancePayment} {transfer.advancePaymentCurrency}
+                  </td>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                    <button 
+                      onClick={() => handleProcessSingleTransfer(transfer._id)}
+                      style={{
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        padding: '5px 10px',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Odpisz kurtkę
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {(!Array.isArray(filteredItems) || filteredItems.length === 0) && (
+            <p style={{ textAlign: 'center', marginTop: '20px', color: '#666' }}>
+              {selectedDate || selectedUser ? 'Brak transferów dla wybranych kryteriów' : 'Brak transferów'}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AddToState;
+

@@ -147,11 +147,11 @@ const Warehouse = () => {
             try {
                 const response = await axios.get('/api/user');
                 if (response.data && Array.isArray(response.data.users)) {
-                    const filteredUsers = response.data.users.filter(user => user.role === 'magazyn');
-                    setUsers(filteredUsers);
+                    // Get all users (remove role filter)
+                    setUsers(response.data.users);
 
-                    if (filteredUsers.length > 0) {
-                        setSelectedSellingPoint(filteredUsers[0].symbol); // Use symbol instead of sellingPoint
+                    if (response.data.users.length > 0) {
+                        setSelectedSellingPoint(response.data.users[0].symbol); // Use symbol instead of sellingPoint
                     }
                 } else {
                     console.error('Unexpected API response format:', response.data);

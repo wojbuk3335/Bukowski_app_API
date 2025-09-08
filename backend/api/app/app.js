@@ -32,8 +32,14 @@ const transferRoutes = require('./routes/transfer'); // Import transfer routes
 const transactionHistoryRoutes = require('./routes/transactionHistory'); // Import transaction history routes
 const localizationRoutes = require('./routes/locatization'); // Import localization routes
 const deductionsRoutes = require('./routes/deductions'); // Import deductions routes
+const transferProcessingRoutes = require('./routes/transferProcessing'); // Import transfer processing routes
+const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
+const correctionsRoutes = require('./routes/corrections'); // Import corrections routes
 
+app.use('/api/corrections', correctionsRoutes); // Use corrections routes
 app.use('/api/sales', salesRoutes); // Use sales routes
+app.use('/api/warehouse', warehouseRoutes); // Use warehouse routes
+app.use('/api/transfer', transferProcessingRoutes); // Use transfer processing routes
 app.use('/api/transfer', transferRoutes); // Use transfer routes
 app.use('/api/deductions', deductionsRoutes); // Use deductions routes
 app.use('/api/history', historyRoutes); // Use history routes
@@ -54,16 +60,16 @@ app.use('/api', printRoutes); // Use print routes
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Catch-all route to serve React's index.html for unmatched routes
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public', 'index.html'));
-});
-
-// Error handling for unmatched API routes
-app.use((req, res, next) => {
-    const error = new Error('Not Found');
+// Error handling for unmatched API routes - ONLY for /api paths
+app.use('/api/*', (req, res, next) => {
+    const error = new Error('API endpoint not found');
     error.status = 404;
     next(error);
+});
+
+// Catch-all route to serve React's index.html for NON-API routes only
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
 
 app.use((error, req, res, next) => {

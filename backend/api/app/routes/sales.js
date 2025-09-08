@@ -4,6 +4,7 @@ const SalesController = require('../controllers/sales');
 const historyLogger = require('../middleware/historyLogger');
 
 // Define specific routes first
+router.get('/', SalesController.getAllSales); // Add base route for GET /api/sales
 router.get('/get-all-sales', SalesController.getAllSales);
 router.get('/filter-by-date-and-point', SalesController.getSalesByDateAndSellingPoint);
 router.post('/save-sales', SalesController.saveSales);

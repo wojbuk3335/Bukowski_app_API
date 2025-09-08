@@ -5,6 +5,8 @@ const historyLogger = require('../middleware/historyLogger');
 
 
 router.get("/", StatesController.getAllStates);
+router.get("/warehouse", StatesController.getWarehouseItems); // New endpoint for warehouse items
+router.get("/barcode/:barcode", StatesController.getStatesByBarcode); // New endpoint to find states by barcode
 router.post("/",historyLogger('states'), StatesController.createState);
 router.post("/restore", StatesController.restoreState); // Restore endpoint with history logging
 router.post("/restore-silent", StatesController.restoreStateSilent); // Silent restore without history logging
@@ -12,7 +14,7 @@ router.get("/:id", StatesController.getStateById);
 router.put("/:id",historyLogger('states'), StatesController.updateStateById);
 router.delete("/barcode/:barcode/symbol/:symbol", historyLogger('states'), StatesController.deleteStateByBarcodeAndSymbol); // New specific endpoint
 router.delete("/barcode/:barcode", StatesController.deleteStateByBarcode); // Keep old endpoint for compatibility
-router.delete("/:id",historyLogger('states'), StatesController.deleteState);
+router.delete("/:id", StatesController.deleteState); // Remove from state by ID
 
 
 module.exports = router;
