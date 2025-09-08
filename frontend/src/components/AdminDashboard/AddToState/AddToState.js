@@ -1517,13 +1517,13 @@ const AddToState = ({ onAdd }) => {
         borderRight: '2px solid #ddd',
         overflowY: 'auto'
       }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#ffffff' }}>
           📦 Magazyn
         </h2>
         
         {/* Wyszukiwarka magazynu */}
         <div style={{ marginBottom: '20px' }}>
-          <label htmlFor="warehouseSearch" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+          <label htmlFor="warehouseSearch" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#ffffff' }}>
             🔍 Wyszukaj w magazynie:
           </label>
           <input
@@ -1536,11 +1536,14 @@ const AddToState = ({ onAdd }) => {
               width: '100%',
               padding: '10px',
               borderRadius: '5px',
-              border: '1px solid #ddd',
-              fontSize: '14px'
+              border: '1px solid #555',
+              fontSize: '14px',
+              backgroundColor: '#000000',
+              color: '#ffffff',
+              textAlign: 'center'
             }}
           />
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+          <div style={{ fontSize: '12px', color: '#ffffff', marginTop: '5px' }}>
             Znaleziono: {filteredWarehouseItems.length} produktów
 
           </div>
@@ -1628,24 +1631,33 @@ const AddToState = ({ onAdd }) => {
         padding: '20px',
         overflowY: 'auto'
       }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#ffffff' }}>
           Mechanizm Transferów
         </h2>
         
         <form>
           <div style={{ marginBottom: '15px' }}>
-            <label htmlFor="datepicker">Select Date:</label>
+            <label htmlFor="datepicker" style={{ color: '#ffffff' }}>Wybierz datę:</label>
             <input
               id="datepicker"
               type="date"
               value={selectedDate}
               onChange={handleDateChange}
-              style={{ marginLeft: '10px', padding: '5px' }}
+              onClick={(e) => e.target.showPicker && e.target.showPicker()}
+              style={{ 
+                marginLeft: '10px', 
+                padding: '10px',
+                backgroundColor: '#000000',
+                color: '#ffffff',
+                border: '1px solid #555',
+                cursor: 'pointer',
+                minWidth: '150px'
+              }}
             />
           </div>
           
           <div style={{ marginBottom: '15px' }}>
-            <label htmlFor="userselect">Select User:</label>
+            <label htmlFor="userselect" style={{ color: '#ffffff' }}>Wybierz użytkownika:</label>
             <select
               id="userselect"
               value={selectedUser}
@@ -1663,9 +1675,15 @@ const AddToState = ({ onAdd }) => {
                   checkLastTransaction();
                 }
               }}
-              style={{ marginLeft: '10px', padding: '5px' }}
+              style={{ 
+                marginLeft: '10px', 
+                padding: '5px',
+                backgroundColor: '#000000',
+                color: '#ffffff',
+                border: '1px solid #555'
+              }}
             >
-              <option value="">-- Select User --</option>
+              <option value="">-- Wybierz użytkownika --</option>
               {users.map((user) => (
                 <option key={user._id} value={user._id}>
                   {user.symbol} - {user.sellingPoint || user.email}
@@ -1767,15 +1785,10 @@ const AddToState = ({ onAdd }) => {
               ⟲ Anuluj ostatnią transakcję ({lastTransaction.itemCount} produktów)
             </button>
           )}
-          {/* Debug info - remove in production */}
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-            Debug: canUndo={canUndoTransaction ? 'true' : 'false'}, hasTransaction={lastTransaction ? 'true' : 'false'}
-            {lastTransaction && `, transactionId=${lastTransaction.transactionId}`}
-          </div>
         </div>
 
         <div style={{ marginTop: '20px' }}>
-          <h3>Transfery</h3>
+          <h3 style={{ color: '#ffffff' }}>Transfery</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
             <thead>
               <tr style={{ backgroundColor: '#f2f2f2' }}>
@@ -1937,12 +1950,26 @@ const AddToState = ({ onAdd }) => {
   );
 };
 
-// Dodaj CSS dla animacji spinnera
+// Dodaj CSS dla animacji spinnera i ciemnego input placeholder
 const style = document.createElement('style');
 style.textContent = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+  }
+  
+  #warehouseSearch::placeholder {
+    color: #cccccc;
+    opacity: 1;
+  }
+  
+  #warehouseSearch::-webkit-input-placeholder {
+    color: #cccccc;
+  }
+  
+  #warehouseSearch::-moz-placeholder {
+    color: #cccccc;
+    opacity: 1;
   }
 `;
 document.head.appendChild(style);
