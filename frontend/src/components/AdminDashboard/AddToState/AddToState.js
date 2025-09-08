@@ -28,6 +28,9 @@ const AddToState = ({ onAdd }) => {
   // Stan dla wszystkich stanów (do sprawdzania czy przedmiot jeszcze istnieje)
   const [allStates, setAllStates] = useState([]);
 
+  // Stan dla spinnera
+  const [isProcessing, setIsProcessing] = useState(false);
+
   // NOWE STANY dla synchronizacji jeden-do-jednego
   const [matchedPairs, setMatchedPairs] = useState([]); // Sparowane pary
   const [greyedWarehouseItems, setGreyedWarehouseItems] = useState(new Set()); // Wyszarzone elementy magazynu
@@ -685,6 +688,8 @@ const AddToState = ({ onAdd }) => {
       return;
     }
 
+    setIsProcessing(true); // Włącz spinner
+
     try {
       // Rozdziel produkty według typu - DODANO obsługę ZIELONYCH i ŻÓŁTYCH produktów
       const warehouseItems = itemsToProcess.filter(item => item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer'));
@@ -1045,6 +1050,8 @@ const AddToState = ({ onAdd }) => {
     } catch (error) {
       console.error('Error processing transfers:', error);
       alert('Błąd podczas przetwarzania transferów');
+    } finally {
+      setIsProcessing(false); // Wyłącz spinner
     }
   };
 
@@ -1452,6 +1459,56 @@ const AddToState = ({ onAdd }) => {
 
   return (
     <>
+    {/* Pełnoekranowy spinner overlay */}
+    {isProcessing && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '40px',
+          borderRadius: '10px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '20px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '5px solid #f3f3f3',
+            borderTop: '5px solid #28a745',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <div style={{
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color: '#333'
+          }}>
+            Przetwarzanie kurtek...
+          </div>
+          <div style={{
+            fontSize: '14px',
+            color: '#666',
+            textAlign: 'center'
+          }}>
+            Proszę czekać, operacja może potrwać kilka minut
+          </div>
+        </div>
+      </div>
+    )}
+    
     <div style={{ display: 'flex', height: '100vh', gap: '20px' }}>
       {/* LEWA STRONA - Miejsce na nową funkcjonalność */}
       <div style={{ 
@@ -1677,17 +1734,17 @@ const AddToState = ({ onAdd }) => {
           <button 
             onClick={handleProcessAllTransfers}
             style={{
-              backgroundColor: '#28a745',
+              backgroundColor: isProcessing ? '#6c757d' : '#28a745',
               color: 'white',
               border: 'none',
               padding: '10px 20px',
               borderRadius: '5px',
-              cursor: 'pointer',
+              cursor: isProcessing ? 'not-allowed' : 'pointer',
               fontSize: '16px',
               fontWeight: 'bold',
               marginRight: '10px'
             }}
-            disabled={!Array.isArray(filteredItems) || filteredItems.length === 0}
+            disabled={!Array.isArray(filteredItems) || filteredItems.length === 0 || isProcessing}
           >
             Zapisz - Odpisz wszystkie kurtki ze stanu ({Array.isArray(filteredItems) ? filteredItems.length : 0})
           </button>
@@ -1879,6 +1936,16 @@ const AddToState = ({ onAdd }) => {
     </>
   );
 };
+
+// Dodaj CSS dla animacji spinnera
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
 
 export default AddToState;
 
