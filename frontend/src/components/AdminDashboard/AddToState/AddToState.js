@@ -1886,18 +1886,18 @@ const AddToState = ({ onAdd }) => {
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_from}</td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? `SPRZEDANO w ${transfer.transfer_to}` : transfer.transfer_to}
+                    {transfer.isFromSale ? 'SPRZEDANO' : transfer.transfer_to}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.isFromSale ? transfer.barcode || 'N/A' : getBarcodeByProductId(transfer.productId) || 'N/A'}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? 'SPRZEDAŻ' : (transfer.reason || 'Transfer')}
+                    {transfer.isFromSale ? 'SPRZEDAŻ' : (transfer.reason || 'TRANSFER')}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.isFromSale ? (
-                      // Dla sprzedaży - brak przycisków akcji (nie można cofnąć sprzedaży tutaj)
-                      <span style={{ fontStyle: 'italic' }}>Sprzedano</span>
+                      // Dla sprzedaży - puste pole, tak samo jak dla zwykłych transferów
+                      <span style={{ color: '#ccc', fontSize: '12px' }}>-</span>
                     ) : transfer.fromWarehouse ? (
                       // Przyciski dla produktów z magazynu - tylko przycisk Cofnij
                       <button 
