@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AddToState from './AddToState';
 
@@ -192,7 +192,7 @@ describe('AddToState - Zielone produkty (Enhanced Tests)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText('Select User:');
+    const userSelect = screen.getByLabelText('Wybierz użytkownika:');
     fireEvent.change(userSelect, { target: { value: 'user1' } });
 
     // Wykonaj synchronizację
@@ -240,7 +240,7 @@ describe('AddToState - Zielone produkty (Enhanced Tests)', () => {
       expect(screen.getByText('🔄 Synchronizuj z magazynem')).toBeInTheDocument();
     });
 
-    const userSelect = screen.getByLabelText('Select User:');
+    const userSelect = screen.getByLabelText('Wybierz użytkownika:');
     fireEvent.change(userSelect, { target: { value: 'user1' } });
 
     const syncButton = screen.getByText('🔄 Synchronizuj z magazynem');
@@ -284,7 +284,7 @@ describe('AddToState - Zielone produkty (Enhanced Tests)', () => {
       expect(screen.getByText('🔄 Synchronizuj z magazynem')).toBeInTheDocument();
     });
 
-    const userSelect = screen.getByLabelText('Select User:');
+    const userSelect = screen.getByLabelText('Wybierz użytkownika:');
     fireEvent.change(userSelect, { target: { value: 'user1' } });
 
     const syncButton = screen.getByText('🔄 Synchronizuj z magazynem');
@@ -315,7 +315,7 @@ describe('AddToState - Zielone produkty (Enhanced Tests)', () => {
       expect(screen.getByText('🔄 Synchronizuj z magazynem')).toBeInTheDocument();
     });
 
-    const userSelect = screen.getByLabelText('Select User:');
+    const userSelect = screen.getByLabelText('Wybierz użytkownika:');
     fireEvent.change(userSelect, { target: { value: 'user1' } });
 
     const syncButton = screen.getByText('🔄 Synchronizuj z magazynem');
@@ -378,7 +378,7 @@ describe('AddToState - Testy integracyjne green products', () => {
     });
 
     // 2. Wybierz użytkownika
-    const userSelect = screen.getByLabelText('Select User:');
+    const userSelect = screen.getByLabelText('Wybierz użytkownika:');
     fireEvent.change(userSelect, { target: { value: 'u1' } });
 
     // 3. Wykonaj synchronizację
@@ -430,7 +430,7 @@ describe('AddToState - Testy integracyjne green products', () => {
       expect(screen.getByText('🔄 Synchronizuj z magazynem')).toBeInTheDocument();
     });
 
-    const userSelect = screen.getByLabelText('Select User:');
+    const userSelect = screen.getByLabelText('Wybierz użytkownika:');
     fireEvent.change(userSelect, { target: { value: 'user1' } });
 
     const syncButton = screen.getByText('🔄 Synchronizuj z magazynem');
@@ -515,3 +515,8 @@ describe('AddToState - Edge Cases green products', () => {
     });
   });
 });
+
+
+
+
+

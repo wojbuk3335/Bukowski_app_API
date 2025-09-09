@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from './AddToState';
@@ -220,11 +220,11 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
 
     // Wybierz użytkownika aby zobaczyć sprzedaże
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       expect(userSelect).toBeInTheDocument();
     });
 
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -244,7 +244,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -261,7 +261,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -278,7 +278,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -295,7 +295,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -312,7 +312,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -332,7 +332,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -352,7 +352,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -370,7 +370,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -388,7 +388,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -413,7 +413,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -431,7 +431,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -448,7 +448,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -460,3 +460,8 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
   });
 
 });
+
+
+
+
+

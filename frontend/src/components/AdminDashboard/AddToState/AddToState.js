@@ -1557,7 +1557,6 @@ const AddToState = ({ onAdd }) => {
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Nazwa</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Rozmiar</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Kod kreskowy</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Cena</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Akcja</th>
               </tr>
             </thead>
@@ -1578,9 +1577,6 @@ const AddToState = ({ onAdd }) => {
                   </td>
                   <td style={{ border: '1px solid #28a745', padding: '6px' }}>
                     {item.barcode || 'Brak kodu'}
-                  </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
-                    {item.price ? `${item.price} PLN` : 'Brak ceny'}
                   </td>
                   <td style={{ border: '1px solid #28a745', padding: '6px', textAlign: 'center' }}>
                     <button
@@ -1694,24 +1690,25 @@ const AddToState = ({ onAdd }) => {
         </form>
 
         {/* Przyciski Synchronizacji */}
-        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={handleSynchronize}
             style={{
               backgroundColor: '#6c757d',
               color: 'white',
               border: 'none',
-              padding: '10px 20px',
+              padding: '12px 20px',
               borderRadius: '5px',
               cursor: 'pointer',
               fontSize: '14px',
               fontWeight: 'bold',
               transition: 'background-color 0.3s ease',
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              marginRight: '10px'
+              minHeight: '44px',
+              textAlign: 'center'
             }}
             onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
@@ -1729,16 +1726,18 @@ const AddToState = ({ onAdd }) => {
               backgroundColor: '#dc3545',
               color: 'white',
               border: 'none',
-              padding: '10px 20px',
+              padding: '12px 20px',
               borderRadius: '5px',
               cursor: 'pointer',
               fontSize: '14px',
               fontWeight: 'bold',
               transition: 'background-color 0.3s ease',
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px'
+              gap: '8px',
+              minHeight: '44px',
+              textAlign: 'center'
             }}
             onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
@@ -1755,12 +1754,16 @@ const AddToState = ({ onAdd }) => {
               backgroundColor: isProcessing ? '#6c757d' : '#28a745',
               color: 'white',
               border: 'none',
-              padding: '10px 20px',
+              padding: '15px 25px',
               borderRadius: '5px',
               cursor: isProcessing ? 'not-allowed' : 'pointer',
               fontSize: '16px',
               fontWeight: 'bold',
-              marginRight: '10px'
+              marginRight: '10px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '50px'
             }}
             disabled={!Array.isArray(filteredItems) || filteredItems.length === 0 || isProcessing}
           >
@@ -1774,12 +1777,21 @@ const AddToState = ({ onAdd }) => {
                 backgroundColor: '#dc3545',
                 color: 'white',
                 border: 'none',
-                padding: '10px 20px',
+                padding: '15px 25px',
                 borderRadius: '5px',
                 cursor: 'pointer',
                 fontSize: '16px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                transition: 'background-color 0.3s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                minHeight: '50px',
+                textAlign: 'center'
               }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
               title={`Cofnij transakcję z ${new Date(lastTransaction.timestamp).toLocaleString()}`}
             >
               ⟲ Anuluj ostatnią transakcję ({lastTransaction.itemCount} produktów)

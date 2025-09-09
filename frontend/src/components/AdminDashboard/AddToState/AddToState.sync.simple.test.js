@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen } from '@testing-library/react';
 import AddToState from './AddToState';
 
@@ -16,3 +16,8 @@ describe('AddToState - Sync Simple Test', () => {
     expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
   });
 });
+
+
+
+
+

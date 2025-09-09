@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from '../AddToState';
@@ -85,8 +85,8 @@ describe('Yellow Transfer Products Basic Test', () => {
     });
 
     // Check for main controls
-    expect(screen.getByLabelText(/select date/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/select user/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/wybierz datę/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/wybierz użytkownika/i)).toBeInTheDocument();
   });
 
   test('should display transfer data when available', async () => {
@@ -101,3 +101,9 @@ describe('Yellow Transfer Products Basic Test', () => {
     expect(screen.getByText('Brak transferów')).toBeInTheDocument();
   });
 });
+
+
+
+
+
+

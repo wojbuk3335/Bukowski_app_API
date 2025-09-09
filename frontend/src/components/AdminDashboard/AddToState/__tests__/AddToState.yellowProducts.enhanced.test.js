@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from '../AddToState';
@@ -125,14 +125,14 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Sprawdź czy użytkownicy zostali załadowani (może potrzeba więcej czasu)
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       // Sprawdź czy opcje użytkowników są dostępne
       const options = userSelect.querySelectorAll('option');
       expect(options.length).toBeGreaterThan(1);
     }, { timeout: 3000 });
 
     // Wybierz użytkownika TestUser
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -159,13 +159,13 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     });
 
     // Ustaw filtr daty na dzisiaj
-    const dateInput = screen.getByLabelText(/select date/i);
+    const dateInput = screen.getByLabelText(/wybierz datę/i);
     await act(async () => {
       fireEvent.change(dateInput, { target: { value: '2025-08-31' } });
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -238,12 +238,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -318,12 +318,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -356,7 +356,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -436,12 +436,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -505,7 +505,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -568,12 +568,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Wybierz użytkownika (to powinno wyzwolić fetchowanie transferów)
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -597,18 +597,18 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Ustaw filtr daty na dzisiaj
-    const dateInput = screen.getByLabelText(/select date/i);
+    const dateInput = screen.getByLabelText(/wybierz datę/i);
     await act(async () => {
       fireEvent.change(dateInput, { target: { value: '2025-08-31' } });
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -692,12 +692,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // 1. Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -749,3 +749,9 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     });
   });
 });
+
+
+
+
+
+

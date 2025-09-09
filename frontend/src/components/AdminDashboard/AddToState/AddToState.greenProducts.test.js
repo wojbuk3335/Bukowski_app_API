@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AddToState from './AddToState';
 
@@ -175,12 +175,12 @@ describe('AddToState - Zielone produkty (operacja podwójna)', () => {
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText('Select User:');
+      const userSelect = screen.getByLabelText('Wybierz użytkownika:');
       expect(userSelect).toBeInTheDocument();
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText('Select User:');
+    const userSelect = screen.getByLabelText('Wybierz użytkownika:');
     
     // Sprawdź czy opcje użytkowników są dostępne
     await waitFor(() => {
@@ -193,3 +193,8 @@ describe('AddToState - Zielone produkty (operacja podwójna)', () => {
     expect(userSelect.value).toBe('user1');
   });
 });
+
+
+
+
+

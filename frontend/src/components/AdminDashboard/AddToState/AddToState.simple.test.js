@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from './AddToState';
@@ -135,7 +135,7 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     });
 
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       const options = userSelect.querySelectorAll('option');
       
       // Sprawdź czy są użytkownicy (+ placeholder)
@@ -246,11 +246,16 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     await waitFor(() => {
       // Sprawdź czy dane produktów są poprawnie wyświetlane
       expect(screen.getByText('TEST123')).toBeInTheDocument(); // barcode
-      expect(screen.getByText('100 PLN')).toBeInTheDocument(); // cena
-      expect(screen.getByText('150 PLN')).toBeInTheDocument(); // cena drugiego produktu
+      // Kolumna cena została usunięta z tabeli magazynu
+      // Kolumna cena została usunięta z tabeli magazynu
       expect(screen.getByText('M')).toBeInTheDocument(); // rozmiar
       expect(screen.getByText('L')).toBeInTheDocument(); // rozmiar drugiego produktu
     });
   });
 
 });
+
+
+
+
+

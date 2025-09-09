@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from '../AddToState';
@@ -106,8 +106,8 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
     });
 
     // Używamy właściwych etykiet angielskich z komponentu
-    expect(screen.getByLabelText(/select date/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/select user/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/wybierz datę/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/wybierz użytkownika/i)).toBeInTheDocument();
   });
 
   test('3. Powinien załadować użytkowników do selecta', async () => {
@@ -116,11 +116,11 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
     });
 
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       expect(userSelect).toBeInTheDocument();
       
       // Sprawdź czy opcje użytkowników są dostępne
-      const defaultOption = screen.getByText('-- Select User --');
+      const defaultOption = screen.getByText('-- Wybierz użytkownika --');
       expect(defaultOption).toBeInTheDocument();
     });
   });
@@ -155,7 +155,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
       render(<AddToState />);
     });
 
-    const dateInput = screen.getByLabelText(/select date/i);
+    const dateInput = screen.getByLabelText(/wybierz datę/i);
     
     await act(async () => {
       fireEvent.change(dateInput, { target: { value: '2025-08-31' } });
@@ -171,7 +171,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
       expect(userSelect).toBeInTheDocument();
       
       // Sprawdź czy opcje użytkowników zostały dodane
@@ -179,7 +179,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
       expect(options.length).toBeGreaterThan(1); // Powinno być więcej niż tylko domyślna opcja
     }, { timeout: 2000 });
 
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'TestUser' } });
@@ -253,3 +253,9 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
     });
   });
 });
+
+
+
+
+
+

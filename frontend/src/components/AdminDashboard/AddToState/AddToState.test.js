@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from './AddToState';
@@ -170,7 +170,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -203,7 +203,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -235,7 +235,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
 
     // Wybierz użytkownika i przenieś produkt
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -257,7 +257,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
 
     // Wybierz użytkownika i przenieś produkt
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -292,7 +292,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
 
     // Wybierz użytkownika i przenieś produkt
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -313,7 +313,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
     });
 
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       const options = userSelect.querySelectorAll('option');
       
       // Sprawdź czy są tylko właściwi użytkownicy (+ opcja "Select User")
@@ -333,7 +333,7 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
 
     // Wybierz użytkownika i przenieś produkt
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -354,3 +354,8 @@ describe('AddToState - Pomarańczowe kurtki (transfery z magazynu)', () => {
   });
 
 });
+
+
+
+
+

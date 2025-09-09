@@ -1,4 +1,4 @@
-describe('AddToState - Prosty test kolejności wyświetlania', () => {
+﻿describe('AddToState - Prosty test kolejności wyświetlania', () => {
   test('Powinna łączyć elementy w prawidłowej kolejności: 🔵 Sales → 🔵 Blue → 🟡 Yellow → 🟠 Orange', () => {
     // Przykładowe dane testowe
     const salesItems = [
@@ -96,3 +96,8 @@ describe('AddToState - Prosty test kolejności wyświetlania', () => {
     expect(combinedItemsData[1].fromWarehouse).toBe(true);
   });
 });
+
+
+
+
+

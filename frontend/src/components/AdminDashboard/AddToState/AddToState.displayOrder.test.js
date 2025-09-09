@@ -1,4 +1,4 @@
-// ===== PROSTY TEST JEDNOSTKOWY DLA KOLEJNOŚCI ELEMENTÓW =====
+﻿// ===== PROSTY TEST JEDNOSTKOWY DLA KOLEJNOŚCI ELEMENTÓW =====
 
 describe('Display Order Logic Tests', () => {
   test('Powinna łączyć elementy w prawidłowej kolejności: Sales → Blue Transfers → Yellow Transfers → Orange Transfers', () => {
@@ -84,3 +84,8 @@ describe('Display Order Logic Tests', () => {
     expect(combinedItemsData).toEqual([]);
   });
 });
+
+
+
+
+

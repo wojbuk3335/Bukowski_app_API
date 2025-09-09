@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from './AddToState';
@@ -175,7 +175,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika docelowego
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -214,7 +214,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -246,7 +246,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika i przenieś produkt
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -283,7 +283,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user2' } });
     });
 
@@ -313,8 +313,8 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika i datę
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
-      const dateInput = screen.getByLabelText('Select Date:');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
+      const dateInput = screen.getByLabelText('Wybierz datę:');
       
       fireEvent.change(userSelect, { target: { value: 'user1' } });
       fireEvent.change(dateInput, { target: { value: '2025-09-04' } });
@@ -390,7 +390,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -418,8 +418,8 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika i datę
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
-      const dateInput = screen.getByLabelText('Select Date:');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
+      const dateInput = screen.getByLabelText('Wybierz datę:');
       
       fireEvent.change(userSelect, { target: { value: 'user1' } });
       fireEvent.change(dateInput, { target: { value: '2025-09-04' } });
@@ -466,7 +466,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika i przenieś produkt
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -497,8 +497,8 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika i datę
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
-      const dateInput = screen.getByLabelText('Select Date:');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
+      const dateInput = screen.getByLabelText('Wybierz datę:');
       
       fireEvent.change(userSelect, { target: { value: 'user1' } });
       fireEvent.change(dateInput, { target: { value: '2025-09-04' } });
@@ -527,3 +527,8 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
   });
 
 });
+
+
+
+
+
