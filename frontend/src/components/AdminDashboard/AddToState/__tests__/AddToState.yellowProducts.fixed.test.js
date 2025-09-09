@@ -133,11 +133,14 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
     // Sprawdź czy tabela transferów istnieje
     expect(screen.getByText('Transfery')).toBeInTheDocument();
     
-    // Sprawdź nagłówki tabeli
-    expect(screen.getByText('Full Name')).toBeInTheDocument();
-    expect(screen.getByText('Size')).toBeInTheDocument();
-    expect(screen.getByText('From')).toBeInTheDocument();
-    expect(screen.getByText('To')).toBeInTheDocument();
+    // Sprawdź nagłówki tabeli (polskie wersje) - używamy getAllByText żeby obsłużyć duplikaty
+    expect(screen.getByText('Nazwa')).toBeInTheDocument();
+    const rozmiarHeaders = screen.getAllByText('Rozmiar');
+    expect(rozmiarHeaders).toHaveLength(2); // Jeden w magazynie, jeden w transferach
+    
+    // Te nagłówki są tylko w tabeli transferów
+    expect(screen.getByText('Z')).toBeInTheDocument();
+    expect(screen.getByText('Do')).toBeInTheDocument();
   });
 
   test('5. Powinien wyświetlać przycisk synchronizacji', async () => {
@@ -253,6 +256,8 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
     });
   });
 });
+
+
 
 
 

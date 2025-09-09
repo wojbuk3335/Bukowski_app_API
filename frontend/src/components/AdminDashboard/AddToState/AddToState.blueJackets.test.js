@@ -272,23 +272,6 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
   });
 
-  test('wyświetla kwoty zaliczek', async () => {
-    await act(async () => {
-      render(<AddToState />);
-    });
-
-    // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
-    await act(async () => {
-      fireEvent.change(userSelect, { target: { value: 'user1' } });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('50 PLN')).toBeInTheDocument();
-      expect(screen.getByText('75 PLN')).toBeInTheDocument();
-    });
-  });
-
   test('wyświetla kody kreskowe sprzedaży', async () => {
     await act(async () => {
       render(<AddToState />);
@@ -439,23 +422,6 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     await waitFor(() => {
       expect(screen.getByText('TRANSFER')).toBeInTheDocument();
       expect(screen.getByText('EXCHANGE')).toBeInTheDocument();
-    });
-  });
-
-  test('wyświetla zaliczki transferów niebieskich z walutą', async () => {
-    await act(async () => {
-      render(<AddToState />);
-    });
-
-    // Wybierz użytkownika
-    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
-    await act(async () => {
-      fireEvent.change(userSelect, { target: { value: 'user1' } });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('100 PLN')).toBeInTheDocument(); // transfer1
-      expect(screen.getByText('80 PLN')).toBeInTheDocument();  // transfer2
     });
   });
 

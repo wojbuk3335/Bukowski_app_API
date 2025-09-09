@@ -118,6 +118,41 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  // Helper function to find barcode by productId
+  const getBarcodeByProductId = (productId) => {
+    if (!productId) return productId; // Return productId as fallback if no productId
+    
+    // First try to find in allStates (contains all products)
+    if (allStates?.length > 0) {
+      // Try different matching approaches
+      const stateItem1 = allStates.find(state => state._id === productId);
+      const stateItem2 = allStates.find(state => String(state._id) === String(productId));
+      const stateItem3 = allStates.find(state => state.id === productId);
+      
+      const stateItem = stateItem1 || stateItem2 || stateItem3;
+      
+      if (stateItem && stateItem.barcode) {
+        return stateItem.barcode;
+      }
+    }
+    
+    // Fallback: try warehouseItems
+    if (warehouseItems?.length > 0) {
+      const warehouseItem1 = warehouseItems.find(item => item._id === productId);
+      const warehouseItem2 = warehouseItems.find(item => String(item._id) === String(productId));
+      const warehouseItem3 = warehouseItems.find(item => item.id === productId);
+      
+      const warehouseItem = warehouseItem1 || warehouseItem2 || warehouseItem3;
+      
+      if (warehouseItem && warehouseItem.barcode) {
+        return warehouseItem.barcode;
+      }
+    }
+    
+    // If nothing found, return productId
+    return productId;
+  };
+
   // Fetch warehouse items from API
   const fetchWarehouseItems = async () => {
     try {
@@ -1557,6 +1592,7 @@ const AddToState = ({ onAdd }) => {
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Nazwa</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Rozmiar</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Kod kreskowy</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Cena</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Akcja</th>
               </tr>
             </thead>
@@ -1577,6 +1613,9 @@ const AddToState = ({ onAdd }) => {
                   </td>
                   <td style={{ border: '1px solid #28a745', padding: '6px' }}>
                     {item.barcode || 'Brak kodu'}
+                  </td>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.price ? `${item.price} PLN` : 'Brak ceny'}
                   </td>
                   <td style={{ border: '1px solid #28a745', padding: '6px', textAlign: 'center' }}>
                     <button
@@ -1777,17 +1816,17 @@ const AddToState = ({ onAdd }) => {
                 backgroundColor: '#dc3545',
                 color: 'white',
                 border: 'none',
-                padding: '15px 25px',
+                padding: '12px 20px',
                 borderRadius: '5px',
                 cursor: 'pointer',
                 fontSize: '16px',
                 fontWeight: 'bold',
                 transition: 'background-color 0.3s ease',
-                display: 'inline-flex',
+                display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                minHeight: '50px',
+                minHeight: '44px',
                 textAlign: 'center'
               }}
               onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
@@ -1803,16 +1842,15 @@ const AddToState = ({ onAdd }) => {
           <h3 style={{ color: '#ffffff' }}>Transfery</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
             <thead>
-              <tr style={{ backgroundColor: '#f2f2f2' }}>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Full Name</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Size</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Date</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>From</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>To</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Product ID</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Reason</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Advance Payment</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Action</th>
+              <tr style={{ backgroundColor: '#28a745' }}>
+                <th style={{ border: '1px solid #ddd', padding: '8px', color: '#ffffff' }}>Nazwa produktu</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px', color: '#ffffff' }}>Rozmiar</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px', color: '#ffffff' }}>Data</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px', color: '#ffffff' }}>Z</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px', color: '#ffffff' }}>Do</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px', color: '#ffffff' }}>Kod kreskowy</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px', color: '#ffffff' }}>Rodzaj</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px', color: '#ffffff' }}>Akcja</th>
               </tr>
             </thead>
             <tbody>
@@ -1851,15 +1889,10 @@ const AddToState = ({ onAdd }) => {
                     {transfer.isFromSale ? `SPRZEDANO w ${transfer.transfer_to}` : transfer.transfer_to}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? transfer.barcode || 'N/A' : transfer.productId || 'N/A'}
+                    {transfer.isFromSale ? transfer.barcode || 'N/A' : getBarcodeByProductId(transfer.productId) || 'N/A'}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? 'SPRZEDAŻ' : (transfer.reason || 'N/A')}
-                  </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? 
-                      `${transfer.cash?.[0]?.price || 0} PLN` : 
-                      `${transfer.advancePayment || ''} ${transfer.advancePaymentCurrency || ''}`.trim() || 'N/A'}
+                    {transfer.isFromSale ? 'SPRZEDAŻ' : (transfer.reason || 'Transfer')}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.isFromSale ? (
@@ -1888,41 +1921,35 @@ const AddToState = ({ onAdd }) => {
                       const isBlue = backgroundColor === '#007bff';
                       const isGreen = backgroundColor === '#28a745';
                       
-                      if (isBlue || isGreen) {
+                      if (isGreen) {
+                        // Tylko zielone produkty mają przycisk
                         return (
                           <button 
                             onClick={() => {
-                              if (isGreen) {
-                                // Zielone produkty: najpierw usuń ze stanu, potem dodaj do magazynu
-
-                                handleRemoveFromState(transfer);
-                                // Znajdź pasujący produkt z magazynu i dodaj go
-                                const matchingWarehouseItem = warehouseItems.find(item => {
-                                  const transferBarcode = transfer.isFromSale ? transfer.barcode : transfer.productId;
-                                  const transferName = transfer.isFromSale ? transfer.fullName : (transfer.fullName?.fullName || transfer.fullName);
-                                  const transferSize = transfer.isFromSale ? transfer.size : (transfer.size?.Roz_Opis || transfer.size);
-                                  
-                                  const itemBarcode = item.barcode;
-                                  const itemName = item.fullName?.fullName || item.fullName;
-                                  const itemSize = item.size?.Roz_Opis || item.size;
-                                  
-                                  const barcodeMatch = transferBarcode === itemBarcode;
-                                  const nameMatch = transferName === itemName;
-                                  const sizeMatch = transferSize === itemSize;
-                                  
-                                  return barcodeMatch && nameMatch && sizeMatch;
-                                });
-                                if (matchingWarehouseItem) {
-                                  setTimeout(() => handleMoveFromWarehouse(matchingWarehouseItem), 100);
-                                }
-                              } else {
-                                // Niebieskie produkty: tylko usuń ze stanu
-
-                                handleRemoveFromState(transfer);
+                              // Zielone produkty: najpierw usuń ze stanu, potem dodaj do magazynu
+                              handleRemoveFromState(transfer);
+                              // Znajdź pasujący produkt z magazynu i dodaj go
+                              const matchingWarehouseItem = warehouseItems.find(item => {
+                                const transferBarcode = transfer.isFromSale ? transfer.barcode : transfer.productId;
+                                const transferName = transfer.isFromSale ? transfer.fullName : (transfer.fullName?.fullName || transfer.fullName);
+                                const transferSize = transfer.isFromSale ? transfer.size : (transfer.size?.Roz_Opis || transfer.size);
+                                
+                                const itemBarcode = item.barcode;
+                                const itemName = item.fullName?.fullName || item.fullName;
+                                const itemSize = item.size?.Roz_Opis || item.size;
+                                
+                                const barcodeMatch = transferBarcode === itemBarcode;
+                                const nameMatch = transferName === itemName;
+                                const sizeMatch = transferSize === itemSize;
+                                
+                                return barcodeMatch && nameMatch && sizeMatch;
+                              });
+                              if (matchingWarehouseItem) {
+                                setTimeout(() => handleMoveFromWarehouse(matchingWarehouseItem), 100);
                               }
                             }}
                             style={{
-                              backgroundColor: isGreen ? '#28a745' : '#007bff',
+                              backgroundColor: '#28a745',
                               color: 'white',
                               border: 'none',
                               padding: '5px 8px',
@@ -1930,13 +1957,13 @@ const AddToState = ({ onAdd }) => {
                               cursor: 'pointer',
                               fontSize: '12px'
                             }}
-                            title={isGreen ? "Sparowany: usuń ze stanu i dodaj z magazynu" : "Usuń ze stanu"}
+                            title="Sparowany: usuń ze stanu i dodaj z magazynu"
                           >
-                            {isGreen ? '🔄 Sparowany' : '❌ Usuń'}
+                            🔄 Sparowany
                           </button>
                         );
                       } else {
-                        // Brak akcji dla innych transferów
+                        // Niebieskie i inne produkty: pusta komórka
                         return (
                           <span style={{ color: '#ccc', fontSize: '12px' }}>
                             -

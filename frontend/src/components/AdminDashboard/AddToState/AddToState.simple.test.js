@@ -180,12 +180,23 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     await waitFor(() => {
       expect(screen.getByText('Transfery')).toBeInTheDocument();
       
-      // Sprawdź nagłówki tabeli
-      expect(screen.getByText('Full Name')).toBeInTheDocument();
-      expect(screen.getByText('Size')).toBeInTheDocument();
-      expect(screen.getByText('From')).toBeInTheDocument();
-      expect(screen.getByText('To')).toBeInTheDocument();
-      expect(screen.getByText('Product ID')).toBeInTheDocument();
+      // Sprawdź nagłówki tabeli (polskie wersje) - używamy getAllByText żeby obsłużyć duplikaty
+      const nazwaHeaders = screen.getAllByText(/Nazwa/);
+      expect(nazwaHeaders.length).toBeGreaterThanOrEqual(1); // Może być "Nazwa" w magazynie i "Nazwa produktu" w transferach
+      
+      const rozmiarHeaders = screen.getAllByText('Rozmiar');
+      expect(rozmiarHeaders).toHaveLength(2); // Jeden w magazynie, jeden w transferach
+      
+      const kodHeaders = screen.getAllByText('Kod kreskowy');
+      expect(kodHeaders).toHaveLength(2); // Jeden w magazynie, jeden w transferach
+      
+      expect(screen.getByText('Z')).toBeInTheDocument();
+      expect(screen.getByText('Do')).toBeInTheDocument();
+      expect(screen.getByText('Data')).toBeInTheDocument();
+      expect(screen.getByText('Rodzaj')).toBeInTheDocument();
+      
+      const akcjaHeaders = screen.getAllByText('Akcja');
+      expect(akcjaHeaders).toHaveLength(2); // Jeden w magazynie, jeden w transferach
     });
   });
 
