@@ -43,6 +43,8 @@ const History = () => {
     const [favorites, setFavorites] = useState(new Set());
     const [showBulkActions, setShowBulkActions] = useState(false);
     const [viewMode, setViewMode] = useState('table'); // table, cards, timeline
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [selectedDetails, setSelectedDetails] = useState(null);
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -181,6 +183,68 @@ const History = () => {
     const hideHover = () => {
         setIsHoverVisible(false);
         setHoverContent(null);
+    };
+
+    // Funkcja do otwierania modala szczegółów
+    const openDetailsModal = (item) => {
+        try {
+            // Spróbuj sparsować szczegóły jako JSON
+            let parsedDetails;
+            if (typeof item.details === 'string') {
+                try {
+                    parsedDetails = JSON.parse(item.details);
+                } catch (e) {
+                    // Jeśli nie da się sparsować jako JSON, traktuj jako zwykły string
+                    parsedDetails = { 'Szczegóły': item.details };
+                }
+            } else {
+                parsedDetails = item.details || {};
+            }
+            
+            // Wyciągnij tylko potrzebne dane z parsedDetails
+            let barcode = '-';
+            let rozmiar = '-';
+            
+            if (parsedDetails && typeof parsedDetails === 'object') {
+                // Szukaj kodu kreskowego
+                barcode = parsedDetails.barcode || parsedDetails.code || parsedDetails.barcodeText || '-';
+                // Szukaj rozmiaru - tylko jeśli nie jest to ID (długi ciąg znaków)
+                const sizeValue = parsedDetails.size || parsedDetails.sizeText || parsedDetails.rozmiar || '';
+                // Sprawdź czy to nie jest ID (ID ma zwykle 24 znaki)
+                if (sizeValue && sizeValue.length < 15 && !sizeValue.match(/^[a-f0-9]{24}$/i)) {
+                    rozmiar = sizeValue;
+                }
+            }
+
+            const detailsToShow = {
+                'ID': item._id || '-',
+                'Kolekcja': item.collectionName || '-',
+                'Rodzaj': item.operation || '-',
+                'Skąd': item.from || '-',
+                'Dokąd': item.to || '-',
+                'Użytkownik': item.userloggedinId?.username || item.userloggedinId || localStorage.getItem('AdminEmail') || '-',
+                'Produkt': item.product || '-',
+                'Czas': new Date(item.timestamp).toLocaleString('pl-PL', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }) || '-',
+                'Kod kreskowy': barcode
+            };
+
+            // Dodaj rozmiar tylko jeśli jest prawidłowy
+            if (rozmiar && rozmiar !== '-') {
+                detailsToShow['Rozmiar'] = rozmiar;
+            }
+
+            setSelectedDetails(detailsToShow);
+            setShowDetailsModal(true);
+        } catch (error) {
+            console.error('Błąd podczas otwierania szczegółów:', error);
+        }
     };
 
     // Funkcja sortowania
@@ -875,13 +939,6 @@ const History = () => {
                                     >
                                         Szczegóły {sortConfig.key === 'details' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                                     </button>
-                                    <input
-                                        type="text"
-                                        className="form-control form-control-sm mt-1"
-                                        placeholder="Filtruj"
-                                        value={filters.details}
-                                        onChange={(e) => handleTextFilterChange('details', e.target.value)}
-                                    />
                                 </th>
                                 <th className={tableStyles.tableHeader} style={{ maxWidth: '300px', width: '300px', textAlign: 'center' }}>
                                     <div className="d-flex flex-column align-items-center">
@@ -995,12 +1052,28 @@ const History = () => {
                                         </td>
                                         <td
                                             className={tableStyles.tableCell}
-                                            style={{ maxWidth: '200px', width: '200px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                            style={{ maxWidth: '200px', width: '200px', textAlign: 'center', position: 'relative' }}
                                             data-label="Szczegóły"
-                                            onMouseEnter={(e) => showHover(item.details || '-', e)}
-                                            onMouseLeave={hideHover}
                                         >
-                                            {item.details || '-'}
+                                            {item.details && item.details.trim() !== '' ? (
+                                                <button 
+                                                    onClick={() => openDetailsModal(item)}
+                                                    style={{
+                                                        backgroundColor: '#007bff',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        padding: '6px 12px',
+                                                        cursor: 'pointer',
+                                                        fontSize: '12px',
+                                                        fontWeight: 'bold'
+                                                    }}
+                                                >
+                                                    Pokaż szczegóły
+                                                </button>
+                                            ) : (
+                                                <span style={{ color: '#888' }}>-</span>
+                                            )}
                                         </td>
                                         <td
                                             className={tableStyles.tableCell}
@@ -1461,6 +1534,90 @@ const History = () => {
                                 }}
                             >
                                 💾 Zapisz
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal szczegółów */}
+            {showDetailsModal && selectedDetails && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 10000
+                }}>
+                    <div style={{
+                        backgroundColor: 'black',
+                        border: '2px solid #0d6efd',
+                        borderRadius: '8px',
+                        minWidth: '500px',
+                        maxWidth: '700px',
+                        maxHeight: '80vh',
+                        overflow: 'auto',
+                        color: 'white'
+                    }}>
+                        <div style={{
+                            backgroundColor: '#0d6efd',
+                            color: 'white',
+                            padding: '16px 24px',
+                            fontWeight: 'bold',
+                            fontSize: '18px',
+                            textAlign: 'center'
+                        }}>
+                            📋 Szczegóły operacji
+                        </div>
+                        <div style={{ padding: '24px' }}>
+                            {Object.entries(selectedDetails).map(([key, value]) => (
+                                <div key={key} style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    padding: '8px 0',
+                                    borderBottom: '1px solid #333'
+                                }}>
+                                    <strong style={{ 
+                                        color: '#0d6efd', 
+                                        minWidth: '120px',
+                                        marginRight: '16px'
+                                    }}>
+                                        {key}:
+                                    </strong>
+                                    <span style={{ 
+                                        wordBreak: 'break-word',
+                                        textAlign: 'right',
+                                        flex: 1
+                                    }}>
+                                        {typeof value === 'object' ? JSON.stringify(value, null, 2) : (value || '-')}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'center',
+                            padding: '16px 24px',
+                            borderTop: '1px solid #555'
+                        }}>
+                            <button
+                                onClick={() => setShowDetailsModal(false)}
+                                className="btn btn-sm"
+                                style={{
+                                    backgroundColor: '#6c757d',
+                                    border: 'none',
+                                    color: 'white',
+                                    padding: '8px 20px',
+                                    borderRadius: '4px'
+                                }}
+                            >
+                                Zamknij
                             </button>
                         </div>
                     </div>
