@@ -496,40 +496,45 @@ class StatesController {
             targetSymbol = await getSymbolBySellingPoint(targetSymbol);
             console.log(`[DEBUG Controller] Final targetSymbol after mapping: ${targetSymbol}`);
 
-            // Create history entries for each deleted state
-            const historyPromises = statesToActuallyDelete.map(async (state) => {
-                const product = `${state.fullName?.fullName || 'Nieznany produkt'} ${state.size?.Roz_Opis || 'Nieznany rozmiar'}`;
-                const from = state.sellingPoint?.symbol || 'MAGAZYN';
-                
-                let operation, details;
-                if (operationType === 'correction-undo-single' || operationType === 'correction-undo-transaction') {
-                    // This is a correction/undo operation - product is being moved back to warehouse
-                    operation = 'Przesunięto do magazynu (korekta)';
-                    details = `Przesunięto produkt ${product} z ${from} do ${targetSymbol} (korekta transakcji)`;
-                } else if (operationType === 'delete') {
-                    operation = 'Sprzedano ze stanu';
-                    details = `Sprzedano produkt ze stanu ${product}`;
-                } else {
-                    operation = 'Przesunięto ze stanu';
-                    details = `Przesunięto produkt ze stanu ${product}`;
-                }
+            // 🔧 NOWE: Nie twórz historii dla 'write-off' - zostanie zaktualizowana przez korekty
+            if (operationType !== 'write-off') {
+                // Create history entries for each deleted state
+                const historyPromises = statesToActuallyDelete.map(async (state) => {
+                    const product = `${state.fullName?.fullName || 'Nieznany produkt'} ${state.size?.Roz_Opis || 'Nieznany rozmiar'}`;
+                    const from = state.sellingPoint?.symbol || 'MAGAZYN';
+                    
+                    let operation, details;
+                    if (operationType === 'correction-undo-single' || operationType === 'correction-undo-transaction') {
+                        // This is a correction/undo operation - product is being moved back to warehouse
+                        operation = 'Przesunięto do magazynu (korekta)';
+                        details = `Przesunięto produkt ${product} z ${from} do ${targetSymbol} (korekta transakcji)`;
+                    } else if (operationType === 'delete') {
+                        operation = 'Sprzedano ze stanu';
+                        details = `Sprzedano produkt ze stanu ${product}`;
+                    } else {
+                        operation = 'Przesunięto ze stanu';
+                        details = `Przesunięto produkt ze stanu ${product}`;
+                    }
 
-                const historyEntry = new History({
-                    collectionName: 'Stan',
-                    operation: operation,
-                    product: product,
-                    details: details,
-                    userloggedinId: userloggedinId,
-                    from: from,
-                    to: targetSymbol
+                    const historyEntry = new History({
+                        collectionName: 'Stan',
+                        operation: operation,
+                        product: product,
+                        details: details,
+                        userloggedinId: userloggedinId,
+                        from: from,
+                        to: targetSymbol
+                    });
+
+                    return historyEntry.save();
                 });
 
-                return historyEntry.save();
-            });
-
-            // Wait for all history entries to be saved
-            await Promise.all(historyPromises);
-            console.log(`Created ${historyPromises.length} history entries`);
+                // Wait for all history entries to be saved
+                await Promise.all(historyPromises);
+                console.log(`Created ${historyPromises.length} history entries`);
+            } else {
+                console.log(`🚫 Skipping history creation for write-off operation - will be handled by corrections update`);
+            }
 
             res.status(200).json({ 
                 message: `Successfully deleted ${deleteResult.deletedCount} states with barcode ${barcode} and symbol ${symbol}`,

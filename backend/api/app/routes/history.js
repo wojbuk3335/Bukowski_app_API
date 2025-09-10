@@ -13,5 +13,7 @@ router.post('/delete-by-details', historyController.deleteByTransactionDetails);
 router.post('/delete-single-item', historyController.deleteSingleItem);
 //delete single record by ID
 router.delete('/:id', historyController.deleteSingleRecord);
+//update correction entry to real transfer
+router.put('/update-correction-to-transfer', historyController.updateCorrectionToTransfer);
 
 module.exports = router;

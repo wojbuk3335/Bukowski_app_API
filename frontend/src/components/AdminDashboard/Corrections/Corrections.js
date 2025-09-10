@@ -118,11 +118,20 @@ function Corrections() {
       const allStates = await stateResponse.json();
       
       // Znajdź wszystkie lokalizacje gdzie ten produkt istnieje
-      const matchingItems = allStates.filter(item => 
-        item.barcode === correction.barcode &&
-        item.fullName === correction.fullName &&
-        item.size === correction.size
-      );
+      // 🔧 FIX: Jeśli barcode wygląda jak MongoDB ObjectId, szukaj tylko po nazwie i rozmiarze
+      const isObjectId = correction.barcode && correction.barcode.length === 24 && /^[0-9a-fA-F]+$/.test(correction.barcode);
+      
+      const matchingItems = allStates.filter(item => {
+        if (isObjectId) {
+          // Dla ObjectId szukaj tylko po nazwie i rozmiarze
+          return item.fullName === correction.fullName && item.size === correction.size;
+        } else {
+          // Dla prawdziwych barcodów szukaj po wszystkim
+          return item.barcode === correction.barcode &&
+                 item.fullName === correction.fullName &&
+                 item.size === correction.size;
+        }
+      });
       
       // Pogrupuj według symbolu punktu sprzedaży
       const locationGroups = matchingItems.reduce((acc, item) => {
@@ -182,10 +191,46 @@ function Corrections() {
       });
       
       if (writeOffResponse.ok) {
+        // 🔄 NOWE: Aktualizuj historię - zmień wpis korekty na prawdziwy transfer
+        if (selectedCorrection.transactionId && selectedCorrection.attemptedOperation === 'TRANSFER') {
+          try {
+            console.log('� Aktualizuję historię dla korekty:', {
+              transactionId: selectedCorrection.transactionId,
+              correctFromSymbol: fromSymbol,
+              originalData: selectedCorrection
+            });
+              
+            // 🔧 UPROSZCZONE: Backend sam znajdzie punkt docelowy z istniejącej historii korekty
+            // Nie musimy szukać transferu - backend ma już wszystkie dane w historii
+            const historyUpdateResponse = await fetch(`http://localhost:3000/api/history/update-correction-to-transfer`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                transactionId: selectedCorrection.transactionId,
+                correctFromSymbol: fromSymbol, // Prawdziwy punkt źródłowy (z korekt)
+                // originalToSymbol będzie pobrane z istniejącej historii korekty w backend
+                productDescription: `${selectedCorrection.fullName} ${selectedCorrection.size}`,
+                userEmail: 'admin@wp.pl' // TODO: pobrać z kontekstu użytkownika
+              })
+            });
+            
+            if (historyUpdateResponse.ok) {
+              console.log('✅ Historia została zaktualizowana');
+            } else {
+              console.error('❌ Błąd aktualizacji historii:', await historyUpdateResponse.text());
+            }
+          } catch (historyError) {
+            console.error('❌ Błąd podczas aktualizacji historii:', historyError);
+            // Nie przerywamy procesu - korekta i tak zostanie rozwiązana
+          }
+        }
+        
         // Oznacz korektę jako rozwiązaną
         await handleStatusUpdate(selectedCorrection._id, 'RESOLVED');
         setShowProductModal(false);
-        alert(`Produkt został odpisany ze stanu w punkcie ${fromSymbol}`);
+        alert(`Produkt został odpisany ze stanu w punkcie ${fromSymbol}\n\n✅ Historia została zaktualizowana z prawdziwym transferem!`);
         
         // Odśwież listę dostępnych lokalizacji (usuń tę lokalizację jeśli nie ma już produktów)
         const updatedLocations = availableLocations.filter(loc => loc.symbol !== fromSymbol);

@@ -74,6 +74,33 @@ class CorrectionsController {
                 const transactionId = req.body[0].transactionId;
                 console.log(`📝 Creating history entries for corrections with transactionId: ${transactionId}`);
                 
+                // 🔧 NOWE: Pobierz oryginalny transfer żeby poznać punkt docelowy
+                let originalToSymbol = 'KOREKTY'; // Fallback
+                try {
+                    const Transfer = require('../db/models/transfer'); // 🔧 NAPRAWIONE: transfer nie transfers
+                    
+                    // 🔧 LEPSZE WYSZUKIWANIE: Szukaj po dokładnych danych i czasie
+                    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+                    
+                    console.log(`🔍 Szukam transferu dla: "${savedCorrections[0].fullName}" "${savedCorrections[0].size}" z punktu "${savedCorrections[0].symbol}"`);
+                    
+                    const originalTransfer = await Transfer.findOne({
+                        fullName: savedCorrections[0].fullName, 
+                        size: savedCorrections[0].size,
+                        transfer_from: savedCorrections[0].symbol, // Musi być z tego samego punktu źródłowego!
+                        createdAt: { $gte: fiveMinutesAgo } // Ostatnie 5 minut
+                    }).sort({ createdAt: -1 }); // Najnowszy transfer
+                    
+                    if (originalTransfer) {
+                        originalToSymbol = originalTransfer.transfer_to;
+                        console.log(`✅ Znaleziony transfer: ${originalTransfer.transfer_from} → ${originalTransfer.transfer_to} (${originalTransfer.createdAt})`);
+                    } else {
+                        console.log(`⚠️ Brak transferu dla ${savedCorrections[0].fullName} ${savedCorrections[0].size} z ${savedCorrections[0].symbol}, używam KOREKTY`);
+                    }
+                } catch (transferError) {
+                    console.error('❌ Error finding original transfer:', transferError);
+                }
+                
                 // Utwórz wpisy historii dla KAŻDEJ korekty (bez deduplikacji)
                 // WAŻNE: Każda kurtka musi mieć swój wpis w historii, nawet jeśli są identyczne
                 const historyEntries = savedCorrections.map((correction, index) => {
@@ -83,7 +110,7 @@ class CorrectionsController {
                         collectionName: 'corrections',
                         operation: 'Przeniesiono do korekt',
                         from: correction.symbol,
-                        to: 'KOREKTY',
+                        to: originalToSymbol, // 🔧 NAPRAWIONE: Używaj prawdziwego punktu docelowego!
                         timestamp: new Date(),
                         product: `${correction.fullName} ${correction.size} (${correction.barcode})`,
                         details: `Brak pokrycia w stanie - ${correction.description}`,

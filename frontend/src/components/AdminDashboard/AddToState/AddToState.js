@@ -1886,7 +1886,7 @@ const AddToState = ({ onAdd }) => {
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_from}</td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? 'SPRZEDANO' : transfer.transfer_to}
+                    {transfer.isFromSale ? `SPRZEDANO w ${transfer.transfer_to}` : transfer.transfer_to}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.isFromSale ? transfer.barcode || 'N/A' : getBarcodeByProductId(transfer.productId) || 'N/A'}

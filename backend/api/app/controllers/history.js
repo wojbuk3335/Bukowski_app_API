@@ -353,6 +353,85 @@ class HistoryController {
             });
         }
     };
+
+    // 🔧 NEW: Aktualizacja wpisu korekty na prawdziwy transfer
+    updateCorrectionToTransfer = async (req, res, next) => {
+        try {
+            const { 
+                transactionId, 
+                correctFromSymbol, // Prawdziwy punkt źródłowy (z korekt)
+                productDescription, // Opis produktu
+                userEmail 
+            } = req.body;
+
+            console.log('🔄 Updating correction to transfer:', {
+                transactionId,
+                correctFromSymbol,
+                productDescription
+            });
+
+            // Znajdź wpis korekty do zaktualizowania
+            const correctionEntry = await History.findOne({
+                transactionId: transactionId,
+                operation: 'Przeniesiono do korekt'
+            });
+
+            if (!correctionEntry) {
+                return res.status(404).json({
+                    message: 'Nie znaleziono wpisu korekty dla tego transactionId',
+                    transactionId: transactionId
+                });
+            }
+
+            console.log('📝 Found correction entry:', {
+                id: correctionEntry._id,
+                operation: correctionEntry.operation,
+                from: correctionEntry.from,
+                to: correctionEntry.to
+            });
+
+            // 🔧 NAPRAWIONE: Użyj punktu docelowego z istniejącej historii korekty
+            const originalToSymbol = correctionEntry.to; // Już prawidłowy punkt docelowy!
+
+            // Zaktualizuj wpis na prawdziwy transfer
+            const updatedEntry = await History.findByIdAndUpdate(
+                correctionEntry._id,
+                {
+                    operation: 'Odpisano ze stanu (transfer)', // 🔧 NOWE: Lepszy opis operacji
+                    from: correctFromSymbol,    // Prawdziwy punkt źródłowy (z korekt)
+                    to: originalToSymbol,       // Punkt docelowy (z oryginalnego wpisu korekty)
+                    collectionName: 'Stan',     // 🔧 NOWE: Zmień na 'Stan' jak w przykładzie
+                    details: `Transfer: ${correctFromSymbol} → ${originalToSymbol} (Rozwiązano korektę)` // Dodaj szczegóły
+                },
+                { new: true }
+            );
+
+            console.log('✅ Updated history entry:', {
+                id: updatedEntry._id,
+                operation: updatedEntry.operation,
+                from: updatedEntry.from,
+                to: updatedEntry.to,
+                collectionName: updatedEntry.collectionName
+            });
+
+            res.status(200).json({
+                message: 'Historia została zaktualizowana z korekty na prawdziwy transfer',
+                updatedEntry: {
+                    operation: updatedEntry.operation,
+                    from: updatedEntry.from,
+                    to: updatedEntry.to,
+                    transactionId: updatedEntry.transactionId
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ Error updating correction to transfer:', error);
+            res.status(500).json({
+                message: 'Błąd podczas aktualizacji historii',
+                error: error.message
+            });
+        }
+    };
 }
 
 module.exports = new HistoryController();
