@@ -401,6 +401,7 @@ class HistoryController {
                     from: correctFromSymbol,    // Prawdziwy punkt źródłowy (z korekt)
                     to: originalToSymbol,       // Punkt docelowy (z oryginalnego wpisu korekty)
                     collectionName: 'Stan',     // 🔧 NOWE: Zmień na 'Stan' jak w przykładzie
+                    product: productDescription, // 🔧 NOWE: Użyj czystej nazwy produktu bez ObjectId
                     details: `Transfer: ${correctFromSymbol} → ${originalToSymbol} (Rozwiązano korektę)` // Dodaj szczegóły
                 },
                 { new: true }

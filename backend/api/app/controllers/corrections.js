@@ -107,12 +107,12 @@ class CorrectionsController {
                     const originalData = req.body[index]?.originalData;
                     return {
                         _id: new mongoose.Types.ObjectId(),
-                        collectionName: 'corrections',
+                        collectionName: 'Korekty', // 🔧 NAPRAWIONE: Zmieniono z 'corrections' na 'Korekty'
                         operation: 'Przeniesiono do korekt',
                         from: correction.symbol,
                         to: originalToSymbol, // 🔧 NAPRAWIONE: Używaj prawdziwego punktu docelowego!
                         timestamp: new Date(),
-                        product: `${correction.fullName} ${correction.size} (${correction.barcode})`,
+                        product: `${correction.fullName} ${correction.size}`, // 🔧 NAPRAWIONE: Usunięto (${correction.barcode}) z nazwy
                         details: `Brak pokrycia w stanie - ${correction.description}`,
                         transactionId: transactionId,
                         // NOWE: Zapisz oryginalne dane do przywrócenia
