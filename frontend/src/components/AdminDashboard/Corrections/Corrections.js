@@ -191,47 +191,57 @@ function Corrections() {
       });
       
       if (writeOffResponse.ok) {
-        // 🔄 NOWE: Aktualizuj historię - zmień wpis korekty na prawdziwy transfer
-        if (selectedCorrection.transactionId && selectedCorrection.attemptedOperation === 'TRANSFER') {
+        // 🔄 NOWE: Aktualizuj historię - zmień wpis korekty na prawdziwy transfer lub sprzedaż
+        if (selectedCorrection.transactionId) {
           try {
-            console.log('� Aktualizuję historię dla korekty:', {
-              transactionId: selectedCorrection.transactionId,
-              correctFromSymbol: fromSymbol,
-              originalData: selectedCorrection
-            });
-              
-            // 🔧 UPROSZCZONE: Backend sam znajdzie punkt docelowy z istniejącej historii korekty
-            // Nie musimy szukać transferu - backend ma już wszystkie dane w historii
-            const historyUpdateResponse = await fetch(`http://localhost:3000/api/history/update-correction-to-transfer`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                transactionId: selectedCorrection.transactionId,
-                correctFromSymbol: fromSymbol, // Prawdziwy punkt źródłowy (z korekt)
-                // originalToSymbol będzie pobrane z istniejącej historii korekty w backend
-                productDescription: `${selectedCorrection.fullName} ${selectedCorrection.size}`,
-                userEmail: 'admin@wp.pl' // TODO: pobrać z kontekstu użytkownika
-              })
-            });
-            
-            if (historyUpdateResponse.ok) {
-              console.log('✅ Historia została zaktualizowana');
-            } else {
-              console.error('❌ Błąd aktualizacji historii:', await historyUpdateResponse.text());
+            if (selectedCorrection.attemptedOperation === 'TRANSFER') {
+              // TRANSFER
+              const historyUpdateResponse = await fetch(`http://localhost:3000/api/history/update-correction-to-transfer`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  transactionId: selectedCorrection.transactionId,
+                  correctFromSymbol: fromSymbol,
+                  productDescription: `${selectedCorrection.fullName} ${selectedCorrection.size}`,
+                  userEmail: 'admin@wp.pl'
+                })
+              });
+              if (historyUpdateResponse.ok) {
+                console.log('✅ Historia transferu została zaktualizowana');
+              } else {
+                console.error('❌ Błąd aktualizacji historii transferu:', await historyUpdateResponse.text());
+              }
+            } else if (selectedCorrection.attemptedOperation === 'SALE' || selectedCorrection.attemptedOperation === 'SPRZEDAŻ') {
+              // SPRZEDAŻ
+              const historyUpdateResponse = await fetch(`http://localhost:3000/api/history/update-correction-to-sale`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  transactionId: selectedCorrection.transactionId,
+                  correctFromSymbol: fromSymbol,
+                  productDescription: `${selectedCorrection.fullName} ${selectedCorrection.size}`,
+                  userEmail: 'admin@wp.pl'
+                })
+              });
+              if (historyUpdateResponse.ok) {
+                console.log('✅ Historia sprzedaży została zaktualizowana');
+              } else {
+                console.error('❌ Błąd aktualizacji historii sprzedaży:', await historyUpdateResponse.text());
+              }
             }
           } catch (historyError) {
             console.error('❌ Błąd podczas aktualizacji historii:', historyError);
             // Nie przerywamy procesu - korekta i tak zostanie rozwiązana
           }
         }
-        
         // Oznacz korektę jako rozwiązaną
         await handleStatusUpdate(selectedCorrection._id, 'RESOLVED');
         setShowProductModal(false);
-        alert(`Produkt został odpisany ze stanu w punkcie ${fromSymbol}\n\n✅ Historia została zaktualizowana z prawdziwym transferem!`);
-        
+        alert(`Produkt został odpisany ze stanu w punkcie ${fromSymbol}\n\n✅ Historia została zaktualizowana z prawdziwą operacją!`);
         // Odśwież listę dostępnych lokalizacji (usuń tę lokalizację jeśli nie ma już produktów)
         const updatedLocations = availableLocations.filter(loc => loc.symbol !== fromSymbol);
         setAvailableLocations(updatedLocations);

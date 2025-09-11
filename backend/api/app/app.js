@@ -81,9 +81,12 @@ app.use((error, req, res, next) => {
     });
 });
 
-// Start the server
-app.listen(port, () => {
-    console.log(`Server uruchomiony na ${domain}`);
-});
+
+// Start the server tylko jeśli plik uruchamiany bezpośrednio (nie podczas testów)
+if (require.main === module) {
+    app.listen(port, () => {
+        console.log(`Server uruchomiony na ${domain}`);
+    });
+}
 
 module.exports = app;

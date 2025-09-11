@@ -102,20 +102,22 @@ class CorrectionsController {
                 }
                 
                 // Utwórz wpisy historii dla KAŻDEJ korekty (bez deduplikacji)
-                // WAŻNE: Każda kurtka musi mieć swój wpis w historii, nawet jeśli są identyczne
+                // Jeśli attemptedOperation to 'SALE' lub 'SPRZEDAŻ', wpis historii ma mieć to: 'SPRZEDANE'
                 const historyEntries = savedCorrections.map((correction, index) => {
                     const originalData = req.body[index]?.originalData;
+                    // Sprawdź czy to korekta sprzedaży
+                    const attemptedOp = (req.body[index]?.attemptedOperation || '').toUpperCase();
+                    const isSale = attemptedOp === 'SALE' || attemptedOp === 'SPRZEDAŻ';
                     return {
                         _id: new mongoose.Types.ObjectId(),
-                        collectionName: 'Korekty', // 🔧 NAPRAWIONE: Zmieniono z 'corrections' na 'Korekty'
+                        collectionName: 'Korekty',
                         operation: 'Przeniesiono do korekt',
                         from: correction.symbol,
-                        to: originalToSymbol, // 🔧 NAPRAWIONE: Używaj prawdziwego punktu docelowego!
+                        to: isSale ? 'SPRZEDANE' : originalToSymbol,
                         timestamp: new Date(),
-                        product: `${correction.fullName} ${correction.size}`, // 🔧 NAPRAWIONE: Usunięto (${correction.barcode}) z nazwy
+                        product: `${correction.fullName} ${correction.size}`,
                         details: `Brak pokrycia w stanie - ${correction.description}`,
                         transactionId: transactionId,
-                        // NOWE: Zapisz oryginalne dane do przywrócenia
                         originalData: originalData ? JSON.stringify(originalData) : null
                     };
                 });

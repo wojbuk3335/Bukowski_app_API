@@ -1,6 +1,75 @@
 const History = require('../db/models/history');
 
 class HistoryController {
+    updateCorrectionToSale = async (req, res, next) => {
+        try {
+            const {
+                transactionId,
+                correctFromSymbol, // miejsce sprzedaży (np. punkt)
+                productDescription, // nazwa produktu
+                userEmail
+            } = req.body;
+
+            console.log('🔄 Updating correction to SALE:', {
+                transactionId,
+                correctFromSymbol,
+                productDescription
+            });
+
+            // Znajdź wpis korekty do zaktualizowania
+            const correctionEntry = await History.findOne({
+                transactionId: transactionId,
+                operation: 'Przeniesiono do korekt'
+            });
+
+            if (!correctionEntry) {
+                return res.status(404).json({
+                    message: 'Nie znaleziono wpisu korekty dla tego transactionId',
+                    transactionId: transactionId
+                });
+            }
+
+            // Zaktualizuj wpis na sprzedaż (identycznie jak przy zwykłej sprzedaży)
+            const updatedEntry = await History.findByIdAndUpdate(
+                correctionEntry._id,
+                {
+                    collectionName: 'Stan',
+                    operation: 'Odpisano ze stanu (sprzedaż)',
+                    from: correctFromSymbol,
+                    to: 'SPRZEDANE',
+                    product: productDescription,
+                    details: `Sprzedaż: ${correctFromSymbol} → SPRZEDANE (Rozwiązano korektę)`,
+                    userloggedinId: null, // docelowo można tu dodać ID użytkownika
+                    timestamp: new Date()
+                },
+                { new: true }
+            );
+
+            console.log('✅ Updated SALE history entry:', {
+                id: updatedEntry._id,
+                operation: updatedEntry.operation,
+                from: updatedEntry.from,
+                to: updatedEntry.to,
+                collectionName: updatedEntry.collectionName
+            });
+
+            res.status(200).json({
+                message: 'Historia została zaktualizowana z korekty na sprzedaż',
+                updatedEntry: {
+                    operation: updatedEntry.operation,
+                    from: updatedEntry.from,
+                    to: updatedEntry.to,
+                    transactionId: updatedEntry.transactionId
+                }
+            });
+        } catch (error) {
+            console.error('❌ Error updating correction to sale:', error);
+            res.status(500).json({
+                message: 'Błąd podczas aktualizacji historii (sprzedaż)',
+                error: error.message
+            });
+        }
+    };
     getAllHistory = async (req, res, next) => {
         try {
             const history = await History.find()

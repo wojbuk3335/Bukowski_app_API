@@ -1786,7 +1786,15 @@ const AddToState = ({ onAdd }) => {
           </button>
         </div>
 
-        <div style={{ marginTop: '20px', marginBottom: '20px', textAlign: 'center' }}>
+        <div style={{ 
+          marginTop: '20px', 
+          marginBottom: '20px', 
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '24px',
+          flexWrap: 'wrap'
+        }}>
           <button 
             onClick={handleProcessAllTransfers}
             style={{
@@ -1798,7 +1806,6 @@ const AddToState = ({ onAdd }) => {
               cursor: isProcessing ? 'not-allowed' : 'pointer',
               fontSize: '16px',
               fontWeight: 'bold',
-              marginRight: '10px',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1822,7 +1829,7 @@ const AddToState = ({ onAdd }) => {
                 fontSize: '16px',
                 fontWeight: 'bold',
                 transition: 'background-color 0.3s ease',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
