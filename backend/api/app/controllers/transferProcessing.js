@@ -996,9 +996,11 @@ class TransferProcessingController {
             console.log('Last transaction found:', lastTransaction ? lastTransaction.transactionId : 'NONE'); // Debug log
 
             if (!lastTransaction) {
-                console.log('No transaction found - returning 404'); // Debug log
-                return res.status(404).json({
-                    message: 'No recent transaction found'
+                console.log('No transaction found - returning empty response'); // Debug log
+                return res.status(200).json({
+                    message: 'No recent transaction found',
+                    canUndo: false,
+                    lastTransaction: null
                 });
             }
 

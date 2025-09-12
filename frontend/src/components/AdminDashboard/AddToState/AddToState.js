@@ -239,24 +239,26 @@ const AddToState = ({ onAdd }) => {
   // Function to check if there's a last transaction that can be undone
   const checkLastTransaction = async () => {
     try {
-
       const response = await fetch(`${API_BASE_URL}/api/transfer/last-transaction`);
       if (response.ok) {
         const data = await response.json();
-
-        setLastTransaction(data);
-        setCanUndoTransaction(data.canUndo);
-      } else if (response.status === 404) {
-
-        setLastTransaction(null);
-        setCanUndoTransaction(false);
+        
+        // Sprawdź czy są rzeczywiste dane transakcji
+        if (data.lastTransaction && data.canUndo !== undefined) {
+          setLastTransaction(data);
+          setCanUndoTransaction(data.canUndo);
+        } else {
+          // Brak ostatniej transakcji
+          setLastTransaction(null);
+          setCanUndoTransaction(false);
+        }
       } else {
-
+        console.warn(`Unexpected response from last-transaction endpoint: ${response.status}`);
         setLastTransaction(null);
         setCanUndoTransaction(false);
       }
     } catch (error) {
-      console.error('Error checking last transaction:', error);
+      console.error('Network error checking last transaction:', error);
       setLastTransaction(null);
       setCanUndoTransaction(false);
     }
@@ -1324,7 +1326,6 @@ const AddToState = ({ onAdd }) => {
 
   const handleSynchronize = async () => {
     try {
-
       setMatchedPairs([]);
       setGreyedWarehouseItems(new Set());
 
@@ -1357,15 +1358,12 @@ const AddToState = ({ onAdd }) => {
           }
         });
       }
-
-      blueProducts.forEach((bp, i) => {
-
-      });
       
       // Przygotuj pomarańczowe produkty (magazyn) z filteredWarehouseItems
       let orangeProducts = [];
 
       if (Array.isArray(filteredWarehouseItems)) {
+
         filteredWarehouseItems.forEach((warehouse, index) => {
 
           const backgroundColor = getBackgroundColor(warehouse, true, false, false); // magazyn: z magazynu, nie sprzedaż, nie przychodzący
@@ -1382,12 +1380,7 @@ const AddToState = ({ onAdd }) => {
         });
       }
 
-      orangeProducts.forEach((op, i) => {
-
-      });
-
       // GŁÓWNY ALGORYTM PAROWANIA
-
       const newPairs = [];
       const pairedBlueIndexes = new Set();
       const pairedOrangeIndexes = new Set();
@@ -1405,16 +1398,16 @@ const AddToState = ({ onAdd }) => {
           const barcodeMatch = blueProduct.barcode === orangeProduct.barcode;
           const nameMatch = blueProduct.fullName === orangeProduct.fullName;
           const sizeMatch = blueProduct.size === orangeProduct.size;
-          const isMatched = barcodeMatch && nameMatch && sizeMatch;
+          
+          // ZMIENIONA LOGIKA: Paruj na podstawie nazwy i rozmiaru (kod kreskowy może się różnić)
+          const isMatched = nameMatch && sizeMatch;
 
           if (isMatched) {
-
             const existingPair = newPairs.find(pair => 
               pair.warehouseProduct._id === orangeProduct.source._id
             );
             
             if (existingPair) {
-
               continue;
             }
             
@@ -1422,7 +1415,7 @@ const AddToState = ({ onAdd }) => {
             const selectedUserData = users.find(user => user._id === selectedUser);
             const userSymbol = selectedUserData?.symbol || 'UNKNOWN';
             
-            newPairs.push({
+            const newPair = {
               id: Date.now() + Math.random(),
               blueProduct: {
                 id: blueProduct.source._id,
@@ -1441,43 +1434,28 @@ const AddToState = ({ onAdd }) => {
                 price: orangeProduct.source.price || 0,
                 discount_price: orangeProduct.source.discount_price || 0
               }
-            });
+            };
+
+            newPairs.push(newPair);
 
             pairedBlueIndexes.add(b);
             pairedOrangeIndexes.add(o);
             break;
-          } else {
-
           }
-        }
-
-        if (!pairedBlueIndexes.has(b)) {
-
         }
       }
 
       if (newPairs.length > 0) {
-
-        newPairs.forEach((pair, index) => {
-
-        });
-
         setMatchedPairs(prevPairs => {
           const updatedPairs = [...prevPairs, ...newPairs];
-
           return updatedPairs;
         });
 
         // Wyszarzenie produktów z magazynu które zostały sparowane
         const warehouseIdsToGrey = newPairs.map(pair => pair.warehouseProduct._id);
 
-        newPairs.forEach((pair, index) => {
-
-        });
-        
         setGreyedWarehouseItems(prevGreyed => {
           const newGreyed = new Set([...prevGreyed, ...warehouseIdsToGrey]);
-
           return newGreyed;
         });
 
