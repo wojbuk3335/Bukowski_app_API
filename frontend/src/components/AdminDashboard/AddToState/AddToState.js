@@ -244,7 +244,7 @@ const AddToState = ({ onAdd }) => {
         const data = await response.json();
         
         // Sprawdź czy są rzeczywiste dane transakcji
-        if (data.lastTransaction && data.canUndo !== undefined) {
+        if (data.transactionId && data.canUndo !== undefined) {
           setLastTransaction(data);
           setCanUndoTransaction(data.canUndo);
         } else {
