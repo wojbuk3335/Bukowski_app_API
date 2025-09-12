@@ -147,6 +147,29 @@ class StatesController {
             });
 
             const newState = await state.save();
+            
+            // Create history entry with barcode
+            const History = require('../db/models/history');
+            const historyEntry = new History({
+                collectionName: 'Stan',
+                operation: 'Dodano do stanu',
+                product: `${goods.fullName} ${size.Roz_Opis}`,
+                details: JSON.stringify({
+                    fullName: goods.fullName,
+                    size: size.Roz_Opis,
+                    barcode: barcode, // Include the generated barcode
+                    sellingPoint: user.symbol,
+                    price: finalPrice,
+                    discount_price: finalDiscountPrice,
+                    date: req.body.date
+                }),
+                userloggedinId: req.user ? req.user._id : null,
+                from: 'Produkcja',
+                to: user.symbol
+            });
+            
+            await historyEntry.save();
+            
             res.status(201).json(newState);
         } catch (error) {
             console.error('Error creating state:', error); // Log the error

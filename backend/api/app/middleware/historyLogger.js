@@ -402,6 +402,11 @@ const historyLogger = (collectionName) => {
                 return next();
             }
 
+            // Skip history logging for POST requests - controller handles it with barcode
+            if (req.method === 'POST') {
+                return next();
+            }
+
             if (operation === 'Dodano do stanu') {
                 from = 'Produkcja'; // Set "Skąd" to "Produkcja" for this operation
                 to = req.body.sellingPoint || '-'; // Set "Dokąd" to sellingPoint or "-" if not provided
