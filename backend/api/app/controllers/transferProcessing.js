@@ -328,14 +328,14 @@ class TransferProcessingController {
     // Undo last transaction - restore items to state and DELETE original history (clean approach)
     async undoLastTransaction(req, res) {
         try {
-            // Find the most recent transaction that can be undone (only active transactions)
+            // NAJWAŻNIEJSZE: Znajdź ostatnią transakcję AddToState (ignoruj korekty)
             const lastTransaction = await History.findOne({
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
                     { operation: 'Dodano do stanu (z magazynu)' },
                     { operation: 'Dodano do stanu (transfer przychodzący)' }, // DODANO: obsługa żółtych produktów
-                    { operation: 'Odpisano ze stanu (sprzedaż)' },
-                    { operation: 'Przeniesiono do korekt' }
+                    { operation: 'Odpisano ze stanu (sprzedaż)' }
+                    // USUNIĘTO: 'Przeniesiono do korekt' - nie cofamy korekt, tylko oryginalne operacje AddToState
                 ],
                 transactionId: { $exists: true, $ne: null }
             }).sort({ timestamp: -1 });
@@ -346,14 +346,21 @@ class TransferProcessingController {
                 });
             }
 
-            // Find all history entries for this transaction
+            // KLUCZOWA ZMIANA: Znajdź tylko wpisy AddToState dla tej transakcji (ignoruj korekty)
             const transactionEntries = await History.find({
-                transactionId: lastTransaction.transactionId
+                transactionId: lastTransaction.transactionId,
+                $or: [
+                    { operation: 'Odpisano ze stanu (transfer)' },
+                    { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Dodano do stanu (transfer przychodzący)' },
+                    { operation: 'Odpisano ze stanu (sprzedaż)' }
+                    // IGNORUJEMY: 'Przeniesiono do korekt' - zostawiamy korekty nietknięte
+                ]
             });
 
             if (transactionEntries.length === 0) {
                 return res.status(404).json({
-                    message: 'No transaction entries found'
+                    message: 'No AddToState transaction entries found to undo'
                 });
             }
 
@@ -361,14 +368,14 @@ class TransferProcessingController {
             const errors = [];
             const User = require('../db/models/user');
 
-            // Process each entry in the transaction
+            // Process each entry in the transaction (tylko AddToState operacje)
             for (const entry of transactionEntries) {
                 try {
-                    // Determine type of undo based on operation
+                    // Determine type of undo based on operation (bez korekt)
                     const isWarehouseEntry = entry.operation === 'Dodano do stanu (z magazynu)';
                     const isIncomingTransferEntry = entry.operation === 'Dodano do stanu (transfer przychodzący)'; // DODANO: żółte produkty
                     const isSalesEntry = entry.operation === 'Odpisano ze stanu (sprzedaż)';
-                    const isCorrectionsEntry = entry.operation === 'Przeniesiono do korekt';
+                    // USUNIĘTO: isCorrectionsEntry - nie obsługujemy cofania korekt
                     
                     if (isWarehouseEntry) {
                         // Parse JSON details for warehouse operations
@@ -470,197 +477,9 @@ class TransferProcessingController {
                             originalSymbol: originalUser.symbol
                         });
 
-                    } else if (isCorrectionsEntry) {
-                        // CORRECTIONS UNDO: Remove correction and RECREATE original deleted item
-                        console.log('Processing corrections undo for:', entry.product);
-                        
-                        // Parsuj informacje o produkcie z pola product
-                        const productInfo = entry.product.match(/^(.+)\s+\((.+)\)$/);
-                        if (!productInfo) {
-                            throw new Error(`Cannot parse product info: ${entry.product}`);
-                        }
-                        
-                        const [, nameSizePart, barcode] = productInfo;
-                        const parts = nameSizePart.split(' ');
-                        const size = parts[parts.length - 1];
-                        const fullName = parts.slice(0, -1).join(' ');
-                        
-                        // Usuń korektę z bazy danych
-                        const Corrections = require('../db/models/corrections');
-                        const deletedCorrection = await Corrections.findOneAndDelete({
-                            barcode: barcode,
-                            fullName: fullName,
-                            size: size,
-                            transactionId: entry.transactionId
-                        });
-                        
-                        if (deletedCorrection) {
-                            console.log(`✅ Removed correction for ${barcode}`);
-                            
-                            // KLUCZOWE: Odtwórz usunięty transfer/sprzedaż z oryginalnych danych
-                            // Po utworzeniu korekty, oryginalny wpis został USUNIĘTY z tabeli
-                            // Cofnięcie korekty = odtworzenie usuniętego wpisu z oryginalnymi danymi
-                            
-                            // Sprawdź czy mamy oryginalne dane w historii
-                            let originalData = null;
-                            if (entry.originalData) {
-                                try {
-                                    originalData = JSON.parse(entry.originalData);
-                                } catch (e) {
-                                    console.log('⚠️ Could not parse originalData from history');
-                                }
-                            }
-                            
-                            // POPRAWKA: Sprawdź czy mamy originalData - jeśli nie, to pochodzi ze stanu
-                            if (!originalData) {
-                                // PRZYPADEK 1: Korekta pochodzi ze STANU 
-                                
-                                console.log(`🔍 DEBUG: entry.from=${entry.from}, entry.to=${entry.to}, entry.details=${entry.details}`);
-                                
-                                // WAŻNE: Sprawdź czy to była sprzedaż czy transfer
-                                const isSaleCorrection = entry.details.includes('w ramach sprzedaży');
-                                console.log(`🔍 DEBUG: isSaleCorrection=${isSaleCorrection}`);
-                                
-                                if (isSaleCorrection) {
-                                    // To była sprzedaż - stwórz Sales obiekt
-                                    console.log(`� DEBUG: Detected sales correction, creating Sales object for ${barcode}`);
-                                    const Sales = require('../db/models/sales');
-                                    const recreatedSale = new Sales({
-                                        _id: new mongoose.Types.ObjectId(),
-                                        fullName: fullName,
-                                        size: size,
-                                        barcode: barcode,
-                                        sellingPoint: entry.from,
-                                        from: entry.from,
-                                        timestamp: new Date(),
-                                        date: new Date(),
-                                        cash: [],
-                                        card: [],
-                                        symbol: entry.from,
-                                        processed: false
-                                    });
-                                    await recreatedSale.save();
-                                    console.log(`✅ Recreated sale ${barcode} from corrections (sales detection)`);
-                                } else {
-                                    // To był transfer - użyj oryginalnej logiki dla transferów
-                                    
-                                // Spróbuj sparsować details aby znaleźć oryginalne transfer_to
-                                let originalTransferTo = entry.to;
-                                try {
-                                    const detailsData = JSON.parse(entry.details);
-                                    if (detailsData.transfer_to) {
-                                        originalTransferTo = detailsData.transfer_to;
-                                        console.log(`🔍 Found original transfer_to in details: ${originalTransferTo}`);
-                                    }
-                                } catch (e) {
-                                    console.log(`⚠️ Could not parse details as JSON, trying text parsing...`);
-                                    // Spróbuj wyciągnąć z tekstu błędu - wzorzec: "transferu z punktu X do punktu Y"
-                                    const transferMatch = entry.details.match(/transferu z punktu \w+ do punktu (\w+)/);
-                                    if (transferMatch && transferMatch[1]) {
-                                        originalTransferTo = transferMatch[1];
-                                        console.log(`🔍 Extracted original transfer_to from text: ${originalTransferTo}`);
-                                    } else {
-                                        console.log(`⚠️ Could not extract transfer_to from details, using entry.to: ${entry.to}`);
-                                    }
-                                }
-                                
-                                // Niebieskie transfery = odpisywanie ze stanu źródłowego punktu (entry.from)
-                                // Każdy transfer X→Y ma X na niebiesko (bo odpisujemy ze stanu X)
-                                console.log(`🔵 Restoring BLUE transfer ${barcode} from corrections back to transfers list (${entry.from} → ${originalTransferTo})`);
-                                
-                                const Transfer = require('../db/models/transfer');
-                                
-                                // WAŻNE: Sprawdź czy transfer z tym productId już istnieje
-                                const existingTransfer = await Transfer.findOne({
-                                    productId: barcode,
-                                    dateString: new Date().toISOString().split('T')[0]
-                                });
-                                
-                                if (existingTransfer) {
-                                    console.log(`⚠️ Transfer ${barcode} already exists, removing old one first`);
-                                    await Transfer.deleteOne({ _id: existingTransfer._id });
-                                }
-                                
-                                const recreatedBlueTransfer = new Transfer({
-                                    _id: new mongoose.Types.ObjectId(),
-                                    fullName: fullName,
-                                    size: size,
-                                    productId: barcode,
-                                    barcode: barcode, // WAŻNE: Dla niebieskich transferów
-                                    transfer_from: entry.from, // POPRAWKA: Użyj oryginalnej wartości z historii
-                                    transfer_to: originalTransferTo,     // POPRAWKA: Użyj oryginalnej wartości z details lub entry
-                                    date: new Date(),
-                                    dateString: new Date().toISOString().split('T')[0],
-                                    processed: false,
-                                    isFromSale: true, // WAŻNE: Oznacz jako niebieski transfer
-                                    reason: null,
-                                    advancePayment: 0,
-                                    advancePaymentCurrency: 'PLN'
-                                });
-                                await recreatedBlueTransfer.save();
-                                console.log(`✅ Recreated blue transfer ${barcode} with isFromSale: true (${entry.from} → ${originalTransferTo})`);
-                                } // koniec else dla transferów
-                            } else {
-                                // PRZYPADEK 2: Korekta pochodzi z Transfer/Sales (ma originalData)
-                                const wasFromSale = originalData?.isFromSale === true;
-                            
-                            if (wasFromSale) {
-                                // Odtwórz sprzedaż z oryginalnymi danymi (niebieskie elementy)
-                                console.log(`🔵 Restoring BLUE element (sale) ${barcode} with original data`);
-                                const Sales = require('../db/models/sales');
-                                const recreatedSale = new Sales({
-                                    _id: originalData?._id ? new mongoose.Types.ObjectId(originalData._id) : new mongoose.Types.ObjectId(),
-                                    fullName: fullName,
-                                    size: size,
-                                    barcode: barcode,
-                                    sellingPoint: entry.from,
-                                    from: entry.from,
-                                    timestamp: originalData?.timestamp || new Date(),
-                                    date: originalData?.date || new Date().toISOString().split('T')[0],
-                                    // Przywróć oryginalne dane finansowe jeśli dostępne
-                                    cash: originalData?.advancePayment ? [{
-                                        price: originalData.advancePayment,
-                                        currency: 'PLN'
-                                    }] : [],
-                                    card: [],
-                                    symbol: entry.from
-                                });
-                                await recreatedSale.save();
-                                console.log(`✅ Recreated sale ${barcode} with original data`);
-                            } else {
-                                // Odtwórz transfer z oryginalnymi danymi (standardowe transfery)
-                                console.log(`🔄 Restoring standard transfer ${barcode} with original data`);
-                                const Transfer = require('../db/models/transfer');
-                                const recreatedTransfer = new Transfer({
-                                    _id: originalData?._id ? new mongoose.Types.ObjectId(originalData._id) : new mongoose.Types.ObjectId(),
-                                    fullName: fullName,
-                                    size: size,
-                                    productId: barcode,
-                                    transfer_from: originalData?.transfer_from || entry.from,
-                                    transfer_to: originalData?.transfer_to || entry.to || entry.from,
-                                    date: originalData?.date || new Date(),
-                                    dateString: originalData?.date ? originalData.date.split('T')[0] : new Date().toISOString().split('T')[0],
-                                    processed: false,
-                                    // Przywróć oryginalne dane finansowe jeśli dostępne
-                                    reason: originalData?.reason || null,
-                                    advancePayment: originalData?.advancePayment || 0,
-                                    advancePaymentCurrency: 'PLN'
-                                });
-                                await recreatedTransfer.save();
-                                console.log(`✅ Recreated transfer ${barcode} with original data`);
-                            }
-                            } // ZAMKNIĘCIE NOWEGO ELSE dla originalData
-                        }
-                        
-                        restoredItems.push({
-                            fullName: fullName,
-                            size: size,
-                            barcode: barcode,
-                            action: 'restored_from_corrections'
-                        });
-
                     } else {
-                        // Parse JSON details for standard operations
+                        // STANDARD TRANSFER UNDO: Restore to state and mark transfer as unprocessed
+                        // Parser JSON details for standard operations
                         const itemData = JSON.parse(entry.details);
                         
                         // STANDARD UNDO: Restore to state and mark transfer as unprocessed
@@ -981,14 +800,15 @@ class TransferProcessingController {
         try {
             console.log('Getting last transaction...'); // Debug log
             
-            // Find the most recent active transaction (only active operations)
+            // NAJWAŻNIEJSZE: Znajdź ostatnią transakcję z AddToState, ignoruj korekty w wyszukiwaniu
+            // Szukamy tylko pierwotnych operacji AddToState, nie późniejszych korekt
             const lastTransaction = await History.findOne({
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
                     { operation: 'Dodano do stanu (z magazynu)' },
                     { operation: 'Dodano do stanu (transfer przychodzący)' }, // DODANO: żółte produkty
-                    { operation: 'Przeniesiono do korekt' },
                     { operation: 'Odpisano ze stanu (sprzedaż)' }
+                    // USUNIĘTO: 'Przeniesiono do korekt' - ignorujemy korekty w wyszukiwaniu ostatniej transakcji
                 ],
                 transactionId: { $exists: true, $ne: null }
             }).sort({ timestamp: -1 });
