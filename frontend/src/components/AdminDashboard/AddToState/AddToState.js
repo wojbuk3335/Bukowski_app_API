@@ -509,41 +509,76 @@ const AddToState = ({ onAdd }) => {
   // Funkcja sprawdzania braków w stanie i zapisywania korekt
   const checkForMissingItems = async (itemsToCheck, userSymbol, sellingPoint, transactionId = null) => {
     try {
+      console.log('🔍 ROZPOCZĘCIE SPRAWDZANIA BRAKÓW:');
+      console.log(`📊 Liczba elementów do sprawdzenia: ${itemsToCheck.length}`);
+      console.log(`🏪 Sprawdzany punkt: ${userSymbol} (${sellingPoint})`);
+      
       // Pobierz wszystkie stany
       const allStatesResponse = await fetch(`${API_BASE_URL}/api/state`);
-      const allStates = await allStatesResponse.json();
+      let currentState = await allStatesResponse.json();
+      
+      console.log(`📦 Pobrany stan ma ${currentState.length} elementów`);
       
       // Lista brakujących kurtek
       const missingItems = [];
+      const availableItems = [];
       
-      // Sprawdź każdą kurtkę czy istnieje w odpowiednim stanie
-      itemsToCheck.forEach(item => {
-        let foundInState = false;
+      // NOWA LOGIKA: Sprawdzaj elementy JEDEN PO JEDNYM i symuluj odpisywanie
+      itemsToCheck.forEach((item, index) => {
+        console.log(`\n--- SPRAWDZANIE ELEMENTU ${index + 1}/${itemsToCheck.length} ---`);
+        console.log(`🔍 Element: ${item.fullName} ${item.size}`);
+        console.log(`📊 Typ: ${item.isFromSale ? 'SPRZEDAŻ' : 'TRANSFER'}`);
+        console.log(`🔢 Barcode/ID: ${item.barcode || item.productId}`);
+        
         let sourceSymbol = userSymbol; // Domyślnie sprawdzaj stan wybranego użytkownika
         
         // Dla transferów sprawdź stan punktu źródłowego (transfer_from)
         if (item.transfer_from && !item.isFromSale) {
           sourceSymbol = item.transfer_from;
+          console.log(`📍 Transfer FROM punkt: ${sourceSymbol}`);
+        } else {
+          console.log(`📍 Sprawdzany punkt: ${sourceSymbol}`);
         }
         
         // Filtruj stan według właściwego symbolu
-        const userStateItems = allStates.filter(item => item.symbol === sourceSymbol);
+        const userStateItems = currentState.filter(stateItem => stateItem.symbol === sourceSymbol);
+        console.log(`📦 Produktów w punkcie ${sourceSymbol}: ${userStateItems.length}`);
         
-        const itemBarcode = item.barcode || item.productId; // Używaj productId dla transferów
-        foundInState = userStateItems.find(stateItem => 
+        const itemBarcode = item.barcode || item.productId;
+        
+        // Znajdź pasujący produkt w stanie
+        const matchingStateItemIndex = userStateItems.findIndex(stateItem => 
           (stateItem.barcode === itemBarcode || stateItem.id === itemBarcode) &&
           stateItem.fullName === item.fullName &&
           stateItem.size === item.size
         );
         
-        if (!foundInState) {
+        const foundInState = matchingStateItemIndex !== -1;
+        
+        if (foundInState) {
+          console.log(`✅ ZNALEZIONO w stanie - element będzie przetworzony`);
+          availableItems.push(item);
+          
+          // SYMULUJ ODPISANIE: Usuń element ze stanu (aby następne sprawdzenia były realistyczne)
+          const matchingStateItem = userStateItems[matchingStateItemIndex];
+          const globalIndex = currentState.findIndex(stateItem => 
+            stateItem === matchingStateItem
+          );
+          if (globalIndex !== -1) {
+            currentState.splice(globalIndex, 1);
+            console.log(`🗑️ Symulacja: usunięto ze stanu (pozostało ${currentState.length} elementów)`);
+          }
+          
+        } else {
+          console.log(`❌ BRAK W STANIE - element trafi do korekt`);
+          
           const operationType = item.isFromSale ? 'SPRZEDAŻY' : 'TRANSFERU';
           const operationDetails = item.isFromSale 
             ? `sprzedaży za ${item.price || 'N/A'} PLN` 
             : `transferu z punktu ${sourceSymbol} do punktu ${item.transfer_to || sellingPoint}`;
           
           const detailedDescription = 
-            `🚨 BRAK W STANIE: Próba odpisania kurtki "${item.fullName}" (${item.size}) ` +
+            `🚨 BRAK W STANIE: Element #${index + 1} - Próba odpisania kurtki "${item.fullName}" (${item.size}) ` +
             `z punktu "${sourceSymbol}" w ramach ${operationDetails}. ` +
             `Kurtka o kodzie ${item.barcode || item.productId} nie została znaleziona w aktualnym stanie punktu. ` +
             `Możliwe przyczyny: już sprzedana, przeniesiona, zagubiona lub błąd w ewidencji. ` +
@@ -552,7 +587,7 @@ const AddToState = ({ onAdd }) => {
           missingItems.push({
             fullName: item.fullName,
             size: item.size,
-            barcode: item.barcode || item.productId, // Używaj productId jeśli barcode nie istnieje
+            barcode: item.barcode || item.productId,
             sellingPoint: sellingPoint,
             symbol: userSymbol,
             errorType: 'MISSING_IN_STATE',
@@ -560,7 +595,8 @@ const AddToState = ({ onAdd }) => {
             description: detailedDescription,
             originalPrice: item.price,
             discountPrice: item.discount_price,
-            transactionId: transactionId, // Dodaj transactionId do korekty
+            transactionId: transactionId,
+            elementIndex: index, // Dodaj indeks dla debugowania
             // NOWE: Zapisz oryginalne dane do przywrócenia
             originalData: {
               _id: item._id,
@@ -592,48 +628,52 @@ const AddToState = ({ onAdd }) => {
         });
 
         if (correctionsResponse.ok) {
+          console.log(`📝 KOREKTY: Zapisano ${missingItems.length} korekt, oznaczam brakujące transfery jako przetworzone:`);
 
+          // Dla brakujących transferów: po prostu oznacz jako processed=true zamiast usuwać
           for (const missingItem of missingItems) {
-            // Znajdź WSZYSTKIE oryginalne itemy w itemsToCheck (nie tylko pierwszy!)
-            const originalItems = itemsToCheck.filter(item => 
-              item.barcode === missingItem.barcode &&
-              item.fullName === missingItem.fullName &&
-              item.size === missingItem.size
-            );
-
-            for (const originalItem of originalItems) {
-              if (originalItem && originalItem._id) {
+            if (missingItem.originalData && missingItem.originalData._id && !missingItem.originalData.isFromSale) {
               try {
-                if (originalItem.isFromSale) {
-                  // Usuń sprzedaż
-
-                  const deleteResponse = await fetch(`${API_BASE_URL}/api/sales/delete-sale/${originalItem._id}`, {
-                    method: 'DELETE'
-                  });
-                  
-                  if (deleteResponse.ok) {
-
-                  } else {
-                    console.error(`❌ Failed to delete sale: ${originalItem._id}`);
-                  }
+                console.log(`🔄 Oznaczam brakujący transfer jako przetworzony: ${missingItem.originalData._id}`);
+                
+                const updateResponse = await fetch(`${API_BASE_URL}/api/transfer/${missingItem.originalData._id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    processed: true
+                  })
+                });
+                
+                if (updateResponse.ok) {
+                  console.log(`✅ Transfer ${missingItem.originalData._id} oznaczony jako przetworzony`);
                 } else {
-                  // Usuń transfer
-
-                  const deleteResponse = await fetch(`${API_BASE_URL}/api/transfer/${originalItem._id}`, {
-                    method: 'DELETE'
-                  });
-                  
-                  if (deleteResponse.ok) {
-
-                  } else {
-                    console.error(`❌ Failed to delete transfer: ${originalItem._id}`);
-                  }
+                  console.error(`❌ Błąd oznaczania transferu ${missingItem.originalData._id} jako przetworzony`);
                 }
-              } catch (deleteError) {
-                console.error(`Error deleting item ${originalItem._id}:`, deleteError);
+              } catch (error) {
+                console.error(`❌ Błąd API dla transferu ${missingItem.originalData._id}:`, error);
               }
             }
-          }
+            
+            // Dla sprzedaży: usuń jak wcześniej
+            if (missingItem.originalData && missingItem.originalData._id && missingItem.originalData.isFromSale) {
+              try {
+                console.log(`🗑️ Usuwam brakującą sprzedaż: ${missingItem.originalData._id}`);
+                
+                const deleteResponse = await fetch(`${API_BASE_URL}/api/sales/delete-sale/${missingItem.originalData._id}`, {
+                  method: 'DELETE'
+                });
+                
+                if (deleteResponse.ok) {
+                  console.log(`✅ Usunięto sprzedaż: ${missingItem.originalData._id}`);
+                } else {
+                  console.error(`❌ Failed to delete sale: ${missingItem.originalData._id}`);
+                }
+              } catch (deleteError) {
+                console.error(`Error deleting sale ${missingItem.originalData._id}:`, deleteError);
+              }
+            }
           }
           
           // Pokaż modal z brakującymi kurtkami
@@ -653,14 +693,37 @@ const AddToState = ({ onAdd }) => {
         }
       }
       
-      // Zwróć listę kurtek do przetworzenia (usuń brakujące)
-      const availableItems = itemsToCheck.filter(item => 
-        !missingItems.some(missing => 
-          missing.barcode === item.barcode &&
-          missing.fullName === item.fullName &&
-          missing.size === item.size
-        )
-      );
+      console.log(`\n📊 PODSUMOWANIE SPRAWDZANIA:`);
+      console.log(`✅ Dostępnych elementów: ${availableItems.length}`);
+      console.log(`❌ Brakujących elementów: ${missingItems.length}`);
+      
+      // OZNACZ DOSTĘPNE TRANSFERY JAKO PRZETWORZONE W BAZIE DANYCH
+      const availableTransfers = availableItems.filter(item => !item.isFromSale);
+      if (availableTransfers.length > 0) {
+        console.log(`🔄 Oznaczam ${availableTransfers.length} dostępnych transferów jako przetworzonych...`);
+        
+        for (const transfer of availableTransfers) {
+          try {
+            const updateResponse = await fetch(`${API_BASE_URL}/api/transfer/${transfer._id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                processed: true
+              })
+            });
+            
+            if (updateResponse.ok) {
+              console.log(`✅ Transfer ${transfer._id} oznaczony jako przetworzony`);
+            } else {
+              console.error(`❌ Błąd oznaczania transferu ${transfer._id} jako przetworzony`);
+            }
+          } catch (error) {
+            console.error(`❌ Błąd API dla transferu ${transfer._id}:`, error);
+          }
+        }
+      }
       
       return {
         availableItems,
@@ -738,8 +801,11 @@ const AddToState = ({ onAdd }) => {
             const result = await response.json();
             processedCount += result.processedCount;
             
-            // Oznacz transfery jako przetworzone  
+            console.log(`🔵 STANDARD TRANSFERS - Oznaczam jako przetworzone:`, validStandardTransfers.map(t => t._id));
+            
+            // Oznacz TYLKO dostępne transfery jako przetworzone (te, które faktycznie zostały przetworzone)
             validStandardTransfers.forEach(transfer => {
+              console.log(`✅ Oznaczam transfer jako przetworzony: ${transfer._id}`);
               setProcessedTransfers(prev => new Set([...prev, transfer._id]));
             });
 
@@ -781,7 +847,10 @@ const AddToState = ({ onAdd }) => {
             const salesResult = await salesResponse.json();
             processedCount += salesResult.processedCount || validSalesItems.length;
 
+            console.log(`🔵 SALES - Oznaczam jako przetworzone:`, validSalesItems.map(s => s._id));
+            
             validSalesItems.forEach(sale => {
+              console.log(`✅ Oznaczam sprzedaż jako przetworzoną: ${sale._id}`);
               setProcessedSales(prev => new Set([...prev, sale._id]));
             });
           } else {
