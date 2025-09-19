@@ -272,7 +272,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
   });
 
-  test('wyświetla kwoty zaliczek', async () => {
+  test('wyświetla status availability dla sprzedaży', async () => {
     await act(async () => {
       render(<AddToState />);
     });
@@ -284,8 +284,9 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('50 PLN')).toBeInTheDocument();
-      expect(screen.getByText('75 PLN')).toBeInTheDocument();
+      // Sprawdzamy czy są wyświetlane statusy availability zamiast kwot
+      const availabilityCells = screen.getAllByText(/OK|Brak w magazynie|Brak w wybranym punkcie|Brak w magazynie i brak w wybranym punkcie/);
+      expect(availabilityCells.length).toBeGreaterThan(0);
     });
   });
 
@@ -442,7 +443,7 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
   });
 
-  test('wyświetla zaliczki transferów niebieskich z walutą', async () => {
+  test('wyświetla availability transferów niebieskich', async () => {
     await act(async () => {
       render(<AddToState />);
     });
@@ -454,8 +455,9 @@ describe('AddToState - Niebieskie kurtki (sprzedaże)', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('100 PLN')).toBeInTheDocument(); // transfer1
-      expect(screen.getByText('80 PLN')).toBeInTheDocument();  // transfer2
+      // Sprawdzamy czy są wyświetlane statusy availability zamiast kwot
+      const availabilityCells = screen.getAllByText(/OK|Brak w magazynie|Brak w wybranym punkcie|Brak w magazynie i brak w wybranym punkcie/);
+      expect(availabilityCells.length).toBeGreaterThan(0);
     });
   });
 

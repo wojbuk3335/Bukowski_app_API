@@ -34,6 +34,9 @@ const AddToState = ({ onAdd }) => {
   const [message, setMessage] = useState(''); // Komunikaty synchronizacji
   const [combinedItems, setCombinedItems] = useState([]); // Elementy łącznie z żółtymi produktami
 
+  // Stan dla statusów dostępności
+  const [availabilityStatuses, setAvailabilityStatuses] = useState([]);
+
   // Funkcje pomocnicze dla synchronizacji
   const isProductMatched = (productId, type) => {
     const matched = matchedPairs.some(pair => 
@@ -81,6 +84,86 @@ const AddToState = ({ onAdd }) => {
 
       return '#007bff'; // Niebieski - transfer zwykły
     }
+  };
+
+  // Funkcja sprawdzania dostępności produktów 1:1
+  const checkAvailability = (filteredItemsToCheck) => {
+    if (!selectedUser || !filteredItemsToCheck || filteredItemsToCheck.length === 0) {
+      return [];
+    }
+
+    // Znajdź dane wybranego użytkownika
+    const selectedUserData = users.find(user => user._id === selectedUser);
+    if (!selectedUserData) {
+      return filteredItemsToCheck.map(() => 'Błąd użytkownika');
+    }
+
+    // Pobierz stan wybranego użytkownika z allStates
+    const userState = allStates.filter(item => item.symbol === selectedUserData.symbol);
+    
+    // Stwórz kopie stanów do "zużywania" (bez modyfikowania oryginałów)
+    let availableUserItems = [...userState];
+    let availableWarehouseItems = [...warehouseItems];
+
+    // Sprawdź dostępność dla każdego elementu
+    return filteredItemsToCheck.map(item => {
+      // Pobierz właściwe nazwy i rozmiary
+      let itemFullName, itemSize;
+      
+      if (item.isFromSale) {
+        // Dla sprzedaży - dane są stringami
+        itemFullName = item.fullName;
+        itemSize = item.size;
+      } else {
+        // Dla transferów - mogą być obiektami lub stringami
+        itemFullName = typeof item.fullName === 'object' 
+          ? item.fullName?.fullName 
+          : item.fullName;
+        itemSize = typeof item.size === 'object' 
+          ? item.size?.Roz_Opis 
+          : item.size;
+      }
+
+      // Sprawdź w stanie użytkownika
+      const userItemIndex = availableUserItems.findIndex(stateItem => {
+        // W stanie użytkownika mogą być dane jako stringi bezpośrednio lub w obiektach
+        const userFullName = stateItem.fullName?.fullName || stateItem.fullName;
+        const userSize = stateItem.size?.Roz_Opis || stateItem.size;
+        
+        return userFullName === itemFullName && userSize === itemSize;
+      });
+
+      // Sprawdź w magazynie
+      const warehouseItemIndex = availableWarehouseItems.findIndex(warehouseItem => 
+        warehouseItem.fullName?.fullName === itemFullName && 
+        warehouseItem.size?.Roz_Opis === itemSize
+      );
+
+      let status;
+      
+      if (userItemIndex >= 0 && warehouseItemIndex >= 0) {
+        // Jest w obu miejscach
+        status = 'OK';
+        // Usuń z dostępnych (zużyj)
+        availableUserItems.splice(userItemIndex, 1);
+        availableWarehouseItems.splice(warehouseItemIndex, 1);
+      } else if (userItemIndex >= 0 && warehouseItemIndex < 0) {
+        // Jest u użytkownika, nie ma w magazynie
+        status = 'Brak w magazynie';
+        // Usuń z dostępnych u użytkownika
+        availableUserItems.splice(userItemIndex, 1);
+      } else if (userItemIndex < 0 && warehouseItemIndex >= 0) {
+        // Nie ma u użytkownika, jest w magazynie
+        status = 'Brak w wybranym punkcie';
+        // Usuń z dostępnych w magazynie
+        availableWarehouseItems.splice(warehouseItemIndex, 1);
+      } else {
+        // Nie ma nigdzie
+        status = 'Brak w magazynie i brak w wybranym punkcie';
+      }
+
+      return status;
+    });
   };
 
   // Fetch users from API
@@ -367,7 +450,11 @@ const AddToState = ({ onAdd }) => {
 
     setFilteredItems(combinedItemsData);
     setCombinedItems(combinedItemsData); // Zapisz także jako oddzielny stan
-  }, [selectedDate, selectedUser, transfers, users, sales, allStates, processedSales, processedTransfers]);
+    
+    // Sprawdź dostępność dla wszystkich elementów
+    const statuses = checkAvailability(combinedItemsData);
+    setAvailabilityStatuses(statuses);
+  }, [selectedDate, selectedUser, transfers, users, sales, allStates, processedSales, processedTransfers, warehouseItems]);
 
   // useEffect do filtrowania produktów magazynowych
   useEffect(() => {
@@ -605,7 +692,7 @@ const AddToState = ({ onAdd }) => {
               barcode: item.barcode || item.productId,
               isFromSale: item.isFromSale,
               price: item.price,
-              advancePayment: item.advancePayment,
+              availability: item.availability,
               reason: item.reason,
               transfer_from: item.transfer_from || item.from,
               transfer_to: item.transfer_to,
@@ -1798,16 +1885,19 @@ const AddToState = ({ onAdd }) => {
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>To</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Product ID</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Reason</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Advance Payment</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Availability</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {Array.isArray(filteredItems) && filteredItems.map((transfer) => {
+              {Array.isArray(filteredItems) && filteredItems.map((transfer, index) => {
                 // Sprawdź czy transfer został już przetworzony
                 const isProcessed = transfer.isFromSale ? 
                   processedSales.has(transfer._id) :
                   (transfer.processed || processedTransfers.has(transfer._id));
+                
+                // Pobierz status dostępności dla tego elementu
+                const availabilityStatus = availabilityStatuses[index] || 'Sprawdzanie...';
                 
                 return (
                 <tr key={transfer._id} style={{ 
@@ -1844,9 +1934,7 @@ const AddToState = ({ onAdd }) => {
                     {transfer.isFromSale ? 'SPRZEDAŻ' : (transfer.reason || 'N/A')}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? 
-                      `${transfer.cash?.[0]?.price || 0} PLN` : 
-                      `${transfer.advancePayment || ''} ${transfer.advancePaymentCurrency || ''}`.trim() || 'N/A'}
+                    {availabilityStatus}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.isFromSale ? (
