@@ -26,7 +26,7 @@ describe('AddToState - Auto Refresh Functionality', () => {
     
     // Wait for component to load
     await waitFor(() => {
-      const component = screen.getByText(/Mechanizm Transferów/i);
+      const component = screen.getByText(/Dobieranie towaru/i);
       expect(component).toBeInTheDocument();
     }, { timeout: 3000 });
   });

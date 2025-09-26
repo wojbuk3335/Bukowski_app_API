@@ -152,7 +152,7 @@ describe('AddToState - Przenoszenie produktów z Magazynu do punktu sprzedaży',
 
     // Sprawdź czy sekcja Magazynu się renderuje
     await waitFor(() => {
-      expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
+      expect(screen.getByText('Magazyn')).toBeInTheDocument();
     });
 
     // Sprawdź czy produkty z Magazynu się renderują
@@ -271,7 +271,7 @@ describe('AddToState - Przenoszenie produktów z Magazynu do punktu sprzedaży',
       expect(screen.getByText('Znaleziono: 3 produktów')).toBeInTheDocument();
       
       // Sprawdź czy produkt jest z powrotem w sekcji Magazynu
-      const MagazynSection = screen.getByText('📦 Magazyn').closest('div');
+      const MagazynSection = screen.getByText('Magazyn').closest('div');
       expect(MagazynSection).toHaveTextContent('Kurtka Pomarańczowa A');
     });
   });
@@ -438,7 +438,7 @@ describe('AddToState - Przenoszenie produktów z Magazynu do punktu sprzedaży',
     // Symulujemy rollback przez cofnięcie produktu z tabeli transferów
     await waitFor(() => {
       // Sprawdź że sekcja transferów jest obecna
-      const transferSection = screen.getByText('Mechanizm Transferów');
+      const transferSection = screen.getByText('Dobieranie towaru');
       expect(transferSection).toBeInTheDocument();
     });
   });

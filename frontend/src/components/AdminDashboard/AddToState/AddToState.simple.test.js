@@ -71,8 +71,8 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     });
 
     // Sprawdź czy sekcja Magazynu się renderuje
-    expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
-    expect(screen.getByText('Mechanizm Transferów')).toBeInTheDocument();
+    expect(screen.getByText('Magazyn')).toBeInTheDocument();
+    expect(screen.getByText('Dobieranie towaru')).toBeInTheDocument();
   });
 
   test('renderuje produkty z Magazynu', async () => {
