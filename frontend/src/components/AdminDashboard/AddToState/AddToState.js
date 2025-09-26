@@ -106,6 +106,15 @@ const AddToState = ({ onAdd }) => {
       transfer.barcode : 
       transfer.productId || transfer.barcode || 'BRAK_KODU';
 
+    // Wyciągnij cenę produktu
+    const price = transfer.isFromSale ? 
+      transfer.price : 
+      transfer.price || '0.00';
+    
+    // Formatuj cenę do dwóch linii
+    const formattedPrice = `${price} PLN`;
+    const priceConverted = convertPolishCharsToZPL(formattedPrice);
+
     return `^XA
 ^MMT
 ^PW592
@@ -113,10 +122,14 @@ const AddToState = ({ onAdd }) => {
 ^LS0
 ^CF0,40
 ^FO20,30^FD${transferName}^FS
-^CF0,40
+^CF0,35
 ^FO20,80^FD${transferSize}^FS
 ^CF0,28
 ^FO20,130^FDPunkt: ${toLocation}^FS
+^CF0,30
+^FO370,80^FDCena:^FS
+^CFB,38
+^FO370,110^FD${priceConverted}^FS
 ^FO20,170^BY3,3,80^BCN,80,Y,N,N^FD${barcode}^FS
 ^PQ1,0,1,Y^XZ`;
   };
