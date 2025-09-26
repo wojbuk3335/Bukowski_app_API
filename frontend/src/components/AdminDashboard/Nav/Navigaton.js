@@ -49,7 +49,7 @@ function Navigaton() {
             </NavDropdown>
             <Nav.Link as={Link} to="/admin/dashboard/users">Użytkownicy</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/goods">Produkty</Nav.Link>
-            <Nav.Link as={Link} to="/admin/dashboard/state">Magazyn</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/state">Stany</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/sales">Sprzedaż</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/history">Historia</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/corrections">Korekty</Nav.Link>
