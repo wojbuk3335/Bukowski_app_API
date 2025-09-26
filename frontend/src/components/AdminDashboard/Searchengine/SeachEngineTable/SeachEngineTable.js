@@ -20,18 +20,13 @@ const SeachEngineTable = () => {
             setProducts(productData);
 
             const stateResponse = await axios.get('/api/state');
-            const stateData = stateResponse.data.map(async (stateItem) => {
-                const fullName = await axios.get(`/api/excel/goods/${stateItem.fullName}`);
-                const size = await axios.get(`/api/excel/sizes/${stateItem.size}`);
-                return {
-                    ...stateItem,
-                    fullName: fullName.data.fullName || stateItem.fullName,
-                    size: size.data.Roz_Opis || stateItem.size,
-                    sellingPoint: stateItem.sellingPoint, // Include sellingPoint
-                };
-            });
-
-            const resolvedStateData = await Promise.all(stateData);
+            // Use stateResponse.data directly, no need for additional API calls
+            const resolvedStateData = stateResponse.data.map((stateItem) => ({
+                ...stateItem,
+                fullName: stateItem.fullName, // Use fullName directly from state
+                size: stateItem.size, // Use size directly from state
+                sellingPoint: stateItem.sellingPoint, // Include sellingPoint
+            }));
 
             // Extract unique symbols from state data
             const uniqueSymbols = [...new Set(resolvedStateData.map((item) => item.symbol))];
@@ -79,11 +74,11 @@ const SeachEngineTable = () => {
                         case '42':
                             columnIndex = 7;
                             break;
-                        case '2L':
+                        case '2XL':
                         case '44':
                             columnIndex = 8;
                             break;
-                        case '3L':
+                        case '3XL':
                         case '46':
                             columnIndex = 9;
                             break;
@@ -166,7 +161,7 @@ const SeachEngineTable = () => {
         const filteredRow = row.map((cell, colIndex) => {
             if (colIndex === 0) return cell; // Always include the first column (product names)
             if (colIndex === 1 || !cell) return cell; // Skip Plec or empty cells
-            if (selectedSymbols.length === 0) return null; // Hide all symbols if no checkboxes are selected
+            if (selectedSymbols.length === 0) return cell; // Show all symbols if no checkboxes are selected
 
             const cellSymbols = cell.split('/'); // Split cell content by '/'
             const matchingSymbols = cellSymbols.filter((symbol) => selectedSymbols.includes(symbol));
@@ -174,9 +169,9 @@ const SeachEngineTable = () => {
         });
 
         // Check if the row has any visible symbols after filtering (excluding the first column)
-        const hasVisibleSymbols = filteredRow.some((cell, colIndex) => colIndex > 1 && cell);
+        const hasVisibleSymbols = selectedSymbols.length === 0 || filteredRow.some((cell, colIndex) => colIndex > 1 && cell);
 
-        return matchesSearchQuery && hasVisibleSymbols ? filteredRow : null; // Keep the row if it matches the search query or has visible symbols
+        return matchesSearchQuery && hasVisibleSymbols ? filteredRow : null; // Keep the row if it matches the search query and has visible symbols
     }).filter(Boolean); // Remove rows that are null
 
     if (loading) {
