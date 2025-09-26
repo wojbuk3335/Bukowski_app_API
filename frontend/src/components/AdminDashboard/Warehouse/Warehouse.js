@@ -147,11 +147,16 @@ const Warehouse = () => {
             try {
                 const response = await axios.get('/api/user');
                 if (response.data && Array.isArray(response.data.users)) {
-                    // Get all users (remove role filter)
-                    setUsers(response.data.users);
+                    // Filter only warehouse user (magazyn role)
+                    const warehouseUsers = response.data.users.filter(user => 
+                        user.role?.toLowerCase() === 'magazyn'
+                    );
+                    setUsers(warehouseUsers);
 
-                    if (response.data.users.length > 0) {
-                        setSelectedSellingPoint(response.data.users[0].symbol); // Use symbol instead of sellingPoint
+                    if (warehouseUsers.length > 0) {
+                        setSelectedSellingPoint(warehouseUsers[0].symbol); // Use symbol instead of sellingPoint
+                    } else {
+                        console.warn('Nie znaleziono użytkownika z rolą magazyn');
                     }
                 } else {
                     console.error('Unexpected API response format:', response.data);

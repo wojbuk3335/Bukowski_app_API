@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Container from 'react-bootstrap/Container';
 import Nav from 'react-bootstrap/Nav';
@@ -7,6 +7,29 @@ import NavDropdown from 'react-bootstrap/NavDropdown';
 
 function Navigaton() {
   const [showNested, setShowNested] = useState(false);
+  const [states, setStates] = useState([]);
+
+  // Fetch users/states from API
+  useEffect(() => {
+    const fetchStates = async () => {
+      try {
+        const response = await fetch('/api/user');
+        const data = await response.json();
+        
+        // Filtruj użytkowników - usuń tylko admin, pozostaw magazyn, dom i zwykłych użytkowników
+        const filteredStates = (data.users || []).filter(user => {
+          const role = user.role?.toLowerCase();
+          return role !== 'admin';
+        });
+        
+        setStates(filteredStates);
+      } catch (error) {
+        console.error('Error fetching states:', error);
+      }
+    };
+
+    fetchStates();
+  }, []);
 
   return (
     <Navbar bg="dark" data-bs-theme="dark">
@@ -49,7 +72,22 @@ function Navigaton() {
             </NavDropdown>
             <Nav.Link as={Link} to="/admin/dashboard/users">Użytkownicy</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/goods">Produkty</Nav.Link>
-            <Nav.Link as={Link} to="/admin/dashboard/state">Stany</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/warehouse">Magazyn</Nav.Link>
+            <NavDropdown title="Stany" id="states-nav-dropdown">
+              {states.map((state) => (
+                <NavDropdown.Item 
+                  key={state._id} 
+                  as={Link} 
+                  to={`/admin/dashboard/state/${state._id}`}
+                >
+                  {state.role === 'magazyn' ? 'Magazyn' : 
+                   state.role === 'dom' ? 'Dom' : 
+                   state.sellingPoint || state.symbol}
+                </NavDropdown.Item>
+              ))}
+              <NavDropdown.Divider />
+              <NavDropdown.Item as={Link} to="/admin/dashboard/state">Wszystkie stany</NavDropdown.Item>
+            </NavDropdown>
             <Nav.Link as={Link} to="/admin/dashboard/sales">Sprzedaż</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/history">Historia</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/corrections">Korekty</Nav.Link>

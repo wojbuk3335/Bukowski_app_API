@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import Select from 'react-select';
@@ -20,6 +21,7 @@ import pl from 'date-fns/locale/pl'; // Import Polish locale
 registerLocale('pl', pl); // Register Polish locale
 
 const State = () => {
+    const { userId } = useParams(); // Get userId from URL parameters
     const [selectedDate, setSelectedDate] = useState(new Date()); // Default to today's date
     const [goods, setGoods] = useState([]);
     const [sizes, setSizes] = useState([]);
@@ -148,14 +150,32 @@ const State = () => {
                 const response = await axios.get('/api/user');
                 console.log('API Response users:', response.data); // Debug log
                 if (response.data && Array.isArray(response.data.users)) {
-                    // Get all users (remove role filter)
                     console.log('All users fetched:', response.data.users); // Debug log
-                    setUsers(response.data.users);
-
-                    // Auto-select first user to filter data immediately
-                    if (response.data.users.length > 0) {
-                        setSelectedSellingPoint(response.data.users[0].symbol);
+                    
+                    let usersToShow;
+                    
+                    // If userId is provided, show only that specific user
+                    if (userId) {
+                        const selectedUser = response.data.users.find(u => u._id === userId);
+                        if (selectedUser) {
+                            usersToShow = [selectedUser]; // Show only the selected user
+                            setSelectedSellingPoint(selectedUser.symbol);
+                        } else {
+                            console.error('User with ID not found:', userId);
+                            usersToShow = [];
+                        }
+                    } else {
+                        // Show all users except admin if no specific userId
+                        usersToShow = response.data.users.filter(user => 
+                            user.role?.toLowerCase() !== 'admin'
+                        );
+                        if (usersToShow.length > 0) {
+                            setSelectedSellingPoint(usersToShow[0].symbol);
+                        }
                     }
+                    
+                    console.log('Users to show in select:', usersToShow);
+                    setUsers(usersToShow);
                 } else {
                     console.error('Unexpected API response format:', response.data);
                     setUsers([]);
@@ -167,16 +187,45 @@ const State = () => {
         };
 
         fetchUsers();
-    }, []);const fetchTableData = async () => {
+    }, [userId]); // Re-run when userId changes
+
+    const fetchTableData = async () => {
         setLoading(true);
         try {
-            const response = await axios.get('/api/state');
+            console.log('=== FETCHING TABLE DATA ===');
+            console.log('userId:', userId);
+            console.log('selectedSellingPoint:', selectedSellingPoint);
+            console.log('users:', users);
             
-            // Don't filter by default - show all data initially
-            // Only filter if a specific selling point is selected
+            const response = await axios.get('/api/state');
+            console.log('API response data length:', response.data.length);
+            
             let filteredData = response.data;
-            if (selectedSellingPoint && selectedSellingPoint !== '') {
-                filteredData = response.data.filter(row => row.symbol === selectedSellingPoint);
+            
+            // If userId is provided in URL, filter by that specific user
+            if (userId && users.length > 0) {
+                // Find user by ID to get their symbol
+                const user = users.find(u => u._id === userId);
+                if (user) {
+                    let targetSymbol = user.symbol;
+                    // Special handling for warehouse users
+                    if (user.role?.toLowerCase() === 'magazyn') {
+                        targetSymbol = 'MAGAZYN'; // Products in warehouse have symbol 'MAGAZYN'
+                    }
+                    filteredData = response.data.filter(row => row.symbol === targetSymbol);
+                } else {
+                    console.warn('User with userId not found in users array:', userId);
+                    filteredData = []; // No data if user not found
+                }
+            } else if (selectedSellingPoint && selectedSellingPoint !== '') {
+                // Otherwise filter by selected selling point
+                const selectedUser = users.find(u => u.symbol === selectedSellingPoint);
+                let targetSymbol = selectedSellingPoint;
+                // Special handling for warehouse users
+                if (selectedUser && selectedUser.role?.toLowerCase() === 'magazyn') {
+                    targetSymbol = 'MAGAZYN'; // Products in warehouse have symbol 'MAGAZYN'
+                }
+                filteredData = response.data.filter(row => row.symbol === targetSymbol);
             }
 
             const formattedData = filteredData.map((row) => {
@@ -201,6 +250,9 @@ const State = () => {
                 
                 return formattedRow;
             });
+            
+            console.log('Final formatted data length:', formattedData.length);
+            console.log('Setting tableData to:', formattedData.length, 'items');
             setTableData(formattedData.reverse());
         } catch (error) {
             console.error('Error fetching table data:', error);
@@ -286,8 +338,8 @@ const State = () => {
     }, []);
 
     useEffect(() => {
-        fetchTableData(); // Refetch data when selling point changes
-    }, [selectedSellingPoint]);
+        fetchTableData(); // Refetch data when selling point changes or userId changes
+    }, [selectedSellingPoint, userId, users]);
 
     // Function to handle selling point selection
     const handleSellingPointChange = (value) => {
@@ -305,10 +357,21 @@ const State = () => {
         // Filter by selected selling point (most important filter)
         if (selectedSellingPoint) {
             const beforeFilter = filteredData.length;
+            
+            // Find the selected user to check their role
+            const selectedUser = users.find(u => u.symbol === selectedSellingPoint);
+            
             filteredData = filteredData.filter((row) => {
-                const match = row.symbol?.trim().toLowerCase() === selectedSellingPoint.trim().toLowerCase();
+                let targetSymbol = selectedSellingPoint;
+                
+                // Special handling for warehouse users
+                if (selectedUser && selectedUser.role?.toLowerCase() === 'magazyn') {
+                    targetSymbol = 'MAGAZYN'; // Products in warehouse have symbol 'MAGAZYN'
+                }
+                
+                const match = row.symbol?.trim().toLowerCase() === targetSymbol.trim().toLowerCase();
                 if (!match) {
-                    console.log(`Row filtered out - symbol: "${row.symbol}", selected: "${selectedSellingPoint}"`);
+                    console.log(`Row filtered out - symbol: "${row.symbol}", selected: "${selectedSellingPoint}", target: "${targetSymbol}"`);
                 }
                 return match;
             });
@@ -853,8 +916,29 @@ const State = () => {
                     <span className="sr-only"></span>                </div>
             </div>
         );
-    }    return (
+    }
+
+    // Get current state name for header
+    const getCurrentStateName = () => {
+        if (userId && users.length > 0) {
+            // When userId is provided, users array contains only that one user
+            const user = users[0]; // First (and only) user in filtered array
+            if (user) {
+                return user.role === 'magazyn' ? 'Magazyn' :
+                       user.role === 'dom' ? 'Dom' :
+                       user.sellingPoint || user.symbol || user.name;
+            }
+        }
+        return 'Wszystkie stany';
+    };
+
+    return (
         <div>
+            {/* Header */}
+            <div className="d-flex justify-content-center mb-3">
+                <h2 className="text-center">Stan: {getCurrentStateName()}</h2>
+            </div>
+            
             {/* Export buttons */}
             <div className="d-flex justify-content-center mb-3">
                 <div className="btn-group">
@@ -973,9 +1057,11 @@ const State = () => {
                         height: '38px',
                         width: '200px', // Set width to 200px
                         outlineColor: 'rgb(13, 110, 253)', // Change focus color
+                        opacity: userId ? 0.8 : 1, // Slightly dimmed when disabled
                     }}
                     value={selectedSellingPoint}
                     onChange={(e) => handleSellingPointChange(e.target.value)} // Update selectedSellingPoint and count
+                    disabled={userId ? true : false} // Disable when viewing specific user
                 >
                     {users.map((user) => (
                         <option key={user._id} value={user.symbol}>
