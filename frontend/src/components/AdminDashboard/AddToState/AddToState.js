@@ -34,6 +34,194 @@ const AddToState = ({ onAdd }) => {
   const [message, setMessage] = useState(''); // Komunikaty synchronizacji
   const [combinedItems, setCombinedItems] = useState([]); // Elementy łącznie z żółtymi produktami
 
+  // Stan dla statusów dostępności
+  const [availabilityStatuses, setAvailabilityStatuses] = useState([]);
+
+  // Stan dla automatycznego przenoszenia (żeby się nie powtarzało)
+  const [hasAutoMovedForUser, setHasAutoMovedForUser] = useState(null);
+  
+  // Stan do śledzenia już przeniesionych produktów z magazynu (żeby nie przenosić duplikatów)
+  const [autoMovedProducts, setAutoMovedProducts] = useState(new Set());
+
+  // Stan dla spinnera podczas automatycznego przenoszenia
+  const [isAutoMoving, setIsAutoMoving] = useState(false);
+
+  // Stan do śledzenia skorygowanych transakcji (żeby ukryć przycisk anulowania)
+  const [correctedTransactionIds, setCorrectedTransactionIds] = useState(new Set());
+
+  // Stan dla modala potwierdzenia drukowania
+  const [showPrintConfirmModal, setShowPrintConfirmModal] = useState(false);
+  const [pendingProcessItems, setPendingProcessItems] = useState(null);
+
+  // Stan do śledzenia czy przycisk cofania ma być widoczny
+  const [showUndoButton, setShowUndoButton] = useState(false);
+
+  // Stan Browser Print
+  const [browserPrintStatus, setBrowserPrintStatus] = useState('checking');
+
+  // Funkcja sprawdzająca status Zebra Browser Print
+  const checkBrowserPrintStatus = () => {
+    
+    if (typeof window.BrowserPrint === 'undefined') {
+      console.log('❌ BrowserPrint nie jest załadowany');
+      setBrowserPrintStatus('unavailable');
+      return;
+    }
+
+    setBrowserPrintStatus('available');
+  };
+
+  // Funkcja konwertująca polskie znaki do ZPL
+  const convertPolishCharsToZPL = (text) => {
+    const polishChars = {
+      'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+      'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+    };
+    
+    return text.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, char => polishChars[char] || char);
+  };
+
+  // Funkcja generująca kod ZPL dla etykiety 75x37mm
+  const generateZPLCode = (transfer) => {
+    // Wyciągnij nazwę produktu używając tej samej logiki co w handlePrintSingleLabel
+    const rawTransferName = transfer.isFromSale ? 
+      transfer.fullName : 
+      (typeof transfer.fullName === 'object' ? 
+        (transfer.fullName?.fullName || 'Nieznana nazwa') : 
+        (transfer.fullName || 'Nieznana nazwa'));
+    
+    // Wyciągnij rozmiar produktu
+    const rawTransferSize = transfer.isFromSale ? 
+      transfer.size : 
+      (typeof transfer.size === 'object' ? 
+        (transfer.size?.Roz_Opis || 'Nieznany rozmiar') : 
+        (transfer.size || 'Nieznany rozmiar'));
+        
+    const transferName = convertPolishCharsToZPL(rawTransferName);
+    const transferSize = convertPolishCharsToZPL(rawTransferSize);
+    const toLocation = convertPolishCharsToZPL(transfer.transfer_to || 'Nieznane');
+    
+    // Kod kreskowy - używamy barcode lub productId
+    const barcode = transfer.isFromSale ? 
+      transfer.barcode : 
+      transfer.productId || transfer.barcode || 'BRAK_KODU';
+
+    return `^XA
+^MMT
+^PW592
+^LL296
+^LS0
+^CF0,40
+^FO20,30^FD${transferName}^FS
+^CF0,40
+^FO20,80^FD${transferSize}^FS
+^CF0,28
+^FO20,130^FDPunkt: ${toLocation}^FS
+^FO20,170^BY3,3,80^BCN,80,Y,N,N^FD${barcode}^FS
+^PQ1,0,1,Y^XZ`;
+  };
+
+  // Funkcja wysyłająca ZPL do drukarki
+  const sendZPLToPrinter = async (zplCode, transferName = '') => {
+    return new Promise((resolve, reject) => {
+      try {
+        if (typeof window.BrowserPrint === 'undefined') {
+          throw new Error('Browser Print nie jest dostępny');
+        }
+
+        window.BrowserPrint.getDefaultDevice('printer', 
+          (device) => {
+            if (device && device.send) {
+              device.send(zplCode, 
+                () => {
+                  resolve(true);
+                },
+                (error) => {
+                  console.error('Błąd wysyłania do drukarki:', error);
+                  reject(new Error('Błąd komunikacji z drukarką: ' + error));
+                }
+              );
+            } else {
+              reject(new Error('Nie znaleziono drukarki'));
+            }
+          },
+          (error) => {
+            console.error('Błąd znajdowania drukarki:', error);
+            reject(new Error('Nie można znaleźć drukarki: ' + error));
+          }
+        );
+      } catch (error) {
+        console.error('Błąd drukowania:', error);
+        reject(error);
+      }
+    });
+  };
+
+  // Funkcja do oznaczania transakcji jako skorygowanej
+  const markTransactionAsCorrected = (transactionId) => {
+    setCorrectedTransactionIds(prev => new Set([...prev, transactionId]));
+  };
+
+  // Event listener dla korekt z innych komponentów + localStorage check
+  useEffect(() => {
+    // Check localStorage for corrected transactions on mount
+    const checkCorrectedTransactions = () => {
+      try {
+        const stored = localStorage.getItem('correctedTransactionIds');
+        if (stored) {
+          const ids = JSON.parse(stored);
+          if (Array.isArray(ids) && ids.length > 0) {
+            setCorrectedTransactionIds(new Set(ids));
+          }
+        }
+      } catch (error) {
+        console.error('Error reading corrected transactions from localStorage:', error);
+      }
+    };
+
+    const handleTransactionCorrected = (event) => {
+      console.log('🔔 Received transactionCorrected event:', event.detail);
+      const { transactionId } = event.detail;
+      if (transactionId) {
+        console.log(`📝 Marking transaction ${transactionId} as corrected`);
+        
+        // Use functional update to avoid stale closure
+        setCorrectedTransactionIds(prevIds => {
+          const newIds = new Set([...prevIds, transactionId]);
+          const idsArray = Array.from(newIds);
+          console.log('📋 Updated correctedTransactionIds:', idsArray);
+          
+          // Save to localStorage
+          try {
+            localStorage.setItem('correctedTransactionIds', JSON.stringify(idsArray));
+            console.log('💾 Saved corrected transactions to localStorage');
+          } catch (error) {
+            console.error('Error saving to localStorage:', error);
+          }
+          
+          return newIds;
+        });
+      }
+    };
+
+    checkCorrectedTransactions(); // Check on mount
+    window.addEventListener('transactionCorrected', handleTransactionCorrected);
+    
+    return () => {
+      window.removeEventListener('transactionCorrected', handleTransactionCorrected);
+    };
+  }, []); // Empty dependency array to avoid re-creating listener
+
+  // useEffect dla sprawdzania Browser Print
+  useEffect(() => {
+    // Sprawdź Browser Print po załadowaniu komponentu
+    const timer = setTimeout(() => {
+      checkBrowserPrintStatus();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // Funkcje pomocnicze dla synchronizacji
   const isProductMatched = (productId, type) => {
     const matched = matchedPairs.some(pair => 
@@ -81,6 +269,86 @@ const AddToState = ({ onAdd }) => {
 
       return '#007bff'; // Niebieski - transfer zwykły
     }
+  };
+
+  // Funkcja sprawdzania dostępności produktów 1:1
+  const checkAvailability = (filteredItemsToCheck) => {
+    if (!selectedUser || !filteredItemsToCheck || filteredItemsToCheck.length === 0) {
+      return [];
+    }
+
+    // Znajdź dane wybranego użytkownika
+    const selectedUserData = users.find(user => user._id === selectedUser);
+    if (!selectedUserData) {
+      return filteredItemsToCheck.map(() => 'Błąd użytkownika');
+    }
+
+    // Pobierz stan wybranego użytkownika z allStates
+    const userState = allStates.filter(item => item.symbol === selectedUserData.symbol);
+    
+    // Stwórz kopie stanów do "zużywania" (bez modyfikowania oryginałów)
+    let availableUserItems = [...userState];
+    let availableWarehouseItems = [...warehouseItems];
+
+    // Sprawdź dostępność dla każdego elementu
+    return filteredItemsToCheck.map(item => {
+      // Pobierz właściwe nazwy i rozmiary
+      let itemFullName, itemSize;
+      
+      if (item.isFromSale) {
+        // Dla sprzedaży - dane są stringami
+        itemFullName = item.fullName;
+        itemSize = item.size;
+      } else {
+        // Dla transferów - mogą być obiektami lub stringami
+        itemFullName = typeof item.fullName === 'object' 
+          ? item.fullName?.fullName 
+          : item.fullName;
+        itemSize = typeof item.size === 'object' 
+          ? item.size?.Roz_Opis 
+          : item.size;
+      }
+
+      // Sprawdź w stanie użytkownika
+      const userItemIndex = availableUserItems.findIndex(stateItem => {
+        // W stanie użytkownika mogą być dane jako stringi bezpośrednio lub w obiektach
+        const userFullName = stateItem.fullName?.fullName || stateItem.fullName;
+        const userSize = stateItem.size?.Roz_Opis || stateItem.size;
+        
+        return userFullName === itemFullName && userSize === itemSize;
+      });
+
+      // Sprawdź w magazynie
+      const warehouseItemIndex = availableWarehouseItems.findIndex(warehouseItem => 
+        warehouseItem.fullName?.fullName === itemFullName && 
+        warehouseItem.size?.Roz_Opis === itemSize
+      );
+
+      let status;
+      
+      if (userItemIndex >= 0 && warehouseItemIndex >= 0) {
+        // Jest w obu miejscach
+        status = 'OK';
+        // Usuń z dostępnych (zużyj)
+        availableUserItems.splice(userItemIndex, 1);
+        availableWarehouseItems.splice(warehouseItemIndex, 1);
+      } else if (userItemIndex >= 0 && warehouseItemIndex < 0) {
+        // Jest u użytkownika, nie ma w magazynie
+        status = 'Brak w magazynie';
+        // Usuń z dostępnych u użytkownika
+        availableUserItems.splice(userItemIndex, 1);
+      } else if (userItemIndex < 0 && warehouseItemIndex >= 0) {
+        // Nie ma u użytkownika, jest w magazynie
+        status = 'Brak w wybranym punkcie';
+        // Usuń z dostępnych w magazynie
+        availableWarehouseItems.splice(warehouseItemIndex, 1);
+      } else {
+        // Nie ma nigdzie
+        status = 'Brak w magazynie i brak w wybranym punkcie';
+      }
+
+      return status;
+    });
   };
 
   // Fetch users from API
@@ -201,19 +469,15 @@ const AddToState = ({ onAdd }) => {
   // Function to check if there's a last transaction that can be undone
   const checkLastTransaction = async () => {
     try {
-
       const response = await fetch(`${API_BASE_URL}/api/transfer/last-transaction`);
       if (response.ok) {
         const data = await response.json();
-
         setLastTransaction(data);
         setCanUndoTransaction(data.canUndo);
       } else if (response.status === 404) {
-
         setLastTransaction(null);
         setCanUndoTransaction(false);
       } else {
-
         setLastTransaction(null);
         setCanUndoTransaction(false);
       }
@@ -246,6 +510,7 @@ const AddToState = ({ onAdd }) => {
 
     if (selectedUser) {
       const selectedUserData = users.find(user => user._id === selectedUser);
+      
       if (selectedUserData) {
         // Pokazuj transfery gdy:
         // 1. Wybrany użytkownik jest ŹRÓDŁEM transferu (transfer_from) - standardowe transfery
@@ -367,7 +632,32 @@ const AddToState = ({ onAdd }) => {
 
     setFilteredItems(combinedItemsData);
     setCombinedItems(combinedItemsData); // Zapisz także jako oddzielny stan
-  }, [selectedDate, selectedUser, transfers, users, sales, allStates, processedSales, processedTransfers]);
+    
+    // Sprawdź dostępność dla wszystkich elementów
+    const statuses = checkAvailability(combinedItemsData);
+    setAvailabilityStatuses(statuses);
+  }, [selectedDate, selectedUser, transfers, users, sales, allStates, processedSales, processedTransfers, warehouseItems]);
+  
+  // Osobny useEffect TYLKO dla automatycznego przenoszenia - uruchamia się po filtracji
+  useEffect(() => {
+    // Uruchom automatyczne przenoszenie jeśli potrzeba - przekaż aktualne dane
+    // WAŻNE: Uruchom tylko raz dla każdego użytkownika
+    if (selectedUser && hasAutoMovedForUser !== selectedUser && filteredItems.length > 0) {
+      // Natychmiast ustaw flagę żeby zapobiec wielokrotnym uruchomieniom
+      setHasAutoMovedForUser(selectedUser);
+      // Uruchom z opóźnieniem żeby dać czas na stabilizację danych
+      setTimeout(() => {
+        autoMoveFromWarehouseForOKItems(filteredItems);
+        setIsAutoMoving(false); // Ukryj spinner
+      }, 200);
+    } else if (selectedUser && filteredItems.length === 0) {
+      // Jeśli nie ma żadnych danych do przetworzenia, ukryj spinner
+      setTimeout(() => setIsAutoMoving(false), 500);
+    } else if (selectedUser && hasAutoMovedForUser === selectedUser) {
+      // Już przeniesiono dla tego użytkownika
+      setIsAutoMoving(false);
+    }
+  }, [selectedUser, filteredItems.length, hasAutoMovedForUser]); // Tylko te dependencies!
 
   // useEffect do filtrowania produktów magazynowych
   useEffect(() => {
@@ -397,17 +687,96 @@ const AddToState = ({ onAdd }) => {
 
     setSelectedUser(newUser);
     
+    // Resetuj flagę automatycznego przenoszenia przy zmianie użytkownika
+    setHasAutoMovedForUser(null);
+    setAutoMovedProducts(new Set()); // Reset przeniesionych produktów
+    
     // Zawsze odśwież dane, nawet jeśli wybrano tę samą wartość
     if (newUser) {
+      setIsAutoMoving(true); // Pokaż spinner - będzie wyłączony w useEffect
 
       setProcessedSales(new Set());
       setProcessedTransfers(new Set());
-      fetchTransfers();
-      fetchWarehouseItems();
-      fetchSales();
-      fetchAllStates();
-      checkLastTransaction();
+      // Pozostaw automatyczne przenoszenie do useEffect
     }
+  };
+
+  // Funkcja automatycznego przenoszenia produktów ze statusem OK
+  const autoMoveFromWarehouseForOKItems = (itemsToCheck = null) => {
+    // Użyj przekazanych danych lub aktualnych state
+    const itemsToProcess = itemsToCheck || filteredItems;
+    
+    if (!selectedUser || !itemsToProcess || !warehouseItems) {
+      return;
+    }
+    
+    // Sprawdź dostępność dla wszystkich elementów
+    const currentStatuses = checkAvailability(itemsToProcess);
+    
+    // Zbierz wszystkie elementy które mają status OK
+    const itemsWithOKStatus = [];
+    itemsToProcess.forEach((item, index) => {
+      const status = currentStatuses[index];
+      if (status === 'OK') {
+        itemsWithOKStatus.push(item);
+      }
+    });
+
+
+    if (itemsWithOKStatus.length === 0) {
+      return;
+    }
+
+    // Dla każdego elementu ze statusem OK, przenieś JEDEN pasujący produkt z magazynu
+    // WAŻNE: Każdy element OK = jedna sztuka z magazynu (nawet jeśli to ten sam produkt)
+    let processedCount = 0;
+    const processedWarehouseIds = new Set(); // Śledzenie już przeniesionych ID magazynowych
+    
+    itemsWithOKStatus.forEach((item, index) => {
+      // Znajdź pasujący produkt w magazynie (który nie został jeszcze przeniesiony w tej sesji)
+      const matchingWarehouseItem = warehouseItems.find(warehouseItem => {
+        // Sprawdź czy ten konkretny element magazynowy nie został już przeniesiony
+        if (processedWarehouseIds.has(warehouseItem._id)) {
+          return false;
+        }
+        
+        const itemFullName = item.fullName?.fullName || item.fullName;
+        const warehouseFullName = warehouseItem.fullName?.fullName || warehouseItem.fullName;
+        const itemBarcode = item.barcode || item.productId;
+        const warehouseBarcode = warehouseItem.barcode;
+        const itemSize = item.size?.Roz_Opis || item.size;
+        const warehouseSize = warehouseItem.size?.Roz_Opis || warehouseItem.size;
+
+        // POPRAWKA: Dla transferów (nie sprzedaży) porównuj tylko fullName i size
+        // bo barcode może być MongoDB ID zamiast prawdziwego barcode
+        let matches;
+        if (item.isFromSale) {
+          // Dla sprzedaży - porównuj fullName i barcode
+          matches = itemFullName === warehouseFullName && itemBarcode === warehouseBarcode;
+        } else {
+          // Dla transferów - porównuj fullName i size
+          matches = itemFullName === warehouseFullName && itemSize === warehouseSize;
+        }
+        
+        return matches;
+      });
+
+      if (matchingWarehouseItem) {
+        processedCount++;
+        
+        // Oznacz ten konkretny element magazynowy jako przeniesiony w tej sesji
+        processedWarehouseIds.add(matchingWarehouseItem._id);
+        
+        // Sprawdź czy nie jest już wyszarzony/sparowany
+        if (!isWarehouseItemGreyed(matchingWarehouseItem._id)) {
+          // Przenieś automatycznie z magazynu NATYCHMIAST (bez setTimeout)
+          handleMoveFromWarehouse(matchingWarehouseItem);
+        } else {
+        }
+      } else {
+      }
+    });
+
   };
 
   const handleWarehouseSearchChange = (e) => {
@@ -446,6 +815,7 @@ const AddToState = ({ onAdd }) => {
       return;
     }
     
+    
     // Dodaj produkt do głównej listy transferów (items)
     const newTransferItem = {
       id: warehouseItem._id,
@@ -463,12 +833,25 @@ const AddToState = ({ onAdd }) => {
       reason: 'Przeniesienie z magazynu'
     };
     
-    setTransfers(prev => [...prev, newTransferItem]);
-    setFilteredItems(prev => [...prev, newTransferItem]);
+    setTransfers(prev => {
+      const newTransfers = [...prev, newTransferItem];
+      return newTransfers;
+    });
+    setFilteredItems(prev => {
+      const newFiltered = [...prev, newTransferItem];
+      return newFiltered;
+    });
+    
     
     // Usuń z listy magazynu (wizualnie)
-    setFilteredWarehouseItems(prev => prev.filter(item => item._id !== warehouseItem._id));
-    setWarehouseItems(prev => prev.filter(item => item._id !== warehouseItem._id));
+    setFilteredWarehouseItems(prev => {
+      const filtered = prev.filter(item => item._id !== warehouseItem._id);
+      return filtered;
+    });
+    setWarehouseItems(prev => {
+      const filtered = prev.filter(item => item._id !== warehouseItem._id);
+      return filtered;
+    });
 
   };
 
@@ -509,41 +892,62 @@ const AddToState = ({ onAdd }) => {
   // Funkcja sprawdzania braków w stanie i zapisywania korekt
   const checkForMissingItems = async (itemsToCheck, userSymbol, sellingPoint, transactionId = null) => {
     try {
+      
       // Pobierz wszystkie stany
       const allStatesResponse = await fetch(`${API_BASE_URL}/api/state`);
-      const allStates = await allStatesResponse.json();
+      let currentState = await allStatesResponse.json();
+      
       
       // Lista brakujących kurtek
       const missingItems = [];
+      const availableItems = [];
       
-      // Sprawdź każdą kurtkę czy istnieje w odpowiednim stanie
-      itemsToCheck.forEach(item => {
-        let foundInState = false;
+      // NOWA LOGIKA: Sprawdzaj elementy JEDEN PO JEDNYM i symuluj odpisywanie
+      itemsToCheck.forEach((item, index) => {
+        
         let sourceSymbol = userSymbol; // Domyślnie sprawdzaj stan wybranego użytkownika
         
         // Dla transferów sprawdź stan punktu źródłowego (transfer_from)
         if (item.transfer_from && !item.isFromSale) {
           sourceSymbol = item.transfer_from;
+        } else {
         }
         
         // Filtruj stan według właściwego symbolu
-        const userStateItems = allStates.filter(item => item.symbol === sourceSymbol);
+        const userStateItems = currentState.filter(stateItem => stateItem.symbol === sourceSymbol);
         
-        const itemBarcode = item.barcode || item.productId; // Używaj productId dla transferów
-        foundInState = userStateItems.find(stateItem => 
+        const itemBarcode = item.barcode || item.productId;
+        
+        // Znajdź pasujący produkt w stanie
+        const matchingStateItemIndex = userStateItems.findIndex(stateItem => 
           (stateItem.barcode === itemBarcode || stateItem.id === itemBarcode) &&
           stateItem.fullName === item.fullName &&
           stateItem.size === item.size
         );
         
-        if (!foundInState) {
+        const foundInState = matchingStateItemIndex !== -1;
+        
+        if (foundInState) {
+          availableItems.push(item);
+          
+          // SYMULUJ ODPISANIE: Usuń element ze stanu (aby następne sprawdzenia były realistyczne)
+          const matchingStateItem = userStateItems[matchingStateItemIndex];
+          const globalIndex = currentState.findIndex(stateItem => 
+            stateItem === matchingStateItem
+          );
+          if (globalIndex !== -1) {
+            currentState.splice(globalIndex, 1);
+          }
+          
+        } else {
+          
           const operationType = item.isFromSale ? 'SPRZEDAŻY' : 'TRANSFERU';
           const operationDetails = item.isFromSale 
             ? `sprzedaży za ${item.price || 'N/A'} PLN` 
             : `transferu z punktu ${sourceSymbol} do punktu ${item.transfer_to || sellingPoint}`;
           
           const detailedDescription = 
-            `🚨 BRAK W STANIE: Próba odpisania kurtki "${item.fullName}" (${item.size}) ` +
+            `🚨 BRAK W STANIE: Element #${index + 1} - Próba odpisania kurtki "${item.fullName}" (${item.size}) ` +
             `z punktu "${sourceSymbol}" w ramach ${operationDetails}. ` +
             `Kurtka o kodzie ${item.barcode || item.productId} nie została znaleziona w aktualnym stanie punktu. ` +
             `Możliwe przyczyny: już sprzedana, przeniesiona, zagubiona lub błąd w ewidencji. ` +
@@ -552,7 +956,7 @@ const AddToState = ({ onAdd }) => {
           missingItems.push({
             fullName: item.fullName,
             size: item.size,
-            barcode: item.barcode || item.productId, // Używaj productId jeśli barcode nie istnieje
+            barcode: item.barcode || item.productId,
             sellingPoint: sellingPoint,
             symbol: userSymbol,
             errorType: 'MISSING_IN_STATE',
@@ -560,7 +964,8 @@ const AddToState = ({ onAdd }) => {
             description: detailedDescription,
             originalPrice: item.price,
             discountPrice: item.discount_price,
-            transactionId: transactionId, // Dodaj transactionId do korekty
+            transactionId: transactionId,
+            elementIndex: index, // Dodaj indeks dla debugowania
             // NOWE: Zapisz oryginalne dane do przywrócenia
             originalData: {
               _id: item._id,
@@ -569,7 +974,7 @@ const AddToState = ({ onAdd }) => {
               barcode: item.barcode || item.productId,
               isFromSale: item.isFromSale,
               price: item.price,
-              advancePayment: item.advancePayment,
+              availability: item.availability,
               reason: item.reason,
               transfer_from: item.transfer_from || item.from,
               transfer_to: item.transfer_to,
@@ -593,47 +998,46 @@ const AddToState = ({ onAdd }) => {
 
         if (correctionsResponse.ok) {
 
+          // Dla brakujących transferów: po prostu oznacz jako processed=true zamiast usuwać
           for (const missingItem of missingItems) {
-            // Znajdź WSZYSTKIE oryginalne itemy w itemsToCheck (nie tylko pierwszy!)
-            const originalItems = itemsToCheck.filter(item => 
-              item.barcode === missingItem.barcode &&
-              item.fullName === missingItem.fullName &&
-              item.size === missingItem.size
-            );
-
-            for (const originalItem of originalItems) {
-              if (originalItem && originalItem._id) {
+            if (missingItem.originalData && missingItem.originalData._id && !missingItem.originalData.isFromSale) {
               try {
-                if (originalItem.isFromSale) {
-                  // Usuń sprzedaż
-
-                  const deleteResponse = await fetch(`${API_BASE_URL}/api/sales/delete-sale/${originalItem._id}`, {
-                    method: 'DELETE'
-                  });
-                  
-                  if (deleteResponse.ok) {
-
-                  } else {
-                    console.error(`❌ Failed to delete sale: ${originalItem._id}`);
-                  }
+                
+                const updateResponse = await fetch(`${API_BASE_URL}/api/transfer/${missingItem.originalData._id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    processed: true
+                  })
+                });
+                
+                if (updateResponse.ok) {
                 } else {
-                  // Usuń transfer
-
-                  const deleteResponse = await fetch(`${API_BASE_URL}/api/transfer/${originalItem._id}`, {
-                    method: 'DELETE'
-                  });
-                  
-                  if (deleteResponse.ok) {
-
-                  } else {
-                    console.error(`❌ Failed to delete transfer: ${originalItem._id}`);
-                  }
+                  console.error(`❌ Błąd oznaczania transferu ${missingItem.originalData._id} jako przetworzony`);
                 }
-              } catch (deleteError) {
-                console.error(`Error deleting item ${originalItem._id}:`, deleteError);
+              } catch (error) {
+                console.error(`❌ Błąd API dla transferu ${missingItem.originalData._id}:`, error);
               }
             }
-          }
+            
+            // Dla sprzedaży: usuń jak wcześniej
+            if (missingItem.originalData && missingItem.originalData._id && missingItem.originalData.isFromSale) {
+              try {
+                
+                const deleteResponse = await fetch(`${API_BASE_URL}/api/sales/delete-sale/${missingItem.originalData._id}`, {
+                  method: 'DELETE'
+                });
+                
+                if (deleteResponse.ok) {
+                } else {
+                  console.error(`❌ Failed to delete sale: ${missingItem.originalData._id}`);
+                }
+              } catch (deleteError) {
+                console.error(`Error deleting sale ${missingItem.originalData._id}:`, deleteError);
+              }
+            }
           }
           
           // Pokaż modal z brakującymi kurtkami
@@ -653,14 +1057,32 @@ const AddToState = ({ onAdd }) => {
         }
       }
       
-      // Zwróć listę kurtek do przetworzenia (usuń brakujące)
-      const availableItems = itemsToCheck.filter(item => 
-        !missingItems.some(missing => 
-          missing.barcode === item.barcode &&
-          missing.fullName === item.fullName &&
-          missing.size === item.size
-        )
-      );
+      
+      // OZNACZ DOSTĘPNE TRANSFERY JAKO PRZETWORZONE W BAZIE DANYCH
+      const availableTransfers = availableItems.filter(item => !item.isFromSale);
+      if (availableTransfers.length > 0) {
+        
+        for (const transfer of availableTransfers) {
+          try {
+            const updateResponse = await fetch(`${API_BASE_URL}/api/transfer/${transfer._id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                processed: true
+              })
+            });
+            
+            if (updateResponse.ok) {
+            } else {
+              console.error(`❌ Błąd oznaczania transferu ${transfer._id} jako przetworzony`);
+            }
+          } catch (error) {
+            console.error(`❌ Błąd API dla transferu ${transfer._id}:`, error);
+          }
+        }
+      }
       
       return {
         availableItems,
@@ -676,6 +1098,97 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  // Funkcje drukowania etykiet
+  const handlePrintAllColoredLabels = async () => {
+    if (!Array.isArray(filteredItems) || filteredItems.length === 0) {
+      alert('Brak produktów do drukowania');
+      return;
+    }
+
+    // Filtruj tylko pomarańczowe i żółte produkty (nie niebieskie)
+    const coloredItems = filteredItems.filter(item => 
+      item.fromWarehouse || // Pomarańczowe
+      item.isIncomingTransfer // Żółte
+    );
+
+    if (coloredItems.length === 0) {
+      alert('Brak pomarańczowych i żółtych produktów do drukowania');
+      return;
+    }
+
+    console.log('🖨️ Rozpoczynam drukowanie etykiet dla:', coloredItems.length, 'produktów');
+    
+    let successful = 0;
+    let failed = 0;
+    
+    for (const item of coloredItems) {
+      try {
+        const itemName = item.isFromSale 
+          ? item.fullName 
+          : (typeof item.fullName === 'object' ? item.fullName?.fullName : item.fullName);
+        
+        console.log(`🖨️ Drukuję etykietę dla: ${itemName}`);
+        
+        const zplCode = generateZPLCode(item);
+        await sendZPLToPrinter(zplCode, itemName);
+        
+        successful++;
+        
+        // Krótka pauza między drukowaniem etykiet
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (error) {
+        console.error('Błąd drukowania etykiety:', error);
+        failed++;
+      }
+    }
+    
+
+  };
+
+  // Funkcja obsługująca potwierdzenie drukowania etykiet
+  const confirmPrintLabels = () => {
+    if (pendingProcessItems) {
+      executeProcessAllTransfers(pendingProcessItems);
+    }
+    setShowPrintConfirmModal(false);
+    setPendingProcessItems(null);
+  };
+
+  // Funkcja obsługująca anulowanie drukowania
+  const cancelPrintConfirmation = () => {
+    setShowPrintConfirmModal(false);
+    setPendingProcessItems(null);
+  };
+
+  // Funkcja do drukowania pojedynczej etykiety ZPL
+  const handlePrintSingleLabel = async (transfer) => {
+    const transferName = transfer.isFromSale ? 
+      transfer.fullName : 
+      (typeof transfer.fullName === 'object' ? 
+        (transfer.fullName?.fullName || 'Nieznana nazwa') : 
+        (transfer.fullName || 'Nieznana nazwa'));
+
+    // Natychmiastowe drukowanie bez potwierdzenia
+    // Rozpocznij drukowanie
+    try {
+      
+      const zplCode = generateZPLCode(transfer);
+      await sendZPLToPrinter(zplCode, transferName);
+      
+    } catch (error) {
+      console.error('Błąd drukowania:', error);
+      alert(`❌ Błąd drukowania: ${error.message}`);
+    }
+  };
+
+  const getColoredItemsCount = () => {
+    if (!Array.isArray(filteredItems)) return 0;
+    return filteredItems.filter(item => 
+      item.fromWarehouse || item.isIncomingTransfer
+    ).length;
+  };
+
   const handleProcessAllTransfers = async () => {
     // Sprawdź czy mamy kombinowane elementy (zawierające żółte produkty)
     const itemsToProcess = combinedItems && combinedItems.length > 0 ? combinedItems : filteredItems;
@@ -685,7 +1198,17 @@ const AddToState = ({ onAdd }) => {
       return;
     }
 
+    // Zapisz elementy do przetworzenia i otwórz modal potwierdzenia drukowania
+    setPendingProcessItems(itemsToProcess);
+    setShowPrintConfirmModal(true);
+  };
+
+  // Nowa funkcja która faktycznie przetwarza elementy po potwierdzeniu
+  const executeProcessAllTransfers = async (itemsToProcess) => {
     try {
+      // Pokaż przycisk cofania po naciśnięciu "Zapisz"
+      setShowUndoButton(true);
+      
       // Rozdziel produkty według typu - DODANO obsługę ZIELONYCH i ŻÓŁTYCH produktów
       const warehouseItems = itemsToProcess.filter(item => item.fromWarehouse && !item.isFromSale && !isProductMatched(item._id, 'transfer'));
       
@@ -738,7 +1261,8 @@ const AddToState = ({ onAdd }) => {
             const result = await response.json();
             processedCount += result.processedCount;
             
-            // Oznacz transfery jako przetworzone  
+            
+            // Oznacz TYLKO dostępne transfery jako przetworzone (te, które faktycznie zostały przetworzone)
             validStandardTransfers.forEach(transfer => {
               setProcessedTransfers(prev => new Set([...prev, transfer._id]));
             });
@@ -781,6 +1305,7 @@ const AddToState = ({ onAdd }) => {
             const salesResult = await salesResponse.json();
             processedCount += salesResult.processedCount || validSalesItems.length;
 
+            
             validSalesItems.forEach(sale => {
               setProcessedSales(prev => new Set([...prev, sale._id]));
             });
@@ -1139,6 +1664,9 @@ const AddToState = ({ onAdd }) => {
         await fetchSales(); // Dodaj odświeżanie sprzedaży
 
         await checkLastTransaction();
+        
+        // Ukryj przycisk cofania po udanym cofnięciu
+        setShowUndoButton(false);
       } else {
         const errorData = await response.json();
         alert(`Błąd podczas cofania transakcji: ${errorData.message}`);
@@ -1452,7 +1980,17 @@ const AddToState = ({ onAdd }) => {
 
   return (
     <>
-    <div style={{ display: 'flex', height: '100vh', gap: '20px' }}>
+      {/* CSS dla spinnera */}
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
+      
+      <div style={{ display: 'flex', height: '100vh', gap: '20px' }}>
       {/* LEWA STRONA - Miejsce na nową funkcjonalność */}
       <div style={{ 
         flex: 1, 
@@ -1460,14 +1998,14 @@ const AddToState = ({ onAdd }) => {
         borderRight: '2px solid #ddd',
         overflowY: 'auto'
       }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
-          📦 Magazyn
+        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: 'white' }}>
+          Magazyn
         </h2>
         
         {/* Wyszukiwarka magazynu */}
         <div style={{ marginBottom: '20px' }}>
-          <label htmlFor="warehouseSearch" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-            🔍 Wyszukaj w magazynie:
+          <label htmlFor="warehouseSearch" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: 'white' }}>
+            Wyszukaj w magazynie:
           </label>
           <input
             id="warehouseSearch"
@@ -1480,10 +2018,12 @@ const AddToState = ({ onAdd }) => {
               padding: '10px',
               borderRadius: '5px',
               border: '1px solid #ddd',
-              fontSize: '14px'
+              fontSize: '14px',
+              backgroundColor: 'black',
+              color: 'white'
             }}
           />
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+          <div style={{ fontSize: '12px', color: 'white', marginTop: '5px' }}>
             Znaleziono: {filteredWarehouseItems.length} produktów
 
           </div>
@@ -1506,28 +2046,29 @@ const AddToState = ({ onAdd }) => {
                 const isGreyed = isWarehouseItemGreyed(item._id);
                 return (
                 <tr key={item._id} style={{ 
-                  backgroundColor: isGreyed ? '#d6d6d6' : '#e8f5e8', // Wyszarzony jeśli sparowany
+                  backgroundColor: isGreyed ? '#d6d6d6' : '#000000', // Wyszarzony jeśli sparowany, inaczej czarny
                   opacity: isGreyed ? 0.6 : 1.0,
-                  '&:hover': { backgroundColor: isGreyed ? '#c0c0c0' : '#d4edda' }
+                  color: isGreyed ? '#000000' : '#ffffff', // Biały tekst na czarnym tle
+                  '&:hover': { backgroundColor: isGreyed ? '#c0c0c0' : '#333333' }
                 }}>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.fullName?.fullName || 'Nieznana nazwa'}
                   </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.size?.Roz_Opis || 'Nieznany rozmiar'}
                   </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.barcode || 'Brak kodu'}
                   </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.price ? `${item.price} PLN` : 'Brak ceny'}
                   </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px', textAlign: 'center' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px', textAlign: 'center' }}>
                     <button
                       onClick={() => !isGreyed && handleMoveFromWarehouse(item)}
                       disabled={isGreyed}
                       style={{
-                        backgroundColor: isGreyed ? '#6c757d' : '#17a2b8',
+                        backgroundColor: isGreyed ? '#6c757d' : '#0d6efd',
                         color: 'white',
                         border: 'none',
                         padding: '4px 8px',
@@ -1538,7 +2079,7 @@ const AddToState = ({ onAdd }) => {
                       }}
                       title={isGreyed ? "Produkt sparowany - niedostępny" : "Przenieś produkt do obszaru transferów"}
                     >
-                      {isGreyed ? '🔒 Sparowany' : '➤ Przenieś'}
+                      {isGreyed ? 'Sparowany' : 'Przenieś'}
                     </button>
                   </td>
                 </tr>
@@ -1571,24 +2112,48 @@ const AddToState = ({ onAdd }) => {
         padding: '20px',
         overflowY: 'auto'
       }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333' }}>
-          Mechanizm Transferów
+        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: 'white' }}>
+          Dobieranie towaru
         </h2>
         
         <form>
           <div style={{ marginBottom: '15px' }}>
-            <label htmlFor="datepicker">Select Date:</label>
-            <input
-              id="datepicker"
-              type="date"
-              value={selectedDate}
-              onChange={handleDateChange}
-              style={{ marginLeft: '10px', padding: '5px' }}
-            />
+            <label htmlFor="datepicker" style={{ color: 'white' }}>Wybierz datę:</label>
+            <div style={{ position: 'relative', display: 'inline-block', marginLeft: '10px' }}>
+              <input
+                id="datepicker"
+                type="date"
+                value={selectedDate}
+                onChange={handleDateChange}
+                style={{ 
+                  padding: '5px 30px 5px 5px', 
+                  backgroundColor: 'black', 
+                  color: 'white',
+                  border: '1px solid #ddd',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              />
+              <span 
+                onClick={() => document.getElementById('datepicker').showPicker()}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  userSelect: 'none'
+                }}
+              >
+                📅
+              </span>
+            </div>
           </div>
           
           <div style={{ marginBottom: '15px' }}>
-            <label htmlFor="userselect">Select User:</label>
+            <label htmlFor="userselect" style={{ color: 'white' }}>Wybierz użytkownika:</label>
             <select
               id="userselect"
               value={selectedUser}
@@ -1606,9 +2171,15 @@ const AddToState = ({ onAdd }) => {
                   checkLastTransaction();
                 }
               }}
-              style={{ marginLeft: '10px', padding: '5px' }}
+              style={{ 
+                marginLeft: '10px', 
+                padding: '5px', 
+                backgroundColor: 'black', 
+                color: 'white',
+                border: '1px solid #ddd'
+              }}
             >
-              <option value="">-- Select User --</option>
+              <option value="">-- Wybierz użytkownika --</option>
               {users.map((user) => (
                 <option key={user._id} value={user._id}>
                   {user.symbol} - {user.sellingPoint || user.email}
@@ -1618,62 +2189,16 @@ const AddToState = ({ onAdd }) => {
           </div>
         </form>
 
-        {/* Przyciski Synchronizacji */}
-        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-          <button
-            onClick={handleSynchronize}
-            style={{
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              transition: 'background-color 0.3s ease',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              marginRight: '10px'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
-            title="Sparuj produkty jeden-do-jednego: niebieski → zielony, magazyn → wyszarzony"
-          >
-            🔄 Synchronizuj z magazynem
-          </button>
-
-          <button
-            onClick={() => {
-              setMatchedPairs([]);
-              setGreyedWarehouseItems(new Set());
-            }}
-            style={{
-              backgroundColor: '#dc3545',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              transition: 'background-color 0.3s ease',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
-            title="Resetuj synchronizację - przywróć domyślne kolory"
-          >
-            🔄 Reset synchronizacji
-          </button>
-        </div>
-
-        <div style={{ marginTop: '20px', marginBottom: '20px', textAlign: 'center' }}>
+        <div style={{ 
+          marginTop: '20px', 
+          marginBottom: '20px', 
+          textAlign: 'center',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '10px',
+          flexWrap: 'wrap'
+        }}>
           <button 
             onClick={handleProcessAllTransfers}
             style={{
@@ -1685,14 +2210,39 @@ const AddToState = ({ onAdd }) => {
               cursor: 'pointer',
               fontSize: '16px',
               fontWeight: 'bold',
-              marginRight: '10px'
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: '1.2'
             }}
             disabled={!Array.isArray(filteredItems) || filteredItems.length === 0}
           >
             Zapisz - Odpisz wszystkie kurtki ze stanu ({Array.isArray(filteredItems) ? filteredItems.length : 0})
           </button>
 
-          {canUndoTransaction && lastTransaction && (
+          <button 
+            onClick={handlePrintAllColoredLabels}
+            style={{
+              backgroundColor: '#0d6efd',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: '1.2'
+            }}
+            disabled={getColoredItemsCount() === 0}
+          >
+            Drukuj wszystkie etykiety ({getColoredItemsCount()})
+          </button>
+
+          {canUndoTransaction && lastTransaction && showUndoButton &&
+           !correctedTransactionIds.has(lastTransaction.transactionId) && (
             <button 
               onClick={handleUndoLastTransaction}
               style={{
@@ -1710,35 +2260,29 @@ const AddToState = ({ onAdd }) => {
               ⟲ Anuluj ostatnią transakcję ({lastTransaction.itemCount} produktów)
             </button>
           )}
-          {/* Debug info - remove in production */}
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '10px' }}>
-            Debug: canUndo={canUndoTransaction ? 'true' : 'false'}, hasTransaction={lastTransaction ? 'true' : 'false'}
-            {lastTransaction && `, transactionId=${lastTransaction.transactionId}`}
-          </div>
         </div>
 
         <div style={{ marginTop: '20px' }}>
-          <h3>Transfery</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
             <thead>
-              <tr style={{ backgroundColor: '#f2f2f2' }}>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Full Name</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Size</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Date</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>From</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>To</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Product ID</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Reason</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Advance Payment</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Action</th>
+              <tr style={{ backgroundColor: '#28a745', color: 'white' }}>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Nazwa</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Rozmiar</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Data</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Z</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Do</th>
+                <th style={{ border: '1px solid #ddd', padding: '8px' }}>Akcja</th>
               </tr>
             </thead>
             <tbody>
-              {Array.isArray(filteredItems) && filteredItems.map((transfer) => {
+              {Array.isArray(filteredItems) && filteredItems.map((transfer, index) => {
                 // Sprawdź czy transfer został już przetworzony
                 const isProcessed = transfer.isFromSale ? 
                   processedSales.has(transfer._id) :
                   (transfer.processed || processedTransfers.has(transfer._id));
+                
+                // Pobierz status dostępności dla tego elementu
+                const availabilityStatus = availabilityStatuses[index] || 'Sprawdzanie...';
                 
                 return (
                 <tr key={transfer._id} style={{ 
@@ -1768,79 +2312,80 @@ const AddToState = ({ onAdd }) => {
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.isFromSale ? `SPRZEDANO w ${transfer.transfer_to}` : transfer.transfer_to}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? transfer.barcode || 'N/A' : transfer.productId || 'N/A'}
-                  </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? 'SPRZEDAŻ' : (transfer.reason || 'N/A')}
-                  </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
-                    {transfer.isFromSale ? 
-                      `${transfer.cash?.[0]?.price || 0} PLN` : 
-                      `${transfer.advancePayment || ''} ${transfer.advancePaymentCurrency || ''}`.trim() || 'N/A'}
-                  </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px', textAlign: 'center' }}>
                     {transfer.isFromSale ? (
                       // Dla sprzedaży - brak przycisków akcji (nie można cofnąć sprzedaży tutaj)
                       <span style={{ fontStyle: 'italic' }}>Sprzedano</span>
                     ) : transfer.fromWarehouse ? (
-                      // Przyciski dla produktów z magazynu - tylko przycisk Cofnij
-                      <button 
-                        onClick={() => handleReturnToWarehouse(transfer)}
-                        style={{
-                          backgroundColor: '#28a745',
-                          color: 'white',
-                          border: 'none',
-                          padding: '5px 8px',
-                          borderRadius: '3px',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                        title="Cofnij do magazynu"
-                      >
-                        ↩️ Cofnij
-                      </button>
+                      // Przyciski dla produktów z magazynu (pomarańczowe) - przycisk Cofnij + Drukuj
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+                        <button 
+                          onClick={() => handleReturnToWarehouse(transfer)}
+                          style={{
+                            backgroundColor: '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 6px',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '11px'
+                          }}
+                          title="Cofnij do magazynu"
+                        >
+                          Cofnij
+                        </button>
+                        <button 
+                          onClick={() => handlePrintSingleLabel(transfer)}
+                          style={{
+                            backgroundColor: '#0d6efd',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 'normal'
+                          }}
+                          title="Drukuj etykietę pomarańczowego produktu"
+                        >
+                          Drukuj etykietkę
+                        </button>
+                      </div>
                     ) : (() => {
                       // Sprawdź kolor produktu dla niebieskich i zielonych
                       const backgroundColor = getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale, transfer.isIncomingTransfer);
                       const isBlue = backgroundColor === '#007bff';
                       const isGreen = backgroundColor === '#28a745';
                       
-                      if (isBlue || isGreen) {
+                      if (isGreen) {
                         return (
                           <button 
                             onClick={() => {
-                              if (isGreen) {
-                                // Zielone produkty: najpierw usuń ze stanu, potem dodaj do magazynu
+                              // Zielone produkty: najpierw usuń ze stanu, potem dodaj do magazynu
 
-                                handleRemoveFromState(transfer);
-                                // Znajdź pasujący produkt z magazynu i dodaj go
-                                const matchingWarehouseItem = warehouseItems.find(item => {
-                                  const transferBarcode = transfer.isFromSale ? transfer.barcode : transfer.productId;
-                                  const transferName = transfer.isFromSale ? transfer.fullName : (transfer.fullName?.fullName || transfer.fullName);
-                                  const transferSize = transfer.isFromSale ? transfer.size : (transfer.size?.Roz_Opis || transfer.size);
-                                  
-                                  const itemBarcode = item.barcode;
-                                  const itemName = item.fullName?.fullName || item.fullName;
-                                  const itemSize = item.size?.Roz_Opis || item.size;
-                                  
-                                  const barcodeMatch = transferBarcode === itemBarcode;
-                                  const nameMatch = transferName === itemName;
-                                  const sizeMatch = transferSize === itemSize;
-                                  
-                                  return barcodeMatch && nameMatch && sizeMatch;
-                                });
-                                if (matchingWarehouseItem) {
-                                  setTimeout(() => handleMoveFromWarehouse(matchingWarehouseItem), 100);
-                                }
-                              } else {
-                                // Niebieskie produkty: tylko usuń ze stanu
-
-                                handleRemoveFromState(transfer);
+                              handleRemoveFromState(transfer);
+                              // Znajdź pasujący produkt z magazynu i dodaj go
+                              const matchingWarehouseItem = warehouseItems.find(item => {
+                                const transferBarcode = transfer.isFromSale ? transfer.barcode : transfer.productId;
+                                const transferName = transfer.isFromSale ? transfer.fullName : (transfer.fullName?.fullName || transfer.fullName);
+                                const transferSize = transfer.isFromSale ? transfer.size : (transfer.size?.Roz_Opis || transfer.size);
+                                
+                                const itemBarcode = item.barcode;
+                                const itemName = item.fullName?.fullName || item.fullName;
+                                const itemSize = item.size?.Roz_Opis || item.size;
+                                
+                                const barcodeMatch = transferBarcode === itemBarcode;
+                                const nameMatch = transferName === itemName;
+                                const sizeMatch = transferSize === itemSize;
+                                
+                                return barcodeMatch && nameMatch && sizeMatch;
+                              });
+                              if (matchingWarehouseItem) {
+                                setTimeout(() => handleMoveFromWarehouse(matchingWarehouseItem), 100);
                               }
                             }}
                             style={{
-                              backgroundColor: isGreen ? '#28a745' : '#007bff',
+                              backgroundColor: '#28a745',
                               color: 'white',
                               border: 'none',
                               padding: '5px 8px',
@@ -1848,18 +2393,42 @@ const AddToState = ({ onAdd }) => {
                               cursor: 'pointer',
                               fontSize: '12px'
                             }}
-                            title={isGreen ? "Sparowany: usuń ze stanu i dodaj z magazynu" : "Usuń ze stanu"}
+                            title="Sparowany: usuń ze stanu i dodaj z magazynu"
                           >
-                            {isGreen ? '🔄 Sparowany' : '❌ Usuń'}
+                            🔄 Sparowany
                           </button>
                         );
                       } else {
-                        // Brak akcji dla innych transferów
-                        return (
-                          <span style={{ color: '#ccc', fontSize: '12px' }}>
-                            -
-                          </span>
-                        );
+                        // Sprawdź czy to żółty produkt (przychodzący transfer)
+                        const isYellow = transfer.isIncomingTransfer;
+                        
+                        if (isYellow) {
+                          return (
+                            <button 
+                              onClick={() => handlePrintSingleLabel(transfer)}
+                              style={{
+                                backgroundColor: '#0d6efd',
+                                color: 'white',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '3px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 'normal'
+                              }}
+                              title="Drukuj etykietę żółtego produktu (przychodzący transfer)"
+                            >
+                              Drukuj etykietkę
+                            </button>
+                          );
+                        } else {
+                          // Brak akcji dla niebieskich i innych transferów
+                          return (
+                            <span style={{ color: '#ccc', fontSize: '12px' }}>
+                              -
+                            </span>
+                          );
+                        }
                       }
                     })()}
                   </td>
@@ -1876,6 +2445,161 @@ const AddToState = ({ onAdd }) => {
         </div>
       </div>
     </div>
+
+    {/* Spinner na środku ekranu podczas automatycznego przenoszenia */}
+    {isAutoMoving && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '30px 50px',
+          borderRadius: '10px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #007bff',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '20px'
+          }}></div>
+          <div style={{
+            color: '#333',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            textAlign: 'center'
+          }}>
+            🔄 Przenoszę produkty z magazynu...
+            <br />
+            <span style={{ fontSize: '14px', fontWeight: 'normal', color: '#666' }}>
+              Proszę czekać
+            </span>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal potwierdzenia drukowania etykiet */}
+    {showPrintConfirmModal && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2000
+      }}>
+        <div style={{
+          backgroundColor: 'black',
+          padding: '30px',
+          borderRadius: '15px',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.3)',
+          border: '2px solid white',
+          maxWidth: '500px',
+          width: '90%',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            fontSize: '48px',
+            marginBottom: '20px'
+          }}>
+            🖨️
+          </div>
+          
+          <h3 style={{
+            margin: '0 0 20px 0',
+            color: 'white',
+            fontSize: '20px',
+            fontWeight: 'bold'
+          }}>
+            Potwierdzenie drukowania etykiet
+          </h3>
+          
+          <p style={{
+            margin: '0 0 30px 0',
+            color: '#ccc',
+            fontSize: '16px',
+            lineHeight: '1.5'
+          }}>
+            Czy wszystkie metki zostały poprawnie wydrukowane?
+            <br />
+            <strong style={{ color: '#fff' }}>Uwaga:</strong> Po potwierdzeniu produkty zostaną przetworzone.
+          </p>
+          
+          <div style={{
+            display: 'flex',
+            gap: '15px',
+            justifyContent: 'center'
+          }}>
+            <button
+              onClick={cancelPrintConfirmation}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#5a6268'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#6c757d'}
+            >
+              ❌ Nie - Anuluj
+            </button>
+            
+            <button
+              onClick={confirmPrintLabels}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#218838'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#28a745'}
+            >
+              ✅ Tak - Kontynuuj
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
     </>
   );
 };

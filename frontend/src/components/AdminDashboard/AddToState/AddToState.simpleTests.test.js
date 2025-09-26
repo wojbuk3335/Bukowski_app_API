@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from './AddToState';
@@ -88,8 +88,8 @@ describe('AddToState - Proste testy odświeżania selecta', () => {
 
     // Sprawdź czy select jest widoczny
     await waitFor(() => {
-      expect(screen.getByLabelText('Select User:')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('-- Select User --')).toBeInTheDocument();
+      expect(screen.getByLabelText('Wybierz użytkownika:')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('-- Wybierz użytkownika --')).toBeInTheDocument();
     });
   });
 
@@ -100,7 +100,7 @@ describe('AddToState - Proste testy odświeżania selecta', () => {
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -125,7 +125,7 @@ describe('AddToState - Proste testy odświeżania selecta', () => {
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -159,14 +159,14 @@ describe('AddToState - Proste testy odświeżania selecta', () => {
 
     // Poczekaj na załadowanie komponentu
     await waitFor(() => {
-      expect(screen.getByDisplayValue('-- Select User --')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('-- Wybierz użytkownika --')).toBeInTheDocument();
     });
 
     // Wyczyść poprzednie wywołania fetch z renderowania
     jest.clearAllMocks();
 
     // Kliknij w select bez wybranego użytkownika
-    const userSelect = screen.getByDisplayValue('-- Select User --');
+    const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
     fireEvent.click(userSelect);
 
     // Sprawdź czy fetch NIE został wywołany (bo nie ma wybranego użytkownika)
@@ -174,3 +174,4 @@ describe('AddToState - Proste testy odświeżania selecta', () => {
   });
 
 });
+

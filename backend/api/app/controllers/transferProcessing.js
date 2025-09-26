@@ -474,27 +474,25 @@ class TransferProcessingController {
                         // CORRECTIONS UNDO: Remove correction and RECREATE original deleted item
                         console.log('Processing corrections undo for:', entry.product);
                         
-                        // Parsuj informacje o produkcie z pola product
-                        const productInfo = entry.product.match(/^(.+)\s+\((.+)\)$/);
-                        if (!productInfo) {
-                            throw new Error(`Cannot parse product info: ${entry.product}`);
+                        // Parsuj informacje o produkcie z pola product (nowy format: "Nazwa Rozmiar")
+                        const parts = entry.product.trim().split(' ');
+                        if (parts.length < 2) {
+                            throw new Error(`Cannot parse product info (expected "Name Size"): ${entry.product}`);
                         }
                         
-                        const [, nameSizePart, barcode] = productInfo;
-                        const parts = nameSizePart.split(' ');
                         const size = parts[parts.length - 1];
                         const fullName = parts.slice(0, -1).join(' ');
                         
-                        // Usuń korektę z bazy danych
+                        // Znajdź korektę w bazie danych aby pobrać kod kreskowy
                         const Corrections = require('../db/models/corrections');
                         const deletedCorrection = await Corrections.findOneAndDelete({
-                            barcode: barcode,
                             fullName: fullName,
                             size: size,
                             transactionId: entry.transactionId
                         });
                         
                         if (deletedCorrection) {
+                            const barcode = deletedCorrection.barcode; // Pobierz kod kreskowy z korekty
                             console.log(`✅ Removed correction for ${barcode}`);
                             
                             // KLUCZOWE: Odtwórz usunięty transfer/sprzedaż z oryginalnych danych

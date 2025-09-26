@@ -1,4 +1,4 @@
-// ===== PROSTY TEST JEDNOSTKOWY DLA KOLEJNOŚCI ELEMENTÓW =====
+﻿// ===== PROSTY TEST JEDNOSTKOWY DLA KOLEJNOŚCI ELEMENTÓW =====
 
 describe('Display Order Logic Tests', () => {
   test('Powinna łączyć elementy w prawidłowej kolejności: Sales → Blue Transfers → Yellow Transfers → Orange Transfers', () => {
@@ -12,7 +12,7 @@ describe('Display Order Logic Tests', () => {
       // Blue transfer (wychodzący)
       { _id: 'blue1', fullName: 'Kasia ZIELONY', size: 'M', fromWarehouse: false },
       { _id: 'blue2', fullName: 'Zosia ŻÓŁTY', size: 'S', fromWarehouse: false },
-      // Orange transfer (z magazynu)
+      // Orange transfer (z Magazynu)
       { _id: 'orange1', fullName: 'Paula BIAŁY', size: '2XL', fromWarehouse: true },
       { _id: 'orange2', fullName: 'Ewa CZARNY', size: '3XL', fromWarehouse: true }
     ];
@@ -44,7 +44,7 @@ describe('Display Order Logic Tests', () => {
     expect(combinedItemsData[4]).toEqual(expect.objectContaining({ _id: 'yellow1', isIncomingTransfer: true }));
     expect(combinedItemsData[5]).toEqual(expect.objectContaining({ _id: 'yellow2', isIncomingTransfer: true }));
 
-    // 🟠 Na końcu pomarańczowe transfery z magazynu (indeksy 6-7)
+    // 🟠 Na końcu pomarańczowe transfery z Magazynu (indeksy 6-7)
     expect(combinedItemsData[6]).toEqual(expect.objectContaining({ _id: 'orange1', fromWarehouse: true }));
     expect(combinedItemsData[7]).toEqual(expect.objectContaining({ _id: 'orange2', fromWarehouse: true }));
   });

@@ -78,14 +78,31 @@ class CorrectionsController {
                 // WAŻNE: Każda kurtka musi mieć swój wpis w historii, nawet jeśli są identyczne
                 const historyEntries = savedCorrections.map((correction, index) => {
                     const originalData = req.body[index]?.originalData;
+                    
+                    // NOWA LOGIKA: Określ faktyczne miejsce docelowe na podstawie typu operacji
+                    let destinationTo = 'KOREKTY'; // Fallback
+                    
+                    if (originalData) {
+                        // Sprawdź czy to była sprzedaż
+                        const isFromSale = originalData.isFromSale === true;
+                        
+                        if (isFromSale) {
+                            // Dla sprzedaży: użyj "SPRZEDANO"
+                            destinationTo = 'SPRZEDANO';
+                        } else {
+                            // Dla transferów: użyj faktycznego punktu docelowego
+                            destinationTo = originalData.transfer_to || 'KOREKTY';
+                        }
+                    }
+                    
                     return {
                         _id: new mongoose.Types.ObjectId(),
-                        collectionName: 'corrections',
+                        collectionName: 'Korekty', // ZMIANA: z 'corrections' na 'Korekty'
                         operation: 'Przeniesiono do korekt',
                         from: correction.symbol,
-                        to: 'KOREKTY',
+                        to: destinationTo, // ZMIANA: użyj faktycznego miejsca docelowego
                         timestamp: new Date(),
-                        product: `${correction.fullName} ${correction.size} (${correction.barcode})`,
+                        product: `${correction.fullName} ${correction.size}`,
                         details: `Brak pokrycia w stanie - ${correction.description}`,
                         transactionId: transactionId,
                         // NOWE: Zapisz oryginalne dane do przywrócenia

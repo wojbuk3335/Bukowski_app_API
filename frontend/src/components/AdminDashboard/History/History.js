@@ -43,6 +43,10 @@ const History = () => {
     const [favorites, setFavorites] = useState(new Set());
     const [showBulkActions, setShowBulkActions] = useState(false);
     const [viewMode, setViewMode] = useState('table'); // table, cards, timeline
+    
+    // State dla modala szczegółów
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [selectedDetails, setSelectedDetails] = useState(null);
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -181,6 +185,17 @@ const History = () => {
     const hideHover = () => {
         setIsHoverVisible(false);
         setHoverContent(null);
+    };
+
+    // Funkcja do wyświetlenia szczegółów w modalu
+    const openDetailsModal = (historyItem) => {
+        setSelectedDetails(historyItem);
+        setShowDetailsModal(true);
+    };
+
+    const closeDetailsModal = () => {
+        setShowDetailsModal(false);
+        setSelectedDetails(null);
     };
 
     // Funkcja sortowania
@@ -995,12 +1010,27 @@ const History = () => {
                                         </td>
                                         <td
                                             className={tableStyles.tableCell}
-                                            style={{ maxWidth: '200px', width: '200px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                            style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}
                                             data-label="Szczegóły"
-                                            onMouseEnter={(e) => showHover(item.details || '-', e)}
-                                            onMouseLeave={hideHover}
                                         >
-                                            {item.details || '-'}
+                                            {item.details && item.details !== '-' ? (
+                                                <button
+                                                    className="btn btn-sm btn-info"
+                                                    style={{
+                                                        backgroundColor: '#17a2b8',
+                                                        borderColor: '#17a2b8',
+                                                        color: 'white',
+                                                        padding: '2px 8px',
+                                                        fontSize: '12px'
+                                                    }}
+                                                    onClick={() => openDetailsModal(item)}
+                                                    title="Pokaż szczegóły"
+                                                >
+                                                    📋 Szczegóły
+                                                </button>
+                                            ) : (
+                                                '-'
+                                            )}
                                         </td>
                                         <td
                                             className={tableStyles.tableCell}
@@ -1048,7 +1078,26 @@ const History = () => {
                                                     {item.userloggedinId ? item.userloggedinId.username : localStorage.getItem('AdminEmail')}
                                                 </td>
                                                 <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>{item.product || '-'}</td>
-                                                <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>{item.details || '-'}</td>
+                                                <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
+                                                    {item.details && item.details !== '-' ? (
+                                                        <button
+                                                            className="btn btn-sm btn-info"
+                                                            style={{
+                                                                backgroundColor: '#17a2b8',
+                                                                borderColor: '#17a2b8',
+                                                                color: 'white',
+                                                                padding: '2px 8px',
+                                                                fontSize: '12px'
+                                                            }}
+                                                            onClick={() => openDetailsModal(item)}
+                                                            title="Pokaż szczegóły"
+                                                        >
+                                                            📋 Szczegóły
+                                                        </button>
+                                                    ) : (
+                                                        '-'
+                                                    )}
+                                                </td>
                                                 <td className={tableStyles.tableCell} style={{ maxWidth: '150px', width: '150px', textAlign: 'center' }}>
                                                     {new Date(item.timestamp).toLocaleString()}
                                                 </td>
@@ -1575,6 +1624,162 @@ const History = () => {
                                 }}
                             >
                                 Anuluj
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Modal szczegółów */}
+            {showDetailsModal && selectedDetails && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1050
+                }}>
+                    <div style={{
+                        backgroundColor: 'black',
+                        border: '2px solid white',
+                        borderRadius: '8px',
+                        padding: '30px',
+                        minWidth: '600px',
+                        maxWidth: '90vw',
+                        maxHeight: '80vh',
+                        overflow: 'auto',
+                        color: 'white'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '25px',
+                            borderBottom: '1px solid white',
+                            paddingBottom: '15px'
+                        }}>
+                            <h3 style={{ margin: 0, color: 'white' }}>
+                                📋 Szczegóły operacji
+                            </h3>
+                            <button
+                                onClick={closeDetailsModal}
+                                style={{
+                                    backgroundColor: '#dc3545',
+                                    border: 'none',
+                                    color: 'white',
+                                    borderRadius: '50%',
+                                    width: '35px',
+                                    height: '35px',
+                                    fontSize: '18px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                title="Zamknij"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '20px',
+                            marginBottom: '25px'
+                        }}>
+                            <div>
+                                <strong style={{ color: '#ffc107' }}>🏢 Kolekcja:</strong>
+                                <div style={{ marginTop: '5px', padding: '8px', backgroundColor: '#333', borderRadius: '4px' }}>
+                                    {selectedDetails.collectionName || '-'}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <strong style={{ color: '#ffc107' }}>⚡ Operacja:</strong>
+                                <div style={{ marginTop: '5px', padding: '8px', backgroundColor: '#333', borderRadius: '4px' }}>
+                                    {selectedDetails.operation || '-'}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <strong style={{ color: '#ffc107' }}>📤 Skąd:</strong>
+                                <div style={{ marginTop: '5px', padding: '8px', backgroundColor: '#333', borderRadius: '4px' }}>
+                                    {selectedDetails.from || '-'}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <strong style={{ color: '#ffc107' }}>📥 Dokąd:</strong>
+                                <div style={{ marginTop: '5px', padding: '8px', backgroundColor: '#333', borderRadius: '4px' }}>
+                                    {selectedDetails.to || '-'}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <strong style={{ color: '#ffc107' }}>👤 Użytkownik:</strong>
+                                <div style={{ marginTop: '5px', padding: '8px', backgroundColor: '#333', borderRadius: '4px' }}>
+                                    {selectedDetails.userloggedinId ? selectedDetails.userloggedinId.username : localStorage.getItem('AdminEmail') || '-'}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <strong style={{ color: '#ffc107' }}>⏰ Czas:</strong>
+                                <div style={{ marginTop: '5px', padding: '8px', backgroundColor: '#333', borderRadius: '4px' }}>
+                                    {new Date(selectedDetails.timestamp).toLocaleString('pl-PL')}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style={{ marginBottom: '20px' }}>
+                            <strong style={{ color: '#ffc107' }}>📦 Produkt:</strong>
+                            <div style={{ marginTop: '5px', padding: '12px', backgroundColor: '#333', borderRadius: '4px', fontSize: '16px' }}>
+                                {selectedDetails.product || '-'}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <strong style={{ color: '#ffc107' }}>📝 Szczegóły:</strong>
+                            <div style={{
+                                marginTop: '5px',
+                                padding: '15px',
+                                backgroundColor: '#333',
+                                borderRadius: '4px',
+                                minHeight: '100px',
+                                whiteSpace: 'pre-wrap',
+                                wordWrap: 'break-word',
+                                fontFamily: 'monospace',
+                                fontSize: '14px',
+                                lineHeight: '1.6'
+                            }}>
+                                {selectedDetails.details || 'Brak szczegółów'}
+                            </div>
+                        </div>
+                        
+                        <div style={{
+                            marginTop: '25px',
+                            borderTop: '1px solid white',
+                            paddingTop: '15px',
+                            textAlign: 'right'
+                        }}>
+                            <button
+                                onClick={closeDetailsModal}
+                                style={{
+                                    backgroundColor: '#6c757d',
+                                    border: 'none',
+                                    color: 'white',
+                                    padding: '10px 25px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                Zamknij
                             </button>
                         </div>
                     </div>

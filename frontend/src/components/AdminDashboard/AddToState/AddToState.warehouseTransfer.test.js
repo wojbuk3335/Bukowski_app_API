@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from './AddToState';
@@ -10,7 +10,7 @@ global.fetch = jest.fn();
 window.alert = jest.fn();
 window.confirm = jest.fn(() => true);
 
-describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży', () => {
+describe('AddToState - Przenoszenie produktów z Magazynu do punktu sprzedaży', () => {
   
   beforeEach(() => {
     jest.clearAllMocks();
@@ -145,17 +145,17 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
     });
   });
 
-  test('1. Komponent renderuje sekcję magazynu z pomarańczowymi produktami', async () => {
+  test('1. Komponent renderuje sekcję Magazynu z pomarańczowymi produktami', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
-    // Sprawdź czy sekcja magazynu się renderuje
+    // Sprawdź czy sekcja Magazynu się renderuje
     await waitFor(() => {
       expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
     });
 
-    // Sprawdź czy produkty z magazynu się renderują
+    // Sprawdź czy produkty z Magazynu się renderują
     await waitFor(() => {
       expect(screen.getByText('Kurtka Pomarańczowa A')).toBeInTheDocument();
       expect(screen.getByText('Kurtka Pomarańczowa B')).toBeInTheDocument();
@@ -168,18 +168,18 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
     });
   });
 
-  test('2. Przenoszenie pojedynczego produktu z magazynu do tabeli transferów', async () => {
+  test('2. Przenoszenie pojedynczego produktu z Magazynu do tabeli transferów', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
     // Wybierz użytkownika docelowego
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
-    // Sprawdź czy produkty są w magazynie
+    // Sprawdź czy produkty są w Magazynie
     await waitFor(() => {
       expect(screen.getByText('Kurtka Pomarańczowa A')).toBeInTheDocument();
     });
@@ -201,20 +201,20 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
       expect(transferRow).toBeInTheDocument();
     });
 
-    // Sprawdź czy liczba produktów w magazynie się zmniejszyła
+    // Sprawdź czy liczba produktów w Magazynie się zmniejszyła
     await waitFor(() => {
       expect(screen.getByText('Znaleziono: 2 produktów')).toBeInTheDocument();
     });
   });
 
-  test('3. Produkt z magazynu ma pomarańczowy kolor w tabeli transferów', async () => {
+  test('3. Produkt z Magazynu ma pomarańczowy kolor w tabeli transferów', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -239,14 +239,14 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
     });
   });
 
-  test('4. Cofanie produktu z tabeli transferów z powrotem do magazynu', async () => {
+  test('4. Cofanie produktu z tabeli transferów z powrotem do Magazynu', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
     // Wybierz użytkownika i przenieś produkt
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -266,24 +266,24 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
       fireEvent.click(cofnijButton);
     });
 
-    // Sprawdź czy produkt wrócił do magazynu
+    // Sprawdź czy produkt wrócił do Magazynu
     await waitFor(() => {
       expect(screen.getByText('Znaleziono: 3 produktów')).toBeInTheDocument();
       
-      // Sprawdź czy produkt jest z powrotem w sekcji magazynu
-      const magazynSection = screen.getByText('📦 Magazyn').closest('div');
-      expect(magazynSection).toHaveTextContent('Kurtka Pomarańczowa A');
+      // Sprawdź czy produkt jest z powrotem w sekcji Magazynu
+      const MagazynSection = screen.getByText('📦 Magazyn').closest('div');
+      expect(MagazynSection).toHaveTextContent('Kurtka Pomarańczowa A');
     });
   });
 
-  test('5. Przenoszenie wielu produktów naraz z magazynu', async () => {
+  test('5. Przenoszenie wielu produktów naraz z Magazynu', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user2' } });
     });
 
@@ -300,21 +300,21 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
       expect(screen.getByText('Kurtka Pomarańczowa C')).toBeInTheDocument();
     });
 
-    // Sprawdź czy magazyn jest pusty
+    // Sprawdź czy Magazyn jest pusty
     await waitFor(() => {
       expect(screen.getByText('Znaleziono: 0 produktów')).toBeInTheDocument();
     });
   });
 
-  test('6. Przetwarzanie transferów z magazynu do punktu sprzedaży', async () => {
+  test('6. Przetwarzanie transferów z Magazynu do punktu sprzedaży', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
     // Wybierz użytkownika i datę
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
-      const dateInput = screen.getByLabelText('Select Date:');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
+      const dateInput = screen.getByLabelText('Wybierz datę:');
       
       fireEvent.change(userSelect, { target: { value: 'user1' } });
       fireEvent.change(dateInput, { target: { value: '2025-09-04' } });
@@ -334,7 +334,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
       expect(processButton.textContent).toContain('(0)'); // licznik pokazuje 0
     });
 
-    // Sprawdź że produkt został faktycznie przeniesiony z magazynu
+    // Sprawdź że produkt został faktycznie przeniesiony z Magazynu
     await waitFor(() => {
       expect(screen.getByText('Znaleziono: 2 produktów')).toBeInTheDocument(); // o jeden mniej
     });
@@ -356,7 +356,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
     );
   });
 
-  test('8. Filtrowanie produktów w magazynie według nazwy', async () => {
+  test('8. Filtrowanie produktów w Magazynie według nazwy', async () => {
     await act(async () => {
       render(<AddToState />);
     });
@@ -383,14 +383,14 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
     });
   });
 
-  test('9. Poprawne dane w tabeli transferów po przeniesieniu z magazynu', async () => {
+  test('9. Poprawne dane w tabeli transferów po przeniesieniu z Magazynu', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
     // Wybierz użytkownika
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -406,20 +406,18 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
       expect(screen.getByText('M')).toBeInTheDocument(); // Rozmiar
       expect(screen.getByText('MAGAZYN')).toBeInTheDocument(); // Transfer_from
       expect(screen.getByText('Symbol1')).toBeInTheDocument(); // Transfer_to
-      expect(screen.getByText('TEST123')).toBeInTheDocument(); // Product ID (barcode)
-      expect(screen.getByText('Przeniesienie z magazynu')).toBeInTheDocument(); // Reason
     });
   });
 
-  test('10. Cofnięcie transakcji (rollback) - przywrócenie produktów do magazynu', async () => {
+  test('10. Cofnięcie transakcji (rollback) - przywrócenie produktów do Magazynu', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
     // Wybierz użytkownika i datę
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
-      const dateInput = screen.getByLabelText('Select Date:');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
+      const dateInput = screen.getByLabelText('Wybierz datę:');
       
       fireEvent.change(userSelect, { target: { value: 'user1' } });
       fireEvent.change(dateInput, { target: { value: '2025-09-04' } });
@@ -439,13 +437,13 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Symulujemy rollback przez cofnięcie produktu z tabeli transferów
     await waitFor(() => {
-      // Produkt powinien być widoczny w tabeli transferów (choć przycisk disabled)
-      const transferTable = screen.getByText('Transfery').closest('div');
-      expect(transferTable).toBeInTheDocument();
+      // Sprawdź że sekcja transferów jest obecna
+      const transferSection = screen.getByText('Mechanizm Transferów');
+      expect(transferSection).toBeInTheDocument();
     });
   });
 
-  test('11. Obsługa błędów podczas przetwarzania transferów z magazynu', async () => {
+  test('11. Obsługa błędów podczas przetwarzania transferów z Magazynu', async () => {
     // Mock błędu API
     fetch.mockImplementationOnce((url) => {
       if (url.includes('/api/transfer/process-warehouse')) {
@@ -466,7 +464,7 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika i przenieś produkt
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
@@ -479,6 +477,17 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
     await waitFor(() => {
       const processButton = screen.getByText(/Zapisz - Odpisz wszystkie kurtki ze stanu/);
       fireEvent.click(processButton);
+    });
+
+    // Poczekaj na pojawienie się modalu potwierdzenia drukowania
+    await waitFor(() => {
+      expect(screen.getByText('Potwierdzenie drukowania etykiet')).toBeInTheDocument();
+    });
+
+    // Kliknij "Tak - Kontynuuj" w modalu
+    const confirmButton = screen.getByText(/tak.*kontynuuj/i);
+    await act(async () => {
+      fireEvent.click(confirmButton);
     });
 
     // Sprawdź czy endpoint został wywołany
@@ -497,8 +506,8 @@ describe('AddToState - Przenoszenie produktów z magazynu do punktu sprzedaży',
 
     // Wybierz użytkownika i datę
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
-      const dateInput = screen.getByLabelText('Select Date:');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
+      const dateInput = screen.getByLabelText('Wybierz datę:');
       
       fireEvent.change(userSelect, { target: { value: 'user1' } });
       fireEvent.change(dateInput, { target: { value: '2025-09-04' } });

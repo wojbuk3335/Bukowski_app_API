@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from '../AddToState';
@@ -74,7 +74,7 @@ describe('AddToState - Simple Integration Test', () => {
     });
 
     // Check if the select has the expected options
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByLabelText(/wybierz użytkownika/i);
     expect(userSelect).toBeInTheDocument();
     
     // Now select a user

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from '../AddToState';
@@ -125,14 +125,14 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Sprawdź czy użytkownicy zostali załadowani (może potrzeba więcej czasu)
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
       // Sprawdź czy opcje użytkowników są dostępne
       const options = userSelect.querySelectorAll('option');
       expect(options.length).toBeGreaterThan(1);
     }, { timeout: 3000 });
 
     // Wybierz użytkownika TestUser
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -159,13 +159,13 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     });
 
     // Ustaw filtr daty na dzisiaj
-    const dateInput = screen.getByLabelText(/select date/i);
+    const dateInput = screen.getByLabelText("Wybierz datę:");
     await act(async () => {
       fireEvent.change(dateInput, { target: { value: '2025-08-31' } });
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -238,12 +238,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -257,6 +257,17 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     const processButton = screen.getByText(/zapisz.*odpisz wszystkie kurtki ze stanu/i);
     await act(async () => {
       fireEvent.click(processButton);
+    });
+
+    // Poczekaj na pojawienie się modalu potwierdzenia drukowania
+    await waitFor(() => {
+      expect(screen.getByText('Potwierdzenie drukowania etykiet')).toBeInTheDocument();
+    });
+
+    // Kliknij "Tak - Kontynuuj" w modalu
+    const confirmButton = screen.getByText(/tak.*kontynuuj/i);
+    await act(async () => {
+      fireEvent.click(confirmButton);
     });
 
     await waitFor(() => {
@@ -318,12 +329,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -334,7 +345,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     });
 
     // Kliknij synchronizację
-    const syncButton = screen.getByText(/synchronizuj/i);
+    const syncButton = screen.getByText(/Zapisz - Odpisz wszystkie kurtki ze stanu/);
     await act(async () => {
       fireEvent.click(syncButton);
     });
@@ -356,7 +367,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -436,12 +447,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -455,6 +466,17 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     const saveButton = screen.getByText(/zapisz.*odpisz wszystkie kurtki ze stanu/i);
     await act(async () => {
       fireEvent.click(saveButton);
+    });
+
+    // Poczekaj na pojawienie się modalu potwierdzenia drukowania
+    await waitFor(() => {
+      expect(screen.getByText('Potwierdzenie drukowania etykiet')).toBeInTheDocument();
+    });
+
+    // Kliknij "Tak - Kontynuuj" w modalu
+    const confirmButton = screen.getByText(/tak.*kontynuuj/i);
+    await act(async () => {
+      fireEvent.click(confirmButton);
     });
 
     // Sprawdź wywołanie API dla process-warehouse (nie sales)
@@ -505,13 +527,13 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
 
     // Synchronizuj
-    const syncButton = screen.getByText(/synchronizuj/i);
+    const syncButton = screen.getByText(/Zapisz - Odpisz wszystkie kurtki ze stanu/);
     await act(async () => {
       fireEvent.click(syncButton);
     });
@@ -568,12 +590,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Wybierz użytkownika (to powinno wyzwolić fetchowanie transferów)
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -597,18 +619,18 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // Ustaw filtr daty na dzisiaj
-    const dateInput = screen.getByLabelText(/select date/i);
+    const dateInput = screen.getByLabelText("Wybierz datę:");
     await act(async () => {
       fireEvent.change(dateInput, { target: { value: '2025-08-31' } });
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -692,12 +714,12 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText(/select user/i);
+      const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
       expect(userSelect.children.length).toBeGreaterThan(1);
     });
 
     // 1. Wybierz użytkownika
-    const userSelect = screen.getByLabelText(/select user/i);
+    const userSelect = screen.getByDisplayValue("-- Wybierz użytkownika --");
     await act(async () => {
       fireEvent.change(userSelect, { target: { value: 'user1' } });
     });
@@ -713,6 +735,17 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
     const processButton = screen.getByText(/zapisz.*odpisz wszystkie kurtki ze stanu/i);
     await act(async () => {
       fireEvent.click(processButton);
+    });
+
+    // Poczekaj na pojawienie się modalu potwierdzenia drukowania
+    await waitFor(() => {
+      expect(screen.getByText('Potwierdzenie drukowania etykiet')).toBeInTheDocument();
+    });
+
+    // Kliknij "Tak - Kontynuuj" w modalu
+    const confirmButton = screen.getByText(/tak.*kontynuuj/i);
+    await act(async () => {
+      fireEvent.click(confirmButton);
     });
 
     await waitFor(() => {

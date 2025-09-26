@@ -86,28 +86,6 @@ function Corrections() {
     }
   };
 
-  const handleDelete = async (correctionId) => {
-    if (!window.confirm('Czy na pewno chcesz usunąć tę korektę?')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`http://localhost:3000/api/corrections/${correctionId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        fetchCorrections();
-        alert('Korekta została usunięta');
-      } else {
-        alert('Błąd podczas usuwania korekty');
-      }
-    } catch (error) {
-      console.error('Błąd podczas usuwania:', error);
-      alert('Błąd podczas usuwania korekty');
-    }
-  };
-
   const handleFindProduct = async (correction) => {
     try {
       setSearchingProduct(true);
@@ -117,12 +95,38 @@ function Corrections() {
       const stateResponse = await fetch('http://localhost:3000/api/state');
       const allStates = await stateResponse.json();
       
+      console.log('🔍 Searching for correction:', {
+        barcode: correction.barcode,
+        fullName: correction.fullName,
+        size: correction.size
+      });
+      console.log('📊 Total states available:', allStates.length);
+      
       // Znajdź wszystkie lokalizacje gdzie ten produkt istnieje
-      const matchingItems = allStates.filter(item => 
-        item.barcode === correction.barcode &&
-        item.fullName === correction.fullName &&
-        item.size === correction.size
-      );
+      // POPRAWKA: Dla transferów barcode może być MongoDB ID, więc szukaj też po fullName + size
+      const matchingItems = allStates.filter(item => {
+        // Sprawdź czy barcode pasuje (dla sprzedaży)
+        const barcodeMatch = item.barcode === correction.barcode;
+        
+        // Sprawdź czy fullName i size pasują (dla transferów)
+        const nameAndSizeMatch = item.fullName === correction.fullName && 
+                                item.size === correction.size;
+        
+        // Debug log
+        if (nameAndSizeMatch || barcodeMatch) {
+          console.log(`✅ Found match in ${item.symbol}:`, {
+            itemBarcode: item.barcode,
+            correctionBarcode: correction.barcode,
+            barcodeMatch,
+            nameAndSizeMatch,
+            fullName: item.fullName,
+            size: item.size
+          });
+        }
+        
+        // Akceptuj jeśli barcode pasuje LUB (fullName + size) pasują
+        return barcodeMatch || nameAndSizeMatch;
+      });
       
       // Pogrupuj według symbolu punktu sprzedaży
       const locationGroups = matchingItems.reduce((acc, item) => {
@@ -140,7 +144,8 @@ function Corrections() {
       
       const locations = Object.values(locationGroups);
       
-      console.log('Found product in locations:', locations);
+      console.log('🎯 Found product in locations:', locations.length);
+      console.log('📋 Available locations:', locations.map(loc => `${loc.symbol} (${loc.count} items)`));
       setAvailableLocations(locations);
       setShowProductModal(true);
       
@@ -177,7 +182,9 @@ function Corrections() {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'operation-type': 'write-off' // Dodajemy header określający typ operacji
+          'operation-type': 'write-off', // Dodajemy header określający typ operacji
+          'correction-id': selectedCorrection._id, // ID korekty do aktualizacji
+          'correction-transaction-id': selectedCorrection.transactionId // TransactionId korekty
         }
       });
       
@@ -186,6 +193,39 @@ function Corrections() {
         await handleStatusUpdate(selectedCorrection._id, 'RESOLVED');
         setShowProductModal(false);
         alert(`Produkt został odpisany ze stanu w punkcie ${fromSymbol}`);
+        
+        // Powiadom komponent AddToState że transakcja została skorygowana
+        console.log('🔍 Debug selectedCorrection:', selectedCorrection);
+        console.log('🔍 Debug selectedCorrection.transactionId:', selectedCorrection.transactionId);
+        
+        if (selectedCorrection.transactionId) {
+          // Send event
+          const event = new CustomEvent('transactionCorrected', {
+            detail: { transactionId: selectedCorrection.transactionId }
+          });
+          window.dispatchEvent(event);
+          console.log(`🔔 Dispatched transactionCorrected event for transaction: ${selectedCorrection.transactionId}`);
+          
+          // Also save to localStorage as backup
+          try {
+            const stored = localStorage.getItem('correctedTransactionIds');
+            let correctedIds = [];
+            
+            if (stored) {
+              correctedIds = JSON.parse(stored);
+            }
+            
+            if (!correctedIds.includes(selectedCorrection.transactionId)) {
+              correctedIds.push(selectedCorrection.transactionId);
+              localStorage.setItem('correctedTransactionIds', JSON.stringify(correctedIds));
+              console.log('💾 Saved corrected transaction to localStorage:', selectedCorrection.transactionId);
+            }
+          } catch (error) {
+            console.error('Error saving to localStorage:', error);
+          }
+        } else {
+          console.log('❌ No transactionId found in selectedCorrection - cannot dispatch event');
+        }
         
         // Odśwież listę dostępnych lokalizacji (usuń tę lokalizację jeśli nie ma już produktów)
         const updatedLocations = availableLocations.filter(loc => loc.symbol !== fromSymbol);
@@ -214,8 +254,7 @@ function Corrections() {
   return (
     <div className="corrections-container">
       <div className="corrections-header">
-        <h1>Korekty Magazynowe</h1>
-        <p>Zarządzanie rozbieżnościami w stanie magazynowym</p>
+        <h1 style={{ color: 'white' }}>Korekty Magazynowe</h1>
       </div>
       
       <div className="corrections-content">
@@ -236,7 +275,7 @@ function Corrections() {
 
         <div className="corrections-table-container">
           <div className="table-header">
-            <h2>Lista Korekty</h2>
+            <h2>Lista korekt</h2>
             <div className="table-actions">
               <button className="btn btn-primary" onClick={handleRefresh} disabled={loading}>
                 {loading ? 'Ładowanie...' : 'Odśwież'}
@@ -252,9 +291,7 @@ function Corrections() {
                   <th>Typ operacji</th>
                   <th>Produkt</th>
                   <th>Rozmiar</th>
-                  <th>Kod kreskowy</th>
                   <th>Punkt próby</th>
-                  <th>Szczegóły problemu</th>
                   <th>Status</th>
                   <th>Akcje</th>
                 </tr>
@@ -262,13 +299,13 @@ function Corrections() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="9" className="loading">
+                    <td colSpan="7" className="loading">
                       Ładowanie korekty...
                     </td>
                   </tr>
                 ) : corrections.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="no-data">
+                    <td colSpan="7" className="no-data">
                       Brak korekty do wyświetlenia
                     </td>
                   </tr>
@@ -286,15 +323,7 @@ function Corrections() {
                       </td>
                       <td>{correction.fullName}</td>
                       <td>{correction.size}</td>
-                      <td>{correction.barcode}</td>
                       <td>{correction.sellingPoint}</td>
-                      <td className="description-cell">
-                        <div className="description-content">
-                          {correction.description && correction.description.length > 100 
-                            ? `${correction.description.substring(0, 100)}...` 
-                            : correction.description}
-                        </div>
-                      </td>
                       <td>
                         <span className={`status-badge status-${correction.status.toLowerCase()}`}>
                           {correction.status === 'PENDING' ? 'Oczekuje' : 
@@ -308,13 +337,6 @@ function Corrections() {
                           {correction.status === 'PENDING' && (
                             <>
                               <button 
-                                className="btn btn-success btn-sm"
-                                onClick={() => handleStatusUpdate(correction._id, 'RESOLVED')}
-                                title="Oznacz jako rozwiązane"
-                              >
-                                Rozwiąż
-                              </button>
-                              <button 
                                 className="btn btn-warning btn-sm"
                                 onClick={() => handleFindProduct(correction)}
                                 title="Znajdź produkt w innych punktach"
@@ -323,13 +345,6 @@ function Corrections() {
                               </button>
                             </>
                           )}
-                          <button 
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleDelete(correction._id)}
-                            title="Usuń korektę"
-                          >
-                            Usuń
-                          </button>
                         </div>
                       </td>
                     </tr>

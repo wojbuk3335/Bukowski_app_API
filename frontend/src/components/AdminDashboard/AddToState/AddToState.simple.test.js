@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AddToState from './AddToState';
@@ -65,17 +65,17 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     });
   });
 
-  test('renderuje podstawowy interfejs magazynu', async () => {
+  test('renderuje podstawowy interfejs Magazynu', async () => {
     await act(async () => {
       render(<AddToState />);
     });
 
-    // Sprawdź czy sekcja magazynu się renderuje
+    // Sprawdź czy sekcja Magazynu się renderuje
     expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
     expect(screen.getByText('Mechanizm Transferów')).toBeInTheDocument();
   });
 
-  test('renderuje produkty z magazynu', async () => {
+  test('renderuje produkty z Magazynu', async () => {
     await act(async () => {
       render(<AddToState />);
     });
@@ -86,7 +86,7 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     });
   });
 
-  test('wyświetla wyszukiwarkę magazynu', async () => {
+  test('wyświetla wyszukiwarkę Magazynu', async () => {
     await act(async () => {
       render(<AddToState />);
     });
@@ -95,7 +95,7 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     expect(searchInput).toBeInTheDocument();
   });
 
-  test('filtruje produkty w magazynie', async () => {
+  test('filtruje produkty w Magazynie', async () => {
     await act(async () => {
       render(<AddToState />);
     });
@@ -135,7 +135,7 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     });
 
     await waitFor(() => {
-      const userSelect = screen.getByDisplayValue('-- Select User --');
+      const userSelect = screen.getByDisplayValue('-- Wybierz użytkownika --');
       const options = userSelect.querySelectorAll('option');
       
       // Sprawdź czy są użytkownicy (+ placeholder)
@@ -148,7 +148,7 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     });
   });
 
-  test('wyświetla licznik produktów w magazynie', async () => {
+  test('wyświetla licznik produktów w Magazynie', async () => {
     await act(async () => {
       render(<AddToState />);
     });
@@ -178,14 +178,23 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Transfery')).toBeInTheDocument();
+      // Sprawdź czy tabele istnieją (magazyn + transfery)
+      const tables = screen.getAllByRole('table');
+      expect(tables).toHaveLength(2); // Tabela Magazynu + tabela transferów
       
-      // Sprawdź nagłówki tabeli
-      expect(screen.getByText('Full Name')).toBeInTheDocument();
-      expect(screen.getByText('Size')).toBeInTheDocument();
-      expect(screen.getByText('From')).toBeInTheDocument();
-      expect(screen.getByText('To')).toBeInTheDocument();
-      expect(screen.getByText('Product ID')).toBeInTheDocument();
+      // Sprawdź nagłówki tabeli transferów (druga tabela)
+      const transferTable = tables[1];
+      expect(transferTable).toHaveTextContent('Data');
+      expect(transferTable).toHaveTextContent('Z');
+      expect(transferTable).toHaveTextContent('Do');
+      expect(transferTable).toHaveTextContent('Akcja');
+      
+      // Sprawdź nagłówki tabeli Magazynu (pierwsza tabela)  
+      const warehouseTable = tables[0];
+      expect(warehouseTable).toHaveTextContent('Kod kreskowy');
+      expect(warehouseTable).toHaveTextContent('Cena');
+      
+      // Kolumny "Product ID", "Powód" i "Dostępność" zostały usunięte z tabeli
     });
   });
 
@@ -238,7 +247,7 @@ describe('AddToState - Pomarańczowe kurtki (uproszczone testy)', () => {
     });
   });
 
-  test('weryfikuje format danych produktów magazynowych', async () => {
+  test('weryfikuje format danych produktów Magazynowych', async () => {
     await act(async () => {
       render(<AddToState />);
     });

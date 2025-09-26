@@ -1,4 +1,4 @@
-import { act } from 'react';
+﻿import { act } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import State from './State';
 import axios from 'axios';

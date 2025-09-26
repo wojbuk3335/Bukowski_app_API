@@ -496,40 +496,127 @@ class StatesController {
             targetSymbol = await getSymbolBySellingPoint(targetSymbol);
             console.log(`[DEBUG Controller] Final targetSymbol after mapping: ${targetSymbol}`);
 
-            // Create history entries for each deleted state
-            const historyPromises = statesToActuallyDelete.map(async (state) => {
-                const product = `${state.fullName?.fullName || 'Nieznany produkt'} ${state.size?.Roz_Opis || 'Nieznany rozmiar'}`;
-                const from = state.sellingPoint?.symbol || 'MAGAZYN';
-                
-                let operation, details;
-                if (operationType === 'correction-undo-single' || operationType === 'correction-undo-transaction') {
-                    // This is a correction/undo operation - product is being moved back to warehouse
-                    operation = 'Przesunięto do magazynu (korekta)';
-                    details = `Przesunięto produkt ${product} z ${from} do ${targetSymbol} (korekta transakcji)`;
-                } else if (operationType === 'delete') {
-                    operation = 'Sprzedano ze stanu';
-                    details = `Sprzedano produkt ze stanu ${product}`;
-                } else {
-                    operation = 'Przesunięto ze stanu';
-                    details = `Przesunięto produkt ze stanu ${product}`;
-                }
+            // Create history entries for each deleted state (SKIP if this is correction write-off with existing correction)
+            const correctionId = req.headers['correction-id'];
+            const correctionTransactionId = req.headers['correction-transaction-id'];
+            const shouldSkipNewHistoryEntry = (operationType === 'write-off' && correctionTransactionId && correctionId);
+            
+            let historyPromises = [];
+            
+            if (!shouldSkipNewHistoryEntry) {
+                historyPromises = statesToActuallyDelete.map(async (state) => {
+                    const product = `${state.fullName?.fullName || 'Nieznany produkt'} ${state.size?.Roz_Opis || 'Nieznany rozmiar'}`;
+                    const from = state.sellingPoint?.symbol || 'MAGAZYN';
+                    
+                    let operation, details;
+                    if (operationType === 'correction-undo-single' || operationType === 'correction-undo-transaction') {
+                        // This is a correction/undo operation - product is being moved back to warehouse
+                        operation = 'Przesunięto do magazynu (korekta)';
+                        details = `Przesunięto produkt ${product} z ${from} do ${targetSymbol} (korekta transakcji)`;
+                    } else if (operationType === 'delete') {
+                        operation = 'Sprzedano ze stanu';
+                        details = `Sprzedano produkt ze stanu ${product}`;
+                    } else {
+                        operation = 'Przesunięto ze stanu';
+                        details = `Przesunięto produkt ze stanu ${product}`;
+                    }
 
-                const historyEntry = new History({
-                    collectionName: 'Stan',
-                    operation: operation,
-                    product: product,
-                    details: details,
-                    userloggedinId: userloggedinId,
-                    from: from,
-                    to: targetSymbol
+                    const historyEntry = new History({
+                        collectionName: 'Stan',
+                        operation: operation,
+                        product: product,
+                        details: details,
+                        userloggedinId: userloggedinId,
+                        from: from,
+                        to: targetSymbol
+                    });
+
+                    return historyEntry.save();
                 });
 
-                return historyEntry.save();
-            });
+                // Wait for all history entries to be saved
+                await Promise.all(historyPromises);
+                console.log(`Created ${historyPromises.length} history entries`);
+            } else {
+                console.log(`Skipped creating new history entries - will update existing correction entry instead`);
+            }
 
-            // Wait for all history entries to be saved
-            await Promise.all(historyPromises);
-            console.log(`Created ${historyPromises.length} history entries`);
+            // NOWE: Jeśli to jest operacja z korekt, zaktualizuj wpis korekty w historii
+            if (operationType === 'write-off') {
+                const correctionId = req.headers['correction-id'];
+                const correctionTransactionId = req.headers['correction-transaction-id'];
+                
+                if (correctionTransactionId && correctionId) {
+                    // Wywołaj funkcję do aktualizacji
+                    try {
+                        console.log(`🔄 Updating correction history entry: transactionId=${correctionTransactionId}, correctionId=${correctionId}, newFromSymbol=${symbol}`);
+                        
+                        // Sprawdźmy najpierw wszystkie wpisy z tym transactionId
+                        const allEntriesWithTransactionId = await History.find({
+                            transactionId: correctionTransactionId
+                        });
+                        console.log(`📊 Found ${allEntriesWithTransactionId.length} entries with transactionId ${correctionTransactionId}:`);
+                        allEntriesWithTransactionId.forEach((entry, index) => {
+                            console.log(`  [${index}] collectionName: "${entry.collectionName}", operation: "${entry.operation}", from: "${entry.from}", to: "${entry.to}"`);
+                        });
+                        
+                        // Szukaj wpisu korekty - sprawdź różne możliwości
+                        let correctionEntry = await History.findOne({
+                            transactionId: correctionTransactionId,
+                            collectionName: 'Korekty',
+                            operation: 'Przeniesiono do korekt'
+                        });
+                        
+                        // Jeśli nie znaleźliśmy, spróbuj bez operation (może była inna)
+                        if (!correctionEntry) {
+                            console.log('❌ Not found with exact match, trying with collectionName only...');
+                            correctionEntry = await History.findOne({
+                                transactionId: correctionTransactionId,
+                                collectionName: 'Korekty'
+                            });
+                        }
+                        
+                        // Jeśli nadal nie ma, spróbuj znaleźć jakikolwiek wpis z tym transactionId
+                        if (!correctionEntry && allEntriesWithTransactionId.length > 0) {
+                            console.log('❌ Still not found, using first entry with matching transactionId...');
+                            correctionEntry = allEntriesWithTransactionId[0];
+                        }
+                        
+                        if (correctionEntry) {
+                            console.log('📋 Found correction entry:', {
+                                id: correctionEntry._id,
+                                collectionName: correctionEntry.collectionName,
+                                operation: correctionEntry.operation,
+                                from: correctionEntry.from,
+                                to: correctionEntry.to
+                            });
+                            
+                            // Sprawdź czy to był transfer czy sprzedaż na podstawie pola "to"
+                            const isFromSale = correctionEntry.to === 'SPRZEDANO';
+                            
+                            // Aktualizuj wpis zgodnie z nową logiką
+                            const updateData = {
+                                collectionName: 'Stan', // Zmiana z 'Korekty' na 'Stan'
+                                operation: isFromSale ? 'Odpisano ze stanu (sprzedaż)' : 'Odpisano ze stanu (transfer)', // Zmiana operacji
+                                from: symbol, // Nowy punkt źródłowy (wybrany w korektach)
+                                // 'to' pozostaje bez zmiany (M lub SPRZEDANO)
+                            };
+                            
+                            await History.findByIdAndUpdate(correctionEntry._id, updateData);
+                            console.log(`✅ Updated correction history entry: ${correctionEntry._id}`);
+                            console.log(`   - collectionName: ${correctionEntry.collectionName} → Stan`);
+                            console.log(`   - operation: ${correctionEntry.operation} → ${updateData.operation}`);
+                            console.log(`   - from: ${correctionEntry.from} → ${symbol}`);
+                            console.log(`   - to: ${correctionEntry.to} (unchanged)`);
+                        } else {
+                            console.log('❌ Correction history entry not found - no entries with matching transactionId');
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Error updating correction history entry:', error);
+                    }
+                }
+            }
 
             res.status(200).json({ 
                 message: `Successfully deleted ${deleteResult.deletedCount} states with barcode ${barcode} and symbol ${symbol}`,

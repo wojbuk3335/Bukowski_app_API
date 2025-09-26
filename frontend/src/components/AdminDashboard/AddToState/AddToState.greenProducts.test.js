@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AddToState from './AddToState';
 
@@ -127,47 +127,11 @@ afterEach(() => {
 });
 
 describe('AddToState - Zielone produkty (operacja podwójna)', () => {
-  test('podstawowa funkcjonalność synchronizacji istnieje', async () => {
+  test('przycisk przetwarzania jest dostępny', async () => {
     render(<AddToState />);
-
-    // Sprawdź czy przyciski synchronizacji są dostępne
-    await waitFor(() => {
-      expect(screen.getByText('🔄 Synchronizuj z magazynem')).toBeInTheDocument();
-      expect(screen.getByText('🔄 Reset synchronizacji')).toBeInTheDocument();
-    });
 
     // Sprawdź czy przycisk przetwarzania jest dostępny
     expect(screen.getByText(/Zapisz - Odpisz wszystkie kurtki ze stanu/)).toBeInTheDocument();
-  });
-
-  test('funkcjonalność synchronizacji można uruchomić', async () => {
-    render(<AddToState />);
-
-    await waitFor(() => {
-      expect(screen.getByText('🔄 Synchronizuj z magazynem')).toBeInTheDocument();
-    });
-
-    // Wykonaj synchronizację
-    const syncButton = screen.getByText('🔄 Synchronizuj z magazynem');
-    fireEvent.click(syncButton);
-
-    // Test że funkcja się wykonała bez błędów
-    expect(syncButton).toBeInTheDocument();
-  });
-
-  test('reset synchronizacji działa poprawnie', async () => {
-    render(<AddToState />);
-
-    await waitFor(() => {
-      expect(screen.getByText('🔄 Reset synchronizacji')).toBeInTheDocument();
-    });
-
-    // Resetuj synchronizację
-    const resetButton = screen.getByText('🔄 Reset synchronizacji');
-    fireEvent.click(resetButton);
-
-    // Test że funkcja się wykonała bez błędów
-    expect(resetButton).toBeInTheDocument();
   });
 
   test('obsługa wyboru użytkownika', async () => {
@@ -175,12 +139,12 @@ describe('AddToState - Zielone produkty (operacja podwójna)', () => {
 
     // Poczekaj na załadowanie użytkowników
     await waitFor(() => {
-      const userSelect = screen.getByLabelText('Select User:');
+      const userSelect = screen.getByLabelText('Wybierz użytkownika:');
       expect(userSelect).toBeInTheDocument();
     });
 
     // Wybierz użytkownika
-    const userSelect = screen.getByLabelText('Select User:');
+    const userSelect = screen.getByLabelText('Wybierz użytkownika:');
     
     // Sprawdź czy opcje użytkowników są dostępne
     await waitFor(() => {
