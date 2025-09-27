@@ -414,7 +414,7 @@ const Sales = () => {
                 </button>
             </div>
 
-            <div className={styles.tableContainer}>
+            <div id="sales-report-content" className={styles.tableContainer}>
                 <table className={`table ${styles.table} ${styles.responsiveTable} text-center`}>
                     <caption className={styles.caption}>Tabela przedstawiająca dane sprzedaży w systemie</caption>
                     <thead>

@@ -370,10 +370,20 @@ const AddToState = ({ onAdd }) => {
       const response = await fetch(`${API_BASE_URL}/api/user`);
       const data = await response.json();
       
-      // Filtruj użytkowników - usuń admin, magazyn i dom
+      // Filtruj użytkowników - usuń admin, magazyn i dom (sprawdzaj zarówno role jak i symbol)
       const filteredUsers = (data.users || []).filter(user => {
+        const role = user.role?.toLowerCase();
         const symbol = user.symbol?.toLowerCase();
-        return symbol !== 'admin' && symbol !== 'magazyn' && symbol !== 'dom';
+        
+        // Usuń użytkowników z rolami admin, magazyn, dom
+        // oraz tych ze symbolami admin, administrator, magazyn, dom
+        return role !== 'admin' && 
+               role !== 'magazyn' && 
+               role !== 'dom' && 
+               symbol !== 'admin' && 
+               symbol !== 'administrator' && 
+               symbol !== 'magazyn' && 
+               symbol !== 'dom';
       });
       
       setUsers(filteredUsers);
