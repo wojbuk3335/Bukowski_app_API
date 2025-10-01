@@ -38,7 +38,7 @@ class StatesController {
                 fullName: state.fullName,
                 date: state.date,
                 plec: state.plec,
-                size: state.size,
+                size: state.size || { Roz_Opis: '-' }, // Dla torebek gdy size jest null, pokaż "-"
                 barcode: state.barcode,
                 sellingPoint: state.sellingPoint,
                 price: state.fullName ? state.fullName.price : 0,
@@ -93,10 +93,30 @@ class StatesController {
                 return res.status(404).send('Plec not found');
             }
 
-            // Find the ObjectId for size in Size
-            const size = await Size.findOne({ Roz_Opis: req.body.size });
-            if (!size) {
-                return res.status(404).send('Size not found');
+            // Special handling for bags category or "-" size
+            let size, barcode;
+            
+            if (goods.category === 'Torebki' || req.body.size === '-') {
+                // For bags, don't create any size - use null and handle specially
+                size = null;
+                
+                // For bags, use original barcode without modification
+                barcode = goods.code;
+            } else {
+                // Find the ObjectId for size in Size (only for non-bag products)
+                size = await Size.findOne({ Roz_Opis: req.body.size });
+                if (!size) {
+                    return res.status(404).send('Size not found');
+                }
+                
+                // Extract the code from Goods and update it with Roz_Kod
+                barcode = goods.code; // Assuming `code` is the field in Goods
+                const rozKod = size.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
+                barcode = barcode.substring(0, 5) + rozKod + barcode.substring(7, 11);
+
+                // Corrected checksum calculation
+                const checksum = calculateChecksum(barcode);
+                barcode = barcode.substring(0, 12) + checksum; // Append checksum to barcode
             }
 
             // Find the ObjectId for sellingPoint in User
@@ -104,15 +124,6 @@ class StatesController {
             if (!user) {
                 return res.status(404).send('Selling point not found');
             }
-
-            // Extract the code from Goods and update it with Roz_Kod
-            let barcode = goods.code; // Assuming `code` is the field in Goods
-            const rozKod = size.Roz_Kod; // Assuming `Roz_Kod` is the field in Size
-            barcode = barcode.substring(0, 5) + rozKod + barcode.substring(7, 11);
-
-            // Corrected checksum calculation
-            const checksum = calculateChecksum(barcode);
-            barcode = barcode.substring(0, 12) + checksum; // Append checksum to barcode
 
             // Handle price from frontend - support both single price and semicolon-separated prices
             let finalPrice, finalDiscountPrice;
@@ -126,26 +137,37 @@ class StatesController {
                 // Calculate the price normally from goods data
                 const basePrice = goods.price || 0;
                 const discountPrice = goods.discount_price || 0;
-                const exception = goods.priceExceptions.find(
-                    (ex) => ex.size && ex.size._id.toString() === size._id.toString()
-                );
+                
+                // For bags, don't check price exceptions as they use special TOREBKA size
+                let exception = null;
+                if (goods.category !== 'Torebki' && size && size.Roz_Opis !== 'TOREBKA') {
+                    exception = goods.priceExceptions.find(
+                        (ex) => ex.size && ex.size._id.toString() === size._id.toString()
+                    );
+                }
+                
                 finalPrice = exception ? exception.value : basePrice;
                 finalDiscountPrice = !exception && discountPrice && Number(discountPrice) !== 0 ? discountPrice : undefined;
             }
 
             // Save both price and discount_price
-            const state = new State({
+            const stateData = {
                 _id: new mongoose.Types.ObjectId(),
                 fullName: goods._id,
                 date: req.body.date,
                 plec: goods.Plec,
-                size: size._id,
                 barcode,
                 sellingPoint: user._id,
                 price: finalPrice,
                 discount_price: finalDiscountPrice
-            });
+            };
 
+            // For bags, don't set size field; for other products, set size
+            if (goods.category !== 'Torebki' && req.body.size !== '-') {
+                stateData.size = size._id;
+            }
+
+            const state = new State(stateData);
             const newState = await state.save();
             res.status(201).json(newState);
         } catch (error) {

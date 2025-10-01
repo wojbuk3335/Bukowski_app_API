@@ -22,7 +22,7 @@ const stateSchema = mongoose.Schema({
         //relation Size
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Size',
-        required: true // Ensure this field is required
+        required: false // Size is optional (null for bags)
     },
     sellingPoint: {
         //relation Size

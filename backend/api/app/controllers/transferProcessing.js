@@ -1,6 +1,7 @@
 const Transfer = require('../db/models/transfer');
 const State = require('../db/models/state');
 const History = require('../db/models/history');
+const Size = require('../db/models/size'); // Add Size model import
 const mongoose = require('mongoose');
 
 // Helper function to generate transaction ID
@@ -769,7 +770,16 @@ class TransferProcessingController {
                     }
                     
                     const goods = await Goods.findOne({ fullName: item.fullName });
-                    const size = await Size.findOne({ Roz_Opis: item.size });
+                    let size;
+                    
+                    // Special handling for bags category
+                    if (goods && goods.category === 'Torebki') {
+                        // For bags, don't use any size - will be handled specially
+                        size = null;
+                    } else {
+                        // For other products, use the provided size
+                        size = await Size.findOne({ Roz_Opis: item.size });
+                    }
 
                     console.log('Found goods:', goods ? goods._id : 'NOT FOUND');
                     console.log('Found size:', size ? size._id : 'NOT FOUND');
@@ -784,9 +794,24 @@ class TransferProcessingController {
                         // 🟡 ŻÓŁTE PRODUKTY - Transfer przychodzący (nie usuwamy z magazynu, tylko dodajemy do stanu)
                         console.log(`🟡 INCOMING TRANSFER: Adding ${item.fullName} to ${user.symbol} state`);
                         
-                        // Wygeneruj barcode dla transferu przychodzącego (transfery nie mają barcode)
-                        const generatedBarcode = item.barcode || `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-                        console.log(`🟡 Generated barcode for incoming transfer: ${generatedBarcode}`);
+                        // Wygeneruj barcode dla transferu przychodzącego
+                        let finalBarcode;
+                        if (goods.category === 'Torebki') {
+                            // Dla torebek używamy oryginalnego kodu
+                            finalBarcode = goods.code;
+                            console.log(`🟡 Using original bag barcode: ${finalBarcode}`);
+                        } else {
+                            // Dla innych produktów generujemy jak wcześniej
+                            finalBarcode = item.barcode || `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                            console.log(`🟡 Generated barcode for incoming transfer: ${finalBarcode}`);
+                        }
+                        
+                        // Handle special size for bags
+                        let transferSize = size;
+                        if (goods.category === 'Torebki') {
+                            // For bags, use null - no size needed
+                            transferSize = null;
+                        }
                         
                         // Create new State document for user
                         const newStateId = new mongoose.Types.ObjectId();
@@ -795,8 +820,8 @@ class TransferProcessingController {
                         const newStateItem = await State.create({
                             _id: newStateId,
                             fullName: goods._id,
-                            size: size._id,
-                            barcode: generatedBarcode,
+                            size: transferSize ? transferSize._id : undefined, // Dla torebek size będzie undefined
+                            barcode: finalBarcode,
                             sellingPoint: user._id,
                             price: item.price || 0,
                             discount_price: item.discount_price || 0,
@@ -859,11 +884,18 @@ class TransferProcessingController {
                     const newStateId = new mongoose.Types.ObjectId();
                     console.log(`➕ CREATING new state item: ${newStateId} for ${user.symbol} (${item.barcode})`);
                     
+                    // For bags, use original barcode; for other products, use existing barcode
+                    let finalBarcode = item.barcode;
+                    if (goods && goods.category === 'Torebki') {
+                        // For bags, ensure we use the original barcode from goods
+                        finalBarcode = goods.code || item.barcode;
+                    }
+                    
                     const newStateItem = await State.create({
                         _id: newStateId,
                         fullName: goods._id,
                         size: size._id,
-                        barcode: item.barcode,
+                        barcode: finalBarcode,
                         sellingPoint: user._id,
                         price: item.price || 0,
                         discount_price: item.discount_price || 0,
