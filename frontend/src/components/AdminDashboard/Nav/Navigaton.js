@@ -46,6 +46,7 @@ function Navigaton() {
               <NavDropdown.Item as={Link} to="/admin/dashboard/colors">Tabela kolorów</NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/admin/dashboard/sizes">Tabela rozmiarów</NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/admin/dashboard/localization">Tabela lokalizacji</NavDropdown.Item>
+              <NavDropdown.Item as={Link} to="/admin/dashboard/wallet">Tabela torebek</NavDropdown.Item>
               <NavDropdown.Item
                 as="div"
                 onMouseEnter={() => setShowNested(true)}

@@ -21,6 +21,7 @@ import Warehouse from './components/AdminDashboard/Warehouse/Warehouse';
 import State from './components/AdminDashboard/State/State';
 import Category from './components/AdminDashboard/Category/Category';
 import Localization from './components/AdminDashboard/Localization/Localization';
+import Wallet from './components/AdminDashboard/Wallet/Wallet';
 import SeachEngineList from './components/AdminDashboard/Searchengine/SeachEngineList/SeachEngineList';
 import SeachEngineTable from './components/AdminDashboard/Searchengine/SeachEngineTable/SeachEngineTable';
 import History from './components/AdminDashboard/History/History';
@@ -41,6 +42,7 @@ function App() {
           <Route path='colors' element={<Colors />} />
           <Route path='sizes' element={<Sizes />} />
           <Route path='localization' element={<Localization />} />
+          <Route path='wallet' element={<Wallet />} />
           <Route path='searchengine' element={<Searchengine />}>
             <Route path='list' element={<SeachEngineList />} />
             <Route path='table' element={<SeachEngineTable />} />

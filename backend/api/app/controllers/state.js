@@ -858,6 +858,42 @@ class StatesController {
             });
         }
     }
+
+    // ADMIN ENDPOINT: Clear all states from database
+    async clearAllStates(req, res, next) {
+        try {
+            console.log('⚠️ ADMIN WARNING: Clearing ALL states from database!');
+            
+            // Count documents before deletion
+            const countBefore = await State.countDocuments();
+            console.log(`📊 Found ${countBefore} states in database`);
+            
+            if (countBefore === 0) {
+                return res.status(200).json({ 
+                    message: 'Database is already empty',
+                    deletedCount: 0
+                });
+            }
+            
+            // Delete all documents from states collection
+            const deleteResult = await State.deleteMany({});
+            
+            console.log(`🗑️ Deleted ${deleteResult.deletedCount} states from database`);
+            
+            res.status(200).json({ 
+                message: 'Successfully cleared all states from database',
+                deletedCount: deleteResult.deletedCount,
+                previousCount: countBefore
+            });
+            
+        } catch (error) {
+            console.error('❌ Error clearing all states:', error);
+            res.status(500).json({ 
+                message: 'Failed to clear states from database', 
+                error: error.message 
+            });
+        }
+    }
 }
 
 module.exports = new StatesController();
