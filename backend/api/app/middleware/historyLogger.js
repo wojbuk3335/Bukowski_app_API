@@ -62,6 +62,9 @@ const historyLogger = (collectionName) => {
             if (collection === 'states') return 'Stan'; // Correct translation for "states"
             if (collection === 'users') return 'Użytkownicy'; // Replace "Users" with "Użytkownicy"
             if (collection === 'colors') return 'Kolory'; // Translate "colors" to "Kolory"
+            if (collection === 'bagsCategory') return 'Kategorie torebek'; // Add bags category mapping
+            if (collection === 'wallets') return 'Portfele'; // Add wallets mapping
+            if (collection === 'bags') return 'Torebki'; // Add bags mapping
             return collection;
         };
 
@@ -107,6 +110,7 @@ const historyLogger = (collectionName) => {
         }
 
         if (collectionName === 'goods') {
+            console.log('Processing goods history - Method:', req.method, 'Operation:', operation);
             let details = '';
             let from = '-'; // Explicitly set "from" to "-"
             let to = '-';   // Explicitly set "to" to "-"
@@ -115,6 +119,7 @@ const historyLogger = (collectionName) => {
             if (operation === 'Dodano produkt') {
                 try {
                     const newGood = req.body;
+                    console.log('Creating goods history for new product:', newGood.fullName);
                     product = newGood.fullName || 'Nieznany produkt'; // Set product to fullName or default value
                     details = newGood.fullName || 'Unknown'; // Ensure details is explicitly set to fullName
                 } catch (error) {
@@ -141,18 +146,29 @@ const historyLogger = (collectionName) => {
 
                         details = ``;
 
-                        // Compare stock
-                        if (updatedGood.stock && oldGood.stock._id.toString() !== updatedGood.stock) {
-                            try {
-                                const newStock = await Stock.findById(updatedGood.stock);
-                                if (newStock) {
-                                    changes.push(`Zmiana z  ${oldGood.stock.Tow_Opis} na ${newStock.Tow_Opis}`);
-                                } else {
-                                    changes.push(`Zmiana z  ${oldGood.stock.Tow_Opis} na nieznany produkt`);
+                        // Compare stock (for regular products) or bagProduct (for bags)
+                        if (oldGood.category === 'Torebki') {
+                            // Handle bags category
+                            if (updatedGood.bagProduct && oldGood.bagProduct !== updatedGood.bagProduct) {
+                                changes.push(`Torebka została zmieniona z ${oldGood.bagProduct} na ${updatedGood.bagProduct}`);
+                            }
+                            if (updatedGood.bagsCategoryId && oldGood.bagsCategoryId !== updatedGood.bagsCategoryId) {
+                                changes.push(`Podkategoria torebki została zmieniona`);
+                            }
+                        } else {
+                            // Handle regular products
+                            if (updatedGood.stock && oldGood.stock && oldGood.stock._id.toString() !== updatedGood.stock) {
+                                try {
+                                    const newStock = await Stock.findById(updatedGood.stock);
+                                    if (newStock) {
+                                        changes.push(`Zmiana z  ${oldGood.stock.Tow_Opis} na ${newStock.Tow_Opis}`);
+                                    } else {
+                                        changes.push(`Zmiana z  ${oldGood.stock.Tow_Opis} na nieznany produkt`);
+                                    }
+                                } catch (error) {
+                                    console.error('Error fetching newStock:', error);
+                                    changes.push(`Błąd podczas zmiany Produktu`);
                                 }
-                            } catch (error) {
-                                console.error('Error fetching newStock:', error);
-                                changes.push(`Błąd podczas zmiany Produktu`);
                             }
                         }
 
@@ -171,8 +187,8 @@ const historyLogger = (collectionName) => {
                             }
                         }
 
-                        // Compare subcategory
-                        if (updatedGood.subcategory && oldGood.subcategory._id.toString() !== updatedGood.subcategory) {
+                        // Compare subcategory (only for non-bags products)
+                        if (oldGood.category !== 'Torebki' && updatedGood.subcategory && oldGood.subcategory && oldGood.subcategory._id.toString() !== updatedGood.subcategory) {
                             try {
                                 const newSubcategory = await Category.findById(updatedGood.subcategory);
                                 if (newSubcategory) {
@@ -240,6 +256,13 @@ const historyLogger = (collectionName) => {
                 userloggedinId: userloggedinId,
                 from: from, // Ensure "from" is "-"
                 to: to     // Ensure "to" is "-"
+            });
+            console.log('Created goods history entry:', {
+                collectionName: collectionNamePolish,
+                operation,
+                product,
+                details,
+                userloggedinId
             });
         }
 
@@ -573,6 +596,180 @@ const historyLogger = (collectionName) => {
                 collectionName: collectionNamePolish,
                 operation: operation,
                 product: product, // Always set product to "-"
+                details: details,
+                userloggedinId: userloggedinId
+            });
+        }
+
+        if (collectionName === 'bagsCategory') {
+            console.log('Processing bagsCategory history - Method:', req.method, 'Operation:', operation);
+            let details = '';
+            let product = '-'; // Always set product to "-" for bags categories
+
+            if (operation === 'Aktualizacja') {
+                try {
+                    const bagsCategoryId = req.params.bagsCategoryId;
+                    const updatedBagsCategory = req.body;
+                    const oldBagsCategory = await require('../db/models/bagsCategory').findById(bagsCategoryId).lean();
+                    
+                    if (!oldBagsCategory) {
+                        details = `Nie znaleziono kategorii torebek o ID: ${bagsCategoryId}`;
+                    } else {
+                        let changes = [];
+                        
+                        // Compare Kat_1_Kod_1
+                        if (updatedBagsCategory.Kat_1_Kod_1 && oldBagsCategory.Kat_1_Kod_1 !== updatedBagsCategory.Kat_1_Kod_1) {
+                            changes.push(`Kod został zmieniony z ${oldBagsCategory.Kat_1_Kod_1} na ${updatedBagsCategory.Kat_1_Kod_1}`);
+                        }
+                        
+                        // Compare Kat_1_Opis_1
+                        if (updatedBagsCategory.Kat_1_Opis_1 && oldBagsCategory.Kat_1_Opis_1 !== updatedBagsCategory.Kat_1_Opis_1) {
+                            changes.push(`Opis został zmieniony z ${oldBagsCategory.Kat_1_Opis_1} na ${updatedBagsCategory.Kat_1_Opis_1}`);
+                        }
+                        
+                        // Compare Plec
+                        if (updatedBagsCategory.Plec && oldBagsCategory.Plec !== updatedBagsCategory.Plec) {
+                            changes.push(`Płeć została zmieniona z ${oldBagsCategory.Plec} na ${updatedBagsCategory.Plec}`);
+                        }
+                        
+                        details = changes.length > 0 ? changes.join(', ') : 'Brak zmian w kategorii torebek';
+                    }
+                } catch (error) {
+                    console.error('Error logging update bags category:', error);
+                    details = `Błąd podczas aktualizowania kategorii torebek o ID: ${req.params.bagsCategoryId}`;
+                }
+            } else if (operation === 'Utworzenie' || operation === 'Dodano produkt') {
+                try {
+                    const newBagsCategory = req.body;
+                    details = `Dodano nową kategorię torebek: ${newBagsCategory.Kat_1_Opis_1 || 'Nieznana kategoria'}`;
+                } catch (error) {
+                    console.error('Error logging create bags category:', error);
+                    details = `Błąd podczas dodawania kategorii torebek.`;
+                }
+            } else if (operation === 'Usunięcie') {
+                details = `Usunięto wszystkie kategorie torebek.`;
+            }
+            
+            historyEntry = new History({
+                collectionName: 'Kategorie torebek',
+                operation: operation,
+                product: product,
+                details: details,
+                userloggedinId: userloggedinId
+            });
+        }
+
+        if (collectionName === 'bags') {
+            console.log('Processing bags history - Method:', req.method, 'Operation:', operation);
+            let details = '';
+            let product = '-'; // Always set product to "-" for bags
+
+            if (operation === 'Aktualizacja') {
+                try {
+                    const bagId = req.params.id;
+                    const updatedBag = req.body;
+                    const oldBag = await require('../db/models/bags').findById(bagId).lean();
+                    
+                    if (!oldBag) {
+                        details = `Nie znaleziono torebki o ID: ${bagId}`;
+                    } else {
+                        let changes = [];
+                        
+                        // Compare Torebki_Kod
+                        if (updatedBag.Torebki_Kod && oldBag.Torebki_Kod !== updatedBag.Torebki_Kod) {
+                            changes.push(`Kod torebki został zmieniony z ${oldBag.Torebki_Kod} na ${updatedBag.Torebki_Kod}`);
+                        }
+                        
+                        // Compare Torebki_Opis
+                        if (updatedBag.Torebki_Opis && oldBag.Torebki_Opis !== updatedBag.Torebki_Opis) {
+                            changes.push(`Opis został zmieniony z ${oldBag.Torebki_Opis} na ${updatedBag.Torebki_Opis}`);
+                        }
+                        
+                        // Compare Torebki_Cena
+                        if (updatedBag.Torebki_Cena && oldBag.Torebki_Cena !== updatedBag.Torebki_Cena) {
+                            changes.push(`Cena została zmieniona z ${oldBag.Torebki_Cena} na ${updatedBag.Torebki_Cena}`);
+                        }
+                        
+                        details = changes.length > 0 ? changes.join(', ') : 'Brak zmian w torebce';
+                    }
+                } catch (error) {
+                    console.error('Error logging update bag:', error);
+                    details = `Błąd podczas aktualizowania torebki o ID: ${req.params.id}`;
+                }
+            } else if (operation === 'Utworzenie' || operation === 'Dodano produkt') {
+                try {
+                    const newBag = req.body;
+                    details = `Dodano nową torebkę: ${newBag.Torebki_Kod || 'Nieznany kod'}`;
+                } catch (error) {
+                    console.error('Error logging create bag:', error);
+                    details = `Błąd podczas dodawania torebki.`;
+                }
+            } else if (operation === 'Usunięcie') {
+                details = `Usunięto wszystkie torebki.`;
+            }
+            
+            historyEntry = new History({
+                collectionName: 'Torebki',
+                operation: operation,
+                product: product,
+                details: details,
+                userloggedinId: userloggedinId
+            });
+        }
+
+        if (collectionName === 'wallets') {
+            console.log('Processing wallets history - Method:', req.method, 'Operation:', operation);
+            let details = '';
+            let product = '-'; // Always set product to "-" for wallets
+
+            if (operation === 'Aktualizacja') {
+                try {
+                    const walletId = req.params.id;
+                    const updatedWallet = req.body;
+                    const oldWallet = await require('../db/models/wallet').findById(walletId).lean();
+                    
+                    if (!oldWallet) {
+                        details = `Nie znaleziono portfela o ID: ${walletId}`;
+                    } else {
+                        let changes = [];
+                        
+                        // Compare Torebki_Kod
+                        if (updatedWallet.Torebki_Kod && oldWallet.Torebki_Kod !== updatedWallet.Torebki_Kod) {
+                            changes.push(`Kod torebki został zmieniony z ${oldWallet.Torebki_Kod} na ${updatedWallet.Torebki_Kod}`);
+                        }
+                        
+                        // Compare Torebki_Opis
+                        if (updatedWallet.Torebki_Opis && oldWallet.Torebki_Opis !== updatedWallet.Torebki_Opis) {
+                            changes.push(`Opis został zmieniony z ${oldWallet.Torebki_Opis} na ${updatedWallet.Torebki_Opis}`);
+                        }
+                        
+                        // Compare Torebki_Cena
+                        if (updatedWallet.Torebki_Cena && oldWallet.Torebki_Cena !== updatedWallet.Torebki_Cena) {
+                            changes.push(`Cena została zmieniona z ${oldWallet.Torebki_Cena} na ${updatedWallet.Torebki_Cena}`);
+                        }
+                        
+                        details = changes.length > 0 ? changes.join(', ') : 'Brak zmian w portfelu';
+                    }
+                } catch (error) {
+                    console.error('Error logging update wallet:', error);
+                    details = `Błąd podczas aktualizowania portfela o ID: ${req.params.id}`;
+                }
+            } else if (operation === 'Utworzenie' || operation === 'Dodano produkt') {
+                try {
+                    const newWallet = req.body;
+                    details = `Dodano nowy portfel: ${newWallet.Torebki_Kod || 'Nieznany kod'}`;
+                } catch (error) {
+                    console.error('Error logging create wallet:', error);
+                    details = `Błąd podczas dodawania portfela.`;
+                }
+            } else if (operation === 'Usunięcie') {
+                details = `Usunięto wszystkie portfele.`;
+            }
+            
+            historyEntry = new History({
+                collectionName: 'Portfele',
+                operation: operation,
+                product: product,
                 details: details,
                 userloggedinId: userloggedinId
             });

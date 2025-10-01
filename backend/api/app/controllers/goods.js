@@ -6,12 +6,21 @@ const config = require('../config');
 
 class GoodsController {
     async createGood(req, res, next) {
-        const { stock, color, fullName, code, category, subcategory, price, discount_price, sellingPoint, barcode, Plec } = req.body; // Use Plec instead of sex
+        const { stock, color, fullName, code, category, subcategory, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId } = req.body; // Add bagsCategoryId
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
-        // Validate stock value
-        if (stock === 'NIEOKREŚLONY') {
-            return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
+        
+        // Different validation for bags vs other products
+        if (category === 'Torebki') {
+            // Validation for bags
+            if (!bagProduct) {
+                return res.status(400).json({ message: 'Bag product code is required for bags category' });
+            }
+        } else {
+            // Validation for other products
+            if (stock === 'NIEOKREŚLONY') {
+                return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
+            }
         }
 
         // Validate price
@@ -40,22 +49,33 @@ class GoodsController {
             }
         }
 
-        const newGood = new Goods({
+        const goodData = {
             _id: new mongoose.Types.ObjectId(),
-            stock,
             color,
             fullName,
             code,
             category: category.replace(/_/g, ' '), // Replace underscores with spaces
-            subcategory,
-            Plec, // Save Plec
             price,
             discount_price,
             picture,
             priceExceptions,
             sellingPoint,
             barcode
-        });
+        };
+
+        // Add fields based on category
+        if (category === 'Torebki') {
+            goodData.bagProduct = bagProduct;
+            goodData.bagId = bagId;
+            goodData.bagsCategoryId = bagsCategoryId;
+            goodData.Plec = Plec; // Płeć z kategorii torebek
+        } else {
+            goodData.stock = stock;
+            goodData.subcategory = subcategory;
+            goodData.Plec = Plec;
+        }
+
+        const newGood = new Goods(goodData);
 
         newGood.save()
             .then(result => {
@@ -65,11 +85,13 @@ class GoodsController {
                         _id: result._id,
                         stock: result.stock,
                         color: result.color,
+                        bagProduct: result.bagProduct,
+                        bagId: result.bagId,
                         fullName: result.fullName,
                         code: result.code,
                         category: result.category,
                         subcategory: result.subcategory,
-                        Plec: result.Plec, // Include Plec in the response
+                        Plec: result.Plec,
                         price: result.price,
                         discount_price: result.discount_price,
                         picture: result.picture,
@@ -88,7 +110,7 @@ class GoodsController {
 
     async getAllGoods(req, res, next) {
         Goods.find()
-            .select('_id stock color fullName code category subcategory Plec price discount_price picture priceExceptions sellingPoint barcode')
+            .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory Plec price discount_price picture priceExceptions sellingPoint barcode')
             .populate('stock', 'Tow_Opis Tow_Kod')
             .populate('color', 'Kol_Opis Kol_Kod')
             .populate('subcategory', 'Kat_1_Opis_1') // Populate subcategory with its description
@@ -100,6 +122,9 @@ class GoodsController {
                         _id: good._id,
                         stock: good.stock,
                         color: good.color,
+                        bagProduct: good.bagProduct,
+                        bagId: good.bagId,
+                        bagsCategoryId: good.bagsCategoryId,
                         fullName: good.fullName,
                         code: good.code,
                         category: good.category.replace(/_/g, ' '), // Replace underscores with spaces
@@ -126,13 +151,10 @@ class GoodsController {
     async updateGood(req, res, next) {
         const id = req.params.goodId;
         const updateData = {
-            stock: req.body.stock,
             color: req.body.color,
             fullName: req.body.fullName,
             code: req.body.code,
             category: req.body.category ? req.body.category.replace(/_/g, ' ') : null, // Replace underscores with spaces
-            subcategory: req.body.subcategory,
-            Plec: req.body.Plec, // Update Plec
             price: req.body.price,
             discount_price: req.body.discount_price || 0,
             priceExceptions: JSON.parse(req.body.priceExceptions || '[]'),
@@ -140,13 +162,33 @@ class GoodsController {
             barcode: req.body.barcode
         };
 
+        // Add fields based on category
+        if (req.body.category === 'Torebki') {
+            updateData.bagProduct = req.body.bagProduct;
+            updateData.bagId = req.body.bagId;
+            updateData.bagsCategoryId = req.body.bagsCategoryId;
+            updateData.Plec = req.body.Plec; // Płeć z kategorii torebek
+        } else {
+            updateData.stock = req.body.stock;
+            updateData.subcategory = req.body.subcategory;
+            updateData.Plec = req.body.Plec;
+        }
+
         if (req.file) {
             updateData.picture = `${config.domain}/images/${req.file.filename}`;
         }
 
-        // Validate stock value
-        if (updateData.stock === 'NIEOKREŚLONY') {
-            return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
+        // Different validation for bags vs other products
+        if (req.body.category === 'Torebki') {
+            // Validation for bags
+            if (!req.body.bagProduct) {
+                return res.status(400).json({ message: 'Bag product code is required for bags category' });
+            }
+        } else {
+            // Validation for other products
+            if (updateData.stock === 'NIEOKREŚLONY') {
+                return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
+            }
         }
 
         // Validate price

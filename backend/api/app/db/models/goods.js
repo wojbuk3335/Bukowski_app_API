@@ -4,17 +4,20 @@ const category = require('./category');
 const goodsSchema = mongoose.Schema({
     _id: mongoose.Schema.Types.ObjectId,
     stock: {
-        type:
-            mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Stock',
-        required: true,
+        required: false, // Not required for bags
     },
     color: {
-        type:
-            mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.ObjectId,
         ref: 'Color',
         required: true
     },
+    // Fields for bags category
+    bagProduct: { type: String, required: false }, // Bag product code
+    bagId: { type: String, required: false }, // Bag ID
+    bagsCategoryId: { type: String, required: false }, // Bags category ID
+    
     fullName: { type: String, required: true, unique: true },
     code: { type: String, required: true, unique: true },
     price: { type: Number, required: true },
@@ -23,9 +26,9 @@ const goodsSchema = mongoose.Schema({
     subcategory: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Category', // Reference to the subcategory model
-        required: true
+        required: false // Not required for bags
     },
-    Plec: { type: String, required: true }, // Rename from 'sex' to 'Plec'
+    Plec: { type: String, required: false }, // Not required for bags
     picture: { type: String, default: "" },
     priceExceptions: {
         type: [{

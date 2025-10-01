@@ -68,6 +68,7 @@ function Navigaton() {
                   onMouseLeave={() => setShowNested(false)}
                 >
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/category">Kurtki Kożuchy Futra</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/admin/dashboard/category/bags">Torebki</NavDropdown.Item>
                 </NavDropdown>
               </NavDropdown.Item>
             </NavDropdown>

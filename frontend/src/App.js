@@ -20,6 +20,7 @@ import Goods from './components/AdminDashboard/Goods/Goods';
 import Warehouse from './components/AdminDashboard/Warehouse/Warehouse';
 import State from './components/AdminDashboard/State/State';
 import Category from './components/AdminDashboard/Category/Category';
+import Bags from './components/AdminDashboard/Category/Bags';
 import Localization from './components/AdminDashboard/Localization/Localization';
 import Wallet from './components/AdminDashboard/Wallet/Wallet';
 import SeachEngineList from './components/AdminDashboard/Searchengine/SeachEngineList/SeachEngineList';
@@ -51,6 +52,7 @@ function App() {
           <Route path='goods' element={<Goods />} />
           <Route path="category">
             <Route path="category" element={<Category />} />
+            <Route path="bags" element={<Bags />} />
           </Route>
           <Route path="state" element={<State />} />
           <Route path="state/:userId" element={<State />} />
