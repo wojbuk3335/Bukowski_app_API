@@ -148,9 +148,7 @@ const State = () => {
         const fetchUsers = async () => {
             try {
                 const response = await axios.get('/api/user');
-                console.log('API Response users:', response.data); // Debug log
                 if (response.data && Array.isArray(response.data.users)) {
-                    console.log('All users fetched:', response.data.users); // Debug log
                     
                     let usersToShow;
                     
@@ -174,7 +172,6 @@ const State = () => {
                         }
                     }
                     
-                    console.log('Users to show in select:', usersToShow);
                     setUsers(usersToShow);
                 } else {
                     console.error('Unexpected API response format:', response.data);
@@ -192,13 +189,7 @@ const State = () => {
     const fetchTableData = async () => {
         setLoading(true);
         try {
-            console.log('=== FETCHING TABLE DATA ===');
-            console.log('userId:', userId);
-            console.log('selectedSellingPoint:', selectedSellingPoint);
-            console.log('users:', users);
-            
             const response = await axios.get('/api/state');
-            console.log('API response data length:', response.data.length);
             
             let filteredData = response.data;
             
@@ -251,8 +242,6 @@ const State = () => {
                 return formattedRow;
             });
             
-            console.log('Final formatted data length:', formattedData.length);
-            console.log('Setting tableData to:', formattedData.length, 'items');
             setTableData(formattedData.reverse());
         } catch (error) {
             console.error('Error fetching table data:', error);
@@ -304,10 +293,7 @@ const State = () => {
                 price,
             };
 
-            console.log('Sending data to backend:', dataToSend);
-
             const response = await axios.post('/api/state', dataToSend);
-            console.log('Response from backend:', response.data);
 
             const newRow = {
                 id: response.data._id,
@@ -349,10 +335,6 @@ const State = () => {
     useEffect(() => {
         // Consolidate all filtering logic into one useEffect to avoid conflicts
         let filteredData = [...tableData];
-        
-        console.log('=== FILTERING DEBUG ===');
-        console.log('Original tableData length:', tableData.length);
-        console.log('Selected selling point:', selectedSellingPoint);
 
         // Filter by selected selling point (most important filter)
         if (selectedSellingPoint) {
@@ -370,12 +352,8 @@ const State = () => {
                 }
                 
                 const match = row.symbol?.trim().toLowerCase() === targetSymbol.trim().toLowerCase();
-                if (!match) {
-                    console.log(`Row filtered out - symbol: "${row.symbol}", selected: "${selectedSellingPoint}", target: "${targetSymbol}"`);
-                }
                 return match;
             });
-            console.log(`After selling point filter: ${beforeFilter} -> ${filteredData.length}`);
         }
 
         // Filter by search query
@@ -448,8 +426,6 @@ const State = () => {
             });
         }
 
-        console.log('Final filtered data length:', filteredData.length);
-        console.log('Final filtered data:', filteredData);
         setFilteredTableData(filteredData);
     }, [
         tableData, 
