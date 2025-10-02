@@ -849,7 +849,7 @@ class TransferProcessingController {
                                 fromTransfer: true,
                                 isIncomingTransfer: true,
                                 targetUser: user.symbol,
-                                barcode: generatedBarcode
+                                barcode: finalBarcode
                             }),
                             timestamp: new Date(),
                             transactionId: finalTransactionId
