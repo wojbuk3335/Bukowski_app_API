@@ -99,7 +99,6 @@ const SeachEngineTable = () => {
                             columnIndex = 13;
                             break;
                         default:
-                            console.log(`Unknown size: ${size}`);
                             return;
                     }
                     tableArray.forEach((row) => {

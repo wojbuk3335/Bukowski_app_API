@@ -60,7 +60,7 @@ const Category = () => {
             fetchData();
             toggleModal();
         } catch (error) {
-            console.log(error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -82,7 +82,7 @@ const Category = () => {
             resetState();
             alert("Dane zostały usunięte poprawnie.");
         } catch (error) {
-            console.log(error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -92,10 +92,9 @@ const Category = () => {
         try {
             setLoading(true);
             const result = (await axios.get(`/api/excel/category/get-all-categories`)).data;
-            console.log("Fetched categories:", result.categories); // Log fetched data
             setRows(Array.isArray(result.categories) ? result.categories : []);
         } catch (error) {
-            console.log(error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -133,7 +132,7 @@ const Category = () => {
 
             fetchData();
         } catch (error) {
-            console.log(error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -209,7 +208,7 @@ const Category = () => {
             alert("Plik jest chroniony hasłem. Proszę wybrać inny plik.");
         } else {
             alert("Wystąpił błąd podczas przetwarzania pliku. Proszę spróbować ponownie.");
-            console.log(error);
+            console.error(error);
         }
     };
 
