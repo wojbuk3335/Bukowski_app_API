@@ -10,6 +10,12 @@ const stateSchema = mongoose.Schema({
         ref: 'Goods',
         required: true,
     },
+    goods: {
+        //alias for fullName for compatibility with transferProcessing
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Goods',
+        required: false,
+    },
     date: {
         type: Date,
         required: true
@@ -18,7 +24,7 @@ const stateSchema = mongoose.Schema({
         //relation Size
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Size',
-        required: true
+        required: false // Not required for bags
     },
     symbol: {
         type: String,
@@ -45,4 +51,4 @@ stateSchema.pre('save', function(next) {
     next();
 });
 
-module.exports = mongoose.model('State', stateSchema);
+module.exports = mongoose.model('Warehouse', stateSchema);

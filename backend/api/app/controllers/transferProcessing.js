@@ -270,6 +270,31 @@ class TransferProcessingController {
                         await State.findByIdAndDelete(stateItem._id);
                         console.log(`🗑️ Removed sold item ${sale.barcode} from state (was in ${stateItem.sellingPoint.symbol})`);
 
+                        // Check if this is a return to warehouse
+                        if (sale.transferType === 'return' && sale.transfer_to === 'WAREHOUSE') {
+                            // Find MAGAZYN user
+                            const User = require('../db/models/user');
+                            const magazynUser = await User.findOne({ symbol: 'MAGAZYN' });
+                            
+                            if (magazynUser) {
+                                // Create new state entry in warehouse
+                                const mongoose = require('mongoose');
+                                const returnedItem = new State({
+                                    _id: new mongoose.Types.ObjectId(),
+                                    fullName: stateItem.fullName._id,
+                                    date: new Date(),
+                                    barcode: itemData.barcode,
+                                    size: itemData.size, // Will be null for bags
+                                    sellingPoint: magazynUser._id,
+                                    price: itemData.price,
+                                    discount_price: itemData.discount_price
+                                });
+                                
+                                await returnedItem.save();
+                                console.log(`📦 Returned item ${sale.barcode} to warehouse (MAGAZYN)`);
+                            }
+                        }
+
                         // WAŻNE: Oznacz sprzedaż jako przetworzoną (podobnie jak transfery)
                         // Sprawdź czy ID jest prawidłowym MongoDB ObjectId (nie fake z testów)
                         const mongoose = require('mongoose');
@@ -293,7 +318,7 @@ class TransferProcessingController {
                             transactionId: finalTransactionId,
                             from: stateItem.sellingPoint.symbol,
                             to: 'SPRZEDANE',
-                            product: `${stateItem.fullName.fullName} ${stateItem.size.Roz_Opis}`
+                            product: `${stateItem.fullName.fullName} ${stateItem.size ? stateItem.size.Roz_Opis : '-'}`
                         });
                         await historyEntry.save();
                         console.log('📝 History entry saved for sale:', sale.barcode);
@@ -769,7 +794,17 @@ class TransferProcessingController {
                         continue;
                     }
                     
-                    const goods = await Goods.findOne({ fullName: item.fullName });
+                    const mongoose = require('mongoose');
+                    let goods;
+                    
+                    // Check if fullName is ObjectId (reference to Goods) or string (goods name)
+                    if (mongoose.Types.ObjectId.isValid(item.fullName)) {
+                        // fullName is ObjectId - find by ID
+                        goods = await Goods.findById(item.fullName);
+                    } else {
+                        // fullName is string - find by name
+                        goods = await Goods.findOne({ fullName: item.fullName });
+                    }
                     let size;
                     
                     // Special handling for bags category
@@ -798,9 +833,9 @@ class TransferProcessingController {
                         // Wygeneruj barcode dla transferu przychodzącego
                         let finalBarcode;
                         if (goods.category === 'Torebki') {
-                            // Dla torebek używamy oryginalnego kodu
-                            finalBarcode = goods.code;
-                            console.log(`🟡 Using original bag barcode: ${finalBarcode}`);
+                            // Dla torebek w transferze przychodzącym też generujemy nowy kod
+                            finalBarcode = `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                            console.log(`🟡 Generated barcode for incoming bag transfer: ${finalBarcode}`);
                         } else {
                             // Dla innych produktów generujemy jak wcześniej
                             finalBarcode = item.barcode || `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -821,7 +856,7 @@ class TransferProcessingController {
                         const newStateItem = await State.create({
                             _id: newStateId,
                             fullName: goods._id,
-                            size: transferSize ? transferSize._id : undefined, // Dla torebek size będzie undefined
+                            size: transferSize ? transferSize._id : null, // Dla torebek size będzie null
                             barcode: finalBarcode,
                             sellingPoint: user._id,
                             price: item.price || 0,
@@ -895,7 +930,7 @@ class TransferProcessingController {
                     const newStateItem = await State.create({
                         _id: newStateId,
                         fullName: goods._id,
-                        size: size ? size._id : undefined, // Dla torebek size będzie undefined
+                        size: size ? size._id : null, // Dla torebek size będzie null zamiast undefined
                         barcode: finalBarcode,
                         sellingPoint: user._id,
                         price: item.price || 0,
@@ -1081,6 +1116,9 @@ class TransferProcessingController {
             });
         }
     }
+
+    // Alias for test compatibility
+    processTransfers = this.processWarehouseItems;
 }
 
 module.exports = new TransferProcessingController();

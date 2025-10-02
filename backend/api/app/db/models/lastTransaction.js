@@ -35,6 +35,6 @@ const lastTransactionSchema = new mongoose.Schema({
 
 // Index dla szybkiego wyszukiwania ostatniej transakcji
 lastTransactionSchema.index({ timestamp: -1 });
-lastTransactionSchema.index({ transactionId: 1 });
+// transactionId already has unique index from the field definition
 
 module.exports = mongoose.model('LastTransaction', lastTransactionSchema);

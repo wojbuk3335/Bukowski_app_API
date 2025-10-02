@@ -40,4 +40,5 @@ const stateSchema = mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('State', stateSchema);
+// Export the model, checking if it already exists to avoid compilation errors in tests
+module.exports = (mongoose.models && mongoose.models.State) || mongoose.model('State', stateSchema);

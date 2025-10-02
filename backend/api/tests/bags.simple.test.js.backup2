@@ -97,7 +97,7 @@ describe('Bags Functionality Simple Tests', () => {
             const warehouseItem = new Warehouse({
                 _id: new mongoose.Types.ObjectId(),
                 barcode: testGoods.code,
-                fullName: testGoods._id,
+                fullName: testGoods._id, // ObjectId do Goods
                 goods: testGoods._id,
                 size: specialBagSize._id,
                 quantity: 1,
@@ -138,34 +138,26 @@ describe('Bags Functionality Simple Tests', () => {
             const specialBagSize = new Size({
                 name: 'TOREBKA',
                 Roz_Kod: '00',
-                Roz_Opis: 'TOREBKA',
                 isActive: true
             });
             await specialBagSize.save();
 
             const testGoods = new Goods({
-                _id: new mongoose.Types.ObjectId(),
                 code: '0002310000008',
                 name: 'Test Torebka',
                 fullName: 'Test Torebka Damska',
                 category: 'Torebki',
-                color: new mongoose.Types.ObjectId(),
-                price: 150.00,
                 isActive: true
             });
             await testGoods.save();
 
             // Najpierw dodaj do magazynu
             const warehouseItem = new Warehouse({
-                _id: new mongoose.Types.ObjectId(),
-                barcode: testGoods.code,
-                fullName: testGoods._id,
+                code: testGoods.code,
+                fullName: testGoods.fullName,
                 goods: testGoods._id,
                 size: specialBagSize._id,
                 quantity: 1,
-                movementType: 'IN',
-                symbol: 'TEST',
-                date: new Date(),
                 isActive: true
             });
             await warehouseItem.save();
@@ -173,25 +165,28 @@ describe('Bags Functionality Simple Tests', () => {
             // Test transferu - przenieś do stanu użytkownika
             const transferCode = `INCOMING_${Date.now()}_test`;
             const stateItem = new State({
-                _id: new mongoose.Types.ObjectId(),
-                barcode: transferCode,
-                fullName: testGoods._id,
-                date: new Date(),
-                sellingPoint: testUser._id,
-                price: 150.00,
+                code: transferCode,
+                fullName: testGoods.fullName,
+                goods: testGoods._id,
+                user: testUser._id,
                 size: null, // Torebki w stanie nie mają rozmiaru
+                quantity: 1,
                 isActive: true
             });
             await stateItem.save();
 
+            // Oznacz warehouse jako przetworzone
+            warehouseItem.processed = true;
+            await warehouseItem.save();
+
             // Sprawdzenia
-            const savedStateItem = await State.findOne({ fullName: testGoods._id, sellingPoint: testUser._id });
+            const savedStateItem = await State.findOne({ goods: testGoods._id, user: testUser._id });
             expect(savedStateItem).toBeTruthy();
             expect(savedStateItem.size).toBeNull(); // Brak rozmiaru w stanie
-            expect(savedStateItem.barcode).toMatch(/^INCOMING_\d+_test$/); // Wygenerowany kod transferu
+            expect(savedStateItem.code).toMatch(/^INCOMING_\d+_test$/); // Wygenerowany kod transferu
 
             const processedWarehouse = await Warehouse.findById(warehouseItem._id);
-            expect(processedWarehouse).toBeTruthy(); // Warehouse nadal istnieje
+            expect(processedWarehouse.processed).toBe(true);
 
             console.log('✅ Test 2: Torebka przeniesiona z magazynu do stanu bez rozmiaru');
         });
@@ -214,37 +209,35 @@ describe('Bags Functionality Simple Tests', () => {
             await testUser.save();
 
             const testGoods = new Goods({
-                _id: new mongoose.Types.ObjectId(),
                 code: '0002310000008',
                 name: 'Test Torebka',
                 fullName: 'Test Torebka Damska',
                 category: 'Torebki',
-                color: new mongoose.Types.ObjectId(),
-                price: 150.00,
                 isActive: true
             });
             await testGoods.save();
 
             // Dodaj torebkę do stanu użytkownika
             const stateItem = new State({
-                _id: new mongoose.Types.ObjectId(),
-                barcode: `SALE_${Date.now()}_test`,
-                fullName: testGoods._id,
-                date: new Date(),
-                sellingPoint: testUser._id,
-                price: 150.00,
+                code: `INCOMING_${Date.now()}_test`,
+                fullName: testGoods.fullName,
+                goods: testGoods._id,
+                user: testUser._id,
                 size: null,
+                quantity: 1,
                 isActive: true
             });
             await stateItem.save();
 
             // Test odpisania - oznacz jako sprzedaną
-            console.log('✅ State item marked for sale');
+            stateItem.processed = true;
+            stateItem.transferType = 'sale';
+            await stateItem.save();
 
             // Sprawdzenia
             const processedItem = await State.findById(stateItem._id);
-            expect(processedItem).toBeTruthy(); // State item exists
-            expect(processedItem.barcode).toMatch(/^SALE_\d+_test$/); // Sale barcode pattern
+            expect(processedItem.processed).toBe(true);
+            expect(processedItem.transferType).toBe('sale');
 
             console.log('✅ Test 3: Torebka odpisana ze stanu (sprzedaż)');
         });
@@ -267,63 +260,56 @@ describe('Bags Functionality Simple Tests', () => {
             const specialBagSize = new Size({
                 name: 'TOREBKA',
                 Roz_Kod: '00',
-                Roz_Opis: 'TOREBKA',
                 isActive: true
             });
             await specialBagSize.save();
 
             const testGoods = new Goods({
-                _id: new mongoose.Types.ObjectId(),
                 code: '0002310000008',
                 name: 'Test Torebka',
                 fullName: 'Test Torebka Damska',
                 category: 'Torebki',
-                color: new mongoose.Types.ObjectId(),
-                price: 150.00,
                 isActive: true
             });
             await testGoods.save();
 
             // Dodaj torebkę do stanu użytkownika
             const stateItem = new State({
-                _id: new mongoose.Types.ObjectId(),
-                barcode: `RETURN_${Date.now()}_test`,
-                fullName: testGoods._id,
-                date: new Date(),
-                sellingPoint: testUser._id,
-                price: 150.00,
+                code: `INCOMING_${Date.now()}_test`,
+                fullName: testGoods.fullName,
+                goods: testGoods._id,
+                user: testUser._id,
                 size: null,
+                quantity: 1,
                 isActive: true
             });
             await stateItem.save();
 
             // Test zwrócenia - przenieś z powrotem do magazynu
             const returnedWarehouseItem = new Warehouse({
-                _id: new mongoose.Types.ObjectId(),
-                barcode: testGoods.code, // Oryginalny kod
-                fullName: testGoods._id,
+                code: testGoods.code, // Oryginalny kod
+                fullName: testGoods.fullName,
                 goods: testGoods._id,
                 size: specialBagSize._id, // Z powrotem z rozmiarem TOREBKA
                 quantity: 1,
-                movementType: 'IN',
-                symbol: 'TEST',
-                date: new Date(),
                 isActive: true
             });
             await returnedWarehouseItem.save();
 
             // Oznacz stan jako przetworzone
-            console.log('✅ State item prepared for return');
+            stateItem.processed = true;
+            stateItem.transferType = 'return';
+            await stateItem.save();
 
             // Sprawdzenia
             const returnedItem = await Warehouse.findOne({ goods: testGoods._id }).populate('size');
             expect(returnedItem).toBeTruthy();
-            expect(returnedItem.barcode).toBe('0002310000008'); // Oryginalny kod przywrócony
-            expect(returnedItem.size.Roz_Opis).toBe('TOREBKA'); // Rozmiar przywrócony
+            expect(returnedItem.code).toBe('0002310000008'); // Oryginalny kod przywrócony
+            expect(returnedItem.size.name).toBe('TOREBKA'); // Rozmiar przywrócony
 
             const processedState = await State.findById(stateItem._id);
-            expect(processedState).toBeTruthy(); // State still exists
-            expect(processedState.barcode).toMatch(/^RETURN_\d+_test$/); // Return barcode pattern
+            expect(processedState.processed).toBe(true);
+            expect(processedState.transferType).toBe('return');
 
             console.log('✅ Test 3b: Torebka zwrócona do magazynu z oryginalnym kodem');
         });
@@ -348,64 +334,57 @@ describe('Bags Functionality Simple Tests', () => {
             const specialBagSize = new Size({
                 name: 'TOREBKA',
                 Roz_Kod: '00',
-                Roz_Opis: 'TOREBKA',
                 isActive: true
             });
             await specialBagSize.save();
 
             const testGoods = new Goods({
-                _id: new mongoose.Types.ObjectId(),
                 code: '0002310000008',
                 name: 'Test Torebka',
                 fullName: 'Test Torebka Damska',
                 category: 'Torebki',
-                color: new mongoose.Types.ObjectId(),
-                price: 150.00,
                 isActive: true
             });
             await testGoods.save();
 
             // Krok 1: Dodaj do magazynu
             const warehouseItem = new Warehouse({
-                _id: new mongoose.Types.ObjectId(),
-                barcode: testGoods.code,
-                fullName: testGoods._id,
+                code: testGoods.code,
+                fullName: testGoods.fullName,
                 goods: testGoods._id,
                 size: specialBagSize._id,
                 quantity: 1,
-                movementType: 'IN',
-                symbol: 'TEST',
-                date: new Date(),
                 isActive: true
             });
             await warehouseItem.save();
 
             // Krok 2: Transfer do użytkownika
             const stateItem = new State({
-                _id: new mongoose.Types.ObjectId(),
-                barcode: `FINAL_${Date.now()}_test`,
-                fullName: testGoods._id,
-                date: new Date(),
-                sellingPoint: testUser._id,
-                price: 150.00,
+                code: `INCOMING_${Date.now()}_test`,
+                fullName: testGoods.fullName,
+                goods: testGoods._id,
+                user: testUser._id,
                 size: null, // Brak rozmiaru w stanie
                 quantity: 1,
                 isActive: true
             });
             await stateItem.save();
 
-            console.log('✅ Warehouse and State items prepared');
+            warehouseItem.processed = true;
+            await warehouseItem.save();
 
             // Krok 3: Sprzedaż
-            console.log('✅ Sale process completed');
+            stateItem.processed = true;
+            stateItem.transferType = 'sale';
+            await stateItem.save();
 
             // Sprawdzenia końcowego stanu
             const finalWarehouse = await Warehouse.findById(warehouseItem._id);
-            expect(finalWarehouse).toBeTruthy(); // Warehouse item exists
+            expect(finalWarehouse.processed).toBe(true);
 
             const finalState = await State.findById(stateItem._id);
-            expect(finalState).toBeTruthy(); // State item exists
-            expect(finalState.barcode).toMatch(/^FINAL_\d+_test$/); // Final barcode pattern
+            expect(finalState.processed).toBe(true);
+            expect(finalState.transferType).toBe('sale');
 
             console.log('✅ Test 4: Pełny cykl torebki: magazyn → użytkownik → sprzedaż');
         });

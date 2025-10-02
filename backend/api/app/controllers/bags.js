@@ -1,4 +1,5 @@
 const Bags = require('../db/models/bags');
+const mongoose = require('mongoose');
 
 // Get all bags
 exports.getAllBags = async (req, res, next) => {
@@ -16,18 +17,24 @@ exports.getAllBags = async (req, res, next) => {
 exports.insertManyBags = async (req, res, next) => {
     try {
         // Check for duplicates
-        for (const Bags of req.body) {
-            if (Bags.Torebki_Nr) {
-                const existingBags = await Bags.findOne({ Torebki_Nr: Bags.Torebki_Nr });
-                if (existingBags) {
+        for (const bagItem of req.body) {
+            if (bagItem.Torebki_Nr) {
+                const existingBag = await Bags.findOne({ Torebki_Nr: bagItem.Torebki_Nr });
+                if (existingBag) {
                     return res.status(400).json({
-                        message: `Bags with Torebki_Nr ${Bags.Torebki_Nr} already exists`
+                        message: `Bag with Torebki_Nr ${bagItem.Torebki_Nr} already exists`
                     });
                 }
             }
         }
 
-        const result = await Bags.insertMany(req.body);
+        // Add _id to each item if not present
+        const itemsWithIds = req.body.map(bagItem => ({
+            ...bagItem,
+            _id: bagItem._id || new mongoose.Types.ObjectId()
+        }));
+
+        const result = await Bags.insertMany(itemsWithIds);
         res.status(201).json({
             message: "Bagss inserted successfully",
             Bagss: result
@@ -40,12 +47,12 @@ exports.insertManyBags = async (req, res, next) => {
 // Update many Bags
 exports.updateManyBags = async (req, res, next) => {
     try {
-        const updatePromises = req.body.map(Bags => {
+        const updatePromises = req.body.map(bagItem => {
             return Bags.findByIdAndUpdate(
-                Bags._id,
+                bagItem._id,
                 { 
-                    Torebki_Nr: Bags.Torebki_Nr,
-                    Torebki_Kod: Bags.Torebki_Kod
+                    Torebki_Nr: bagItem.Torebki_Nr,
+                    Torebki_Kod: bagItem.Torebki_Kod
                 },
                 { new: true }
             );
@@ -79,7 +86,7 @@ exports.updateBags = async (req, res, next) => {
             }
         }
 
-        const Bags = await Bags.findByIdAndUpdate(
+        const updatedBag = await Bags.findByIdAndUpdate(
             id,
             { 
                 Torebki_Nr: req.body.Torebki_Nr,
@@ -88,13 +95,13 @@ exports.updateBags = async (req, res, next) => {
             { new: true }
         );
 
-        if (!Bags) {
-            return res.status(404).json({ message: "Bags not found" });
+        if (!updatedBag) {
+            return res.status(404).json({ message: "Bag not found" });
         }
 
         res.status(200).json({
-            message: "Bags updated successfully",
-            Bags: Bags
+            message: "Bag updated successfully",
+            bag: updatedBag
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -105,15 +112,15 @@ exports.updateBags = async (req, res, next) => {
 exports.deleteBags = async (req, res, next) => {
     try {
         const id = req.params.id;
-        const Bags = await Bags.findByIdAndDelete(id);
+        const deletedBag = await Bags.findByIdAndDelete(id);
 
-        if (!Bags) {
-            return res.status(404).json({ message: "Bags not found" });
+        if (!deletedBag) {
+            return res.status(404).json({ message: "Bag not found" });
         }
 
         res.status(200).json({
-            message: "Bags deleted successfully",
-            Bags: Bags
+            message: "Bag deleted successfully",
+            bag: deletedBag
         });
     } catch (error) {
         res.status(500).json({ error: error.message });

@@ -13,4 +13,4 @@ const bagsSchema = mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Bags', bagsSchema, 'wallets');
+module.exports = mongoose.model('Bags', bagsSchema, 'bags');

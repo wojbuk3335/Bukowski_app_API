@@ -14,9 +14,9 @@ import {
     ModalFooter,
 } from "reactstrap";
 import axios from "axios";
-import styles from './Wallet.module.css';
+import styles from './Bags.module.css';
 
-const Wallet = () => {
+const Bags = () => {
     const [loading, setLoading] = useState(false);
     const [excelRows, setExcelRows] = useState([]);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -45,8 +45,8 @@ const Wallet = () => {
             setLoading(true);
 
             // Check if the Tow_Kod value is unique
-            const response = await axios.get(`/api/excel/wallet/get-all-wallets`);
-            const wallets = response.data.wallets;
+            const response = await axios.get(`/api/excel/bags/get-all-bags`);
+            const wallets = response.data.bags;
             const duplicate = wallets.find(wallet => wallet.Torebki_Kod === currentWallet.Torebki_Kod && wallet._id !== currentWallet._id);
 
             if (duplicate && currentWallet.Torebki_Kod !== "") {
@@ -55,7 +55,7 @@ const Wallet = () => {
                 return;
             }
 
-            await axios.patch(`/api/excel/wallet/update-wallet/${currentWallet._id}`, { Torebki_Kod: currentWallet.Torebki_Kod });
+            await axios.patch(`/api/excel/bags/update-bags/${currentWallet._id}`, { Torebki_Kod: currentWallet.Torebki_Kod });
             fetchData();
             toggleModal();
         } catch (error) {
@@ -69,7 +69,7 @@ const Wallet = () => {
         try {
             setLoading(true);
 
-            await axios.delete(`/api/excel/wallet/delete-all-wallets`);
+            await axios.delete(`/api/excel/bags/delete-all-bags`);
             resetState();
             alert("Dane zostały usunięte poprawnie.");
         } catch (error) {
@@ -82,8 +82,8 @@ const Wallet = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const result = (await axios.get(`/api/excel/wallet/get-all-wallets`)).data;
-            const sortedWallets = Array.isArray(result.wallets) ? result.wallets.sort((a, b) => Number(a.Torebki_Nr) - Number(b.Torebki_Nr)) : [];
+            const result = (await axios.get(`/api/excel/bags/get-all-bags`)).data;
+            const sortedWallets = Array.isArray(result.bags) ? result.bags.sort((a, b) => Number(a.Torebki_Nr) - Number(b.Torebki_Nr)) : [];
             setRows(sortedWallets);
         } catch (error) {
             console.log(error);
@@ -136,7 +136,7 @@ const Wallet = () => {
                 Torebki_Kod: ""
             };
 
-            await axios.post('/api/excel/wallet/insert-many-wallets', [newWallet]);
+            await axios.post('/api/excel/bags/insert-bags', [newWallet]);
             
             fetchData();
         } catch (error) {
@@ -210,9 +210,9 @@ const Wallet = () => {
 
     const getWalletList = async () => {
         try {
-            const url = `/api/excel/wallet/get-all-wallets`;
+            const url = `/api/excel/bags/get-all-bags`;
             const walletResponse = (await axios.get(url)).data;
-            return Array.isArray(walletResponse.wallets) ? walletResponse.wallets : [];
+            return Array.isArray(walletResponse.bags) ? walletResponse.bags : [];
         } catch (error) {
             console.error(error);
             throw error;
@@ -238,14 +238,14 @@ const Wallet = () => {
         const newWallets = wallets.filter((x) => !x._id);
 
         if (updatedWallets.length) {
-            const result = (await axios.post(`/api/excel/wallet/update-many-wallets`, updatedWallets)).data;
+            const result = (await axios.post(`/api/excel/bags/update-many-bags`, updatedWallets)).data;
             if (result) {
                 alert("Zaktualizowano pomyślnie " + updatedWallets.length + " rekordów.");
             }
         }
 
         if (newWallets.length) {
-            const result = (await axios.post(`/api/excel/wallet/insert-many-wallets`, newWallets)).data;
+            const result = (await axios.post(`/api/excel/bags/insert-bags`, newWallets)).data;
             if (result) {
                 alert("Dodano pomyślnie " + newWallets.length + " nowych rekordów.");
             }
@@ -398,4 +398,4 @@ const Wallet = () => {
     );
 };
 
-export default Wallet;
+export default Bags;

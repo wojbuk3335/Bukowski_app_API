@@ -20,9 +20,9 @@ import Goods from './components/AdminDashboard/Goods/Goods';
 import Warehouse from './components/AdminDashboard/Warehouse/Warehouse';
 import State from './components/AdminDashboard/State/State';
 import Category from './components/AdminDashboard/Category/Category';
-import Bags from './components/AdminDashboard/Category/Bags';
+import BagsCategory from './components/AdminDashboard/Category/Bags';
 import Localization from './components/AdminDashboard/Localization/Localization';
-import Wallet from './components/AdminDashboard/Wallet/Wallet';
+import Bags from './components/AdminDashboard/Bags/Bags';
 import SeachEngineList from './components/AdminDashboard/Searchengine/SeachEngineList/SeachEngineList';
 import SeachEngineTable from './components/AdminDashboard/Searchengine/SeachEngineTable/SeachEngineTable';
 import History from './components/AdminDashboard/History/History';
@@ -43,7 +43,8 @@ function App() {
           <Route path='colors' element={<Colors />} />
           <Route path='sizes' element={<Sizes />} />
           <Route path='localization' element={<Localization />} />
-          <Route path='wallet' element={<Wallet />} />
+          <Route path='bags' element={<Bags />} />
+          <Route path='torebki' element={<Bags />} />  {/* Alias dla jasności */}
           <Route path='searchengine' element={<Searchengine />}>
             <Route path='list' element={<SeachEngineList />} />
             <Route path='table' element={<SeachEngineTable />} />
@@ -52,7 +53,7 @@ function App() {
           <Route path='goods' element={<Goods />} />
           <Route path="category">
             <Route path="category" element={<Category />} />
-            <Route path="bags" element={<Bags />} />
+            <Route path="bags" element={<BagsCategory />} />
           </Route>
           <Route path="state" element={<State />} />
           <Route path="state/:userId" element={<State />} />
