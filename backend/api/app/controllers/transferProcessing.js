@@ -51,8 +51,8 @@ class TransferProcessingController {
                             originalId: itemToRemove._id,
                             fullName: itemToRemove.fullName._id,
                             fullNameText: itemToRemove.fullName?.fullName || 'Nieznany produkt',
-                            size: itemToRemove.size._id,
-                            sizeText: itemToRemove.size?.Roz_Opis || 'Nieznany rozmiar',
+                            size: itemToRemove.size ? itemToRemove.size._id : null, // Dla torebek size będzie null
+                            sizeText: itemToRemove.size?.Roz_Opis || '-', // Dla torebek użyj '-'
                             barcode: itemToRemove.barcode,
                             sellingPoint: itemToRemove.sellingPoint._id,
                             sellingPointSymbol: itemToRemove.sellingPoint?.symbol,
@@ -255,8 +255,8 @@ class TransferProcessingController {
                             originalId: stateItem._id,
                             fullName: stateItem.fullName._id,
                             fullNameText: stateItem.fullName.fullName,
-                            size: stateItem.size._id,
-                            sizeText: stateItem.size.Roz_Opis,
+                            size: stateItem.size ? stateItem.size._id : null, // Dla torebek size będzie null
+                            sizeText: stateItem.size ? stateItem.size.Roz_Opis : '-', // Dla torebek użyj '-'
                             barcode: stateItem.barcode,
                             sellingPoint: stateItem.sellingPoint._id,
                             sellingPointSymbol: stateItem.sellingPoint.symbol,
@@ -390,7 +390,7 @@ class TransferProcessingController {
                         const warehouseItem = await State.create({
                             _id: new mongoose.Types.ObjectId(),
                             fullName: itemData.fullName,
-                            size: itemData.size,
+                            size: itemData.size || undefined, // Dla torebek może być null/undefined
                             barcode: itemData.barcode,
                             sellingPoint: warehouseUser._id,
                             price: itemData.price,
@@ -445,7 +445,7 @@ class TransferProcessingController {
                         const restoredSaleItem = await State.create({
                             _id: new mongoose.Types.ObjectId(itemData.originalId),
                             fullName: itemData.fullName,
-                            size: itemData.size,
+                            size: itemData.size || undefined, // Dla torebek może być null/undefined
                             barcode: itemData.barcode,
                             sellingPoint: itemData.sellingPoint,
                             price: itemData.price,
@@ -669,7 +669,7 @@ class TransferProcessingController {
                         const restoredItem = await State.create({
                             _id: new mongoose.Types.ObjectId(itemData.originalId),
                             fullName: itemData.fullName,
-                            size: itemData.size,
+                            size: itemData.size || undefined, // Dla torebek może być null/undefined
                             barcode: itemData.barcode,
                             sellingPoint: itemData.sellingPoint,
                             price: itemData.price,
@@ -784,7 +784,8 @@ class TransferProcessingController {
                     console.log('Found goods:', goods ? goods._id : 'NOT FOUND');
                     console.log('Found size:', size ? size._id : 'NOT FOUND');
 
-                    if (!goods || !size) {
+                    // Check if goods exists, and for non-bags check if size exists
+                    if (!goods || (!size && goods.category !== 'Torebki')) {
                         errors.push(`Product or size not found for ${item.fullName} ${item.size}`);
                         continue;
                     }
@@ -894,7 +895,7 @@ class TransferProcessingController {
                     const newStateItem = await State.create({
                         _id: newStateId,
                         fullName: goods._id,
-                        size: size._id,
+                        size: size ? size._id : undefined, // Dla torebek size będzie undefined
                         barcode: finalBarcode,
                         sellingPoint: user._id,
                         price: item.price || 0,
@@ -911,14 +912,14 @@ class TransferProcessingController {
                     const historyEntry = new History({
                         collectionName: 'Stan',
                         operation: 'Dodano do stanu (z magazynu)',
-                        product: `${item.fullName} ${item.size}`,
+                        product: `${item.fullName} ${item.size || '-'}`, // Dla torebek użyj '-'
                         details: JSON.stringify({
                             originalId: item._id,
                             stateId: newStateItem._id,
                             fullName: goods._id,
                             fullNameText: item.fullName,
-                            size: size._id,
-                            sizeText: item.size,
+                            size: size ? size._id : null, // Dla torebek size będzie null
+                            sizeText: item.size || '-', // Dla torebek użyj '-'
                             barcode: item.barcode,
                             sellingPoint: user._id,
                             sellingPointSymbol: user.symbol,
@@ -943,7 +944,7 @@ class TransferProcessingController {
                     addedItems.push({
                         id: newStateItem._id,
                         fullName: item.fullName,
-                        size: item.size,
+                        size: item.size || '-', // Dla torebek użyj '-'
                         barcode: item.barcode,
                         transfer_to: item.transfer_to
                     });
