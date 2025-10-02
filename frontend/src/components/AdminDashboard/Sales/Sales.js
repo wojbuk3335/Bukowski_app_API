@@ -46,16 +46,10 @@ const Sales = () => {
     }, []);
 
     useEffect(() => {
-        console.log('Applying filters:', { sales, startDate, endDate, searchQuery, columnFilters });
-
         let filtered = [...sales];
         
-        console.log('Total sales before filtering:', filtered.length);
-        console.log('Sample sale data:', filtered[0]);
-
         // Filter by date range
         if (startDate && endDate) {
-            console.log('Filtering by date range:', { startDate, endDate });
             
             const startOfDay = new Date(startDate);
             startOfDay.setHours(0, 0, 0, 0);
@@ -65,7 +59,6 @@ const Sales = () => {
             
             filtered = filtered.filter((sale) => {
                 if (!sale.date) {
-                    console.log('Sale without date found:', sale);
                     return false;
                 }
                 
@@ -80,22 +73,17 @@ const Sales = () => {
                         saleDate = new Date(sale.date);
                     }
                 } else {
-                    console.log('Unrecognized date format:', sale.date, typeof sale.date);
                     return false;
                 }
                 
                 if (isNaN(saleDate)) {
-                    console.log('Invalid date:', sale.date);
                     return false;
                 }
                 
                 const isInRange = saleDate >= startOfDay && saleDate <= endOfDay;
-                console.log(`Sale date: ${saleDate.toLocaleDateString()}, In range: ${isInRange}`);
                 
                 return isInRange;
             });
-            
-            console.log('Filtered sales after date filter:', filtered.length);
         }
 
         // Filter by search query
