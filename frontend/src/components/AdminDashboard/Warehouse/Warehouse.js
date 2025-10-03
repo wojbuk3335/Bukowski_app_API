@@ -184,7 +184,7 @@ const Warehouse = () => {
                     fullName: row.fullName?.fullName || row.fullName || "Brak danych",
                     plec: row.Plec || "Brak danych",
                     date: row.date,
-                    size: row.size?.Roz_Opis || row.size || "Brak danych",
+                    size: row.size, // Backend już prawidłowo obsługuje torebki
                     barcode: row.barcode || "Brak danych",
                     symbol: row.symbol || "Brak danych",
                     price: combinedPrice, // Set combined price

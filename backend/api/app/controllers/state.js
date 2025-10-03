@@ -56,7 +56,7 @@ class StatesController {
     async getAllStates(req, res, next) {
         try {
             const states = await State.find()
-                .populate('fullName', 'fullName price priceExceptions discount_price') // Include discount_price
+                .populate('fullName', 'fullName price priceExceptions discount_price category') // Include category
                 .populate('size', 'Roz_Opis')
                 .populate('sellingPoint', 'symbol');
 
@@ -65,11 +65,14 @@ class StatesController {
                 fullName: state.fullName ? state.fullName.fullName : 'Nieznany produkt', // Handle null fullName
                 date: state.date,
                 plec: state.plec,
-                size: state.size ? state.size.Roz_Opis : 'Nieznany rozmiar', // Handle null size
+                size: (state.fullName && state.fullName.category === 'Torebki') 
+                    ? '-' 
+                    : (state.size ? state.size.Roz_Opis : 'Nieznany rozmiar'), // Handle bags and null size
                 barcode: state.barcode,
                 symbol: state.sellingPoint ? state.sellingPoint.symbol : 'Nieznany punkt sprzedaży', // Handle null sellingPoint
                 price: state.fullName ? state.fullName.price : 0, // Handle null price
-                discount_price: state.fullName ? state.fullName.discount_price : 0 // Include discount_price
+                discount_price: state.fullName ? state.fullName.discount_price : 0, // Include discount_price
+                category: state.fullName ? state.fullName.category : null // Include category for frontend
             }));
 
             res.status(200).json(sanitizedStates);
