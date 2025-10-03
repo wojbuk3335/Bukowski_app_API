@@ -43,7 +43,6 @@ class SalesController {
                     { processed: { $exists: false } } // Bez pola processed (stare dane)
                 ]
             });
-            console.log(`📊 Found ${sales.length} unprocessed sales`);
             res.status(200).json(sales);
         } catch (error) {
             console.log('Error fetching all sales:', error.message);

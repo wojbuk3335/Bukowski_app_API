@@ -18,8 +18,6 @@ class StatesController {
     // Get warehouse items (products with MAGAZYN/magazyn symbol)
     async getWarehouseItems(req, res, next) {
         try {
-            console.log('Fetching warehouse items...'); // Debug log
-            
             const warehouseStates = await State.find()
                 .populate('fullName', 'fullName price priceExceptions discount_price')
                 .populate('size', 'Roz_Opis')
@@ -30,8 +28,6 @@ class StatesController {
                 const symbol = state.sellingPoint ? state.sellingPoint.symbol : '';
                 return symbol.toLowerCase().includes('magazyn');
             });
-
-            console.log(`Found ${warehouseItems.length} warehouse items`); // Debug log
 
             const sanitizedWarehouseItems = warehouseItems.map(state => ({
                 _id: state._id,

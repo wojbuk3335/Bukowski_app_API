@@ -762,10 +762,6 @@ class TransferProcessingController {
         try {
             const { warehouseItems, transactionId, isIncomingTransfer } = req.body;
             
-            console.log('🟡 DEBUG: Received processWarehouseItems request');
-            console.log('🟡 DEBUG: isIncomingTransfer:', isIncomingTransfer);
-            console.log('🟡 DEBUG: warehouseItems count:', warehouseItems ? warehouseItems.length : 0);
-            
             if (!warehouseItems || !Array.isArray(warehouseItems) || warehouseItems.length === 0) {
                 return res.status(400).json({
                     message: 'No warehouse items provided for processing'
@@ -777,17 +773,13 @@ class TransferProcessingController {
             const Size = require('../db/models/size');
 
             const finalTransactionId = transactionId || generateTransactionId();
-            console.log('Warehouse using transactionId:', finalTransactionId);
             const addedItems = [];
             const errors = [];
             
             for (const item of warehouseItems) {
                 try {
-                    console.log('Processing warehouse item:', item);
-                    
                     // Find user
                     const user = await User.findOne({ symbol: item.transfer_to });
-                    console.log('Found user:', user ? user.symbol : 'NOT FOUND');
                     
                     if (!user) {
                         errors.push(`User with symbol ${item.transfer_to} not found`);
@@ -816,9 +808,6 @@ class TransferProcessingController {
                         size = await Size.findOne({ Roz_Opis: item.size });
                     }
 
-                    console.log('Found goods:', goods ? goods._id : 'NOT FOUND');
-                    console.log('Found size:', size ? size._id : 'NOT FOUND');
-
                     // Check if goods exists, and for non-bags check if size exists
                     if (!goods || (!size && goods.category !== 'Torebki')) {
                         errors.push(`Product or size not found for ${item.fullName} ${item.size}`);
@@ -828,18 +817,15 @@ class TransferProcessingController {
                     // RÓŻNE LOGIKI DLA RÓŻNYCH TYPÓW TRANSFERÓW
                     if (isIncomingTransfer) {
                         // 🟡 ŻÓŁTE PRODUKTY - Transfer przychodzący (nie usuwamy z magazynu, tylko dodajemy do stanu)
-                        console.log(`🟡 INCOMING TRANSFER: Adding ${item.fullName} to ${user.symbol} state`);
                         
                         // Wygeneruj barcode dla transferu przychodzącego
                         let finalBarcode;
                         if (goods.category === 'Torebki') {
                             // Dla torebek w transferze przychodzącym też generujemy nowy kod
                             finalBarcode = `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-                            console.log(`🟡 Generated barcode for incoming bag transfer: ${finalBarcode}`);
                         } else {
                             // Dla innych produktów generujemy jak wcześniej
                             finalBarcode = item.barcode || `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-                            console.log(`🟡 Generated barcode for incoming transfer: ${finalBarcode}`);
                         }
                         
                         // Handle special size for bags
@@ -851,7 +837,6 @@ class TransferProcessingController {
                         
                         // Create new State document for user
                         const newStateId = new mongoose.Types.ObjectId();
-                        console.log(`➕ CREATING new state item: ${newStateId} for ${user.symbol} (incoming)`);
                         
                         const newStateItem = await State.create({
                             _id: newStateId,
@@ -863,7 +848,6 @@ class TransferProcessingController {
                             discount_price: item.discount_price || 0,
                             date: new Date()
                         });
-                        console.log(`✅ SAVED incoming transfer item: ${newStateId}`);
                         
                         // OZNACZ TRANSFER JAKO PRZETWORZONY
                         const Transfer = require('../db/models/transfer');
@@ -871,7 +855,6 @@ class TransferProcessingController {
                             processed: true,
                             processedAt: new Date()
                         });
-                        console.log(`✅ MARKED incoming transfer as processed: ${item._id}`);
                         
                         // Create history entry for incoming transfer
                         const historyEntry = new History({
@@ -900,25 +883,20 @@ class TransferProcessingController {
                         
                     } else {
                         // 🟠 POMARAŃCZOWE PRODUKTY - Normalne przeniesienie z magazynu (usuwamy z magazynu i dodajemy do stanu)
-                        console.log(`🟠 WAREHOUSE TRANSFER: Moving ${item.fullName} from warehouse to ${user.symbol}`);
 
                     // Remove from warehouse (original warehouse item)
-                    console.log(`🏪 REMOVING from warehouse: ${item._id} (${item.barcode})`);
                     const removedFromWarehouse = await State.findByIdAndDelete(item._id);
                     
                     if (!removedFromWarehouse) {
                         errors.push(`Warehouse item ${item._id} not found in database`);
                         continue;
                     }
-                    console.log(`✅ REMOVED from warehouse: ${item._id}`);
 
                     // Check current count for this user BEFORE adding
                     const currentCountBefore = await State.countDocuments({ sellingPoint: user._id });
-                    console.log(`📊 Current state count for ${user.symbol} BEFORE adding: ${currentCountBefore}`);
 
                     // Create new State document for user
                     const newStateId = new mongoose.Types.ObjectId();
-                    console.log(`➕ CREATING new state item: ${newStateId} for ${user.symbol} (${item.barcode})`);
                     
                     // For bags, use original barcode; for other products, use existing barcode
                     let finalBarcode = item.barcode;
@@ -937,11 +915,9 @@ class TransferProcessingController {
                         discount_price: item.discount_price || 0,
                         date: new Date()
                     });
-                    console.log(`✅ SAVED new state item: ${newStateId}`);
                     
                     // Check current count for this user AFTER adding
                     const currentCountAfter = await State.countDocuments({ sellingPoint: user._id });
-                    console.log(`📊 Current state count for ${user.symbol} AFTER adding: ${currentCountAfter}`);
 
                     // Create history entry
                     const historyEntry = new History({
@@ -992,17 +968,6 @@ class TransferProcessingController {
                 }
             }
 
-            // Final check - count all items for all users
-            const finalStateCount = await State.countDocuments({});
-            const allUsers = await User.find({});
-            console.log(`🏁 FINAL STATE SUMMARY: Total items in database: ${finalStateCount}`);
-            for (const user of allUsers) {
-                const userCount = await State.countDocuments({ sellingPoint: user._id });
-                if (userCount > 0) {
-                    console.log(`  - ${user.symbol}: ${userCount} items`);
-                }
-            }
-
             // Aktualizuj ostatnią transakcję dla cofania
             if (addedItems.length > 0) {
                 const LastTransaction = require('../db/models/lastTransaction');
@@ -1021,7 +986,6 @@ class TransferProcessingController {
                     },
                     { upsert: true }
                 );
-                console.log(`💾 Updated last transaction: ${finalTransactionId} (${transactionType})`);
             }
 
             res.status(200).json({
@@ -1045,8 +1009,6 @@ class TransferProcessingController {
     // Get last transaction info (simplified - no more COFNIĘTE entries)
     async getLastTransaction(req, res) {
         try {
-            console.log('Getting last transaction...'); // Debug log
-            
             // Find the most recent active transaction (only active operations)
             const lastTransaction = await History.findOne({
                 $or: [
