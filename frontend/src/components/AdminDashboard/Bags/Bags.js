@@ -83,7 +83,8 @@ const Bags = () => {
         try {
             setLoading(true);
             const result = (await axios.get(`/api/excel/bags/get-all-bags`)).data;
-            const sortedWallets = Array.isArray(result.bags) ? result.bags.sort((a, b) => Number(a.Torebki_Nr) - Number(b.Torebki_Nr)) : [];
+            // Sort in descending order - newest (highest number) on top
+            const sortedWallets = Array.isArray(result.bags) ? result.bags.sort((a, b) => Number(b.Torebki_Nr) - Number(a.Torebki_Nr)) : [];
             setRows(sortedWallets);
         } catch (error) {
             console.log(error);
@@ -126,7 +127,7 @@ const Bags = () => {
             const walletList = await getWalletList();
             const maxTorebkiNr = walletList.length > 0 
                 ? Math.max(...walletList.map(wallet => Number(wallet.Torebki_Nr) || 0))
-                : 0;
+                : 5999; // Start from 5999 so first bag will be 6000
             
             const nextTorebkiNr = maxTorebkiNr + 1;
 

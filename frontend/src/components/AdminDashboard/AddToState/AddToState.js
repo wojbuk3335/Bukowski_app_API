@@ -95,7 +95,7 @@ const AddToState = ({ onAdd }) => {
       transfer.size : 
       (typeof transfer.size === 'object' ? 
         (transfer.size?.Roz_Opis || 'Nieznany rozmiar') : 
-        (transfer.size || 'Nieznany rozmiar'));
+        (transfer.size === '-' ? '' : (transfer.size || 'Nieznany rozmiar'))); // Don't show "Nieznany rozmiar" for bags
         
     const transferName = convertPolishCharsToZPL(rawTransferName);
     const transferSize = convertPolishCharsToZPL(rawTransferSize);
@@ -844,7 +844,7 @@ const AddToState = ({ onAdd }) => {
       id: warehouseItem._id,
       date: new Date().toISOString(),
       fullName: warehouseItem.fullName?.fullName || 'Nieznana nazwa',
-      size: warehouseItem.size?.Roz_Opis || 'Nieznany rozmiar',
+      size: warehouseItem.size === '-' ? '' : (warehouseItem.size?.Roz_Opis || 'Nieznany rozmiar'), // Don't show "Nieznany rozmiar" for bags
       barcode: warehouseItem.barcode || 'Brak kodu',
       symbol: selectedUserData.symbol,
       price: warehouseItem.price || 0,
@@ -2078,7 +2078,7 @@ const AddToState = ({ onAdd }) => {
                     {item.fullName?.fullName || 'Nieznana nazwa'}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
-                    {item.size?.Roz_Opis || 'Nieznany rozmiar'}
+                    {item.size === '-' ? '' : (item.size?.Roz_Opis || 'Nieznany rozmiar')} {/* Don't show "Nieznany rozmiar" for bags */}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.barcode || 'Brak kodu'}

@@ -407,7 +407,13 @@ const Goods = () => {
     };
 
     const generateBagProductCode = () => {
-        // Generowanie kodu dla torebek: 000 + Kol_Kod + Torebki_Nr (dopełniony zerami) + suma kontrolna
+        // Nowy format kodu dla torebek: 000 + kolor + wiersz + wartość_po_kropce + suma kontrolna
+        // Pozycje 1-3: 000 (stałe)
+        // Pozycje 4-5: Kod koloru  
+        // Pozycje 6-9: Numer wiersza (Torebki_Nr)
+        // Pozycje 10-12: Wartość po kropce z Torebki_Kod
+        // Pozycja 13: Suma kontrolna
+        
         const color = colors.find(color => color._id === selectedColor);
         const wallet = wallets.find(wallet => wallet._id === selectedWalletId);
         
@@ -422,11 +428,15 @@ const Goods = () => {
         const colorCode = color.Kol_Kod || '00';
         code += colorCode.padStart(2, '0').substring(0, 2);
         
-        // Pozycje 6-12: Numer torebki (Torebki_Nr) - zaczynamy od pozycji 6, dopełniamy zerami z prawej strony do pozycji 12
-        const bagNumber = wallet.Torebki_Nr || 0;
-        const bagNumberStr = bagNumber.toString();
-        // Dodajemy numer i dopełniamy zerami z prawej do 7 pozycji (pozycje 6-12)
-        code += bagNumberStr.padEnd(7, '0').substring(0, 7);
+        // Pozycje 6-9: Numer wiersza (Torebki_Nr) - 4 cyfry
+        const rowNumber = wallet.Torebki_Nr || 0;
+        code += rowNumber.toString().padStart(4, '0').substring(0, 4);
+        
+        // Pozycje 10-12: Wartość po kropce z Torebki_Kod
+        const bagCode = wallet.Torebki_Kod || '';
+        const afterDotMatch = bagCode.match(/\.(\d{3})/); // Znajdź 3 cyfry po kropce
+        const afterDotValue = afterDotMatch ? afterDotMatch[1] : '000';
+        code += afterDotValue.padStart(3, '0').substring(0, 3);
         
         // Pozycja 13: Suma kontrolna
         const controlSum = calculateControlSum(code);
