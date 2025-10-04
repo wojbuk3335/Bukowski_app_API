@@ -23,6 +23,7 @@ import Category from './components/AdminDashboard/Category/Category';
 import BagsCategory from './components/AdminDashboard/Category/Bags';
 import Localization from './components/AdminDashboard/Localization/Localization';
 import Bags from './components/AdminDashboard/Bags/Bags';
+import Wallets from './components/AdminDashboard/Wallets/Wallets';
 import SeachEngineList from './components/AdminDashboard/Searchengine/SeachEngineList/SeachEngineList';
 import SeachEngineTable from './components/AdminDashboard/Searchengine/SeachEngineTable/SeachEngineTable';
 import History from './components/AdminDashboard/History/History';
@@ -44,6 +45,7 @@ function App() {
           <Route path='sizes' element={<Sizes />} />
           <Route path='localization' element={<Localization />} />
           <Route path='bags' element={<Bags />} />
+          <Route path='wallets' element={<Wallets />} />
           <Route path='torebki' element={<Bags />} />  {/* Alias dla jasności */}
           <Route path='searchengine' element={<Searchengine />}>
             <Route path='list' element={<SeachEngineList />} />

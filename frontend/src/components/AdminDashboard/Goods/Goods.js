@@ -818,6 +818,7 @@ const Goods = () => {
                         >
                             <option value="Kurtki kożuchy futra">Kurtki kożuchy futra</option>
                             <option value="Torebki">Torebki</option>
+                            <option value="Portfele">Portfele</option>
                         </Input>
                     </FormGroup>
                     
@@ -1136,6 +1137,191 @@ const Goods = () => {
                                 <Input
                                     type="number"
                                     id="bagDiscountPrice"
+                                    className={styles.inputField}
+                                    value={discountPrice}
+                                    onChange={(e) => setDiscountPrice(parseFloat(e.target.value) || 0)}
+                                    step="0.01"
+                                    min="0"
+                                />
+                            </FormGroup>
+                        </>
+                    )}
+
+                    {selectedCategory === 'Portfele' && (
+                        <>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletProductCode" className={styles.label}>Produkt:</Label>
+                                <div id="walletProductCode" style={{ position: 'relative' }}>
+                                    <Input
+                                        type="text"
+                                        value={walletFilterText}
+                                        onChange={handleWalletFilterChange}
+                                        onKeyDown={handleWalletKeyDown}
+                                        onFocus={() => setIsWalletDropdownOpen(true)}
+                                        placeholder="Wpisz lub wybierz kod portfela..."
+                                        autoComplete="off"
+                                        style={{
+                                            backgroundColor: '#000000',
+                                            color: '#ffffff',
+                                            border: '1px solid #333333',
+                                            borderRadius: '4px',
+                                            padding: '8px 12px',
+                                            width: '100%'
+                                        }}
+                                    />
+                                    <div 
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            cursor: 'pointer',
+                                            fontSize: '12px'
+                                        }}
+                                        onClick={() => setIsWalletDropdownOpen(!isWalletDropdownOpen)}
+                                    >
+                                        ▼
+                                    </div>
+                                    {isWalletDropdownOpen && (
+                                        <div 
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: '#000000',
+                                                color: '#ffffff',
+                                                border: '1px solid #333333',
+                                                borderTop: 'none',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 1000,
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            {getFilteredWallets().length > 0 ? (
+                                                getFilteredWallets().map((wallet, index) => (
+                                                    <div
+                                                        key={wallet._id}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid #333333',
+                                                            backgroundColor: 
+                                                                selectedWalletIndex === index ? '#007bff' :
+                                                                selectedWalletCode === wallet.Torebki_Kod ? '#111111' : '#000000',
+                                                            color: '#ffffff'
+                                                        }}
+                                                        onClick={() => handleWalletSelect(wallet.Torebki_Kod)}
+                                                        onMouseEnter={(e) => {
+                                                            if (selectedWalletIndex !== index) {
+                                                                e.target.style.backgroundColor = '#111111';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (selectedWalletIndex !== index) {
+                                                                e.target.style.backgroundColor = selectedWalletCode === wallet.Torebki_Kod ? '#111111' : '#000000';
+                                                            }
+                                                        }}
+                                                    >
+                                                        {wallet.Torebki_Kod}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '8px 12px', color: '#ccc' }}>
+                                                    Brak wyników
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletCategorySelect" className={styles.label}>Podkategoria:</Label>
+                                <Input
+                                    type="select"
+                                    id="walletCategorySelect"
+                                    className={styles.inputField}
+                                    onChange={(e) => {
+                                        const selectedId = e.target.value;
+                                        const selectedCategory = bagsCategories.find(cat => cat._id === selectedId);
+                                        if (selectedCategory) {
+                                            setSelectedBagsCategoryCode(selectedCategory.Kat_1_Kod_1);
+                                            setSelectedBagsCategoryId(selectedCategory._id);
+                                        }
+                                    }}
+                                    value={selectedBagsCategoryId}
+                                >
+                                    {bagsCategories.map(category => {
+                                        let displayCode = category.Kat_1_Opis_1;
+                                        return (
+                                            <option key={category._id} value={category._id}>
+                                                {displayCode} ({category.Plec})
+                                            </option>
+                                        );
+                                    })}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletColorSelect" className={styles.label}>Kolor:</Label>
+                                <Input
+                                    type="select"
+                                    id="walletColorSelect"
+                                    className={styles.inputField}
+                                    onChange={handleColorChange}
+                                    value={selectedColor}
+                                >
+                                    {colors.map(color => (
+                                        <option key={color._id} value={color._id} kol_opis={color.Kol_Opis} kol_kod={color.Kol_Kod}>{color.Kol_Opis}</option>
+                                    ))}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletProductName" className={styles.label}>Nazwa produktu:</Label>
+                                <Input
+                                    type="text"
+                                    id="walletProductName"
+                                    className={styles.inputField}
+                                    value={productName}
+                                    onChange={(e) => setProductName(e.target.value)}
+                                />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletProductCodeGenerated" className={styles.label}>Kod produktu:</Label>
+                                <Input
+                                    type="text"
+                                    id="walletProductCodeGenerated"
+                                    className={styles.inputField}
+                                    value={generateBagProductCode()}
+                                    readOnly
+                                />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletProductImage" className={`${styles.label} ${styles.noWrapLabel}`}>Zdjęcie produktu:</Label>
+                                <input
+                                    type="file"
+                                    id="walletProductImage"
+                                    className={styles.inputFile}
+                                    onChange={handleImageChange}
+                                />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletPrice" className={styles.label}>Cena (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="walletPrice"
+                                    className={styles.inputField}
+                                    value={price}
+                                    onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+                                    step="0.01"
+                                    min="0"
+                                />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletDiscountPrice" className={styles.label}>Promocyjna (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="walletDiscountPrice"
                                     className={styles.inputField}
                                     value={discountPrice}
                                     onChange={(e) => setDiscountPrice(parseFloat(e.target.value) || 0)}

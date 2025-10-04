@@ -33,6 +33,7 @@ const transferRoutes = require('./routes/transfer'); // Import transfer routes
 const transactionHistoryRoutes = require('./routes/transactionHistory'); // Import transaction history routes
 const localizationRoutes = require('./routes/locatization'); // Import localization routes
 const bagsRoutes = require('./routes/bags'); // Import bags routes
+const walletsRoutes = require('./routes/wallets'); // Import wallets routes
 const deductionsRoutes = require('./routes/deductions'); // Import deductions routes
 const transferProcessingRoutes = require('./routes/transferProcessing'); // Import transfer processing routes
 const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
@@ -56,6 +57,7 @@ app.use('/api/excel/category', categoryRoutes);
 app.use('/api/excel/bags-category', bagsCategoryRoutes);
 app.use('/api/excel/localization', localizationRoutes); // Use localization routes
 app.use('/api/excel/bags', bagsRoutes); // Use bags routes
+app.use('/api/excel/wallets', walletsRoutes); // Use wallets routes
 app.use('/api/config', configRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/category', categoryRoutes);
