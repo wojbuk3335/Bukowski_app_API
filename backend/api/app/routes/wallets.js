@@ -7,13 +7,13 @@ const historyLogger = require('../middleware/historyLogger');
 router.get('/get-all-wallets', walletsController.getAllWallets);
 
 // Insert many wallets
-router.post('/insert-wallets', historyLogger('wallets'), walletsController.insertManyWallets);
+router.post('/insert-wallets', walletsController.insertManyWallets);
 
 // Update many wallets
-router.post('/update-many-wallets', historyLogger('wallets'), walletsController.updateManyWallets);
+router.post('/update-many-wallets', walletsController.updateManyWallets);
 
 // Update single wallets
-router.patch('/update-wallets/:id', historyLogger('wallets'), walletsController.updateWallets);
+router.patch('/update-wallets/:id', walletsController.updateWallets);
 
 // Delete single wallets
 router.delete('/delete-wallets/:id', historyLogger('wallets'), walletsController.deleteWallets);

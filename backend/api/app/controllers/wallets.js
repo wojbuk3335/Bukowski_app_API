@@ -1,4 +1,5 @@
 const Wallets = require('../db/models/wallets');
+const History = require('../db/models/history');
 const mongoose = require('mongoose');
 
 // Get all wallets
@@ -35,6 +36,20 @@ exports.insertManyWallets = async (req, res, next) => {
         }));
 
         const result = await Wallets.insertMany(itemsWithIds);
+        
+        // Log to history
+        for (const walletItem of result) {
+            const historyEntry = new History({
+                collectionName: 'Portfele',
+                operation: 'Utworzenie',
+                product: '-',
+                details: `Dodano nowy portfel: ${walletItem.Portfele_Kod || 'Nieznany kod'}`,
+                userloggedinId: req.user ? req.user._id : null,
+                timestamp: new Date()
+            });
+            await historyEntry.save();
+        }
+        
         res.status(201).json({
             message: "Wallets inserted successfully",
             Wallets: result
@@ -59,6 +74,22 @@ exports.updateManyWallets = async (req, res, next) => {
         });
 
         const results = await Promise.all(updatePromises);
+        
+        // Log to history
+        for (const walletItem of results) {
+            if (walletItem) {
+                const historyEntry = new History({
+                    collectionName: 'Portfele',
+                    operation: 'Aktualizacja',
+                    product: '-',
+                    details: `Kod portfela został zmieniony na ${walletItem.Portfele_Kod || 'brak'}`,
+                    userloggedinId: req.user ? req.user._id : null,
+                    timestamp: new Date()
+                });
+                await historyEntry.save();
+            }
+        }
+        
         res.status(200).json({
             message: "Wallets updated successfully",
             Wallets: results
@@ -72,6 +103,12 @@ exports.updateManyWallets = async (req, res, next) => {
 exports.updateWallets = async (req, res, next) => {
     try {
         const id = req.params.id;
+        
+        // Get old wallet data before update
+        const oldWallet = await Wallets.findById(id);
+        if (!oldWallet) {
+            return res.status(404).json({ message: "Wallet not found" });
+        }
         
         // Check for duplicate Portfele_Nr (excluding current Wallets)
         if (req.body.Portfele_Nr) {
@@ -98,6 +135,31 @@ exports.updateWallets = async (req, res, next) => {
         if (!updatedWallet) {
             return res.status(404).json({ message: "Wallet not found" });
         }
+
+        // Log to history with changes comparison
+        let changes = [];
+        
+        // Compare Portfele_Kod
+        if (req.body.Portfele_Kod !== undefined && oldWallet.Portfele_Kod !== req.body.Portfele_Kod) {
+            changes.push(`Kod portfela został zmieniony z ${oldWallet.Portfele_Kod || 'brak'} na ${req.body.Portfele_Kod || 'brak'}`);
+        }
+        
+        // Compare Portfele_Nr
+        if (req.body.Portfele_Nr !== undefined && oldWallet.Portfele_Nr !== req.body.Portfele_Nr) {
+            changes.push(`Numer portfela został zmieniony z ${oldWallet.Portfele_Nr || 'brak'} na ${req.body.Portfele_Nr || 'brak'}`);
+        }
+        
+        const details = changes.length > 0 ? changes.join(', ') : 'Brak zmian w portfelu';
+        
+        const historyEntry = new History({
+            collectionName: 'Portfele',
+            operation: 'Aktualizacja',
+            product: '-',
+            details: details,
+            userloggedinId: req.user ? req.user._id : null,
+            timestamp: new Date()
+        });
+        await historyEntry.save();
 
         res.status(200).json({
             message: "Wallet updated successfully",

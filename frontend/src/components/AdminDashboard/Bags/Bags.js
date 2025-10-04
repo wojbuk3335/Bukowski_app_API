@@ -96,24 +96,24 @@ const Bags = () => {
     const uploadData = async () => {
         try {
             if (!selectedFile) {
-                alert("Proszę wybrać plik do załadowania nagłówków.");
+                alert("Proszę wybrać plik do załadowania danych.");
+                return;
+            }
+
+            if (!excelRows || excelRows.length === 0) {
+                alert("Brak danych do importu. Proszę wybrać plik z danymi.");
                 return;
             }
 
             setLoading(true);
 
             const walletList = await getWalletList();
-            if (walletList.length > 0) {
-                alert("Tabela torebek nie jest pusta. Proszę usunąć wszystkie dane aby rozpocząć od nowa.");
-                setLoading(false);
-                return;
-            }
-
-            // Headers are already validated in readUploadFile
-            alert("Nagłówki zostały zweryfikowane. Tabela jest gotowa. Dodawaj wiersze używając przycisku 'Dodaj nowy wiersz'.");
-            fetchData();
+            
+            await insertOrUpdateWallets(walletList);
+            
         } catch (error) {
             console.log(error);
+            alert("Wystąpił błąd podczas importu danych.");
         } finally {
             setLoading(false);
         }
@@ -159,15 +159,15 @@ const Bags = () => {
                     const data = e.target.result;
                     const workbook = read(data, { type: "array" });
                     
-                    const sheetName = workbook.SheetNames[5]; // Sixth sheet (index 5) - Torebki
+                    const sheetName = workbook.SheetNames[6]; // Seventh sheet (index 6) - Torebki
                     if (!sheetName) {
-                        alert("Plik nie zawiera szóstego arkusza (Torebki). Proszę sprawdzić plik Excel.");
+                        alert("Plik nie zawiera siódmego arkusza (Torebki). Proszę sprawdzić plik Excel.");
                         return;
                     }
                     const worksheet = workbook.Sheets[sheetName];
                     const json = utils.sheet_to_json(worksheet);
                     
-                    // Only validate headers exist, don't load data
+                    // Validate headers and load data
                     if (json.length > 0) {
                         const headers = Object.keys(json[0]);
                         
@@ -178,9 +178,9 @@ const Bags = () => {
                         );
                         
                         if (hasRequiredHeaders) {
-                            // Set empty array - we'll add rows manually
-                            setExcelRows([]);
-                            alert("Nagłówki zostały zweryfikowane. Możesz teraz dodawać wiersze używając przycisku 'Dodaj nowy wiersz'.");
+                            // Load actual data for import
+                            setExcelRows(json);
+                            alert(`Plik został wczytany pomyślnie. Znaleziono ${json.length} wierszy z danymi.`);
                         } else {
                             alert(`Brak wymaganych nagłówków.\nZnalezione: [${headers.join(', ')}]\nWymagane: [${requiredFields.join(', ')}]`);
                         }
@@ -231,7 +231,7 @@ const Bags = () => {
         const wallets = validRows.map((obj) => ({
             _id: walletList.find((x) => x.Torebki_Nr === obj["Torebki_Nr"])?._id,
             Torebki_Nr: obj["Torebki_Nr"].toString().trim(),
-            Tow_Kod: obj["Tow_Kod"] ? obj["Tow_Kod"].toString().trim() : "", // Pozwól na puste kody towarów
+            Torebki_Kod: obj["Torebki_Kod"] ? obj["Torebki_Kod"].toString().trim() : "", // Poprawka: używaj Torebki_Kod
             number_id: Number(obj["Torebki_Nr"]) || 0
         }));
 
@@ -242,6 +242,7 @@ const Bags = () => {
             const result = (await axios.post(`/api/excel/bags/update-many-bags`, updatedWallets)).data;
             if (result) {
                 alert("Zaktualizowano pomyślnie " + updatedWallets.length + " rekordów.");
+                fetchData(); // Odśwież dane
             }
         }
 
@@ -249,11 +250,14 @@ const Bags = () => {
             const result = (await axios.post(`/api/excel/bags/insert-bags`, newWallets)).data;
             if (result) {
                 alert("Dodano pomyślnie " + newWallets.length + " nowych rekordów.");
+                fetchData(); // Odśwież dane
             }
         }
 
         if (validRows.length === 0) {
-            alert("Nie znaleziono prawidłowych danych w pliku Excel. Sprawdź czy dane są w 5. arkuszu i czy zawierają wymagane kolumny.");
+            alert("Nie znaleziono prawidłowych danych w pliku Excel. Sprawdź czy dane są w 7. arkuszu i czy zawierają wymagane kolumny.");
+        } else if (newWallets.length > 0 || updatedWallets.length > 0) {
+            resetState(); // Wyczyść stan po pomyślnym imporcie
         }
     };
 
@@ -342,7 +346,7 @@ const Bags = () => {
                                 </div>
 
                                 <FormText className={styles.textWhite}>
-                                    {"UWAGA: Nagłówki w Excelu (5. arkusz) powinny być następujące!. => "}
+                                    {"UWAGA: Nagłówki w Excelu (7. arkusz) powinny być następujące!. => "}
                                     {requiredFields.join(", ")}
                                 </FormText>
                             </FormGroup>
@@ -350,7 +354,7 @@ const Bags = () => {
                         <Col md="6" className={styles.textRight}>
                             <div className={styles.buttonGroup}>
                                 <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
-                                    {"Weryfikuj nagłówki"}
+                                    {"Importuj dane z Excel"}
                                 </Button>
                                 <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
                                     {"Usuń dane z bazy danych"}
