@@ -73,6 +73,7 @@ function Navigaton() {
               <NavDropdown.Item as={Link} to="/admin/dashboard/localization">Tabela lokalizacji</NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/admin/dashboard/bags">Tabela torebek</NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/admin/dashboard/wallets">Tabela portfeli</NavDropdown.Item>
+              <NavDropdown.Item as={Link} to="/admin/dashboard/remaining-products">Tabela pozostałego asortymentu</NavDropdown.Item>
               <NavDropdown.Item
                 as="div"
                 className="dropdown-submenu"
@@ -101,6 +102,7 @@ function Navigaton() {
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/category">Kurtki Kożuchy Futra</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/bags">Torebki</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/wallets">Portfele</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/admin/dashboard/category/remaining">Pozostały asortyment</NavDropdown.Item>
                 </NavDropdown>
               </NavDropdown.Item>
             </NavDropdown>

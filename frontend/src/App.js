@@ -32,6 +32,8 @@ import History from './components/AdminDashboard/History/History';
 import Corrections from './components/AdminDashboard/Corrections/Corrections';
 import Sales from './components/AdminDashboard/Sales/Sales';
 import AddToState from './components/AdminDashboard/AddToState/AddToState';
+import RemainingProducts from './components/AdminDashboard/RemainingProducts/RemainingProducts';
+import RemainingProductsSubcategory from './components/AdminDashboard/RemainingProducts/RemainingProductsSubcategory';
 
 function App() {
   return (
@@ -59,6 +61,7 @@ function App() {
             <Route path="category" element={<Category />} />
             <Route path="bags" element={<BagsCategory />} />
             <Route path="wallets" element={<WalletsCategory />} />
+            <Route path="remaining" element={<RemainingProductsSubcategory />} />
           </Route>
           <Route path="state" element={<State />} />
           <Route path="state/:userId" element={<State />} />
@@ -67,6 +70,7 @@ function App() {
           <Route path="corrections" element={<Corrections />} />
           <Route path="addtostate" element={<AddToState />} />
           <Route path="sales" element={<Sales/>} />
+          <Route path="remaining-products" element={<RemainingProducts />} />
         </Route>
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />
         <Route path="/user/dashboard/*" element={<UserPrivateRoute element={UserDashboard} allowedRoles={['user']} />}>
