@@ -247,7 +247,7 @@ const Sales = () => {
         
         // Nagłówek
         doc.setFontSize(18);
-        doc.text('Raport Sprzedaży', 20, 20);
+        doc.text('Raport Sprzedazy', 20, 20);
         
         doc.setFontSize(10);
         doc.text(`Data raportu: ${new Date().toLocaleDateString('pl-PL')}`, 20, 35);
