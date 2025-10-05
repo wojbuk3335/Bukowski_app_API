@@ -184,7 +184,7 @@ const Warehouse = () => {
                     fullName: row.fullName?.fullName || row.fullName || "Brak danych",
                     plec: row.Plec || "Brak danych",
                     date: row.date,
-                    size: row.size, // Backend już prawidłowo obsługuje torebki
+                    size: row.size, // Backend już prawidłowo obsługuje torebki i portfele
                     barcode: row.barcode || "Brak danych",
                     symbol: row.symbol || "Brak danych",
                     price: combinedPrice, // Set combined price
@@ -282,6 +282,95 @@ const Warehouse = () => {
             console.error('Error details:', error.response?.data);
             console.error('Error status:', error.response?.status);
             alert(`Błąd podczas dodawania torebki do magazynu: ${error.response?.data?.message || error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const sendDataToBackendForWallets = async (productName) => {
+        // Użyj przekazanej nazwy produktu lub input1Value jako fallback
+        const finalProductName = productName || input1Value.trim();
+        
+        if (!finalProductName || !selectedDate) {
+            alert('Nazwa produktu i data muszą być uzupełnione');
+            return;
+        }
+
+        // Użyj domyślnego punktu sprzedaży "MAGAZYN" jeśli nie ma wybranego
+        const sellingPoint = selectedSellingPoint || 'MAGAZYN';
+
+        setLoading(true);
+        try {
+            // Fetch the selected wallet to get price
+            const selectedGood = goods.find((good) => good.fullName === finalProductName);
+            
+            if (!selectedGood) {
+                alert('Wybrany produkt nie istnieje w bazie danych.');
+                setLoading(false);
+                return;
+            }
+
+            // For wallets, use default price structure
+            let price;
+            if (
+                selectedGood.discount_price !== undefined &&
+                selectedGood.discount_price !== null &&
+                selectedGood.discount_price !== "" &&
+                Number(selectedGood.discount_price) !== 0
+            ) {
+                price = `${selectedGood.price};${selectedGood.discount_price}`;
+            } else {
+                price = selectedGood.price;
+            }
+
+            const dataToSend = {
+                fullName: finalProductName,
+                size: '-', // Używamy "-" dla portfeli
+                plec: selectedGood.gender || 'Unisex', // Używamy płci z produktu
+                date: selectedDate.toISOString(),
+                sellingPoint: sellingPoint,
+                price,
+            };
+
+            console.log('Sending wallet data to backend:', dataToSend);
+
+            const response = await axios.post('/api/state', dataToSend);
+            console.log('Response from backend:', response.data);
+
+            const newRow = {
+                id: response.data._id,
+                fullName: finalProductName,
+                plec: selectedGood.gender || 'Unisex',
+                date: selectedDate.toISOString().split('T')[0],
+                size: '-',
+                barcode: response.data.barcode,
+                symbol: sellingPoint,
+                price,
+            };
+
+            setTableData((prevData) => [newRow, ...prevData]);
+
+            // Reset inputs
+            setInput1Value('');
+            
+            // Dla React Select musimy użyć setTimeout żeby upewnić się, że stan się zaktualizował
+            setTimeout(() => {
+                if (inputRefs.current[0]) {
+                    // Próbujemy różne metody focusowania dla React Select
+                    if (inputRefs.current[0].focus) {
+                        inputRefs.current[0].focus();
+                    } else if (inputRefs.current[0].select && inputRefs.current[0].select.focus) {
+                        inputRefs.current[0].select.focus();
+                    } else if (inputRefs.current[0].inputRef && inputRefs.current[0].inputRef.focus) {
+                        inputRefs.current[0].inputRef.focus();
+                    }
+                }
+            }, 100);
+        } catch (error) {
+            console.error('Error sending wallet data to backend:', error);
+            console.error('Error details:', error.response?.data);
+            console.error('Error status:', error.response?.status);
+            alert(`Błąd podczas dodawania portfela do magazynu: ${error.response?.data?.message || error.message}`);
         } finally {
             setLoading(false);
         }
@@ -641,6 +730,9 @@ const Warehouse = () => {
                 if (selectedProduct.category === 'Torebki') {
                     // Automatycznie dodaj torebkę bez przechodzenia do selecta z rozmiarami
                     sendDataToBackendForBags(selectedOption.label);
+                } else if (selectedProduct.category === 'Portfele') {
+                    // Automatycznie dodaj portfel bez przechodzenia do selecta z rozmiarami
+                    sendDataToBackendForWallets(selectedOption.label);
                 } else {
                     // Dla innych produktów przejdź do selecta z rozmiarami
                     inputRefs.current[1].focus(); // Automatically jump to second input

@@ -10,11 +10,16 @@ class GoodsController {
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
         
-        // Different validation for bags vs other products
+        // Different validation for bags/wallets vs other products
         if (category === 'Torebki') {
             // Validation for bags
             if (!bagProduct) {
                 return res.status(400).json({ message: 'Bag product code is required for bags category' });
+            }
+        } else if (category === 'Portfele') {
+            // Validation for wallets
+            if (!bagProduct) {
+                return res.status(400).json({ message: 'Wallet product code is required for wallets category' });
             }
         } else {
             // Validation for other products
@@ -69,6 +74,11 @@ class GoodsController {
             goodData.bagId = bagId;
             goodData.bagsCategoryId = bagsCategoryId;
             goodData.Plec = Plec; // Płeć z kategorii torebek
+        } else if (category === 'Portfele') {
+            goodData.bagProduct = bagProduct; // Kod portfela
+            goodData.bagId = bagId; // ID portfela (może być puste)
+            goodData.bagsCategoryId = bagsCategoryId; // ID kategorii portfela
+            goodData.Plec = Plec; // Płeć z kategorii portfeli
         } else {
             goodData.stock = stock;
             goodData.subcategory = subcategory;

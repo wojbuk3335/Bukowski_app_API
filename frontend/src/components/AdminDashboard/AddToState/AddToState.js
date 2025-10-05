@@ -95,7 +95,7 @@ const AddToState = ({ onAdd }) => {
       transfer.size : 
       (typeof transfer.size === 'object' ? 
         (transfer.size?.Roz_Opis || 'Nieznany rozmiar') : 
-        (transfer.size === '-' ? '' : (transfer.size || 'Nieznany rozmiar'))); // Don't show "Nieznany rozmiar" for bags
+        (transfer.size === '-' ? '' : (transfer.size || 'Nieznany rozmiar'))); // Don't show "Nieznany rozmiar" for bags and wallets
         
     const transferName = convertPolishCharsToZPL(rawTransferName);
     const transferSize = convertPolishCharsToZPL(rawTransferSize);
@@ -844,7 +844,7 @@ const AddToState = ({ onAdd }) => {
       id: warehouseItem._id,
       date: new Date().toISOString(),
       fullName: warehouseItem.fullName?.fullName || 'Nieznana nazwa',
-      size: warehouseItem.size === '-' ? '' : (warehouseItem.size?.Roz_Opis || 'Nieznany rozmiar'), // Don't show "Nieznany rozmiar" for bags
+      size: warehouseItem.size === '-' ? '' : (warehouseItem.size?.Roz_Opis || 'Nieznany rozmiar'), // Don't show "Nieznany rozmiar" for bags and wallets
       barcode: warehouseItem.barcode || 'Brak kodu',
       symbol: selectedUserData.symbol,
       price: warehouseItem.price || 0,
@@ -853,8 +853,10 @@ const AddToState = ({ onAdd }) => {
       transfer_from: 'MAGAZYN',
       transfer_to: selectedUserData.symbol, // Używaj symbolu, nie ID
       productId: warehouseItem.barcode,
-      reason: 'Przeniesienie z magazynu'
+      reason: 'Przeniesienie z magazynu',
+      category: warehouseItem.fullName?.category || warehouseItem.category // Dodaj kategorię
     };
+    
     
     setTransfers(prev => {
       const newTransfers = [...prev, newTransferItem];
@@ -1362,6 +1364,8 @@ const AddToState = ({ onAdd }) => {
 
         } else {
           console.error('Failed to process warehouse items');
+          const errorText = await warehouseResponse.text();
+          console.error('Warehouse processing error:', errorText);
         }
       }
 
@@ -2078,7 +2082,7 @@ const AddToState = ({ onAdd }) => {
                     {item.fullName?.fullName || 'Nieznana nazwa'}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
-                    {item.size === '-' ? '' : (item.size?.Roz_Opis || 'Nieznany rozmiar')} {/* Don't show "Nieznany rozmiar" for bags */}
+                    {item.size === '-' ? '' : (item.size?.Roz_Opis || 'Nieznany rozmiar')} {/* Don't show "Nieznany rozmiar" for bags and wallets */}
                   </td>
                   <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.barcode || 'Brak kodu'}

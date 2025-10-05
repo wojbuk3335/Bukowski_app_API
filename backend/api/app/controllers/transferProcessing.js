@@ -158,7 +158,11 @@ class TransferProcessingController {
             const historyEntry = new History({
                 collectionName: 'Stan',
                 operation: 'Odpisano ze stanu (transfer)',
-                product: `${itemToRemove.fullName?.fullName || 'Nieznany produkt'} ${itemToRemove.size?.Roz_Opis || 'Nieznany rozmiar'}`,
+                product: `${itemToRemove.fullName?.fullName || 'Nieznany produkt'} ${
+                    (itemToRemove.fullName?.category === 'Torebki' || itemToRemove.fullName?.category === 'Portfele') 
+                    ? '-' 
+                    : (itemToRemove.size?.Roz_Opis || 'Nieznany rozmiar')
+                }`,
                 details: `Odpisano produkt ze stanu na podstawie transferu z ${transfer.transfer_from} do ${transfer.transfer_to}`,
                 userloggedinId: req.user ? req.user._id : null,
                 from: transfer.transfer_from,
@@ -699,7 +703,7 @@ class TransferProcessingController {
                             sellingPoint: itemData.sellingPoint,
                             price: itemData.price,
                             discount_price: itemData.discount_price,
-                            date: itemData.date
+                            date: itemData.date || new Date() // NAPRAWKA: Użyj obecnej daty jeśli brak oryginalnej
                         });
 
                         // Mark transfer as unprocessed instead of creating new one
@@ -799,17 +803,17 @@ class TransferProcessingController {
                     }
                     let size;
                     
-                    // Special handling for bags category
-                    if (goods && goods.category === 'Torebki') {
-                        // For bags, don't use any size - will be handled specially
+                    // Special handling for bags and wallets category
+                    if (goods && (goods.category === 'Torebki' || goods.category === 'Portfele')) {
+                        // For bags and wallets, don't use any size - will be handled specially
                         size = null;
                     } else {
                         // For other products, use the provided size
                         size = await Size.findOne({ Roz_Opis: item.size });
                     }
 
-                    // Check if goods exists, and for non-bags check if size exists
-                    if (!goods || (!size && goods.category !== 'Torebki')) {
+                    // Check if goods exists, and for non-bags/wallets check if size exists
+                    if (!goods || (!size && goods.category !== 'Torebki' && goods.category !== 'Portfele')) {
                         errors.push(`Product or size not found for ${item.fullName} ${item.size}`);
                         continue;
                     }
@@ -820,18 +824,18 @@ class TransferProcessingController {
                         
                         // Wygeneruj barcode dla transferu przychodzącego
                         let finalBarcode;
-                        if (goods.category === 'Torebki') {
-                            // Dla torebek w transferze przychodzącym też generujemy nowy kod
+                        if (goods.category === 'Torebki' || goods.category === 'Portfele') {
+                            // Dla torebek i portfeli w transferze przychodzącym też generujemy nowy kod
                             finalBarcode = `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
                         } else {
                             // Dla innych produktów generujemy jak wcześniej
                             finalBarcode = item.barcode || `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
                         }
                         
-                        // Handle special size for bags
+                        // Handle special size for bags and wallets
                         let transferSize = size;
-                        if (goods.category === 'Torebki') {
-                            // For bags, use null - no size needed
+                        if (goods.category === 'Torebki' || goods.category === 'Portfele') {
+                            // For bags and wallets, use null - no size needed
                             transferSize = null;
                         }
                         
@@ -841,7 +845,7 @@ class TransferProcessingController {
                         const newStateItem = await State.create({
                             _id: newStateId,
                             fullName: goods._id,
-                            size: transferSize ? transferSize._id : null, // Dla torebek size będzie null
+                            size: transferSize ? transferSize._id : null, // Dla torebek i portfeli size będzie null
                             barcode: finalBarcode,
                             sellingPoint: user._id,
                             price: item.price || 0,
@@ -898,17 +902,17 @@ class TransferProcessingController {
                     // Create new State document for user
                     const newStateId = new mongoose.Types.ObjectId();
                     
-                    // For bags, use original barcode; for other products, use existing barcode
+                    // For bags and wallets, use original barcode; for other products, use existing barcode
                     let finalBarcode = item.barcode;
-                    if (goods && goods.category === 'Torebki') {
-                        // For bags, ensure we use the original barcode from goods
+                    if (goods && (goods.category === 'Torebki' || goods.category === 'Portfele')) {
+                        // For bags and wallets, ensure we use the original barcode from goods
                         finalBarcode = goods.code || item.barcode;
                     }
                     
                     const newStateItem = await State.create({
                         _id: newStateId,
                         fullName: goods._id,
-                        size: size ? size._id : null, // Dla torebek size będzie null zamiast undefined
+                        size: size ? size._id : null, // Dla torebek i portfeli size będzie null zamiast undefined
                         barcode: finalBarcode,
                         sellingPoint: user._id,
                         price: item.price || 0,
@@ -923,14 +927,14 @@ class TransferProcessingController {
                     const historyEntry = new History({
                         collectionName: 'Stan',
                         operation: 'Dodano do stanu (z magazynu)',
-                        product: `${item.fullName} ${item.size || '-'}`, // Dla torebek użyj '-'
+                        product: `${item.fullName} ${item.size || '-'}`, // Dla torebek i portfeli użyj '-'
                         details: JSON.stringify({
                             originalId: item._id,
                             stateId: newStateItem._id,
                             fullName: goods._id,
                             fullNameText: item.fullName,
-                            size: size ? size._id : null, // Dla torebek size będzie null
-                            sizeText: item.size || '-', // Dla torebek użyj '-'
+                            size: size ? size._id : null, // Dla torebek i portfeli size będzie null
+                            sizeText: item.size || '-', // Dla torebek i portfeli użyj '-'
                             barcode: item.barcode,
                             sellingPoint: user._id,
                             sellingPointSymbol: user.symbol,

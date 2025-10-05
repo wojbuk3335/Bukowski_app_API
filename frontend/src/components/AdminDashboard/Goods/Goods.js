@@ -17,14 +17,22 @@ const Goods = () => {
     const [subcategories, setSubcategories] = useState([]); // New state for subcategories
     const [selectedSubcategory, setSelectedSubcategory] = useState(''); // New state for selected subcategory
     const [wallets, setWallets] = useState([]); // State for bags data
+    const [walletsData, setWalletsData] = useState([]); // State for actual wallets data
     const [selectedWalletCode, setSelectedWalletCode] = useState(''); // Selected bag code for bags
+    const [selectedWalletCodePortfele, setSelectedWalletCodePortfele] = useState(''); // Selected wallet code for wallets
     const [selectedWalletId, setSelectedWalletId] = useState(''); // Selected bag ID for bags
     const [walletFilterText, setWalletFilterText] = useState(''); // Filter text for bag codes
+    const [walletFilterTextPortfele, setWalletFilterTextPortfele] = useState(''); // Filter text for wallet codes
     const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState(false); // Dropdown state
+    const [showWalletDropdownPortfele, setShowWalletDropdownPortfele] = useState(false); // Dropdown state for wallets
     const [selectedWalletIndex, setSelectedWalletIndex] = useState(-1); // Index for keyboard navigation
+    const [selectedWalletIndexPortfele, setSelectedWalletIndexPortfele] = useState(-1); // Index for keyboard navigation wallets
     const [bagsCategories, setBagsCategories] = useState([]); // State for bags categories
+    const [walletsCategories, setWalletsCategories] = useState([]); // State for wallets categories
     const [selectedBagsCategoryCode, setSelectedBagsCategoryCode] = useState(''); // Selected bags category code
     const [selectedBagsCategoryId, setSelectedBagsCategoryId] = useState(''); // Selected bags category ID
+    const [selectedWalletsCategoryCode, setSelectedWalletsCategoryCode] = useState(''); // Selected wallets category code
+    const [selectedWalletsCategoryId, setSelectedWalletsCategoryId] = useState(''); // Selected wallets category ID
     const [price, setPrice] = useState(0);
     const [discountPrice, setDiscountPrice] = useState(0);
     const [priceExceptions, setPriceExceptions] = useState([]); // Initialize with an empty array
@@ -125,6 +133,23 @@ const Goods = () => {
             .catch(error => console.error('Error fetching bags:', error));
     }, []);
 
+    // Fetch wallets data for wallets category
+    useEffect(() => {
+        fetch('/api/excel/wallets/get-all-wallets')
+            .then(response => response.json())
+            .then(data => {
+                const walletsDataFetched = data.wallets || [];
+                setWalletsData(walletsDataFetched);
+                
+                // Automatycznie wybierz pierwszą pozycję z niepustym kodem
+                const firstWallet = walletsDataFetched.find(wallet => wallet.Portfele_Kod && wallet.Portfele_Kod.trim() !== '');
+                if (firstWallet) {
+                    setSelectedWalletCodePortfele(firstWallet.Portfele_Kod);
+                }
+            })
+            .catch(error => console.error('Error fetching wallets:', error));
+    }, []);
+
     // Fetch bags categories for bags category
     useEffect(() => {
         fetch('/api/excel/bags-category/get-all-bags-categories')
@@ -150,6 +175,31 @@ const Goods = () => {
             .catch(error => console.error('Error fetching bags categories:', error));
     }, []);
 
+    // Fetch wallets categories for wallets category
+    useEffect(() => {
+        fetch('/api/excel/wallets-category/get-all-wallets-categories')
+            .then(response => response.json())
+            .then(data => {
+                const walletsCategoriesData = data.walletCategories || [];
+                // Filtruj tylko kategorie które mają niepusty opis
+                const filteredWalletsCategories = walletsCategoriesData.filter(category => 
+                    category.Kat_1_Opis_1 && category.Kat_1_Opis_1.trim() !== ''
+                );
+                setWalletsCategories(filteredWalletsCategories);
+                
+                // Automatycznie wybierz pierwszą pozycję z niepustym kodem i opisem
+                const firstWalletsCategory = filteredWalletsCategories.find(category => 
+                    category.Kat_1_Kod_1 && category.Kat_1_Kod_1.trim() !== '' &&
+                    category.Kat_1_Opis_1 && category.Kat_1_Opis_1.trim() !== ''
+                );
+                if (firstWalletsCategory) {
+                    setSelectedWalletsCategoryCode(firstWalletsCategory.Kat_1_Kod_1);
+                    setSelectedWalletsCategoryId(firstWalletsCategory._id);
+                }
+            })
+            .catch(error => console.error('Error fetching wallets categories:', error));
+    }, []);
+
     useEffect(() => {
         if (modal) {
             setTimeout(() => {
@@ -171,6 +221,13 @@ const Goods = () => {
         }
     }, [selectedCategory, selectedWalletCode, selectedColor]);
 
+    // Auto-update for wallets category
+    useEffect(() => {
+        if (selectedCategory === 'Portfele' && selectedWalletCodePortfele && selectedColor) {
+            updateWalletProductName(selectedWalletCodePortfele, selectedColor);
+        }
+    }, [selectedCategory, selectedWalletCodePortfele, selectedColor]);
+
     // Close bags dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -185,6 +242,20 @@ const Goods = () => {
         };
     }, [isWalletDropdownOpen]);
 
+    // Close wallets dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (showWalletDropdownPortfele && !event.target.closest('#walletProductCode')) {
+                setShowWalletDropdownPortfele(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showWalletDropdownPortfele]);
+
     const handleStockChange = (e) => {
         setSelectedStock(e.target.value);
         updateProductName(e.target.value, selectedColor);
@@ -194,6 +265,8 @@ const Goods = () => {
         setSelectedColor(e.target.value);
         if (selectedCategory === 'Torebki') {
             updateBagProductName(selectedWalletCode, e.target.value);
+        } else if (selectedCategory === 'Portfele') {
+            updateWalletProductName(selectedWalletCodePortfele, e.target.value);
         } else {
             updateProductName(selectedStock, e.target.value);
         }
@@ -264,9 +337,68 @@ const Goods = () => {
                     }
                 }, 200);
             }
+        } else if (newCategory === 'Portfele') {
+            // Jeśli wybrano kategorię "Portfele", wyczyść modal i ustaw domyślne wartości
+            // Wyczyść wszystkie pola formularza
+            setSelectedStock('');
+            setSelectedSubcategory('');
+            setPrice(0);
+            setDiscountPrice(0);
+            setPriceExceptions([]);
+            setSelectedImage(null);
+            setEditingGood(null);
+            setShowWalletDropdownPortfele(false);
+            
+            // Ustaw domyślne wartości dla portfeli
+            // Pierwsza podkategoria portfeli
+            if (walletsCategories.length > 0) {
+                const firstWalletsCategory = walletsCategories.find(category => 
+                    category.Kat_1_Kod_1 && category.Kat_1_Kod_1.trim() !== '' &&
+                    category.Kat_1_Opis_1 && category.Kat_1_Opis_1.trim() !== ''
+                );
+                if (firstWalletsCategory) {
+                    setSelectedWalletsCategoryCode(firstWalletsCategory.Kat_1_Kod_1);
+                    setSelectedWalletsCategoryId(firstWalletsCategory._id);
+                }
+            }
+            
+            // Pierwszy kolor
+            if (colors.length > 0) {
+                const firstColor = colors[0];
+                setSelectedColor(firstColor._id);
+                
+                // Pierwszy portfel
+                if (walletsData.length > 0) {
+                    const firstWallet = walletsData.find(wallet => wallet.Portfele_Kod && wallet.Portfele_Kod.trim() !== '') || walletsData[0];
+                    if (firstWallet) {
+                        setSelectedWalletCodePortfele(firstWallet.Portfele_Kod);
+                        setWalletFilterTextPortfele(firstWallet.Portfele_Kod);
+                        
+                        // Aktualizuj nazwę produktu od razu
+                        updateWalletProductName(firstWallet.Portfele_Kod, firstColor._id);
+                    }
+                }
+            } else {
+                // Jeśli kolory nie są jeszcze załadowane, ustaw timeout
+                setTimeout(() => {
+                    if (colors.length > 0) {
+                        const firstColor = colors[0];
+                        setSelectedColor(firstColor._id);
+                        
+                        if (walletsData.length > 0) {
+                            const firstWallet = walletsData.find(wallet => wallet.Portfele_Kod && wallet.Portfele_Kod.trim() !== '') || walletsData[0];
+                            if (firstWallet) {
+                                setSelectedWalletCodePortfele(firstWallet.Portfele_Kod);
+                                setWalletFilterTextPortfele(firstWallet.Portfele_Kod);
+                                updateWalletProductName(firstWallet.Portfele_Kod, firstColor._id);
+                            }
+                        }
+                    }
+                }, 200);
+            }
         }
         
-        // Jeśli wracamy z "Torebki" na "Kurtki kożuchy futra", zresetuj modal
+        // Jeśli wracamy z kategorii na "Kurtki kożuchy futra", zresetuj modal
         if (newCategory === 'Kurtki kożuchy futra') {
             resetForm();
         }
@@ -291,6 +423,17 @@ const Goods = () => {
         
         // Update product name for bags
         updateBagProductName(value, selectedColor);
+    };
+
+    const handleWalletFilterChangePortfele = (e) => {
+        const value = e.target.value;
+        setWalletFilterTextPortfele(value);
+        setSelectedWalletCodePortfele(value);
+        setShowWalletDropdownPortfele(true);
+        setSelectedWalletIndexPortfele(-1); // Reset keyboard selection
+        
+        // Update product name for wallets
+        updateWalletProductName(value, selectedColor);
     };
 
     const handleWalletKeyDown = (e) => {
@@ -320,6 +463,33 @@ const Goods = () => {
         }
     };
 
+    const handleWalletKeyDownPortfele = (e) => {
+        const filteredWallets = getFilteredWalletsPortfele();
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedWalletIndexPortfele(prevIndex => 
+                prevIndex < filteredWallets.length - 1 ? prevIndex + 1 : 0
+            );
+            setShowWalletDropdownPortfele(true);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedWalletIndexPortfele(prevIndex => 
+                prevIndex > 0 ? prevIndex - 1 : filteredWallets.length - 1
+            );
+            setShowWalletDropdownPortfele(true);
+        } else if (e.key === 'Enter' && selectedWalletIndexPortfele >= 0) {
+            e.preventDefault();
+            const selectedWallet = filteredWallets[selectedWalletIndexPortfele];
+            if (selectedWallet) {
+                handleWalletSelectPortfele(selectedWallet.Portfele_Kod);
+            }
+        } else if (e.key === 'Escape') {
+            setShowWalletDropdownPortfele(false);
+            setSelectedWalletIndexPortfele(-1);
+        }
+    };
+
     const handleWalletSelect = (code) => {
         setSelectedWalletCode(code);
         setWalletFilterText(code);
@@ -341,6 +511,25 @@ const Goods = () => {
             .filter(wallet => wallet.Torebki_Kod && wallet.Torebki_Kod.trim() !== '')
             .filter(wallet => 
                 wallet.Torebki_Kod.toLowerCase().includes(walletFilterText.toLowerCase())
+            )
+            .slice(0, 10); // Maksymalnie 10 wyników
+    };
+
+    // Functions for actual wallets (Portfele)
+    const handleWalletSelectPortfele = (code) => {
+        setSelectedWalletCodePortfele(code);
+        setWalletFilterTextPortfele(code);
+        setShowWalletDropdownPortfele(false);
+        
+        // Update product name for wallets
+        updateWalletProductName(code, selectedColor);
+    };
+
+    const getFilteredWalletsPortfele = () => {
+        return walletsData
+            .filter(wallet => wallet.Portfele_Kod && wallet.Portfele_Kod.trim() !== '')
+            .filter(wallet => 
+                wallet.Portfele_Kod.toLowerCase().includes(walletFilterTextPortfele.toLowerCase())
             )
             .slice(0, 10); // Maksymalnie 10 wyników
     };
@@ -376,6 +565,12 @@ const Goods = () => {
     };
 
     const updateBagProductName = (walletCode, colorId) => {
+        const color = colors.find(color => color._id === colorId);
+        const newName = `${walletCode ? walletCode : ''} ${color ? color.Kol_Opis : ''}`.trim();
+        setProductName(newName);
+    };
+
+    const updateWalletProductName = (walletCode, colorId) => {
         const color = colors.find(color => color._id === colorId);
         const newName = `${walletCode ? walletCode : ''} ${color ? color.Kol_Opis : ''}`.trim();
         setProductName(newName);
@@ -445,6 +640,53 @@ const Goods = () => {
         return code;
     };
 
+    const generateWalletProductCode = () => {
+        // Format kodu dla portfeli: 000 + kolor(2) + 0 + Portfele_Nr(3) + po_kropce(3) + suma(1)
+        // Pozycje 1-3: 000 (zawsze zera)
+        // Pozycje 4-5: Kod koloru (2 cyfry)
+        // Pozycja 6: 0 (zawsze zero)
+        // Pozycje 7-9: Portfele_Nr (3 cyfry)
+        // Pozycje 10-12: Wartość po kropce z Portfele_Kod (3 cyfry)
+        // Pozycja 13: Suma kontrolna
+        
+        const color = colors.find(color => color._id === selectedColor);
+        const wallet = walletsData.find(wallet => wallet.Portfele_Kod === selectedWalletCodePortfele);
+        
+        if (!color || !wallet) {
+            return '';
+        }
+
+        // Pozycje 1-3: zawsze 000
+        let code = '000';
+        
+        // Pozycje 4-5: Kod koloru (Kol_Kod) - 2 cyfry
+        const colorCode = color.Kol_Kod || '00';
+        code += colorCode.padStart(2, '0').substring(0, 2);
+        
+        // Pozycja 6: zawsze 0
+        code += '0';
+        
+        // Pozycje 7-9: Portfele_Nr - 3 cyfry
+        const rowNumber = wallet.Portfele_Nr || 0;
+        code += rowNumber.toString().padStart(3, '0').substring(0, 3);
+        
+        // Pozycje 10-12: Wartość po kropce z Portfele_Kod - 3 cyfry
+        const walletCode = wallet.Portfele_Kod || '';
+        const afterDotMatch = walletCode.match(/\.(\d+)/); // Znajdź cyfry po kropce
+        let afterDotValue = '000';
+        if (afterDotMatch) {
+            const digits = afterDotMatch[1];
+            afterDotValue = digits.padStart(3, '0').substring(0, 3); // Weź pierwsze 3 cyfry, uzupełnij zerami jeśli trzeba
+        }
+        code += afterDotValue;
+        
+        // Pozycja 13: Suma kontrolna
+        const controlSum = calculateControlSum(code);
+        code += controlSum;
+        
+        return code;
+    };
+
     const handleAddProduct = () => {
         // Ensure selectedCategory is correctly set
         if (!selectedCategory) {
@@ -467,6 +709,21 @@ const Goods = () => {
             color = colors.find(color => color._id === selectedColor);
             fullName = productName;
             productCode = generateBagProductCode();
+
+            if (!productCode) {
+                alert('Nie można wygenerować kodu produktu!');
+                return;
+            }
+        } else if (selectedCategory === 'Portfele') {
+            // Obsługa kategorii Portfele
+            if (!selectedWalletCodePortfele || !selectedColor) {
+                alert('Wybierz produkt i kolor!');
+                return;
+            }
+
+            color = colors.find(color => color._id === selectedColor);
+            fullName = productName;
+            productCode = generateWalletProductCode(); // używamy nowej funkcji dla portfeli
 
             if (!productCode) {
                 alert('Nie można wygenerować kodu produktu!');
@@ -513,6 +770,9 @@ const Goods = () => {
         if (selectedCategory === 'Torebki') {
             const selectedBagsCategory = bagsCategories.find(cat => cat._id === selectedBagsCategoryId);
             finalPlec = selectedBagsCategory ? selectedBagsCategory.Plec : '';
+        } else if (selectedCategory === 'Portfele') {
+            const selectedWalletsCategory = walletsCategories.find(cat => cat._id === selectedWalletsCategoryId);
+            finalPlec = selectedWalletsCategory ? selectedWalletsCategory.Plec : '';
         } else {
             finalPlec = PlecFromSubcategory;
         }
@@ -525,6 +785,12 @@ const Goods = () => {
             formData.append('bagProduct', selectedWalletCode); // Kod torebki zamiast stock
             formData.append('bagId', selectedWalletId); // ID torebki
             formData.append('bagsCategoryId', selectedBagsCategoryId); // ID kategorii torebki
+        } else if (selectedCategory === 'Portfele') {
+            // Dla portfeli - używamy danych z tabeli wallets i kategorii portfeli
+            formData.append('stock', ''); // Brak stock dla portfeli
+            formData.append('bagProduct', selectedWalletCodePortfele); // Kod portfela zamiast stock
+            formData.append('bagId', ''); // Brak ID dla portfeli (może być dodane później)
+            formData.append('bagsCategoryId', selectedWalletsCategoryId); // ID kategorii portfeli
         } else {
             // Dla kurtek - standardowa obsługa
             formData.append('stock', stock ? stock._id : '');
@@ -629,6 +895,23 @@ const Goods = () => {
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
             
+        } else if (good.category === 'Portfele') {
+            // Obsługa edycji portfeli
+            const color = colors.find(color => color._id === good.color._id);
+            
+            if (!color) {
+                alert('Nie znaleziono powiązanego koloru.');
+                return;
+            }
+
+            setSelectedColor(color._id);
+            setSelectedWalletCodePortfele(good.bagProduct || '');
+            setWalletFilterTextPortfele(good.bagProduct || '');
+            setSelectedCategory(good.category);
+            setPrice(good.price);
+            setDiscountPrice(good.discount_price);
+            setProductName(good.fullName);
+            
         } else {
             // Obsługa edycji kurtek
             const stock = stocks.find(stock => stock._id === good.stock._id);
@@ -677,10 +960,14 @@ const Goods = () => {
         setSelectedCategory('Kurtki kożuchy futra'); // Reset to fixed category value
         setSelectedSubcategory(subcategories.length > 0 ? subcategories[0]._id : ''); // Reset subcategory
         setSelectedWalletCode(''); // Reset bag code for bags
+        setSelectedWalletCodePortfele(''); // Reset wallet code for wallets
         setSelectedWalletId(''); // Reset bag ID for bags
         setWalletFilterText(''); // Reset bag filter text
+        setWalletFilterTextPortfele(''); // Reset wallet filter text
         setIsWalletDropdownOpen(false); // Close bags dropdown
+        setShowWalletDropdownPortfele(false); // Close wallets dropdown
         setSelectedWalletIndex(-1); // Reset keyboard navigation
+        setSelectedWalletIndexPortfele(-1); // Reset keyboard navigation for wallets
         
         // Auto-select first bags category if available
         if (bagsCategories.length > 0) {
@@ -691,6 +978,18 @@ const Goods = () => {
             if (firstBagsCategory) {
                 setSelectedBagsCategoryCode(firstBagsCategory.Kat_1_Kod_1);
                 setSelectedBagsCategoryId(firstBagsCategory._id);
+            }
+        }
+        
+        // Auto-select first wallets category if available
+        if (walletsCategories.length > 0) {
+            const firstWalletsCategory = walletsCategories.find(category => 
+                category.Kat_1_Kod_1 && category.Kat_1_Kod_1.trim() !== '' &&
+                category.Kat_1_Opis_1 && category.Kat_1_Opis_1.trim() !== ''
+            );
+            if (firstWalletsCategory) {
+                setSelectedWalletsCategoryCode(firstWalletsCategory.Kat_1_Kod_1);
+                setSelectedWalletsCategoryId(firstWalletsCategory._id);
             }
         } else {
             setSelectedBagsCategoryCode(''); // Reset bags category code
@@ -1154,10 +1453,10 @@ const Goods = () => {
                                 <div id="walletProductCode" style={{ position: 'relative' }}>
                                     <Input
                                         type="text"
-                                        value={walletFilterText}
-                                        onChange={handleWalletFilterChange}
-                                        onKeyDown={handleWalletKeyDown}
-                                        onFocus={() => setIsWalletDropdownOpen(true)}
+                                        value={walletFilterTextPortfele}
+                                        onChange={handleWalletFilterChangePortfele}
+                                        onKeyDown={handleWalletKeyDownPortfele}
+                                        onFocus={() => setShowWalletDropdownPortfele(true)}
                                         placeholder="Wpisz lub wybierz kod portfela..."
                                         autoComplete="off"
                                         style={{
@@ -1178,11 +1477,11 @@ const Goods = () => {
                                             cursor: 'pointer',
                                             fontSize: '12px'
                                         }}
-                                        onClick={() => setIsWalletDropdownOpen(!isWalletDropdownOpen)}
+                                        onClick={() => setShowWalletDropdownPortfele(!showWalletDropdownPortfele)}
                                     >
                                         ▼
                                     </div>
-                                    {isWalletDropdownOpen && (
+                                    {showWalletDropdownPortfele && (
                                         <div 
                                             style={{
                                                 position: 'absolute',
@@ -1199,8 +1498,8 @@ const Goods = () => {
                                                 boxShadow: '0 2px 4px rgba(0,0,0,0.8)'
                                             }}
                                         >
-                                            {getFilteredWallets().length > 0 ? (
-                                                getFilteredWallets().map((wallet, index) => (
+                                            {getFilteredWalletsPortfele().length > 0 ? (
+                                                getFilteredWalletsPortfele().map((wallet, index) => (
                                                     <div
                                                         key={wallet._id}
                                                         style={{
@@ -1208,23 +1507,23 @@ const Goods = () => {
                                                             cursor: 'pointer',
                                                             borderBottom: '1px solid #333333',
                                                             backgroundColor: 
-                                                                selectedWalletIndex === index ? '#007bff' :
-                                                                selectedWalletCode === wallet.Torebki_Kod ? '#111111' : '#000000',
+                                                                selectedWalletIndexPortfele === index ? '#007bff' :
+                                                                selectedWalletCodePortfele === wallet.Portfele_Kod ? '#111111' : '#000000',
                                                             color: '#ffffff'
                                                         }}
-                                                        onClick={() => handleWalletSelect(wallet.Torebki_Kod)}
+                                                        onClick={() => handleWalletSelectPortfele(wallet.Portfele_Kod)}
                                                         onMouseEnter={(e) => {
-                                                            if (selectedWalletIndex !== index) {
+                                                            if (selectedWalletIndexPortfele !== index) {
                                                                 e.target.style.backgroundColor = '#111111';
                                                             }
                                                         }}
                                                         onMouseLeave={(e) => {
-                                                            if (selectedWalletIndex !== index) {
-                                                                e.target.style.backgroundColor = selectedWalletCode === wallet.Torebki_Kod ? '#111111' : '#000000';
+                                                            if (selectedWalletIndexPortfele !== index) {
+                                                                e.target.style.backgroundColor = selectedWalletCodePortfele === wallet.Portfele_Kod ? '#111111' : '#000000';
                                                             }
                                                         }}
                                                     >
-                                                        {wallet.Torebki_Kod}
+                                                        {wallet.Portfele_Kod}
                                                     </div>
                                                 ))
                                             ) : (
@@ -1244,15 +1543,15 @@ const Goods = () => {
                                     className={styles.inputField}
                                     onChange={(e) => {
                                         const selectedId = e.target.value;
-                                        const selectedCategory = bagsCategories.find(cat => cat._id === selectedId);
+                                        const selectedCategory = walletsCategories.find(cat => cat._id === selectedId);
                                         if (selectedCategory) {
-                                            setSelectedBagsCategoryCode(selectedCategory.Kat_1_Kod_1);
-                                            setSelectedBagsCategoryId(selectedCategory._id);
+                                            setSelectedWalletsCategoryCode(selectedCategory.Kat_1_Kod_1);
+                                            setSelectedWalletsCategoryId(selectedCategory._id);
                                         }
                                     }}
-                                    value={selectedBagsCategoryId}
+                                    value={selectedWalletsCategoryId}
                                 >
-                                    {bagsCategories.map(category => {
+                                    {walletsCategories.map(category => {
                                         let displayCode = category.Kat_1_Opis_1;
                                         return (
                                             <option key={category._id} value={category._id}>
@@ -1292,7 +1591,7 @@ const Goods = () => {
                                     type="text"
                                     id="walletProductCodeGenerated"
                                     className={styles.inputField}
-                                    value={generateBagProductCode()}
+                                    value={generateWalletProductCode()}
                                     readOnly
                                 />
                             </FormGroup>
@@ -1361,7 +1660,7 @@ const Goods = () => {
                             <tr key={good._id}>
                                 <th scope="row" className={styles.tableCell} data-label="Lp">{index + 1}</th>
                                 <td className={styles.tableCell} data-label="Produkt">
-                                    {good.category === 'Torebki' ? (good.bagProduct || '-') : (good.stock ? good.stock.Tow_Opis : '-')}
+                                    {(good.category === 'Torebki' || good.category === 'Portfele') ? (good.bagProduct || '-') : (good.stock ? good.stock.Tow_Opis : '-')}
                                 </td>
                                 <td className={styles.tableCell} data-label="Kolor">{good.color.Kol_Opis}</td>
                                 <td className={styles.tableCell} data-label="Nazwa produktu">{good.fullName}</td>
@@ -1374,6 +1673,16 @@ const Goods = () => {
                                                 const bagsCategory = bagsCategories.find(cat => cat._id === good.bagsCategoryId);
                                                 if (bagsCategory && bagsCategory.Kat_1_Opis_1) {
                                                     return bagsCategory.Kat_1_Opis_1;
+                                                }
+                                                return '-';
+                                            })()
+                                            : '-'
+                                        ) : good.category === 'Portfele' ?
+                                        (good.bagsCategoryId ? 
+                                            (() => {
+                                                const walletsCategory = walletsCategories.find(cat => cat._id === good.bagsCategoryId);
+                                                if (walletsCategory && walletsCategory.Kat_1_Opis_1) {
+                                                    return walletsCategory.Kat_1_Opis_1;
                                                 }
                                                 return '-';
                                             })()

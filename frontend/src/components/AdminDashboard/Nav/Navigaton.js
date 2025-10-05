@@ -8,6 +8,7 @@ import NavDropdown from 'react-bootstrap/NavDropdown';
 function Navigaton() {
   const [showNested, setShowNested] = useState(false);
   const [states, setStates] = useState([]);
+  const [hideTimeout, setHideTimeout] = useState(null);
 
   // Fetch users/states from API
   useEffect(() => {
@@ -31,6 +32,30 @@ function Navigaton() {
     fetchStates();
   }, []);
 
+  const handleMouseEnter = () => {
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+      setHideTimeout(null);
+    }
+    setShowNested(true);
+  };
+
+  const handleMouseLeave = () => {
+    const timeout = setTimeout(() => {
+      setShowNested(false);
+    }, 300); // 300ms delay
+    setHideTimeout(timeout);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hideTimeout) {
+        clearTimeout(hideTimeout);
+      }
+    };
+  }, [hideTimeout]);
+
   return (
     <Navbar bg="dark" data-bs-theme="dark">
       <Container>
@@ -50,26 +75,32 @@ function Navigaton() {
               <NavDropdown.Item as={Link} to="/admin/dashboard/wallets">Tabela portfeli</NavDropdown.Item>
               <NavDropdown.Item
                 as="div"
-                onMouseEnter={() => setShowNested(true)}
-                onMouseLeave={() => setShowNested(false)}
+                className="dropdown-submenu"
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  height: '40px', // Set consistent height for all items
+                  height: '40px',
+                  position: 'relative',
                 }}
               >
-                <span>Tabela kategorii</span>
+                <span>Tabela podkategorii</span>
                 <NavDropdown
                   drop="end"
-                  title=""
+                  title="▶"
                   id="nested-dropdown"
                   show={showNested}
-                  onMouseEnter={() => setShowNested(true)}
-                  onMouseLeave={() => setShowNested(false)}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  style={{
+                    position: 'static',
+                  }}
                 >
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/category">Kurtki Kożuchy Futra</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/bags">Torebki</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/admin/dashboard/category/wallets">Portfele</NavDropdown.Item>
                 </NavDropdown>
               </NavDropdown.Item>
             </NavDropdown>

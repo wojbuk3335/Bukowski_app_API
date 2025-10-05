@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
+import './styles/custom.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminLogin from './components/AdminLogin/AdminLogin';
 import UserLogin from './components/UserLogin/UserLogin';
@@ -21,6 +22,7 @@ import Warehouse from './components/AdminDashboard/Warehouse/Warehouse';
 import State from './components/AdminDashboard/State/State';
 import Category from './components/AdminDashboard/Category/Category';
 import BagsCategory from './components/AdminDashboard/Category/Bags';
+import WalletsCategory from './components/AdminDashboard/Category/Wallets';
 import Localization from './components/AdminDashboard/Localization/Localization';
 import Bags from './components/AdminDashboard/Bags/Bags';
 import Wallets from './components/AdminDashboard/Wallets/Wallets';
@@ -56,6 +58,7 @@ function App() {
           <Route path="category">
             <Route path="category" element={<Category />} />
             <Route path="bags" element={<BagsCategory />} />
+            <Route path="wallets" element={<WalletsCategory />} />
           </Route>
           <Route path="state" element={<State />} />
           <Route path="state/:userId" element={<State />} />
