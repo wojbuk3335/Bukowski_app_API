@@ -1,0 +1,1051 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Sales Component Snapshots should match snapshot with empty sales data 1`] = `
+<div>
+  <h1
+    className="title"
+  >
+    Sprzedaż
+  </h1>
+  <div
+    className="d-flex flex-column align-items-center mb-3"
+  >
+    <div
+      className="d-flex justify-content-center mb-3"
+    >
+      <div
+        className="me-3"
+      >
+        <label>
+          Data początkowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę początkową"
+          type="date"
+        />
+      </div>
+      <div>
+        <label>
+          Data końcowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę końcową"
+          type="date"
+        />
+      </div>
+    </div>
+    <div
+      style={
+        Object {
+          "width": "200px",
+        }
+      }
+    >
+      <input
+        className="form-control"
+        onChange={[Function]}
+        placeholder="Wyszukaj..."
+        type="text"
+        value=""
+      />
+    </div>
+  </div>
+  <div
+    className="d-flex justify-content-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Lp. 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Data 
+            <input
+              data-testid="mock-datepicker"
+              placeholder="Wybierz datę"
+              type="date"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Punkt sprzedaży 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Rozmiar 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;
+
+exports[`Sales Component Snapshots should match snapshot with error state 1`] = `
+<div>
+  <h1
+    className="title"
+  >
+    Sprzedaż
+  </h1>
+  <div
+    className="d-flex flex-column align-items-center mb-3"
+  >
+    <div
+      className="d-flex justify-content-center mb-3"
+    >
+      <div
+        className="me-3"
+      >
+        <label>
+          Data początkowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę początkową"
+          type="date"
+        />
+      </div>
+      <div>
+        <label>
+          Data końcowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę końcową"
+          type="date"
+        />
+      </div>
+    </div>
+    <div
+      style={
+        Object {
+          "width": "200px",
+        }
+      }
+    >
+      <input
+        className="form-control"
+        onChange={[Function]}
+        placeholder="Wyszukaj..."
+        type="text"
+        value=""
+      />
+    </div>
+  </div>
+  <div
+    className="d-flex justify-content-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Lp. 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Data 
+            <input
+              data-testid="mock-datepicker"
+              placeholder="Wybierz datę"
+              type="date"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Punkt sprzedaży 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Rozmiar 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;
+
+exports[`Sales Component Snapshots should match snapshot with multi-currency payments 1`] = `
+<div>
+  <h1
+    className="title"
+  >
+    Sprzedaż
+  </h1>
+  <div
+    className="d-flex flex-column align-items-center mb-3"
+  >
+    <div
+      className="d-flex justify-content-center mb-3"
+    >
+      <div
+        className="me-3"
+      >
+        <label>
+          Data początkowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę początkową"
+          type="date"
+        />
+      </div>
+      <div>
+        <label>
+          Data końcowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę końcową"
+          type="date"
+        />
+      </div>
+    </div>
+    <div
+      style={
+        Object {
+          "width": "200px",
+        }
+      }
+    >
+      <input
+        className="form-control"
+        onChange={[Function]}
+        placeholder="Wyszukaj..."
+        type="text"
+        value=""
+      />
+    </div>
+  </div>
+  <div
+    className="d-flex justify-content-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Lp. 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Data 
+            <input
+              data-testid="mock-datepicker"
+              placeholder="Wybierz datę"
+              type="date"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Punkt sprzedaży 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Rozmiar 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;
+
+exports[`Sales Component Snapshots should match snapshot with no payment data 1`] = `
+<div>
+  <h1
+    className="title"
+  >
+    Sprzedaż
+  </h1>
+  <div
+    className="d-flex flex-column align-items-center mb-3"
+  >
+    <div
+      className="d-flex justify-content-center mb-3"
+    >
+      <div
+        className="me-3"
+      >
+        <label>
+          Data początkowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę początkową"
+          type="date"
+        />
+      </div>
+      <div>
+        <label>
+          Data końcowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę końcową"
+          type="date"
+        />
+      </div>
+    </div>
+    <div
+      style={
+        Object {
+          "width": "200px",
+        }
+      }
+    >
+      <input
+        className="form-control"
+        onChange={[Function]}
+        placeholder="Wyszukaj..."
+        type="text"
+        value=""
+      />
+    </div>
+  </div>
+  <div
+    className="d-flex justify-content-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Lp. 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Data 
+            <input
+              data-testid="mock-datepicker"
+              placeholder="Wybierz datę"
+              type="date"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Punkt sprzedaży 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Rozmiar 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;
+
+exports[`Sales Component Snapshots should match snapshot with payment data 1`] = `
+<div>
+  <h1
+    className="title"
+  >
+    Sprzedaż
+  </h1>
+  <div
+    className="d-flex flex-column align-items-center mb-3"
+  >
+    <div
+      className="d-flex justify-content-center mb-3"
+    >
+      <div
+        className="me-3"
+      >
+        <label>
+          Data początkowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę początkową"
+          type="date"
+        />
+      </div>
+      <div>
+        <label>
+          Data końcowa:
+        </label>
+        <input
+          data-testid="mock-datepicker"
+          placeholder="Wybierz datę końcową"
+          type="date"
+        />
+      </div>
+    </div>
+    <div
+      style={
+        Object {
+          "width": "200px",
+        }
+      }
+    >
+      <input
+        className="form-control"
+        onChange={[Function]}
+        placeholder="Wyszukaj..."
+        type="text"
+        value=""
+      />
+    </div>
+  </div>
+  <div
+    className="d-flex justify-content-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Lp. 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Data 
+            <input
+              data-testid="mock-datepicker"
+              placeholder="Wybierz datę"
+              type="date"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Punkt sprzedaży 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Rozmiar 
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;

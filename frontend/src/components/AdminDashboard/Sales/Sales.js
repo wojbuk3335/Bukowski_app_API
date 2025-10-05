@@ -20,7 +20,25 @@ const Sales = () => {
     const [endDate, setEndDate] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [columnFilters, setColumnFilters] = useState({});
+    const [dateFilter, setDateFilter] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+    // Format date function
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('pl-PL', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (error) {
+            return dateString;
+        }
+    };
 
     // Fetch sales data on component mount
     useEffect(() => {
@@ -50,7 +68,6 @@ const Sales = () => {
         
         // Filter by date range
         if (startDate && endDate) {
-            
             const startOfDay = new Date(startDate);
             startOfDay.setHours(0, 0, 0, 0);
             
@@ -66,12 +83,8 @@ const Sales = () => {
                 if (sale.date instanceof Date) {
                     saleDate = sale.date;
                 } else if (typeof sale.date === 'string') {
-                    if (sale.date.includes('.')) {
-                        const [day, month, year] = sale.date.split('.');
-                        saleDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-                    } else {
-                        saleDate = new Date(sale.date);
-                    }
+                    // Handle ISO string format like "2025-10-05T07:53:51.205Z"
+                    saleDate = new Date(sale.date);
                 } else {
                     return false;
                 }
@@ -80,7 +93,11 @@ const Sales = () => {
                     return false;
                 }
                 
-                const isInRange = saleDate >= startOfDay && saleDate <= endOfDay;
+                // Set sale date to start of day for comparison
+                const saleDateStartOfDay = new Date(saleDate);
+                saleDateStartOfDay.setHours(0, 0, 0, 0);
+                
+                const isInRange = saleDateStartOfDay >= startOfDay && saleDateStartOfDay <= endOfDay;
                 
                 return isInRange;
             });
@@ -107,8 +124,34 @@ const Sales = () => {
             }
         });
 
+        // Filter by date picker
+        if (dateFilter) {
+            const selectedDate = new Date(dateFilter);
+            selectedDate.setHours(0, 0, 0, 0);
+            const nextDay = new Date(selectedDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+
+            filtered = filtered.filter((sale) => {
+                if (!sale.date) return false;
+                
+                let saleDate;
+                if (sale.date instanceof Date) {
+                    saleDate = sale.date;
+                } else if (typeof sale.date === 'string') {
+                    saleDate = new Date(sale.date);
+                } else {
+                    return false;
+                }
+                
+                if (isNaN(saleDate)) return false;
+                
+                saleDate.setHours(0, 0, 0, 0);
+                return saleDate.getTime() === selectedDate.getTime();
+            });
+        }
+
         setFilteredSales(filtered);
-    }, [sales, startDate, endDate, searchQuery, columnFilters]);
+    }, [sales, startDate, endDate, searchQuery, columnFilters, dateFilter]);
 
     // Analytics function
     const getSalesAnalytics = () => {
@@ -133,13 +176,28 @@ const Sales = () => {
         };
 
         filteredSales.forEach((sale) => {
-            // Calculate total revenue by currency
-            if (sale.payments && Array.isArray(sale.payments)) {
-                sale.payments.forEach(payment => {
-                    if (!analytics.totalRevenue[payment.currency]) {
-                        analytics.totalRevenue[payment.currency] = 0;
+            // Calculate total revenue by currency - używamy cash i card
+            // Płatności gotówkowe
+            if (sale.cash && Array.isArray(sale.cash)) {
+                sale.cash.forEach(cash => {
+                    if (cash.price && cash.price > 0 && cash.currency) {
+                        if (!analytics.totalRevenue[cash.currency]) {
+                            analytics.totalRevenue[cash.currency] = 0;
+                        }
+                        analytics.totalRevenue[cash.currency] += cash.price;
                     }
-                    analytics.totalRevenue[payment.currency] += payment.price;
+                });
+            }
+            
+            // Płatności kartą
+            if (sale.card && Array.isArray(sale.card)) {
+                sale.card.forEach(card => {
+                    if (card.price && card.price > 0 && card.currency) {
+                        if (!analytics.totalRevenue[card.currency]) {
+                            analytics.totalRevenue[card.currency] = 0;
+                        }
+                        analytics.totalRevenue[card.currency] += card.price;
+                    }
                 });
             }
 
@@ -180,112 +238,283 @@ const Sales = () => {
     const analytics = getSalesAnalytics();
 
     const handleExportFullPDF = () => {
-        const doc = new jsPDF();
+        // Tworzymy dokument PDF w orientacji landscape
+        const doc = new jsPDF('landscape');
         const analytics = getSalesAnalytics();
         
-        doc.setFontSize(20);
-        doc.text('Pełny Raport Sprzedaży', 20, 20);
+        // Ustaw polską czcionkę i encoding
+        doc.setFont('helvetica');
         
-        doc.setFontSize(12);
-        doc.text(`Okres: ${startDate ? startDate.toLocaleDateString() : 'Wszystkie'} - ${endDate ? endDate.toLocaleDateString() : 'Wszystkie'}`, 20, 35);
-        doc.text(`Data raportu: ${new Date().toLocaleDateString()}`, 20, 45);
+        // Nagłówek
+        doc.setFontSize(18);
+        doc.text('Raport Sprzedaży', 20, 20);
         
+        doc.setFontSize(10);
+        doc.text(`Data raportu: ${new Date().toLocaleDateString('pl-PL')}`, 20, 35);
+        doc.text(`Okres: ${startDate ? startDate.toLocaleDateString('pl-PL') : 'Wszystkie'} - ${endDate ? endDate.toLocaleDateString('pl-PL') : 'Wszystkie'}`, 20, 45);
+        
+        // Sekcja podsumowania
         let yPosition = 60;
-        
-        doc.setFontSize(16);
-        doc.text('Podsumowanie:', 20, yPosition);
-        yPosition += 15;
-        
         doc.setFontSize(12);
-        doc.text(`Łączna liczba sprzedaży: ${analytics.totalSales}`, 20, yPosition);
+        doc.text('Podsumowanie:', 20, yPosition);
         yPosition += 10;
+        
+        doc.setFontSize(9);
+        doc.text(`Laczna liczba sprzedazy: ${analytics.totalSales}`, 25, yPosition);
+        yPosition += 8;
         
         Object.entries(analytics.totalRevenue).forEach(([currency, amount]) => {
-            doc.text(`Przychód (${currency}): ${amount.toFixed(2)}`, 20, yPosition);
-            yPosition += 10;
-        });
-
-        Object.entries(analytics.averageOrderValue).forEach(([currency, avg]) => {
-            doc.text(`Średnia wartość zamówienia (${currency}): ${avg.toFixed(2)}`, 20, yPosition);
-            yPosition += 10;
-        });
-        
-        yPosition += 10;
-        doc.text('Sprzedaż według punktów:', 20, yPosition);
-        yPosition += 10;
-        
-        Object.entries(analytics.salesBySellingPoint).forEach(([point, data]) => {
-            doc.text(`${point}: ${data.count} sprzedaży`, 25, yPosition);
+            doc.text(`Przychod (${currency}): ${amount.toFixed(2)}`, 25, yPosition);
             yPosition += 8;
         });
-
-        if (yPosition > 250) {
-            doc.addPage();
-            yPosition = 20;
-        }
         
-        doc.text('Dane transakcji:', 20, yPosition + 10);
+        yPosition += 10;
         
-        const tableData = filteredSales.map((sale, index) => [
-            index + 1,
-            sale.fullName || '',
-            sale.date || '',
-            sale.sellingPoint || '',
-            sale.size || '',
-            sale.barcode || '',
-            sale.payments ? sale.payments.map(p => `${p.price} ${p.currency}`).join(', ') : '',
-            sale.timestamp || ''
-        ]);
-
-        autoTable(doc, {
-            head: [['Lp.', 'Pełna nazwa', 'Data', 'Punkt sprzedaży', 'Rozmiar', 'Kod kreskowy', 'Płatności', 'Timestamp']],
-            body: tableData,
-            startY: yPosition + 20,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [41, 128, 185] },
+        // Przygotuj dane do tabeli - takie same jak w handlePrintReport
+        const printData = filteredSales.map((sale, index) => {
+            const allPayments = [];
+            
+            // Dodaj płatności gotówkowe
+            if (sale.cash && Array.isArray(sale.cash)) {
+                sale.cash.forEach(cash => {
+                    if (cash.price && cash.price > 0 && cash.currency) {
+                        allPayments.push(`${cash.price} ${cash.currency} (Gotowka)`);
+                    }
+                });
+            }
+            
+            // Dodaj płatności kartą
+            if (sale.card && Array.isArray(sale.card)) {
+                sale.card.forEach(card => {
+                    if (card.price && card.price > 0 && card.currency) {
+                        allPayments.push(`${card.price} ${card.currency} (Karta)`);
+                    }
+                });
+            }
+            
+            return [
+                index + 1,
+                sale.fullName || '',
+                formatDate(sale.date) || '',
+                sale.sellingPoint || '',
+                sale.size || '',
+                sale.barcode || '',
+                allPayments.length > 0 ? allPayments.join(', ') : 'Brak platnosci'
+            ];
         });
 
-        doc.save('pelny_raport_sprzedazy.pdf');
+        // Tabela z danymi
+        autoTable(doc, {
+            head: [['Lp.', 'Pelna nazwa', 'Data', 'Punkt sprzedazy', 'Rozmiar', 'Kod kreskowy', 'Platnosci']],
+            body: printData,
+            startY: yPosition + 5,
+            styles: { 
+                fontSize: 8,
+                cellPadding: 3,
+                overflow: 'linebreak',
+                font: 'helvetica',
+                textColor: [0, 0, 0]
+            },
+            headStyles: { 
+                fillColor: [41, 128, 185],
+                textColor: [255, 255, 255],
+                fontSize: 9,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            columnStyles: {
+                0: { cellWidth: 20, halign: 'center' }, // Lp.
+                1: { cellWidth: 50 }, // Pełna nazwa
+                2: { cellWidth: 35 }, // Data
+                3: { cellWidth: 40 }, // Punkt sprzedaży
+                4: { cellWidth: 25, halign: 'center' }, // Rozmiar
+                5: { cellWidth: 35 }, // Kod kreskowy
+                6: { cellWidth: 50 } // Płatności
+            },
+            margin: { left: 15, right: 15 },
+            tableWidth: 'auto',
+            pageBreak: 'auto',
+            theme: 'striped',
+            alternateRowStyles: { fillColor: [245, 245, 245] }
+        });
+
+        doc.save('raport_sprzedazy.pdf');
     };
 
     const handlePrintReport = () => {
-        const printContent = document.getElementById('sales-report-content');
-        if (printContent) {
-            const newWin = window.open('');
-            newWin.document.write(`
-                <html>
-                    <head>
-                        <title>Raport Sprzedaży</title>
-                        <style>
-                            body { font-family: Arial, sans-serif; }
-                            table { border-collapse: collapse; width: 100%; }
-                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                            th { background-color: #f2f2f2; }
-                        </style>
-                    </head>
-                    <body>
+        const analytics = getSalesAnalytics();
+        
+        // Przygotuj dane do drukowania
+        const printData = filteredSales.map((sale, index) => {
+            const allPayments = [];
+            
+            // Dodaj płatności gotówkowe
+            if (sale.cash && Array.isArray(sale.cash)) {
+                sale.cash.forEach(cash => {
+                    if (cash.price && cash.price > 0 && cash.currency) {
+                        allPayments.push(`${cash.price} ${cash.currency} (Gotówka)`);
+                    }
+                });
+            }
+            
+            // Dodaj płatności kartą
+            if (sale.card && Array.isArray(sale.card)) {
+                sale.card.forEach(card => {
+                    if (card.price && card.price > 0 && card.currency) {
+                        allPayments.push(`${card.price} ${card.currency} (Karta)`);
+                    }
+                });
+            }
+            
+            return {
+                lp: index + 1,
+                fullName: sale.fullName || '',
+                date: formatDate(sale.date) || '',
+                sellingPoint: sale.sellingPoint || '',
+                size: sale.size || '',
+                barcode: sale.barcode || '',
+                payments: allPayments.length > 0 ? allPayments.join(', ') : 'Brak płatności'
+            };
+        });
+
+        const newWin = window.open('', '_blank');
+        newWin.document.write(`
+            <html>
+                <head>
+                    <title>Raport Sprzedaży</title>
+                    <style>
+                        @page { 
+                            size: A4 landscape; 
+                            margin: 1cm; 
+                        }
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            font-size: 10px;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        .header {
+                            text-align: center;
+                            margin-bottom: 20px;
+                        }
+                        .summary {
+                            margin-bottom: 20px;
+                            background-color: #f9f9f9;
+                            padding: 10px;
+                            border-radius: 5px;
+                        }
+                        .summary h3 {
+                            margin-top: 0;
+                        }
+                        table { 
+                            border-collapse: collapse; 
+                            width: 100%; 
+                            font-size: 8px;
+                        }
+                        th, td { 
+                            border: 1px solid #ddd; 
+                            padding: 4px; 
+                            text-align: left;
+                            vertical-align: top;
+                            word-wrap: break-word;
+                        }
+                        th { 
+                            background-color: #2980b9; 
+                            color: white;
+                            font-weight: bold;
+                        }
+                        .number { text-align: center; }
+                        .payments { max-width: 150px; }
+                        .barcode { max-width: 100px; }
+                        @media print {
+                            body { print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
                         <h1>Raport Sprzedaży</h1>
-                        <p>Data raportu: ${new Date().toLocaleDateString()}</p>
-                        ${printContent.innerHTML}
-                    </body>
-                </html>
-            `);
-            newWin.document.close();
+                        <p><strong>Data raportu:</strong> ${new Date().toLocaleDateString('pl-PL')}</p>
+                        <p><strong>Okres:</strong> ${startDate ? startDate.toLocaleDateString('pl-PL') : 'Wszystkie'} - ${endDate ? endDate.toLocaleDateString('pl-PL') : 'Wszystkie'}</p>
+                    </div>
+                    
+                    <div class="summary">
+                        <h3>Podsumowanie:</h3>
+                        <p><strong>Łączna liczba sprzedaży:</strong> ${analytics.totalSales}</p>
+                        ${Object.entries(analytics.totalRevenue).map(([currency, amount]) => 
+                            `<p><strong>Przychód (${currency}):</strong> ${amount.toFixed(2)}</p>`
+                        ).join('')}
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="number">Lp.</th>
+                                <th>Pełna nazwa</th>
+                                <th>Data</th>
+                                <th>Punkt sprzedaży</th>
+                                <th>Rozmiar</th>
+                                <th class="barcode">Kod kreskowy</th>
+                                <th class="payments">Płatności</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${printData.map(item => `
+                                <tr>
+                                    <td class="number">${item.lp}</td>
+                                    <td>${item.fullName}</td>
+                                    <td>${item.date}</td>
+                                    <td>${item.sellingPoint}</td>
+                                    <td>${item.size}</td>
+                                    <td class="barcode">${item.barcode}</td>
+                                    <td class="payments">${item.payments}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </body>
+            </html>
+        `);
+        newWin.document.close();
+        
+        // Uruchom drukowanie po załadowaniu
+        setTimeout(() => {
             newWin.print();
-        }
+        }, 500);
     };
 
     const handleExportExcel = () => {
-        const excelData = filteredSales.map((sale, index) => ({
-            'Lp.': index + 1,
-            'Pełna nazwa': sale.fullName || '',
-            'Data': sale.date || '',
-            'Punkt sprzedaży': sale.sellingPoint || '',
-            'Rozmiar': sale.size || '',
-            'Kod kreskowy': sale.barcode || '',
-            'Płatności': sale.payments ? sale.payments.map(p => `${p.price} ${p.currency}`).join(', ') : '',
-            'Timestamp': sale.timestamp || ''
-        }));
+        const excelData = filteredSales.map((sale, index) => {
+            const allPayments = [];
+            
+            // Dodaj płatności gotówkowe
+            if (sale.cash && Array.isArray(sale.cash)) {
+                sale.cash.forEach(cash => {
+                    if (cash.price && cash.price > 0 && cash.currency) {
+                        allPayments.push(`${cash.price} ${cash.currency} (Gotówka)`);
+                    }
+                });
+            }
+            
+            // Dodaj płatności kartą
+            if (sale.card && Array.isArray(sale.card)) {
+                sale.card.forEach(card => {
+                    if (card.price && card.price > 0 && card.currency) {
+                        allPayments.push(`${card.price} ${card.currency} (Karta)`);
+                    }
+                });
+            }
+            
+            return {
+                'Lp.': index + 1,
+                'Pełna nazwa': sale.fullName || '',
+                'Data': formatDate(sale.date) || '',
+                'Punkt sprzedaży': sale.sellingPoint || '',
+                'Rozmiar': sale.size || '',
+                'Kod kreskowy': sale.barcode || '',
+                'Płatności': allPayments.length > 0 ? allPayments.join(', ') : 'Brak płatności'
+            };
+        });
 
         const worksheet = XLSX.utils.json_to_sheet(excelData);
         const workbook = XLSX.utils.book_new();
@@ -314,10 +543,45 @@ const Sales = () => {
         }
 
         const sortedSales = [...filteredSales].sort((a, b) => {
-            if (a[key] < b[key]) {
+            // Specjalna obsługa sortowania dla numeru porządkowego
+            if (key === 'lp') {
+                // Sortowanie po oryginalnej kolejności lub odwrócenie
+                const indexA = sales.indexOf(a);
+                const indexB = sales.indexOf(b);
+                if (direction === 'asc') {
+                    return indexA - indexB;
+                } else {
+                    return indexB - indexA;
+                }
+            }
+            
+            // Specjalna obsługa sortowania dat
+            if (key === 'date') {
+                const dateA = new Date(a[key]);
+                const dateB = new Date(b[key]);
+                if (direction === 'asc') {
+                    return dateA - dateB;
+                } else {
+                    return dateB - dateA;
+                }
+            }
+            
+            // Standardowe sortowanie dla innych pól
+            let valueA = a[key] || '';
+            let valueB = b[key] || '';
+            
+            // Konwersja na string dla porównania
+            if (typeof valueA === 'string') {
+                valueA = valueA.toLowerCase();
+            }
+            if (typeof valueB === 'string') {
+                valueB = valueB.toLowerCase();
+            }
+            
+            if (valueA < valueB) {
                 return direction === 'asc' ? -1 : 1;
             }
-            if (a[key] > b[key]) {
+            if (valueA > valueB) {
                 return direction === 'asc' ? 1 : -1;
             }
             return 0;
@@ -334,12 +598,11 @@ const Sales = () => {
     const csvData = filteredSales.map((sale, index) => ({
         'Lp.': index + 1,
         'Pełna nazwa': sale.fullName || '',
-        'Data': sale.date || '',
+        'Data': formatDate(sale.date) || '',
         'Punkt sprzedaży': sale.sellingPoint || '',
         'Rozmiar': sale.size || '',
         'Kod kreskowy': sale.barcode || '',
-        'Płatności': sale.payments ? sale.payments.map(p => `${p.price} ${p.currency}`).join(', ') : '',
-        'Timestamp': sale.timestamp || ''
+        'Płatności': sale.payments ? sale.payments.map(p => `${p.price} ${p.currency}`).join(', ') : ''
     }));
 
     return (
@@ -427,11 +690,14 @@ const Sales = () => {
                             </th>
                             <th className={`${styles.tableHeader} ${styles.noWrap}`} onClick={() => handleSort('date')}>
                                 Data {sortConfig.key === 'date' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                                <input
-                                    type="text"
+                                <DatePicker
+                                    selected={dateFilter}
+                                    onChange={(date) => setDateFilter(date)}
                                     className="form-control form-control-sm mt-1"
-                                    placeholder="Filter"
-                                    onChange={(e) => handleColumnFilterChange('date', e.target.value)}
+                                    placeholderText="Wybierz datę"
+                                    dateFormat="dd.MM.yyyy"
+                                    locale="pl"
+                                    isClearable
                                 />
                             </th>
                             <th className={`${styles.tableHeader} ${styles.noWrap}`} onClick={() => handleSort('sellingPoint')}>
@@ -474,9 +740,6 @@ const Sales = () => {
                             <th className={`${styles.tableHeader} ${styles.noWrap}`} onClick={() => handleSort('payments')}>
                                 Płatności {sortConfig.key === 'payments' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
-                            <th className={`${styles.tableHeader} ${styles.noWrap}`} onClick={() => handleSort('timestamp')}>
-                                Timestamp {sortConfig.key === 'timestamp' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -485,23 +748,44 @@ const Sales = () => {
                                 <tr key={sale._id || index}>
                                     <td>{index + 1}</td>
                                     <td>{sale.fullName}</td>
-                                    <td>{sale.date}</td>
+                                    <td>{formatDate(sale.date)}</td>
                                     <td>{sale.sellingPoint}</td>
                                     <td>{sale.size}</td>
                                     <td>{sale.barcode}</td>
                                     <td>
-                                        {sale.payments && Array.isArray(sale.payments)
-                                            ? sale.payments.map((payment, i) => (
-                                                  <div key={i}>{`${payment.price} ${payment.currency}`}</div>
-                                              ))
-                                            : 'Brak płatności'}
+                                        {(() => {
+                                            const allPayments = [];
+                                            
+                                            // Dodaj płatności gotówkowe
+                                            if (sale.cash && Array.isArray(sale.cash)) {
+                                                sale.cash.forEach(cash => {
+                                                    if (cash.price && cash.price > 0 && cash.currency) {
+                                                        allPayments.push(`${cash.price} ${cash.currency} (Gotówka)`);
+                                                    }
+                                                });
+                                            }
+                                            
+                                            // Dodaj płatności kartą
+                                            if (sale.card && Array.isArray(sale.card)) {
+                                                sale.card.forEach(card => {
+                                                    if (card.price && card.price > 0 && card.currency) {
+                                                        allPayments.push(`${card.price} ${card.currency} (Karta)`);
+                                                    }
+                                                });
+                                            }
+                                            
+                                            return allPayments.length > 0 
+                                                ? allPayments.map((payment, i) => (
+                                                    <div key={i}>{payment}</div>
+                                                  ))
+                                                : 'Brak płatności';
+                                        })()}
                                     </td>
-                                    <td>{sale.timestamp}</td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="8" className="text-center">
+                                <td colSpan="7" className="text-center">
                                     {error ? error : 'Brak danych sprzedaży'}
                                 </td>
                             </tr>
@@ -509,7 +793,7 @@ const Sales = () => {
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colSpan="8" className="text-center">
+                            <td colSpan="7" className="text-center">
                                 <strong>Łączne przychody: </strong>
                                 {Object.entries(analytics.totalRevenue).map((item, index) => (
                                     <div key={index}>
