@@ -1,5 +1,4 @@
 import React, { Fragment, useEffect, useState } from "react";
-import { read, utils } from "xlsx";
 import {
     Col,
     Row,
@@ -7,7 +6,6 @@ import {
     FormGroup,
     Input,
     Table,
-    FormText,
     Modal,
     ModalHeader,
     ModalBody,
@@ -18,12 +16,10 @@ import styles from './Bags.module.css';
 
 const Bags = () => {
     const [loading, setLoading] = useState(false);
-    const [excelRows, setExcelRows] = useState([]);
-    const [selectedFile, setSelectedFile] = useState(null);
     const [rows, setRows] = useState([]);
-    const [requiredFields, setRequiredFields] = useState(["Torebki_Nr", "Torebki_Kod"]); // Require both fields
     const [modal, setModal] = useState(false);
     const [currentWallet, setCurrentWallet] = useState({ _id: '', Torebki_Kod: '' });
+    const [startingNumber, setStartingNumber] = useState(1000);
 
     useEffect(() => {
         fetchData();
@@ -65,18 +61,9 @@ const Bags = () => {
         }
     };
 
-    const removeFile = async () => {
-        try {
-            setLoading(true);
-
-            await axios.delete(`/api/excel/bags/delete-all-bags`);
-            resetState();
-            alert("Dane zostały usunięte poprawnie.");
-        } catch (error) {
-            console.log(error);
-        } finally {
-            setLoading(false);
-        }
+    const handleStartingNumberChange = (e) => {
+        const value = parseInt(e.target.value) || 1000;
+        setStartingNumber(value);
     };
 
     const fetchData = async () => {
@@ -93,45 +80,36 @@ const Bags = () => {
         }
     };
 
-    const uploadData = async () => {
-        try {
-            if (!selectedFile) {
-                alert("Proszę wybrać plik do załadowania danych.");
-                return;
-            }
-
-            if (!excelRows || excelRows.length === 0) {
-                alert("Brak danych do importu. Proszę wybrać plik z danymi.");
-                return;
-            }
-
-            setLoading(true);
-
-            const walletList = await getWalletList();
-            
-            await insertOrUpdateWallets(walletList);
-            
-        } catch (error) {
-            console.log(error);
-            alert("Wystąpił błąd podczas importu danych.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const addNewRow = async () => {
         try {
             setLoading(true);
 
-            // Get current wallets to find next Torebki_Nr
+            // Get current bags to find next Torebki_Nr
             const walletList = await getWalletList();
-            const maxTorebkiNr = walletList.length > 0 
-                ? Math.max(...walletList.map(wallet => Number(wallet.Torebki_Nr) || 0))
-                : 5999; // Start from 5999 so first bag will be 6000
             
-            const nextTorebkiNr = maxTorebkiNr + 1;
+            let nextTorebkiNr;
+            if (walletList.length === 0) {
+                // First row - use starting number, ale sprawdź czy jest w zakresie
+                if (startingNumber < 1000 || startingNumber > 9999) {
+                    alert("Numer początkowy musi być w zakresie 1000-9999.");
+                    setLoading(false);
+                    return;
+                }
+                nextTorebkiNr = startingNumber;
+            } else {
+                // Subsequent rows - increment from max
+                const maxTorebkiNr = Math.max(...walletList.map(wallet => Number(wallet.Torebki_Nr) || 0));
+                nextTorebkiNr = maxTorebkiNr + 1;
+            }
 
-            // Create new wallet
+            // Check if we reached the limit (max 9999 positions)
+            if (nextTorebkiNr > 9999) {
+                alert("Osiągnięto maksymalną liczbę torebek (9999). Nie można dodać więcej wierszy.");
+                setLoading(false);
+                return;
+            }
+
+            // Create new bag
             const newWallet = {
                 Torebki_Nr: nextTorebkiNr,
                 Torebki_Kod: ""
@@ -148,67 +126,6 @@ const Bags = () => {
         }
     };
 
-    const readUploadFile = (e) => {
-        e.preventDefault();
-        if (e.target.files) {
-            const file = e.target.files[0];
-            setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = e.target.result;
-                    const workbook = read(data, { type: "array" });
-                    
-                    const sheetName = workbook.SheetNames[6]; // Seventh sheet (index 6) - Torebki
-                    if (!sheetName) {
-                        alert("Plik nie zawiera siódmego arkusza (Torebki). Proszę sprawdzić plik Excel.");
-                        return;
-                    }
-                    const worksheet = workbook.Sheets[sheetName];
-                    const json = utils.sheet_to_json(worksheet);
-                    
-                    // Validate headers and load data
-                    if (json.length > 0) {
-                        const headers = Object.keys(json[0]);
-                        
-                        // Try to match headers with trimmed spaces
-                        const trimmedHeaders = headers.map(h => h.trim());
-                        const hasRequiredHeaders = requiredFields.every(field => 
-                            trimmedHeaders.includes(field) || headers.includes(field)
-                        );
-                        
-                        if (hasRequiredHeaders) {
-                            // Load actual data for import
-                            setExcelRows(json);
-                            alert(`Plik został wczytany pomyślnie. Znaleziono ${json.length} wierszy z danymi.`);
-                        } else {
-                            alert(`Brak wymaganych nagłówków.\nZnalezione: [${headers.join(', ')}]\nWymagane: [${requiredFields.join(', ')}]`);
-                        }
-                    } else {
-                        alert("Arkusz jest pusty lub nie zawiera danych.");
-                    }
-                } catch (error) {
-                    handleFileReadError(error);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-    };
-
-    const validateRequiredFields = () => {
-        if (!excelRows || excelRows.length === 0) {
-            return false;
-        }
-        
-        const firstItemKeys = Object.keys(excelRows[0]);
-        
-        if (firstItemKeys.length) {
-            const hasAllFields = requiredFields.every((field) => firstItemKeys.includes(field));
-            return hasAllFields;
-        }
-        return false;
-    };
-
     const getWalletList = async () => {
         try {
             const url = `/api/excel/bags/get-all-bags`;
@@ -218,62 +135,6 @@ const Bags = () => {
             console.error(error);
             throw error;
         }
-    };
-
-    const insertOrUpdateWallets = async (walletList) => {
-        // Filtruj tylko te rekordy, które mają przynajmniej numer torebki
-        // Kod towaru może być pusty - będzie można go później edytować
-        const validRows = excelRows.filter(obj => 
-            obj["Torebki_Nr"] && 
-            obj["Torebki_Nr"].toString().trim() !== ""
-        );
-        
-        const wallets = validRows.map((obj) => ({
-            _id: walletList.find((x) => x.Torebki_Nr === obj["Torebki_Nr"])?._id,
-            Torebki_Nr: obj["Torebki_Nr"].toString().trim(),
-            Torebki_Kod: obj["Torebki_Kod"] ? obj["Torebki_Kod"].toString().trim() : "", // Poprawka: używaj Torebki_Kod
-            number_id: Number(obj["Torebki_Nr"]) || 0
-        }));
-
-        const updatedWallets = wallets.filter((x) => x._id);
-        const newWallets = wallets.filter((x) => !x._id);
-
-        if (updatedWallets.length) {
-            const result = (await axios.post(`/api/excel/bags/update-many-bags`, updatedWallets)).data;
-            if (result) {
-                alert("Zaktualizowano pomyślnie " + updatedWallets.length + " rekordów.");
-                fetchData(); // Odśwież dane
-            }
-        }
-
-        if (newWallets.length) {
-            const result = (await axios.post(`/api/excel/bags/insert-bags`, newWallets)).data;
-            if (result) {
-                alert("Dodano pomyślnie " + newWallets.length + " nowych rekordów.");
-                fetchData(); // Odśwież dane
-            }
-        }
-
-        if (validRows.length === 0) {
-            alert("Nie znaleziono prawidłowych danych w pliku Excel. Sprawdź czy dane są w 7. arkuszu i czy zawierają wymagane kolumny.");
-        } else if (newWallets.length > 0 || updatedWallets.length > 0) {
-            resetState(); // Wyczyść stan po pomyślnym imporcie
-        }
-    };
-
-    const handleFileReadError = (error) => {
-        if (error.message.includes("File is password-protected")) {
-            alert("Plik jest chroniony hasłem. Proszę wybrać inny plik.");
-        } else {
-            alert("Wystąpił błąd podczas przetwarzania pliku. Proszę spróbować ponownie.");
-            console.log(error);
-        }
-    };
-
-    const resetState = () => {
-        setSelectedFile(null);
-        setExcelRows([]);
-        fetchData();
     };
 
     const renderDataTable = () => (
@@ -332,34 +193,38 @@ const Bags = () => {
                     Torebki
                 </h3>
                 <div className={styles.container}>
-                    <Row className={styles.xxx}>
-                        <Col md="6" className={styles.textLeft}>
-                            <FormGroup>
-                                <div>
-                                    <input className={styles.inputFile}
-                                        id="inputEmpGroupFile"
-                                        name="file"
-                                        type="file"
-                                        onChange={readUploadFile}
-                                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    {rows.length === 0 && (
+                        <Row className={styles.xxx}>
+                            <Col md="12" className={styles.textCenter}>
+                                <FormGroup>
+                                    <label className={styles.textWhite} style={{ marginBottom: '10px', display: 'block' }}>
+                                        Numer początkowy (od którego zacząć liczenie):
+                                    </label>
+                                    <Input
+                                        type="number"
+                                        min="1000"
+                                        max="9999"
+                                        value={startingNumber}
+                                        onChange={handleStartingNumberChange}
+                                        style={{ 
+                                            width: '100px', 
+                                            margin: '0 auto 20px auto',
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            border: '1px solid white'
+                                        }}
                                     />
-                                </div>
-
-                                <FormText className={styles.textWhite}>
-                                    {"UWAGA: Nagłówki w Excelu (7. arkusz) powinny być następujące!. => "}
-                                    {requiredFields.join(", ")}
-                                </FormText>
-                            </FormGroup>
-                        </Col>
-                        <Col md="6" className={styles.textRight}>
+                                    <div className={styles.textWhite} style={{ fontSize: '0.9rem', marginBottom: '20px' }}>
+                                        Liczenie będzie od {startingNumber} do 9999 (max {9999 - startingNumber + 1} pozycji)
+                                    </div>
+                                </FormGroup>
+                            </Col>
+                        </Row>
+                    )}
+                    <Row className={styles.xxx}>
+                        <Col md="12" className={styles.textCenter}>
                             <div className={styles.buttonGroup}>
-                                <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
-                                    {"Importuj dane z Excel"}
-                                </Button>
-                                <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
-                                    {"Usuń dane z bazy danych"}
-                                </Button>
-                                <Button disabled={loading} color="primary" size="sm" className={`${styles.button} ${styles.buttonRefresh}`} onClick={addNewRow}>
+                                <Button disabled={loading} color="primary" size="sm" className={`${styles.button} ${styles.buttonAdd}`} onClick={addNewRow}>
                                     {"Dodaj nowy wiersz"}
                                 </Button>
                                 <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>

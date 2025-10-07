@@ -1,11 +1,22 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import axios from 'axios';
 import RemainingProducts from './RemainingProducts';
 import RemainingProductsSubcategory from './RemainingProductsSubcategory';
 
+// Mock axios
+jest.mock('axios');
+const mockedAxios = axios;
+
 describe('RemainingProducts Integration Tests', () => {
-    test('both components can be rendered in a routing context', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        // Mock API responses
+        mockedAxios.get.mockResolvedValue({ data: { remainingProducts: [] } });
+    });
+
+    test('both components can be rendered in a routing context', async () => {
         const TestApp = () => (
             <Routes>
                 <Route path="/main" element={<RemainingProducts />} />
@@ -14,13 +25,17 @@ describe('RemainingProducts Integration Tests', () => {
         );
 
         // Test main component route
-        render(
-            <MemoryRouter initialEntries={['/main']}>
-                <TestApp />
-            </MemoryRouter>
-        );
+        await act(async () => {
+            render(
+                <MemoryRouter initialEntries={['/main']}>
+                    <TestApp />
+                </MemoryRouter>
+            );
+        });
 
-        expect(screen.getByText('Tabela pozostałego asortymentu')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('Pozostały asortyment')).toBeInTheDocument();
+        });
         expect(screen.queryByText('Podkategorie - Pozostały asortyment')).not.toBeInTheDocument();
     });
 
@@ -40,16 +55,20 @@ describe('RemainingProducts Integration Tests', () => {
         );
 
         expect(screen.getByText('Podkategorie - Pozostały asortyment')).toBeInTheDocument();
-        expect(screen.queryByText('Tabela pozostałego asortymentu')).not.toBeInTheDocument();
+        expect(screen.queryByText('Pozostały asortyment')).not.toBeInTheDocument();
     });
 
-    test('components have different content and purpose', () => {
+    test('components have different content and purpose', async () => {
         // Render main component
-        const { container: mainContainer } = render(
-            <MemoryRouter>
-                <RemainingProducts />
-            </MemoryRouter>
-        );
+        let mainContainer;
+        await act(async () => {
+            const result = render(
+                <MemoryRouter>
+                    <RemainingProducts />
+                </MemoryRouter>
+            );
+            mainContainer = result.container;
+        });
 
         // Render subcategory component
         const { container: subcategoryContainer } = render(
@@ -58,9 +77,10 @@ describe('RemainingProducts Integration Tests', () => {
             </MemoryRouter>
         );
 
-        // Verify they have different content
-        expect(mainContainer.textContent).toContain('Tabela pozostałego asortymentu');
-        expect(mainContainer.textContent).toContain('Komponent w budowie...');
+        // Wait for main component to load
+        await waitFor(() => {
+            expect(mainContainer.textContent).toContain('Pozostały asortyment');
+        });
 
         expect(subcategoryContainer.textContent).toContain('Podkategorie - Pozostały asortyment');
         expect(subcategoryContainer.textContent).toContain('Komponent podkategorii pozostałego asortymentu jest w trakcie budowy');
@@ -69,7 +89,7 @@ describe('RemainingProducts Integration Tests', () => {
         expect(mainContainer.textContent).not.toBe(subcategoryContainer.textContent);
     });
 
-    test('components can coexist in the same application context', () => {
+    test('components can coexist in the same application context', async () => {
         const TestApp = () => (
             <div>
                 <div data-testid="main-section">
@@ -81,17 +101,21 @@ describe('RemainingProducts Integration Tests', () => {
             </div>
         );
 
-        render(
-            <MemoryRouter>
-                <TestApp />
-            </MemoryRouter>
-        );
+        await act(async () => {
+            render(
+                <MemoryRouter>
+                    <TestApp />
+                </MemoryRouter>
+            );
+        });
 
         // Both components should be present
         const mainSection = screen.getByTestId('main-section');
         const subcategorySection = screen.getByTestId('subcategory-section');
 
-        expect(mainSection).toHaveTextContent('Tabela pozostałego asortymentu');
+        await waitFor(() => {
+            expect(mainSection).toHaveTextContent('Pozostały asortyment');
+        });
         expect(subcategorySection).toHaveTextContent('Podkategorie - Pozostały asortyment');
     });
 

@@ -1,5 +1,4 @@
 import React, { Fragment, useEffect, useState } from "react";
-import { read, utils } from "xlsx";
 import {
     Col,
     Row,
@@ -7,7 +6,6 @@ import {
     FormGroup,
     Input,
     Table,
-    FormText,
     Modal,
     ModalHeader,
     ModalBody,
@@ -18,12 +16,10 @@ import styles from './Wallets.module.css';
 
 const Wallets = () => {
     const [loading, setLoading] = useState(false);
-    const [excelRows, setExcelRows] = useState([]);
-    const [selectedFile, setSelectedFile] = useState(null);
     const [rows, setRows] = useState([]);
-    const [requiredFields, setRequiredFields] = useState(["Portfele_Nr"]); // Only require Portfele_Nr
     const [modal, setModal] = useState(false);
     const [currentWallet, setCurrentWallet] = useState({ _id: '', Portfele_Kod: '' });
+    const [startingNumber, setStartingNumber] = useState(100);
 
     useEffect(() => {
         fetchData();
@@ -65,18 +61,9 @@ const Wallets = () => {
         }
     };
 
-    const removeFile = async () => {
-        try {
-            setLoading(true);
-
-            await axios.delete(`/api/excel/wallets/delete-all-wallets`);
-            resetState();
-            alert("Dane zostały usunięte poprawnie.");
-        } catch (error) {
-            console.log(error);
-        } finally {
-            setLoading(false);
-        }
+    const handleStartingNumberChange = (e) => {
+        const value = parseInt(e.target.value) || 100;
+        setStartingNumber(value);
     };
 
     const fetchData = async () => {
@@ -93,45 +80,29 @@ const Wallets = () => {
         }
     };
 
-    const uploadData = async () => {
-        try {
-            if (!selectedFile) {
-                alert("Proszę wybrać plik do załadowania danych.");
-                return;
-            }
-
-            if (!excelRows || excelRows.length === 0) {
-                alert("Brak danych do importu. Proszę wybrać plik z danymi.");
-                return;
-            }
-
-            setLoading(true);
-
-            const walletList = await getWalletList();
-            
-            await insertOrUpdateWallets(walletList);
-            
-        } catch (error) {
-            console.log(error);
-            alert("Wystąpił błąd podczas importu danych.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const addNewRow = async () => {
         try {
             setLoading(true);
 
             // Get current wallets to find next Portfele_Nr
             const walletList = await getWalletList();
-            const maxPortfeleNr = walletList.length > 0 
-                ? Math.max(...walletList.map(wallet => Number(wallet.Portfele_Nr) || 0))
-                : 99; // Start from 99 so first wallet will be 100
+            
+            let nextPortfeleNr;
+            if (walletList.length === 0) {
+                // First row - use starting number, ale sprawdź czy jest w zakresie
+                if (startingNumber < 100 || startingNumber > 999) {
+                    alert("Numer początkowy musi być w zakresie 100-999.");
+                    setLoading(false);
+                    return;
+                }
+                nextPortfeleNr = startingNumber;
+            } else {
+                // Subsequent rows - increment from max
+                const maxPortfeleNr = Math.max(...walletList.map(wallet => Number(wallet.Portfele_Nr) || 0));
+                nextPortfeleNr = maxPortfeleNr + 1;
+            }
 
-            const nextPortfeleNr = maxPortfeleNr + 1;
-
-            // Check if we reached the limit
+            // Check if we reached the limit (max 999 positions)
             if (nextPortfeleNr > 999) {
                 alert("Osiągnięto maksymalną liczbę portfeli (999). Nie można dodać więcej wierszy.");
                 setLoading(false);
@@ -155,67 +126,6 @@ const Wallets = () => {
         }
     };
 
-    const readUploadFile = (e) => {
-        e.preventDefault();
-        if (e.target.files) {
-            const file = e.target.files[0];
-            setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = e.target.result;
-                    const workbook = read(data, { type: "array" });
-                    
-                    const sheetName = workbook.SheetNames[5]; // Sixth sheet (index 5) - Portfele
-                    if (!sheetName) {
-                        alert("Plik nie zawiera szóstego arkusza (Portfele). Proszę sprawdzić plik Excel.");
-                        return;
-                    }
-                    const worksheet = workbook.Sheets[sheetName];
-                    const json = utils.sheet_to_json(worksheet);
-                    
-                    // Validate headers and load data
-                    if (json.length > 0) {
-                        const headers = Object.keys(json[0]);
-                        
-                        // Try to match headers with trimmed spaces
-                        const trimmedHeaders = headers.map(h => h.trim());
-                        const hasRequiredHeaders = requiredFields.every(field => 
-                            trimmedHeaders.includes(field) || headers.includes(field)
-                        );
-                        
-                        if (hasRequiredHeaders) {
-                            // Load actual data for import
-                            setExcelRows(json);
-                            alert(`Plik został wczytany pomyślnie. Znaleziono ${json.length} wierszy z danymi.`);
-                        } else {
-                            alert(`Brak wymaganych nagłówków.\nZnalezione: [${headers.join(', ')}]\nWymagane: [${requiredFields.join(', ')}]`);
-                        }
-                    } else {
-                        alert("Arkusz jest pusty lub nie zawiera danych.");
-                    }
-                } catch (error) {
-                    handleFileReadError(error);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-    };
-
-    const validateRequiredFields = () => {
-        if (!excelRows || excelRows.length === 0) {
-            return false;
-        }
-        
-        const firstItemKeys = Object.keys(excelRows[0]);
-        
-        if (firstItemKeys.length) {
-            const hasAllFields = requiredFields.every((field) => firstItemKeys.includes(field));
-            return hasAllFields;
-        }
-        return false;
-    };
-
     const getWalletList = async () => {
         try {
             const url = `/api/excel/wallets/get-all-wallets`;
@@ -225,62 +135,6 @@ const Wallets = () => {
             console.error(error);
             throw error;
         }
-    };
-
-    const insertOrUpdateWallets = async (walletList) => {
-        // Filtruj tylko te rekordy, które mają przynajmniej numer portfela
-        // Kod towaru może być pusty - będzie można go później edytować
-        const validRows = excelRows.filter(obj => 
-            obj["Portfele_Nr"] && 
-            obj["Portfele_Nr"].toString().trim() !== ""
-        );
-        
-        const wallets = validRows.map((obj) => ({
-            _id: walletList.find((x) => x.Portfele_Nr === obj["Portfele_Nr"])?._id,
-            Portfele_Nr: obj["Portfele_Nr"].toString().trim(),
-            Portfele_Kod: obj["Portfele_Kod"] ? obj["Portfele_Kod"].toString().trim() : "", // Pozwól na puste kody towarów
-            number_id: Number(obj["Portfele_Nr"]) || 0
-        }));
-
-        const updatedWallets = wallets.filter((x) => x._id);
-        const newWallets = wallets.filter((x) => !x._id);
-
-        if (updatedWallets.length) {
-            const result = (await axios.post(`/api/excel/wallets/update-many-wallets`, updatedWallets)).data;
-            if (result) {
-                alert("Zaktualizowano pomyślnie " + updatedWallets.length + " rekordów.");
-                fetchData(); // Odśwież dane
-            }
-        }
-
-        if (newWallets.length) {
-            const result = (await axios.post(`/api/excel/wallets/insert-wallets`, newWallets)).data;
-            if (result) {
-                alert("Dodano pomyślnie " + newWallets.length + " nowych rekordów.");
-                fetchData(); // Odśwież dane
-            }
-        }
-
-        if (validRows.length === 0) {
-            alert("Nie znaleziono prawidłowych danych w pliku Excel. Sprawdź czy dane są w 6. arkuszu i czy zawierają wymagane kolumny.");
-        } else if (newWallets.length > 0 || updatedWallets.length > 0) {
-            resetState(); // Wyczyść stan po pomyślnym imporcie
-        }
-    };
-
-    const handleFileReadError = (error) => {
-        if (error.message.includes("File is password-protected")) {
-            alert("Plik jest chroniony hasłem. Proszę wybrać inny plik.");
-        } else {
-            alert("Wystąpił błąd podczas przetwarzania pliku. Proszę spróbować ponownie.");
-            console.log(error);
-        }
-    };
-
-    const resetState = () => {
-        setSelectedFile(null);
-        setExcelRows([]);
-        fetchData();
     };
 
     const renderDataTable = () => (
@@ -339,34 +193,37 @@ const Wallets = () => {
                     Portfele
                 </h3>
                 <div className={styles.container}>
-                    <Row className={styles.xxx}>
-                        <Col md="6" className={styles.textLeft}>
-                            <FormGroup>
-                                <div>
-                                    <input className={styles.inputFile}
-                                        id="inputEmpGroupFile"
-                                        name="file"
-                                        type="file"
-                                        onChange={readUploadFile}
-                                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    {rows.length === 0 && (
+                        <Row className={styles.xxx}>
+                            <Col md="12" className={styles.textCenter}>
+                                <FormGroup>
+                                    <label className={styles.textWhite} style={{ marginBottom: '10px', display: 'block' }}>
+                                        Numer początkowy (od którego zacząć liczenie):
+                                    </label>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        max="999"
+                                        value={startingNumber}
+                                        onChange={handleStartingNumberChange}
+                                        style={{ 
+                                            width: '100px', 
+                                            margin: '0 auto 20px auto',
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            border: '1px solid white'
+                                        }}
                                     />
-                                </div>
-
-                                <FormText className={styles.textWhite}>
-                                    {"UWAGA: Nagłówki w Excelu (6. arkusz) powinny być następujące!. => "}
-                                    {requiredFields.join(", ")}
-                                    {" (Numery portfeli: 100-999)"}
-                                </FormText>
-                            </FormGroup>
-                        </Col>
-                        <Col md="6" className={styles.textRight}>
+                                    <div className={styles.textWhite} style={{ fontSize: '0.9rem', marginBottom: '20px' }}>
+                                        Liczenie będzie od {startingNumber} do 999 (max {999 - startingNumber + 1} pozycji)
+                                    </div>
+                                </FormGroup>
+                            </Col>
+                        </Row>
+                    )}
+                    <Row className={styles.xxx}>
+                        <Col md="12" className={styles.textCenter}>
                             <div className={styles.buttonGroup}>
-                                <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
-                                    {"Importuj dane z Excel"}
-                                </Button>
-                                <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
-                                    {"Usuń dane z bazy danych"}
-                                </Button>
                                 <Button disabled={loading} color="primary" size="sm" className={`${styles.button} ${styles.buttonAdd}`} onClick={addNewRow}>
                                     {"Dodaj nowy wiersz"}
                                 </Button>

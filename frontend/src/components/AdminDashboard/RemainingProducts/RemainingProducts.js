@@ -76,10 +76,8 @@ const RemainingProducts = () => {
     };
 
     const handleStartingNumberChange = (e) => {
-        const value = parseInt(e.target.value);
-        if (value >= 1 && value <= 99) {
-            setStartingNumber(value);
-        }
+        const value = parseInt(e.target.value) || 10;
+        setStartingNumber(value);
     };
 
     const addNewRow = async () => {
@@ -91,7 +89,12 @@ const RemainingProducts = () => {
             
             let nextPozNr;
             if (productList.length === 0) {
-                // First row - use starting number
+                // First row - use starting number, ale sprawdź czy jest w zakresie
+                if (startingNumber < 10 || startingNumber > 99) {
+                    alert("Numer początkowy musi być w zakresie 10-99.");
+                    setLoading(false);
+                    return;
+                }
                 nextPozNr = startingNumber;
             } else {
                 // Subsequent rows - increment from max

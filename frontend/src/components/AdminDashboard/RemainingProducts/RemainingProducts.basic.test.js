@@ -1,7 +1,12 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import axios from 'axios';
 import RemainingProducts from './RemainingProducts';
+
+// Mock axios
+jest.mock('axios');
+const mockedAxios = axios;
 
 // Helper function to render component with router
 const renderWithRouter = (component) => {
@@ -13,38 +18,57 @@ const renderWithRouter = (component) => {
 };
 
 describe('RemainingProducts Component - Basic Tests', () => {
-    test('renders without crashing', () => {
-        renderWithRouter(<RemainingProducts />);
+    beforeEach(() => {
+        jest.clearAllMocks();
+        // Mock API responses
+        mockedAxios.get.mockResolvedValue({ data: { remainingProducts: [] } });
     });
 
-    test('displays correct title', () => {
-        renderWithRouter(<RemainingProducts />);
-        
-        const title = screen.getByText('Tabela pozostałego asortymentu');
-        expect(title).toBeInTheDocument();
+    test('renders without crashing', async () => {
+        await act(async () => {
+            renderWithRouter(<RemainingProducts />);
+        });
     });
 
-    test('displays construction message', () => {
-        renderWithRouter(<RemainingProducts />);
+    test('displays correct title', async () => {
+        await act(async () => {
+            renderWithRouter(<RemainingProducts />);
+        });
         
-        const message = screen.getByText(/Komponent w budowie/i);
-        expect(message).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('Pozostały asortyment')).toBeInTheDocument();
+        });
     });
 
-    test('component contains both expected texts', () => {
-        renderWithRouter(<RemainingProducts />);
+    test('displays add button', async () => {
+        await act(async () => {
+            renderWithRouter(<RemainingProducts />);
+        });
         
-        // Check if both title and message are present
-        expect(screen.getByText('Tabela pozostałego asortymentu')).toBeInTheDocument();
-        expect(screen.getByText(/Komponent w budowie/i)).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('Dodaj nowy wiersz')).toBeInTheDocument();
+        });
     });
 
-    test('components have different titles', () => {
-        // This test ensures that main and subcategory components are different
-        renderWithRouter(<RemainingProducts />);
+    test('displays starting number input', async () => {
+        await act(async () => {
+            renderWithRouter(<RemainingProducts />);
+        });
         
-        // Should have main title, not subcategory title
-        expect(screen.getByText('Tabela pozostałego asortymentu')).toBeInTheDocument();
-        expect(screen.queryByText('Podkategorie - Pozostały asortyment')).not.toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByDisplayValue('10')).toBeInTheDocument();
+        });
+    });
+
+    test('displays table headers', async () => {
+        await act(async () => {
+            renderWithRouter(<RemainingProducts />);
+        });
+        
+        await waitFor(() => {
+            expect(screen.getByText('Poz_Nr')).toBeInTheDocument();
+            expect(screen.getByText('Poz_Kod')).toBeInTheDocument();
+            expect(screen.getByText('Akcje')).toBeInTheDocument();
+        });
     });
 });
