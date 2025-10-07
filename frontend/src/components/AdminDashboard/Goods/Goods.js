@@ -57,7 +57,13 @@ const Goods = () => {
                     ...good,
                     category: good.category || 'Brak kategorii' // Ensure category is a string
                 }));
-                setGoods(updatedGoods);
+                // Sort by ToW_Kod ascending (rosnąco)
+                const sortedGoods = updatedGoods.sort((a, b) => {
+                    const kodA = (a.ToW_Kod || '').toString().toLowerCase();
+                    const kodB = (b.ToW_Kod || '').toString().toLowerCase();
+                    return kodA.localeCompare(kodB);
+                });
+                setGoods(sortedGoods);
             })
             .catch(error => console.error('Error fetching goods:', error))
             .finally(() => setLoading(false));

@@ -1,5 +1,4 @@
 import React, { Fragment, useEffect, useState } from "react";
-import { read, utils } from "xlsx";
 import {
     Col,
     Row,
@@ -7,7 +6,6 @@ import {
     FormGroup,
     Input,
     Table,
-    FormText,
     Modal,
     ModalHeader,
     ModalBody,
@@ -16,12 +14,8 @@ import {
 import axios from "axios";
 import styles from './Localization.module.css';
 
-const requiredFields = ["Miejsc_1_Kod_1"]; // Tylko kod jest wymagany, opis może być pusty
-
 const Localization = () => {
     const [loading, setLoading] = useState(false);
-    const [excelRows, setExcelRows] = useState([]);
-    const [selectedFile, setSelectedFile] = useState(null);
     const [rows, setRows] = useState([]);
     const [modal, setModal] = useState(false);
     const [currentLocalization, setCurrentLocalization] = useState({ _id: '', Miejsc_1_Opis_1: '' });
@@ -39,6 +33,51 @@ const Localization = () => {
 
     const handleUpdateChange = (e) => {
         setCurrentLocalization({ ...currentLocalization, Miejsc_1_Opis_1: e.target.value });
+    };
+
+    const getLocalizationList = async () => {
+        try {
+            const response = await axios.get(`/api/excel/localization/get-all-localizations`);
+            return response.data.localizations || [];
+        } catch (error) {
+            console.error('Error fetching localizations:', error);
+            return [];
+        }
+    };
+
+    const addNewRow = async () => {
+        try {
+            setLoading(true);
+
+            // Get current localizations to find next Miejsc_1_Kod_1
+            const localizationList = await getLocalizationList();
+            
+            let nextCode;
+            if (localizationList.length === 0) {
+                // First row - start from 1
+                nextCode = 1;
+            } else {
+                // Subsequent rows - increment from max
+                const maxCode = Math.max(...localizationList.map(loc => Number(loc.Miejsc_1_Kod_1) || 0));
+                nextCode = maxCode + 1;
+            }
+
+            // Create new localization
+            const newLoc = {
+                Miejsc_1_Kod_1: nextCode.toString(),
+                Miejsc_1_Opis_1: ""
+            };
+
+            await axios.post('/api/excel/localization/insert-many-localizations', [newLoc]);
+            
+            fetchData();
+            alert('Nowy wiersz został dodany pomyślnie!');
+        } catch (error) {
+            console.error('Error adding new row:', error);
+            alert('Błąd podczas dodawania nowego wiersza: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleUpdateSubmit = async () => {
@@ -60,20 +99,6 @@ const Localization = () => {
 
             fetchData();
             toggleModal();
-        } catch (error) {
-            // console.log(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const removeFile = async () => {
-        try {
-            setLoading(true);
-
-            await axios.delete(`/api/excel/localization/delete-all-localizations`);
-            resetState();
-            alert("Dane zostały usunięte poprawnie.");
         } catch (error) {
             // console.log(error);
         } finally {
@@ -103,133 +128,7 @@ const Localization = () => {
         }
     };
 
-    const uploadData = async () => {
-        try {
-            if (!selectedFile) {
-                alert("Proszę wybrać plik do załadowania danych.");
-                return;
-            }
-
-            setLoading(true);
-
-            if (!validateRequiredFields()) {
-                alert("Wymagana kolumna: " + JSON.stringify(requiredFields) + ". Kolumna Miejsc_1_Opis_1 jest opcjonalna. Proszę również umieścić dane w piątym arkuszu excela.");
-                return;
-            }
-
-            const localizationList = await getLocalizationList();
-            if (localizationList.length > 0) {
-                alert("Tabela lokalizacji nie jest pusta. Proszę usunąć wszystkie dane aby wgrać nowe.");
-                return;
-            }
-
-            await insertOrUpdateLocalizations(localizationList);
-
-            fetchData();
-        } catch (error) {
-            // console.log(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const readUploadFile = (e) => {
-        e.preventDefault();
-        if (e.target.files) {
-            const file = e.target.files[0];
-            setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = e.target.result;
-                    const workbook = read(data, { type: "array" });
-                    // Use the 5th sheet (index 4) instead of the first one
-                    const sheetName = workbook.SheetNames[4]; // 5th sheet
-                    if (!sheetName) {
-                        alert("Plik nie zawiera piątego arkusza. Proszę sprawdzić plik Excel.");
-                        return;
-                    }
-                    const worksheet = workbook.Sheets[sheetName];
-                    const json = utils.sheet_to_json(worksheet);
-                    setExcelRows(json);
-                } catch (error) {
-                    handleFileReadError(error);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-    };
-
-    const validateRequiredFields = () => {
-        if (!excelRows || excelRows.length === 0) {
-            return false;
-        }
-        
-        const firstItemKeys = Object.keys(excelRows[0]);
-        
-        if (firstItemKeys.length) {
-            const hasAllFields = requiredFields.every((field) => firstItemKeys.includes(field));
-            return hasAllFields;
-        }
-        return false;
-    };
-
-    const getLocalizationList = async () => {
-        const localizationResponse = (await axios.get(`/api/excel/localization/get-all-localizations`)).data;
-        return Array.isArray(localizationResponse.localizations) ? localizationResponse.localizations : [];
-    };
-
-    const insertOrUpdateLocalizations = async (localizationList) => {
-        // Filtruj tylko te rekordy, które mają przynajmniej kod lokalizacji
-        // Opis może być pusty - będzie można go później edytować
-        const validRows = excelRows.filter(obj => 
-            obj["Miejsc_1_Kod_1"] && 
-            obj["Miejsc_1_Kod_1"].toString().trim() !== ""
-        );
-        
-        const localizations = validRows.map((obj) => ({
-            _id: localizationList.find((x) => x.Miejsc_1_Kod_1 === obj["Miejsc_1_Kod_1"])?._id,
-            Miejsc_1_Kod_1: obj["Miejsc_1_Kod_1"].toString().trim(),
-            Miejsc_1_Opis_1: obj["Miejsc_1_Opis_1"] ? obj["Miejsc_1_Opis_1"].toString().trim() : "", // Pozwól na puste opisy
-            number_id: Number(obj["Miejsc_1_Kod_1"]) || 0
-        }));
-
-        const updatedLocalizations = localizations.filter((x) => x._id);
-        const newLocalizations = localizations.filter((x) => !x._id);
-
-        if (updatedLocalizations.length) {
-            const result = (await axios.post(`/api/excel/localization/update-many-localizations`, updatedLocalizations)).data;
-            if (result) {
-                alert("Zaktualizowano pomyślnie " + updatedLocalizations.length + " rekordów.");
-            }
-        }
-
-        if (newLocalizations.length) {
-            const result = (await axios.post(`/api/excel/localization/insert-many-localizations`, newLocalizations)).data;
-            if (result) {
-                alert("Dodano pomyślnie " + newLocalizations.length + " nowych rekordów.");
-            }
-        }
-
-        if (validRows.length === 0) {
-            alert("Nie znaleziono prawidłowych danych w pliku Excel. Sprawdź czy dane są w 5. arkuszu i czy zawierają wymagane kolumny.");
-        }
-    };
-
-    const handleFileReadError = (error) => {
-        if (error.message.includes("File is password-protected")) {
-            alert("Plik jest chroniony hasłem. Proszę wybrać inny plik.");
-        } else {
-            alert("Wystąpił błąd podczas przetwarzania pliku. Proszę spróbować ponownie.");
-            // console.log(error);
-        }
-    };
-
-    const resetState = () => {
-        setSelectedFile(null);
-        setExcelRows([]);
-        fetchData();
-    };
+    // Excel import functions removed - replaced with manual add functionality
 
     const renderDataTable = () => (
         <Table className={styles.table}>
@@ -288,35 +187,15 @@ const Localization = () => {
                 </h3>
                 <div className={styles.container}>
                     <Row className={styles.xxx}>
-                        <Col md="6" className={styles.textLeft}>
-                            <FormGroup>
-                                <div>
-                                    <input className={styles.inputFile}
-                                        id="inputEmpGroupFile"
-                                        name="file"
-                                        type="file"
-                                        onChange={readUploadFile}
-                                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                                    />
-                                </div>
-
-                                <FormText className={styles.textWhite}>
-                                    {"UWAGA: Wymagana kolumna w Excelu: "}
-                                    {requiredFields.join(", ")}
-                                    {" + opcjonalnie Miejsc_1_Opis_1 (Dane z 5 arkusza)"}
-                                </FormText>
-                            </FormGroup>
-                        </Col>
-                        <Col md="6" className={styles.textRight}>
-                            <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
-                                {"Wczytaj dane z pliku"}
-                            </Button>
-                            <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
-                                {"Usuń dane z bazy danych"}
-                            </Button>
+                        <Col md="12" className={styles.textCenter}>
+                            <div className={styles.buttonGroup}>
+                                <Button disabled={loading} color="primary" size="sm" className={`${styles.button} ${styles.buttonAdd}`} onClick={addNewRow}>
+                                    {"Dodaj nowy wiersz"}
+                                </Button>
+                                <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
+                            </div>
                         </Col>
                     </Row>
-                    <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
                     <div className={styles.textWhite} style={{ margin: '10px 0' }}>
                         Wyświetlanych rekordów: {rows.length}
                     </div>

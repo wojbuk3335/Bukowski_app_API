@@ -132,7 +132,16 @@ const Stock = () => {
         try {
             setLoading(true);
             const result = (await axios.get(`/api/excel/stock/get-all-stocks`)).data;
-            setRows(Array.isArray(result.stocks) ? result.stocks : []);
+            const stocks = Array.isArray(result.stocks) ? result.stocks : [];
+            
+            // Sort by Tow_Kod ascending (numerically)
+            const sortedStocks = stocks.sort((a, b) => {
+                const kodA = parseInt(a.Tow_Kod) || 0;
+                const kodB = parseInt(b.Tow_Kod) || 0;
+                return kodA - kodB;
+            });
+            
+            setRows(sortedStocks);
         } catch (error) {
             console.log(error);
         } finally {
