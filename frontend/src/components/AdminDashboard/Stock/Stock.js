@@ -93,9 +93,7 @@ const Stock = () => {
                 return;
             }
 
-            console.log('Sending to server:', { Tow_Opis: currentStock.Tow_Opis }); // Debug log for data sent to server
             const updateResponse = await axios.patch(`/api/excel/stock/update-stock/${currentStock._id}`, { Tow_Opis: currentStock.Tow_Opis });
-            console.log('Response from server:', updateResponse.data); // Debug log for server response
 
             fetchData();
             toggleModal();

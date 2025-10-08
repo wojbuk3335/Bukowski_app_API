@@ -110,7 +110,6 @@ const historyLogger = (collectionName) => {
         }
 
         if (collectionName === 'goods') {
-            console.log('Processing goods history - Method:', req.method, 'Operation:', operation);
             let details = '';
             let from = '-'; // Explicitly set "from" to "-"
             let to = '-';   // Explicitly set "to" to "-"
@@ -119,7 +118,6 @@ const historyLogger = (collectionName) => {
             if (operation === 'Dodano produkt') {
                 try {
                     const newGood = req.body;
-                    console.log('Creating goods history for new product:', newGood.fullName);
                     product = newGood.fullName || 'Nieznany produkt'; // Set product to fullName or default value
                     details = newGood.fullName || 'Unknown'; // Ensure details is explicitly set to fullName
                 } catch (error) {
@@ -256,13 +254,6 @@ const historyLogger = (collectionName) => {
                 userloggedinId: userloggedinId,
                 from: from, // Ensure "from" is "-"
                 to: to     // Ensure "to" is "-"
-            });
-            console.log('Created goods history entry:', {
-                collectionName: collectionNamePolish,
-                operation,
-                product,
-                details,
-                userloggedinId
             });
         }
 
@@ -602,7 +593,6 @@ const historyLogger = (collectionName) => {
         }
 
         if (collectionName === 'bagsCategory') {
-            console.log('Processing bagsCategory history - Method:', req.method, 'Operation:', operation);
             let details = '';
             let product = '-'; // Always set product to "-" for bags categories
 
@@ -660,7 +650,6 @@ const historyLogger = (collectionName) => {
         }
 
         if (collectionName === 'bags') {
-            console.log('Processing bags history - Method:', req.method, 'Operation:', operation);
             let details = '';
             let product = '-'; // Always set product to "-" for bags
 
@@ -718,7 +707,6 @@ const historyLogger = (collectionName) => {
         }
 
         if (collectionName === 'wallets') {
-            console.log('Processing wallets history - Method:', req.method, 'Operation:', operation);
             let details = '';
             let product = '-'; // Always set product to "-" for wallets
 
@@ -780,15 +768,10 @@ const historyLogger = (collectionName) => {
             const transactionId = req.headers['transactionid'] || req.headers['transaction-id'];
             if (transactionId) {
                 historyEntry.transactionId = transactionId;
-                console.log('Setting transactionId in history entry:', transactionId);
-            } else {
-                console.log('No transactionid or transaction-id header found in request');
-                console.log('Available headers:', Object.keys(req.headers));
             }
             
             historyEntry.save()
                 .then(() => {
-                    console.log('History entry saved with transactionId:', historyEntry.transactionId);
                     next();
                 })
                 .catch(err => {

@@ -517,30 +517,50 @@ const Goods = () => {
 
     const handleWalletFilterChange = (e) => {
         const value = e.target.value;
-        setWalletFilterText(value);
-        setSelectedWalletCode(value);
-        setIsWalletDropdownOpen(true);
-        setSelectedWalletIndex(-1); // Reset keyboard selection
         
-        // Find wallet by code to get ID
-        const wallet = wallets.find(w => w.Torebki_Kod === value);
-        if (wallet) {
-            setSelectedWalletId(wallet._id);
+        // Check if the new value could be the start of any wallet code
+        const wouldMatchAnyWallet = wallets.some(wallet => 
+            wallet.Torebki_Kod && 
+            wallet.Torebki_Kod.toLowerCase().startsWith(value.toLowerCase())
+        );
+        
+        // Only allow the change if it could be the start of some wallet or if it's a deletion (shorter than current)
+        if (wouldMatchAnyWallet || value.length < walletFilterText.length || value === '') {
+            setWalletFilterText(value);
+            setSelectedWalletCode(value);
+            setIsWalletDropdownOpen(true);
+            setSelectedWalletIndex(-1); // Reset keyboard selection
+            
+            // Find wallet by code to get ID
+            const wallet = wallets.find(w => w.Torebki_Kod === value);
+            if (wallet) {
+                setSelectedWalletId(wallet._id);
+            }
+            
+            // Update product name for bags
+            updateBagProductName(value, selectedColor);
         }
-        
-        // Update product name for bags
-        updateBagProductName(value, selectedColor);
     };
 
     const handleWalletFilterChangePortfele = (e) => {
         const value = e.target.value;
-        setWalletFilterTextPortfele(value);
-        setSelectedWalletCodePortfele(value);
-        setShowWalletDropdownPortfele(true);
-        setSelectedWalletIndexPortfele(-1); // Reset keyboard selection
         
-        // Update product name for wallets
-        updateWalletProductName(value, selectedColor);
+        // Check if the new value could be the start of any wallet code
+        const wouldMatchAnyWallet = walletsData.some(wallet => 
+            wallet.Portfele_Kod && 
+            wallet.Portfele_Kod.toLowerCase().startsWith(value.toLowerCase())
+        );
+        
+        // Only allow the change if it could be the start of some wallet or if it's a deletion (shorter than current)
+        if (wouldMatchAnyWallet || value.length < walletFilterTextPortfele.length || value === '') {
+            setWalletFilterTextPortfele(value);
+            setSelectedWalletCodePortfele(value);
+            setShowWalletDropdownPortfele(true);
+            setSelectedWalletIndexPortfele(-1); // Reset keyboard selection
+            
+            // Update product name for wallets
+            updateWalletProductName(value, selectedColor);
+        }
     };
 
     const handleWalletKeyDown = (e) => {
@@ -617,7 +637,7 @@ const Goods = () => {
         return wallets
             .filter(wallet => wallet.Torebki_Kod && wallet.Torebki_Kod.trim() !== '')
             .filter(wallet => 
-                wallet.Torebki_Kod.toLowerCase().includes(walletFilterText.toLowerCase())
+                wallet.Torebki_Kod.toLowerCase().startsWith(walletFilterText.toLowerCase())
             )
             .slice(0, 10); // Maksymalnie 10 wyników
     };
@@ -636,7 +656,7 @@ const Goods = () => {
         return walletsData
             .filter(wallet => wallet.Portfele_Kod && wallet.Portfele_Kod.trim() !== '')
             .filter(wallet => 
-                wallet.Portfele_Kod.toLowerCase().includes(walletFilterTextPortfele.toLowerCase())
+                wallet.Portfele_Kod.toLowerCase().startsWith(walletFilterTextPortfele.toLowerCase())
             )
             .slice(0, 10); // Maksymalnie 10 wyników
     };
@@ -644,13 +664,22 @@ const Goods = () => {
     // Functions for remaining products
     const handleRemainingProductFilterChange = (e) => {
         const value = e.target.value;
-        setRemainingProductFilterText(value);
-        setSelectedRemainingProductCode(value);
-        setIsRemainingProductDropdownOpen(true);
-        setSelectedRemainingProductIndex(-1); // Reset keyboard selection
         
-        // Update product name for remaining products
-        updateRemainingProductName(value, selectedColor);
+        // Check if the new value could be the start of any remaining product code
+        const wouldMatchAnyProduct = remainingProducts.some(product => 
+            product.Poz_Kod.toLowerCase().startsWith(value.toLowerCase())
+        );
+        
+        // Only allow the change if it could be the start of some product or if it's a deletion (shorter than current)
+        if (wouldMatchAnyProduct || value.length < remainingProductFilterText.length || value === '') {
+            setRemainingProductFilterText(value);
+            setSelectedRemainingProductCode(value);
+            setIsRemainingProductDropdownOpen(true);
+            setSelectedRemainingProductIndex(-1); // Reset keyboard selection
+            
+            // Update product name for remaining products
+            updateRemainingProductName(value, selectedColor);
+        }
     };
 
     const handleRemainingProductKeyDown = (e) => {
@@ -689,7 +718,7 @@ const Goods = () => {
         return remainingProducts
             .filter(product => product.Poz_Kod && product.Poz_Kod.trim() !== '')
             .filter(product => 
-                product.Poz_Kod.toLowerCase().includes(remainingProductFilterText.toLowerCase())
+                product.Poz_Kod.toLowerCase().startsWith(remainingProductFilterText.toLowerCase())
             )
             .slice(0, 10); // Maksymalnie 10 wyników
     };
@@ -697,9 +726,19 @@ const Goods = () => {
     // Functions for color filtering
     const handleColorFilterChange = (e) => {
         const value = e.target.value;
-        setColorFilterText(value);
-        setIsColorDropdownOpen(true);
-        setSelectedColorIndex(-1); // Reset keyboard selection
+        
+        // Check if the new value would match any color
+        const wouldMatchAnyColor = colors.some(color => 
+            color.Kol_Opis.toLowerCase().includes(value.toLowerCase()) ||
+            color.Kol_Kod.toLowerCase().includes(value.toLowerCase())
+        );
+        
+        // Only allow the change if it matches some color or if it's a deletion (shorter than current)
+        if (wouldMatchAnyColor || value.length < colorFilterText.length || value === '') {
+            setColorFilterText(value);
+            setIsColorDropdownOpen(true);
+            setSelectedColorIndex(-1); // Reset keyboard selection
+        }
     };
 
     const handleColorSelect = (colorId, colorDescription) => {
@@ -755,9 +794,18 @@ const Goods = () => {
     // Functions for product filtering (Kurtki kożuchy futra)
     const handleProductFilterChange = (e) => {
         const value = e.target.value;
-        setProductFilterText(value);
-        setIsProductDropdownOpen(true);
-        setSelectedProductIndex(-1); // Reset keyboard selection
+        
+        // Check if the new value could be the start of any product description
+        const wouldMatchAnyProduct = stocks.some(stock => 
+            stock.Tow_Opis.toLowerCase().startsWith(value.toLowerCase())
+        );
+        
+        // Only allow the change if it could be the start of some product or if it's a deletion (shorter than current)
+        if (wouldMatchAnyProduct || value.length < productFilterText.length || value === '') {
+            setProductFilterText(value);
+            setIsProductDropdownOpen(true);
+            setSelectedProductIndex(-1); // Reset keyboard selection
+        }
     };
 
     const handleProductSelect = (productId, productDescription) => {
@@ -796,8 +844,8 @@ const Goods = () => {
         return stocks
             .filter(product => product.Tow_Opis && product.Tow_Opis.trim() !== '')
             .filter(product => 
-                product.Tow_Opis.toLowerCase().includes(productFilterText.toLowerCase()) ||
-                product.Tow_Kod.toLowerCase().includes(productFilterText.toLowerCase())
+                product.Tow_Opis.toLowerCase().startsWith(productFilterText.toLowerCase()) ||
+                product.Tow_Kod.toLowerCase().startsWith(productFilterText.toLowerCase())
             )
             .slice(0, 10); // Maksymalnie 10 wyników
     };

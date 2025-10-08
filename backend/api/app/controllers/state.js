@@ -34,7 +34,7 @@ class StatesController {
                 fullName: state.fullName,
                 date: state.date,
                 plec: state.plec,
-                size: state.size || { Roz_Opis: '-' }, // Dla torebek gdy size jest null, pokaż "-"
+                size: state.size || { Roz_Opis: '-' }, // Dla torebek, portfeli i pozostałego asortymentu gdy size jest null, pokaż "-"
                 barcode: state.barcode,
                 sellingPoint: state.sellingPoint,
                 price: state.fullName ? state.fullName.price : 0,
@@ -62,9 +62,9 @@ class StatesController {
                 fullName: state.fullName ? state.fullName.fullName : 'Nieznany produkt', // Handle null fullName
                 date: state.date,
                 plec: state.plec,
-                size: (state.fullName && (state.fullName.category === 'Torebki' || state.fullName.category === 'Portfele')) 
+                size: (state.fullName && (state.fullName.category === 'Torebki' || state.fullName.category === 'Portfele' || state.fullName.category === 'Pozostały asortyment')) 
                     ? '-' 
-                    : (state.size ? state.size.Roz_Opis : 'Nieznany rozmiar'), // Handle bags, wallets and null size
+                    : (state.size ? state.size.Roz_Opis : 'Nieznany rozmiar'), // Handle bags, wallets, remaining products and null size
                 barcode: state.barcode,
                 symbol: state.sellingPoint ? state.sellingPoint.symbol : 'Nieznany punkt sprzedaży', // Handle null sellingPoint
                 price: state.fullName ? state.fullName.price : 0, // Handle null price
@@ -96,8 +96,8 @@ class StatesController {
             // Special handling for bags category or "-" size
             let size, barcode;
             
-            if (goods.category === 'Torebki' || req.body.size === '-') {
-                // For bags, don't create any size - use null and handle specially
+            if (goods.category === 'Torebki' || goods.category === 'Portfele' || goods.category === 'Pozostały asortyment' || req.body.size === '-') {
+                // For bags, wallets, remaining products, don't create any size - use null and handle specially
                 size = null;
                 
                 // For bags, use original barcode without modification
@@ -138,9 +138,9 @@ class StatesController {
                 const basePrice = goods.price || 0;
                 const discountPrice = goods.discount_price || 0;
                 
-                // For bags, don't check price exceptions as they use special TOREBKA size
+                // For bags, wallets, remaining products don't check price exceptions as they don't use sizes
                 let exception = null;
-                if (goods.category !== 'Torebki' && size && size.Roz_Opis !== 'TOREBKA') {
+                if (goods.category !== 'Torebki' && goods.category !== 'Portfele' && goods.category !== 'Pozostały asortyment' && size && size.Roz_Opis !== 'TOREBKA') {
                     exception = goods.priceExceptions.find(
                         (ex) => ex.size && ex.size._id.toString() === size._id.toString()
                     );
@@ -162,8 +162,8 @@ class StatesController {
                 discount_price: finalDiscountPrice
             };
 
-            // For bags, don't set size field; for other products, set size
-            if (goods.category !== 'Torebki' && req.body.size !== '-') {
+            // For bags, wallets, remaining products don't set size field; for other products, set size
+            if (goods.category !== 'Torebki' && goods.category !== 'Portfele' && goods.category !== 'Pozostały asortyment' && req.body.size !== '-') {
                 stateData.size = size._id;
             }
 
