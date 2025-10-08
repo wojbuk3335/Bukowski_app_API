@@ -32,8 +32,28 @@ const Bags = () => {
         toggleModal();
     };
 
+    const validateTorebkiKod = (value) => {
+        // Allow empty string
+        if (value === '') return value;
+        
+        // Check if value contains a decimal point
+        if (value.includes('.')) {
+            const parts = value.split('.');
+            // If there's more than one decimal point, return the current value
+            if (parts.length > 2) return currentWallet.Torebki_Kod;
+            
+            // Limit decimal places to maximum 3 digits
+            if (parts[1] && parts[1].length > 3) {
+                return parts[0] + '.' + parts[1].slice(0, 3);
+            }
+        }
+        
+        return value;
+    };
+
     const handleUpdateChange = (e) => {
-        setCurrentWallet({ ...currentWallet, Torebki_Kod: e.target.value });
+        const validatedValue = validateTorebkiKod(e.target.value);
+        setCurrentWallet({ ...currentWallet, Torebki_Kod: validatedValue });
     };
 
     const handleUpdateSubmit = async () => {
