@@ -33,6 +33,13 @@ const Goods = () => {
     const [selectedBagsCategoryId, setSelectedBagsCategoryId] = useState(''); // Selected bags category ID
     const [selectedWalletsCategoryCode, setSelectedWalletsCategoryCode] = useState(''); // Selected wallets category code
     const [selectedWalletsCategoryId, setSelectedWalletsCategoryId] = useState(''); // Selected wallets category ID
+    const [remainingCategories, setRemainingCategories] = useState([]); // State for remaining categories
+    const [selectedRemainingCategory, setSelectedRemainingCategory] = useState(''); // Selected remaining category
+    const [remainingProducts, setRemainingProducts] = useState([]); // State for remaining products
+    const [selectedRemainingProductCode, setSelectedRemainingProductCode] = useState(''); // Selected remaining product code
+    const [remainingProductFilterText, setRemainingProductFilterText] = useState(''); // Filter text for remaining products
+    const [isRemainingProductDropdownOpen, setIsRemainingProductDropdownOpen] = useState(false); // Dropdown state for remaining products
+    const [selectedRemainingProductIndex, setSelectedRemainingProductIndex] = useState(-1); // Index for keyboard navigation
     const [price, setPrice] = useState(0);
     const [discountPrice, setDiscountPrice] = useState(0);
     const [priceExceptions, setPriceExceptions] = useState([]); // Initialize with an empty array
@@ -206,6 +213,39 @@ const Goods = () => {
             .catch(error => console.error('Error fetching wallets categories:', error));
     }, []);
 
+    // Fetch remaining categories
+    useEffect(() => {
+        fetch('/api/excel/remaining-category/get-all-remaining-categories')
+            .then(response => response.json())
+            .then(data => {
+                const filteredCategories = (data.remainingCategories || []).filter(cat => 
+                    cat.Rem_Kat_1_Opis_1 && cat.Rem_Kat_1_Opis_1.trim() !== ''
+                );
+                setRemainingCategories(filteredCategories);
+                if (filteredCategories.length > 0) {
+                    setSelectedRemainingCategory(filteredCategories[0]._id);
+                }
+            })
+            .catch(error => console.error('Error fetching remaining categories:', error));
+    }, []);
+
+    // Fetch remaining products
+    useEffect(() => {
+        fetch('/api/excel/remaining-products/get-all-remaining-products')
+            .then(response => response.json())
+            .then(data => {
+                const filteredProducts = (data.remainingProducts || []).filter(product => 
+                    product.Poz_Kod && product.Poz_Kod.trim() !== ''
+                );
+                setRemainingProducts(filteredProducts);
+                if (filteredProducts.length > 0) {
+                    setSelectedRemainingProductCode(filteredProducts[0].Poz_Kod);
+                    setRemainingProductFilterText(filteredProducts[0].Poz_Kod);
+                }
+            })
+            .catch(error => console.error('Error fetching remaining products:', error));
+    }, []);
+
     useEffect(() => {
         if (modal) {
             setTimeout(() => {
@@ -233,6 +273,13 @@ const Goods = () => {
             updateWalletProductName(selectedWalletCodePortfele, selectedColor);
         }
     }, [selectedCategory, selectedWalletCodePortfele, selectedColor]);
+
+    // Auto-update for remaining products category
+    useEffect(() => {
+        if (selectedCategory === 'Pozostały asortyment' && selectedRemainingProductCode && selectedColor) {
+            updateRemainingProductName(selectedRemainingProductCode, selectedColor);
+        }
+    }, [selectedCategory, selectedRemainingProductCode, selectedColor]);
 
     // Close bags dropdown when clicking outside
     useEffect(() => {
@@ -262,6 +309,20 @@ const Goods = () => {
         };
     }, [showWalletDropdownPortfele]);
 
+    // Close remaining products dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (isRemainingProductDropdownOpen && !event.target.closest('#remainingProductCode')) {
+                setIsRemainingProductDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isRemainingProductDropdownOpen]);
+
     const handleStockChange = (e) => {
         setSelectedStock(e.target.value);
         updateProductName(e.target.value, selectedColor);
@@ -273,6 +334,8 @@ const Goods = () => {
             updateBagProductName(selectedWalletCode, e.target.value);
         } else if (selectedCategory === 'Portfele') {
             updateWalletProductName(selectedWalletCodePortfele, e.target.value);
+        } else if (selectedCategory === 'Pozostały asortyment') {
+            updateRemainingProductName(selectedRemainingProductCode, e.target.value);
         } else {
             updateProductName(selectedStock, e.target.value);
         }
@@ -540,6 +603,59 @@ const Goods = () => {
             .slice(0, 10); // Maksymalnie 10 wyników
     };
 
+    // Functions for remaining products
+    const handleRemainingProductFilterChange = (e) => {
+        const value = e.target.value;
+        setRemainingProductFilterText(value);
+        setSelectedRemainingProductCode(value);
+        setIsRemainingProductDropdownOpen(true);
+        setSelectedRemainingProductIndex(-1); // Reset keyboard selection
+        
+        // Update product name for remaining products
+        updateRemainingProductName(value, selectedColor);
+    };
+
+    const handleRemainingProductKeyDown = (e) => {
+        const filteredProducts = getFilteredRemainingProducts();
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedRemainingProductIndex(prev => 
+                prev < filteredProducts.length - 1 ? prev + 1 : prev
+            );
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedRemainingProductIndex(prev => prev > 0 ? prev - 1 : prev);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (selectedRemainingProductIndex >= 0 && filteredProducts[selectedRemainingProductIndex]) {
+                handleRemainingProductSelect(filteredProducts[selectedRemainingProductIndex].Poz_Kod);
+            }
+        } else if (e.key === 'Escape') {
+            setIsRemainingProductDropdownOpen(false);
+            setSelectedRemainingProductIndex(-1);
+        }
+    };
+
+    const handleRemainingProductSelect = (code) => {
+        setSelectedRemainingProductCode(code);
+        setRemainingProductFilterText(code);
+        setIsRemainingProductDropdownOpen(false);
+        setSelectedRemainingProductIndex(-1); // Reset keyboard selection
+        
+        // Update product name for remaining products
+        updateRemainingProductName(code, selectedColor);
+    };
+
+    const getFilteredRemainingProducts = () => {
+        return remainingProducts
+            .filter(product => product.Poz_Kod && product.Poz_Kod.trim() !== '')
+            .filter(product => 
+                product.Poz_Kod.toLowerCase().includes(remainingProductFilterText.toLowerCase())
+            )
+            .slice(0, 10); // Maksymalnie 10 wyników
+    };
+
     const handlePriceChange = (e) => {
         setPrice(e.target.value);
     };
@@ -579,6 +695,12 @@ const Goods = () => {
     const updateWalletProductName = (walletCode, colorId) => {
         const color = colors.find(color => color._id === colorId);
         const newName = `${walletCode ? walletCode : ''} ${color ? color.Kol_Opis : ''}`.trim();
+        setProductName(newName);
+    };
+
+    const updateRemainingProductName = (productCode, colorId) => {
+        const color = colors.find(color => color._id === colorId);
+        const newName = `${productCode ? productCode : ''} ${color ? color.Kol_Opis : ''}`.trim();
         setProductName(newName);
     };
 
@@ -693,6 +815,54 @@ const Goods = () => {
         return code;
     };
 
+    const generateRemainingProductCode = () => {
+        // Format kodu dla pozostałego asortymentu: 000 + kolor(2) + 00 + Poz_Nr(2) + po_kropce(3) + suma(1)
+        // Pozycje 1-3: 000 (zawsze zera)
+        // Pozycje 4-5: Kod koloru (2 cyfry)
+        // Pozycje 6-7: 00 (zawsze zera)
+        // Pozycje 8-9: Poz_Nr z wybranego produktu (2 cyfry)
+        // Pozycje 10-12: Wartość po kropce z Poz_Kod (3 cyfry)
+        // Pozycja 13: Suma kontrolna
+        
+        const color = colors.find(color => color._id === selectedColor);
+        const remainingProduct = remainingProducts.find(product => product.Poz_Kod === selectedRemainingProductCode);
+        
+        if (!color || !remainingProduct) {
+            return '';
+        }
+
+        // Pozycje 1-3: zawsze 000
+        let code = '000';
+        
+        // Pozycje 4-5: Kod koloru (Kol_Kod) - 2 cyfry
+        const colorCode = color.Kol_Kod || '00';
+        code += colorCode.padStart(2, '0').substring(0, 2);
+        
+        // Pozycje 6-7: zawsze 00
+        code += '00';
+        
+        // Pozycje 8-9: Poz_Nr z wybranego produktu - 2 cyfry
+        const productNumber = remainingProduct.Poz_Nr || 0;
+        code += productNumber.toString().padStart(2, '0').substring(0, 2);
+        
+        // Pozycje 10-12: Wartość po kropce z Poz_Kod - 3 cyfry
+        let afterDotValue = '000';
+        if (selectedRemainingProductCode) {
+            const afterDotMatch = selectedRemainingProductCode.match(/\.(\d+)/); // Znajdź cyfry po kropce
+            if (afterDotMatch) {
+                const digits = afterDotMatch[1];
+                afterDotValue = digits.padStart(3, '0').substring(0, 3);
+            }
+        }
+        code += afterDotValue;
+        
+        // Pozycja 13: Suma kontrolna
+        const controlSum = calculateControlSum(code);
+        code += controlSum;
+        
+        return code;
+    };
+
     const handleAddProduct = () => {
         // Ensure selectedCategory is correctly set
         if (!selectedCategory) {
@@ -730,6 +900,21 @@ const Goods = () => {
             color = colors.find(color => color._id === selectedColor);
             fullName = productName;
             productCode = generateWalletProductCode(); // używamy nowej funkcji dla portfeli
+
+            if (!productCode) {
+                alert('Nie można wygenerować kodu produktu!');
+                return;
+            }
+        } else if (selectedCategory === 'Pozostały asortyment') {
+            // Obsługa kategorii Pozostały asortyment
+            if (!selectedRemainingProductCode || !selectedColor || !selectedRemainingCategory) {
+                alert('Wybierz podkategorię, produkt i kolor!');
+                return;
+            }
+
+            color = colors.find(color => color._id === selectedColor);
+            fullName = productName;
+            productCode = generateRemainingProductCode();
 
             if (!productCode) {
                 alert('Nie można wygenerować kodu produktu!');
@@ -779,6 +964,9 @@ const Goods = () => {
         } else if (selectedCategory === 'Portfele') {
             const selectedWalletsCategory = walletsCategories.find(cat => cat._id === selectedWalletsCategoryId);
             finalPlec = selectedWalletsCategory ? selectedWalletsCategory.Plec : '';
+        } else if (selectedCategory === 'Pozostały asortyment') {
+            const selectedRemainingCat = remainingCategories.find(cat => cat._id === selectedRemainingCategory);
+            finalPlec = selectedRemainingCat ? selectedRemainingCat.Plec : '';
         } else {
             finalPlec = PlecFromSubcategory;
         }
@@ -797,6 +985,12 @@ const Goods = () => {
             formData.append('bagProduct', selectedWalletCodePortfele); // Kod portfela zamiast stock
             formData.append('bagId', ''); // Brak ID dla portfeli (może być dodane później)
             formData.append('bagsCategoryId', selectedWalletsCategoryId); // ID kategorii portfeli
+        } else if (selectedCategory === 'Pozostały asortyment') {
+            // Dla pozostałego asortymentu - używamy danych z tabeli remaining products i kategorii
+            formData.append('stock', ''); // Brak stock dla pozostałego asortymentu
+            formData.append('bagProduct', selectedRemainingProductCode); // Kod produktu pozostałego asortymentu
+            formData.append('bagId', ''); // Brak ID dla pozostałego asortymentu
+            formData.append('bagsCategoryId', selectedRemainingCategory); // ID kategorii pozostałego asortymentu
         } else {
             // Dla kurtek - standardowa obsługa
             formData.append('stock', stock ? stock._id : '');
@@ -806,7 +1000,17 @@ const Goods = () => {
         formData.append('fullName', fullName);
         formData.append('code', productCode);
         formData.append('category', selectedCategory); // Save category with spaces
-        formData.append('subcategory', selectedCategory === 'Torebki' ? '' : selectedSubcategory); // Brak podkategorii dla torebek
+        
+        // Obsługa podkategorii w zależności od typu kategorii
+        if (selectedCategory === 'Torebki') {
+            formData.append('subcategory', ''); // Brak podkategorii dla torebek
+        } else if (selectedCategory === 'Portfele') {
+            formData.append('subcategory', ''); // Brak podkategorii dla portfeli
+        } else if (selectedCategory === 'Pozostały asortyment') {
+            formData.append('subcategory', selectedRemainingCategory); // Podkategoria dla pozostałego asortymentu
+        } else {
+            formData.append('subcategory', selectedSubcategory); // Standardowa podkategoria dla kurtek
+        }
         formData.append('price', price);
         formData.append('discount_price', discountPrice);
         formData.append('priceExceptions', JSON.stringify(priceExceptions));
@@ -918,6 +1122,24 @@ const Goods = () => {
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
             
+        } else if (good.category === 'Pozostały asortyment') {
+            // Obsługa edycji pozostałego asortymentu
+            const color = colors.find(color => color._id === good.color._id);
+            
+            if (!color) {
+                alert('Nie znaleziono powiązanego koloru.');
+                return;
+            }
+
+            setSelectedColor(color._id);
+            setSelectedRemainingProductCode(good.bagProduct || '');
+            setRemainingProductFilterText(good.bagProduct || '');
+            setSelectedRemainingCategory(good.bagsCategoryId || '');
+            setSelectedCategory(good.category);
+            setPrice(good.price);
+            setDiscountPrice(good.discount_price);
+            setProductName(good.fullName);
+            
         } else {
             // Obsługa edycji kurtek
             const stock = stocks.find(stock => stock._id === good.stock._id);
@@ -1006,6 +1228,11 @@ const Goods = () => {
         setPriceExceptions([]); // Reset to an empty array
         setSelectedImage(null);
         setEditingGood(null);
+        setSelectedRemainingCategory(remainingCategories.length > 0 ? remainingCategories[0]._id : ''); // Reset remaining category
+        setSelectedRemainingProductCode(remainingProducts.length > 0 ? remainingProducts[0].Poz_Kod : ''); // Reset remaining product
+        setRemainingProductFilterText(remainingProducts.length > 0 ? remainingProducts[0].Poz_Kod : ''); // Reset remaining product filter
+        setIsRemainingProductDropdownOpen(false); // Close remaining products dropdown
+        setSelectedRemainingProductIndex(-1); // Reset keyboard navigation
         if (stocks.length > 0 && colors.length > 0) {
             updateProductName(stocks[0]._id, colors[0]._id);
         } else {
@@ -1100,7 +1327,7 @@ const Goods = () => {
 
     return (
         <div>
-            <Button color="primary" className={`${styles.addButton} ${styles.button} btn-sm`} onClick={toggle}>Dodaj produkt</Button>
+            <Button color="primary" className={`${styles.addButton} ${styles.button} btn-sm`} style={{marginBottom: '20px'}} onClick={toggle}>Dodaj produkt</Button>
             <Modal isOpen={modal} toggle={toggle} innerRef={modalRef}>
                 <ModalHeader
                     style={{ cursor: 'grab' }}
@@ -1124,6 +1351,7 @@ const Goods = () => {
                             <option value="Kurtki kożuchy futra">Kurtki kożuchy futra</option>
                             <option value="Torebki">Torebki</option>
                             <option value="Portfele">Portfele</option>
+                            <option value="Pozostały asortyment">Pozostały asortyment</option>
                         </Input>
                     </FormGroup>
                     
@@ -1636,6 +1864,185 @@ const Goods = () => {
                             </FormGroup>
                         </>
                     )}
+
+                    {selectedCategory === 'Pozostały asortyment' && (
+                        <>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingSubcategorySelect" className={styles.label}>Podkategoria:</Label>
+                                <Input
+                                    type="select"
+                                    id="remainingSubcategorySelect"
+                                    className={styles.inputField}
+                                    value={selectedRemainingCategory}
+                                    onChange={(e) => setSelectedRemainingCategory(e.target.value)}
+                                >
+                                    {remainingCategories.length === 0 ? (
+                                        <option value="">Brak dostępnych kategorii</option>
+                                    ) : (
+                                        remainingCategories.map(category => (
+                                            <option key={category._id} value={category._id}>
+                                                {category.Rem_Kat_1_Opis_1}
+                                            </option>
+                                        ))
+                                    )}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingProductCode" className={styles.label}>Produkt:</Label>
+                                <div id="remainingProductCode" style={{ position: 'relative' }}>
+                                    <Input
+                                        type="text"
+                                        value={remainingProductFilterText}
+                                        onChange={handleRemainingProductFilterChange}
+                                        onKeyDown={handleRemainingProductKeyDown}
+                                        onFocus={() => setIsRemainingProductDropdownOpen(true)}
+                                        placeholder="Wpisz lub wybierz kod produktu..."
+                                        autoComplete="off"
+                                        style={{
+                                            backgroundColor: '#000000',
+                                            color: '#ffffff',
+                                            border: '1px solid #333333',
+                                            borderRadius: '4px',
+                                            padding: '8px 12px',
+                                            width: '100%'
+                                        }}
+                                    />
+                                    <div 
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            cursor: 'pointer',
+                                            fontSize: '12px'
+                                        }}
+                                        onClick={() => setIsRemainingProductDropdownOpen(!isRemainingProductDropdownOpen)}
+                                    >
+                                        ▼
+                                    </div>
+                                    {isRemainingProductDropdownOpen && (
+                                        <div 
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: '#000000',
+                                                color: '#ffffff',
+                                                border: '1px solid #333333',
+                                                borderTop: 'none',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 1000,
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            {getFilteredRemainingProducts().length > 0 ? (
+                                                getFilteredRemainingProducts().map((product, index) => (
+                                                    <div
+                                                        key={product._id}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid #333333',
+                                                            backgroundColor: 
+                                                                selectedRemainingProductIndex === index ? '#007bff' :
+                                                                selectedRemainingProductCode === product.Poz_Kod ? '#111111' : '#000000',
+                                                            color: '#ffffff'
+                                                        }}
+                                                        onClick={() => handleRemainingProductSelect(product.Poz_Kod)}
+                                                        onMouseEnter={(e) => {
+                                                            if (selectedRemainingProductIndex !== index) {
+                                                                e.target.style.backgroundColor = '#444444';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (selectedRemainingProductIndex !== index) {
+                                                                e.target.style.backgroundColor = selectedRemainingProductCode === product.Poz_Kod ? '#111111' : '#000000';
+                                                            }
+                                                        }}
+                                                    >
+                                                        {product.Poz_Kod}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '8px 12px', color: '#ccc' }}>
+                                                    Brak wyników
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingColorSelect" className={styles.label}>Kolor:</Label>
+                                <Input
+                                    type="select"
+                                    id="remainingColorSelect"
+                                    className={styles.inputField}
+                                    onChange={handleColorChange}
+                                    value={selectedColor}
+                                >
+                                    {colors.map(color => (
+                                        <option key={color._id} value={color._id} kol_opis={color.Kol_Opis} kol_kod={color.Kol_Kod}>{color.Kol_Opis}</option>
+                                    ))}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingProductName" className={styles.label}>Nazwa produktu:</Label>
+                                <Input
+                                    type="text"
+                                    id="remainingProductName"
+                                    className={styles.inputField}
+                                    value={productName}
+                                    onChange={(e) => setProductName(e.target.value)}
+                                />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingProductCodeGenerated" className={styles.label}>Kod produktu:</Label>
+                                <Input
+                                    type="text"
+                                    id="remainingProductCodeGenerated"
+                                    className={styles.inputField}
+                                    value={generateRemainingProductCode()}
+                                    readOnly
+                                />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingProductImage" className={`${styles.label} ${styles.noWrapLabel}`}>Zdjęcie produktu:</Label>
+                                <input
+                                    type="file"
+                                    id="remainingProductImage"
+                                    className={styles.inputFile}
+                                    onChange={handleImageChange}
+                                />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingPrice" className={styles.label}>Cena (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="remainingPrice"
+                                    className={styles.inputField}
+                                    value={price}
+                                    onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
+                                    step="0.01"
+                                    min="0"
+                                />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingDiscountPrice" className={styles.label}>Promocyjna (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="remainingDiscountPrice"
+                                    className={styles.inputField}
+                                    value={discountPrice}
+                                    onChange={(e) => setDiscountPrice(parseFloat(e.target.value) || 0)}
+                                    step="0.01"
+                                    min="0"
+                                />
+                            </FormGroup>
+                        </>
+                    )}
                     
                     <Button color="primary" onClick={handleAddProduct} className={`${styles.button} btn-sm`}>
                         {editingGood ? 'Zaktualizuj produkt' : 'Dodaj produkt'}
@@ -1666,7 +2073,7 @@ const Goods = () => {
                             <tr key={good._id}>
                                 <th scope="row" className={styles.tableCell} data-label="Lp">{index + 1}</th>
                                 <td className={styles.tableCell} data-label="Produkt">
-                                    {(good.category === 'Torebki' || good.category === 'Portfele') ? (good.bagProduct || '-') : (good.stock ? good.stock.Tow_Opis : '-')}
+                                    {(good.category === 'Torebki' || good.category === 'Portfele' || good.category === 'Pozostały asortyment') ? (good.bagProduct || '-') : (good.stock ? good.stock.Tow_Opis : '-')}
                                 </td>
                                 <td className={styles.tableCell} data-label="Kolor">{good.color.Kol_Opis}</td>
                                 <td className={styles.tableCell} data-label="Nazwa produktu">{good.fullName}</td>
@@ -1693,6 +2100,16 @@ const Goods = () => {
                                                 return '-';
                                             })()
                                             : '-'
+                                        ) : good.category === 'Pozostały asortyment' ?
+                                        (good.bagsCategoryId ? 
+                                            (() => {
+                                                const remainingCategory = remainingCategories.find(cat => cat._id === good.bagsCategoryId);
+                                                if (remainingCategory && remainingCategory.Rem_Kat_1_Opis_1) {
+                                                    return remainingCategory.Rem_Kat_1_Opis_1;
+                                                }
+                                                return '-';
+                                            })()
+                                            : '-'
                                         ) : 
                                         (good.subcategory ? good.subcategory.Kat_1_Opis_1 : '')
                                     }
@@ -1711,7 +2128,7 @@ const Goods = () => {
                                     {good.discount_price === 0 || good.discount_price === '' ? '' : good.discount_price}
                                 </td>
                                 <td className={styles.tableCell} data-label="Wyjątki">
-                                    {good.category === 'Torebki' ? '-' : (
+                                    {(good.category === 'Torebki' || good.category === 'Portfele' || good.category === 'Pozostały asortyment') ? '-' : (
                                         good.priceExceptions.map((exception, i) => (
                                             <span key={i}>
                                                 {exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru'}={exception.value}
@@ -1727,6 +2144,24 @@ const Goods = () => {
                                                 (() => {
                                                     const bagsCategory = bagsCategories.find(cat => cat._id === good.bagsCategoryId);
                                                     return bagsCategory ? bagsCategory.Plec : '-';
+                                                })()
+                                                : '-'
+                                            )
+                                        ) : good.category === 'Portfele' ?
+                                        (good.Plec || 
+                                            (good.bagsCategoryId ? 
+                                                (() => {
+                                                    const walletsCategory = subcategories.find(cat => cat._id === good.bagsCategoryId);
+                                                    return walletsCategory ? walletsCategory.Plec : '-';
+                                                })()
+                                                : '-'
+                                            )
+                                        ) : good.category === 'Pozostały asortyment' ?
+                                        (good.Plec || 
+                                            (good.bagsCategoryId ? 
+                                                (() => {
+                                                    const remainingCategory = remainingCategories.find(cat => cat._id === good.bagsCategoryId);
+                                                    return remainingCategory ? remainingCategory.Plec : '-';
                                                 })()
                                                 : '-'
                                             )

@@ -21,6 +21,11 @@ class GoodsController {
             if (!bagProduct) {
                 return res.status(400).json({ message: 'Wallet product code is required for wallets category' });
             }
+        } else if (category === 'Pozostały asortyment') {
+            // Validation for remaining assortment
+            if (!bagProduct) {
+                return res.status(400).json({ message: 'Product code is required for remaining assortment category' });
+            }
         } else {
             // Validation for other products
             if (stock === 'NIEOKREŚLONY') {
@@ -79,6 +84,12 @@ class GoodsController {
             goodData.bagId = bagId; // ID portfela (może być puste)
             goodData.bagsCategoryId = bagsCategoryId; // ID kategorii portfela
             goodData.Plec = Plec; // Płeć z kategorii portfeli
+        } else if (category === 'Pozostały asortyment') {
+            goodData.bagProduct = bagProduct; // Kod produktu pozostałego asortymentu
+            goodData.bagId = bagId; // ID produktu (może być puste)
+            goodData.bagsCategoryId = bagsCategoryId; // ID kategorii pozostałego asortymentu
+            goodData.subcategory = subcategory; // Podkategoria dla pozostałego asortymentu
+            goodData.Plec = Plec; // Płeć z kategorii pozostałego asortymentu
         } else {
             goodData.stock = stock;
             goodData.subcategory = subcategory;
@@ -137,7 +148,7 @@ class GoodsController {
                         bagsCategoryId: good.bagsCategoryId,
                         fullName: good.fullName,
                         code: good.code,
-                        category: good.category.replace(/_/g, ' '), // Replace underscores with spaces
+                        category: good.category ? good.category.replace(/_/g, ' ') : 'Nieokreślona', // Replace underscores with spaces, handle null
                         subcategory: good.subcategory,
                         Plec: good.Plec, // Include Plec in the response
                         price: good.price,
@@ -160,13 +171,14 @@ class GoodsController {
 
     async updateGood(req, res, next) {
         const id = req.params.goodId;
+        
         const updateData = {
             color: req.body.color,
             fullName: req.body.fullName,
             code: req.body.code,
             category: req.body.category ? req.body.category.replace(/_/g, ' ') : null, // Replace underscores with spaces
-            price: req.body.price,
-            discount_price: req.body.discount_price || 0,
+            price: parseFloat(req.body.price),
+            discount_price: parseFloat(req.body.discount_price) || 0,
             priceExceptions: JSON.parse(req.body.priceExceptions || '[]'),
             sellingPoint: req.body.sellingPoint,
             barcode: req.body.barcode
@@ -178,6 +190,17 @@ class GoodsController {
             updateData.bagId = req.body.bagId;
             updateData.bagsCategoryId = req.body.bagsCategoryId;
             updateData.Plec = req.body.Plec; // Płeć z kategorii torebek
+        } else if (req.body.category === 'Portfele') {
+            updateData.bagProduct = req.body.bagProduct;
+            updateData.bagId = req.body.bagId;
+            updateData.bagsCategoryId = req.body.bagsCategoryId;
+            updateData.Plec = req.body.Plec; // Płeć z kategorii portfeli
+        } else if (req.body.category === 'Pozostały asortyment') {
+            updateData.bagProduct = req.body.bagProduct;
+            updateData.bagId = req.body.bagId;
+            updateData.bagsCategoryId = req.body.bagsCategoryId;
+            updateData.subcategory = req.body.subcategory;
+            updateData.Plec = req.body.Plec; // Płeć z kategorii pozostałego asortymentu
         } else {
             updateData.stock = req.body.stock;
             updateData.subcategory = req.body.subcategory;
@@ -194,6 +217,16 @@ class GoodsController {
             if (!req.body.bagProduct) {
                 return res.status(400).json({ message: 'Bag product code is required for bags category' });
             }
+        } else if (req.body.category === 'Portfele') {
+            // Validation for wallets
+            if (!req.body.bagProduct) {
+                return res.status(400).json({ message: 'Wallet product code is required for wallets category' });
+            }
+        } else if (req.body.category === 'Pozostały asortyment') {
+            // Validation for remaining assortment
+            if (!req.body.bagProduct) {
+                return res.status(400).json({ message: 'Product code is required for remaining assortment category' });
+            }
         } else {
             // Validation for other products
             if (updateData.stock === 'NIEOKREŚLONY') {
@@ -202,8 +235,8 @@ class GoodsController {
         }
 
         // Validate price
-        if (updateData.price <= 0) {
-            return res.status(400).json({ message: 'Cena musi być większa od zera' });
+        if (isNaN(updateData.price) || updateData.price <= 0) {
+            return res.status(400).json({ message: 'Cena musi być liczbą większą od zera' });
         }
 
         // Check for duplicate sizes in price exceptions
@@ -218,13 +251,19 @@ class GoodsController {
 
         Goods.updateOne({ _id: id }, { $set: updateData })
             .then(result => {
-                if (result.nModified > 0) {
-                    return res.status(200).json({
-                        message: 'Good updated successfully'
-                    });
+                if (result.matchedCount > 0) {
+                    if (result.modifiedCount > 0 || result.nModified > 0) {
+                        return res.status(200).json({
+                            message: 'Good updated successfully'
+                        });
+                    } else {
+                        return res.status(200).json({
+                            message: 'Good found but no changes were needed'
+                        });
+                    }
                 } else {
                     return res.status(404).json({
-                        message: 'Good not found or no changes made'
+                        message: 'Good not found'
                     });
                 }
             })

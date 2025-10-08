@@ -109,7 +109,8 @@ class WalletsCategoryController {
     async updateWalletsCategory(req, res, next) {
         const id = req.params.walletsCategoryId;
         const updateData = {
-            Kat_1_Opis_1: req.body.Kat_1_Opis_1
+            Kat_1_Opis_1: req.body.Kat_1_Opis_1,
+            Plec: req.body.Plec
         };
 
         WalletsCategory.updateOne({ _id: id }, { $set: updateData })
