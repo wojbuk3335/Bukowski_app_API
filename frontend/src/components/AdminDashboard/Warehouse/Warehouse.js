@@ -50,6 +50,14 @@ const Warehouse = () => {
     const calendarRef = useRef(null); // Ref for the calendar container
     const [loading, setLoading] = useState(false); // Loading state
     const [magazynCount, setMagazynCount] = useState(0); // State to store the count of "MAGAZYN"
+    
+    // Warehouse report states
+    const [isWarehouseReportModalOpen, setIsWarehouseReportModalOpen] = useState(false);
+    const [reportDateRange, setReportDateRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }]);
+    const [reportProductFilter, setReportProductFilter] = useState('all'); // 'all' or specific product ID
+    const [selectedProductForReport, setSelectedProductForReport] = useState(null);
+    const [reportData, setReportData] = useState([]);
+    const [reportLoading, setReportLoading] = useState(false);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -726,6 +734,7 @@ const Warehouse = () => {
     };
 
     const toggleEditModal = () => setIsEditModalOpen(!isEditModalOpen);
+    const toggleWarehouseReportModal = () => setIsWarehouseReportModalOpen(!isWarehouseReportModalOpen);
 
     const handleEditClick = (row) => {
         setEditData({
@@ -1024,6 +1033,239 @@ const Warehouse = () => {
         sendNextLabel();
     };
 
+    // Handle warehouse report button click
+    const handleWarehouseReport = () => {
+        setIsWarehouseReportModalOpen(true);
+    };
+
+    // Generate warehouse report
+    const generateWarehouseReport = async () => {
+        setReportLoading(true);
+        try {
+            const startDate = reportDateRange[0].startDate;
+            const endDate = reportDateRange[0].endDate;
+            
+            if (!startDate || !endDate) {
+                alert('Proszę wybrać zakres dat');
+                setReportLoading(false);
+                return;
+            }
+
+            const params = {
+                startDate: startDate.toISOString().split('T')[0],
+                endDate: endDate.toISOString().split('T')[0],
+                productFilter: reportProductFilter,
+                productId: selectedProductForReport?.value || null
+            };
+
+            const response = await axios.get('/api/warehouse/report', { params });
+            setReportData(response.data);
+            
+            // Generate PDF report
+            generateReportPDF(response.data, startDate, endDate);
+            
+        } catch (error) {
+            console.error('Error generating warehouse report:', error);
+            alert('Błąd podczas generowania raportu: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setReportLoading(false);
+        }
+    };
+
+    // Generate PDF report
+    const generateReportPDF = (data, startDate, endDate) => {
+        const doc = new jsPDF({
+            orientation: 'portrait', // Zmienione na pionową orientację
+            unit: 'mm',
+            format: 'a4',
+            putOnlyUsedFonts: true,
+            compress: true
+        });
+        
+        // Function to convert Polish characters for PDF
+        const convertPolishChars = (text) => {
+            if (!text) return text;
+            return text
+                .replace(/ą/g, 'a')
+                .replace(/ć/g, 'c')
+                .replace(/ę/g, 'e')
+                .replace(/ł/g, 'l')
+                .replace(/ń/g, 'n')
+                .replace(/ó/g, 'o')
+                .replace(/ś/g, 's')
+                .replace(/ź/g, 'z')
+                .replace(/ż/g, 'z')
+                .replace(/Ą/g, 'A')
+                .replace(/Ć/g, 'C')
+                .replace(/Ę/g, 'E')
+                .replace(/Ł/g, 'L')
+                .replace(/Ń/g, 'N')
+                .replace(/Ó/g, 'O')
+                .replace(/Ś/g, 'S')
+                .replace(/Ź/g, 'Z')
+                .replace(/Ż/g, 'Z');
+        };
+        
+        // Set professional font
+        doc.setFont('helvetica', 'normal');
+        
+        // Get page width for centering
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Title - centered
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        const titleText = convertPolishChars('Raport Magazynowy');
+        const titleWidth = doc.getTextWidth(titleText);
+        doc.text(titleText, (pageWidth - titleWidth) / 2, 20);
+        
+        // Date range - centered
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        const periodText = convertPolishChars(`Okres: ${startDate.toLocaleDateString('pl-PL')} - ${endDate.toLocaleDateString('pl-PL')}`);
+        const periodWidth = doc.getTextWidth(periodText);
+        doc.text(periodText, (pageWidth - periodWidth) / 2, 35);
+        
+        // Product filter info - centered
+        let productText;
+        if (reportProductFilter === 'specific' && selectedProductForReport) {
+            productText = convertPolishChars(`Produkt: ${selectedProductForReport.label}`);
+        } else {
+            productText = convertPolishChars('Wszystkie produkty');
+        }
+        const productWidth = doc.getTextWidth(productText);
+        doc.text(productText, (pageWidth - productWidth) / 2, 45);
+        
+        // Stan początkowy przed tabelą - centered
+        let yPosition = 55;
+        if (data.initialState) {
+            doc.setFont('helvetica', 'bold');
+            const initialText = convertPolishChars(`Stan poczatkowy (${startDate.toLocaleDateString('pl-PL')}): ${data.initialState.quantity || 0}`);
+            const initialWidth = doc.getTextWidth(initialText);
+            doc.text(initialText, (pageWidth - initialWidth) / 2, yPosition);
+            doc.setFont('helvetica', 'normal');
+            yPosition += 15;
+        }
+        
+        // Table headers - 6 kolumn z krótszymi nazwami
+        const tableColumn = ['Lp.', 'Data', 'Nazwa produktu', 'Rodzaj', 'Odj.', 'Dod.'];
+        const tableRows = [];
+        
+        // Add operations
+        data.operations?.forEach((operation, index) => {
+            const row = [
+                (index + 1).toString(),
+                new Date(operation.date).toLocaleDateString('pl-PL'),
+                convertPolishChars(operation.product || 'Nieznany produkt'),
+                convertPolishChars(operation.type),
+                operation.subtract || 0,
+                operation.add || 0
+            ];
+            tableRows.push(row);
+        });
+        
+        // Add summary row - Suma w scalonej komórce (4 kolumny), wartości w ostatnich dwóch
+        if (data.summary) {
+            // Dodajemy wiersz z scalonymi komórkami
+            tableRows.push([
+                {
+                    content: 'Suma',
+                    colSpan: 4, // Scala pierwsze 4 kolumny (Lp, Data, Nazwa produktu, Rodzaj)
+                    styles: { 
+                        halign: 'left',
+                        fontStyle: 'bold',
+                        fillColor: [230, 230, 230]
+                    }
+                },
+                {
+                    content: data.summary.totalSubtracted || 0,
+                    styles: { 
+                        halign: 'center',
+                        fontStyle: 'bold',
+                        fillColor: [230, 230, 230]
+                    }
+                },
+                {
+                    content: data.summary.totalAdded || 0,
+                    styles: { 
+                        halign: 'center',
+                        fontStyle: 'bold',
+                        fillColor: [230, 230, 230]
+                    }
+                }
+            ]);
+        }
+        
+        // Calculate table width for centering (adjusted for portrait)
+        const tableWidth = 12 + 20 + 55 + 40 + 18 + 18; // suma szerokości kolumn = 163mm (dla portrait)
+        const tableStartX = (pageWidth - tableWidth) / 2;
+        
+        // Add table to PDF - centered
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: yPosition,
+            theme: 'grid',
+            margin: { left: tableStartX },
+            tableWidth: tableWidth,
+            styles: {
+                fontSize: 8,
+                halign: 'center',
+                cellPadding: 2,
+                font: 'helvetica',
+                fontStyle: 'normal'
+            },
+            headStyles: {
+                fillColor: [41, 128, 185],
+                textColor: 255,
+                fontSize: 9,
+                fontStyle: 'bold',
+                font: 'helvetica'
+            },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 12 }, // Lp - zmniejszone dla portrait
+                1: { halign: 'center', cellWidth: 20 }, // Data - zmniejszone
+                2: { halign: 'center', cellWidth: 55 }, // Nazwa produktu - zmniejszone
+                3: { halign: 'center', cellWidth: 40 }, // Rodzaj - zmniejszone
+                4: { halign: 'center', cellWidth: 18 }, // Odj. - zmniejszone
+                5: { halign: 'center', cellWidth: 18 }  // Dod. - zmniejszone
+            },
+            didParseCell: function (data) {
+                // Dodatkowe style dla wiersza sumy są już obsłużone przez colSpan i styles w definicji komórek
+                // Ta funkcja może zostać pusta lub obsługiwać inne specjalne przypadki
+            }
+        });
+        
+        // Add final state after table - centered
+        if (data.summary) {
+            const finalY = doc.lastAutoTable.finalY + 20;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            const finalText = convertPolishChars(`Stan koncowy (${endDate.toLocaleDateString('pl-PL')}): ${data.summary.finalState || 0}`);
+            const finalWidth = doc.getTextWidth(finalText);
+            doc.text(finalText, (pageWidth - finalWidth) / 2, finalY);
+        }
+        
+        // Otwórz tryb drukowania zamiast pobierania PDF
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        // Otwórz PDF w nowym oknie i uruchom drukowanie
+        const printWindow = window.open(pdfUrl, '_blank');
+        if (printWindow) {
+            printWindow.onload = function() {
+                printWindow.print();
+                // Opcjonalnie zamknij okno po drukowaniu
+                printWindow.onafterprint = function() {
+                    printWindow.close();
+                    URL.revokeObjectURL(pdfUrl);
+                };
+            };
+        }
+        
+        setIsWarehouseReportModalOpen(false);
+    };
+
     const handleLpFilterChange = (e) => {
         const input = e.target.value;
         const nextValidChar = tableData
@@ -1103,6 +1345,7 @@ const Warehouse = () => {
                     <Button color="primary" className="me-2 btn btn-sm" onClick={() => handleExport('json')}>Export to JSON</Button>
                     <Button color="info" className="me-2 btn btn-sm" onClick={() => handleExport('csv')}>Export to CSV</Button>
                     <Button color="danger" className="me-2 btn btn-sm" onClick={() => handleExport('pdf')}>Export to PDF</Button>
+                    <Button color="warning" className="me-2 btn btn-sm" onClick={handleWarehouseReport}>Drukuj raport magazynowy</Button>
                     <Button color="primary" className="btn btn-sm" onClick={handlePrint}>Drukuj zaznaczone kody</Button>
                 </div>
             </div>
@@ -1424,6 +1667,88 @@ const Warehouse = () => {
                     ))}
                 </tbody>
             </Table>
+
+            {/* Warehouse Report Modal */}
+            <Modal isOpen={isWarehouseReportModalOpen} toggle={toggleWarehouseReportModal} size="lg">
+                <ModalHeader toggle={toggleWarehouseReportModal}>
+                    Raport Magazynowy
+                </ModalHeader>
+                <ModalBody>
+                    <FormGroup>
+                        <Label for="reportDateRange">Zakres dat:</Label>
+                        <DateRangePicker
+                            ranges={reportDateRange}
+                            onChange={(ranges) => setReportDateRange([ranges.selection])}
+                            locale={pl}
+                            rangeColors={['#3d91ff']}
+                            staticRanges={customStaticRanges}
+                            inputRanges={customInputRanges}
+                        />
+                    </FormGroup>
+                    
+                    <FormGroup>
+                        <Label>Filtrowanie produktów:</Label>
+                        <div>
+                            <div className="form-check">
+                                <input
+                                    className="form-check-input"
+                                    type="radio"
+                                    name="productFilter"
+                                    id="allProducts"
+                                    value="all"
+                                    checked={reportProductFilter === 'all'}
+                                    onChange={(e) => setReportProductFilter(e.target.value)}
+                                />
+                                <label className="form-check-label" htmlFor="allProducts">
+                                    Wszystkie produkty
+                                </label>
+                            </div>
+                            <div className="form-check">
+                                <input
+                                    className="form-check-input"
+                                    type="radio"
+                                    name="productFilter"
+                                    id="specificProduct"
+                                    value="specific"
+                                    checked={reportProductFilter === 'specific'}
+                                    onChange={(e) => setReportProductFilter(e.target.value)}
+                                />
+                                <label className="form-check-label" htmlFor="specificProduct">
+                                    Konkretny produkt
+                                </label>
+                            </div>
+                        </div>
+                    </FormGroup>
+                    
+                    {reportProductFilter === 'specific' && (
+                        <FormGroup>
+                            <Label for="productSelect">Wybierz produkt:</Label>
+                            <Select
+                                value={selectedProductForReport}
+                                onChange={setSelectedProductForReport}
+                                options={goods.map(good => ({
+                                    value: good._id,
+                                    label: good.fullName
+                                }))}
+                                placeholder="Wybierz produkt..."
+                                isClearable
+                            />
+                        </FormGroup>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <Button 
+                        color="primary" 
+                        onClick={generateWarehouseReport}
+                        disabled={reportLoading}
+                    >
+                        {reportLoading ? <Spinner size="sm" /> : 'Drukuj raport'}
+                    </Button>
+                    <Button color="secondary" onClick={toggleWarehouseReportModal}>
+                        Anuluj
+                    </Button>
+                </ModalFooter>
+            </Modal>
 
 
             <Modal isOpen={isEditModalOpen} toggle={toggleEditModal} innerRef={modalRef}>
