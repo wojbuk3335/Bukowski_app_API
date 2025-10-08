@@ -345,9 +345,9 @@ const Stock = () => {
                             <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
                                 {"Usuń dane z bazy danych"}
                             </Button>
+                            <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
                         </Col>
                     </Row>
-                    <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
                     {renderDataTable()}
                 </div>
             </Fragment>

@@ -34,6 +34,7 @@
     width: 60%;
     margin-left: auto;
     margin-right: auto;
+    margin-bottom: 20px;
     background-color: black;
     color: white;
     border: 1px solid white;
@@ -62,6 +63,7 @@
 
 .button {
     font-size: 0.875rem; /* Small button size */
+    margin-bottom: 10px;
 }
 
 .buttonRefresh {

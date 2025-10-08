@@ -1,13 +1,12 @@
 import React, { Fragment, useEffect, useState } from "react";
-import { read, utils } from "xlsx";
 import {
     Col,
     Row,
     Button,
     FormGroup,
     Input,
+    Label,
     Table,
-    FormText,
     Modal,
     ModalHeader,
     ModalBody,
@@ -16,12 +15,8 @@ import {
 import axios from "axios";
 import styles from './Category.module.css';
 
-const requiredFields = ["Kat_1_Kod_1", "Kat_1_Opis_1", "Plec"];
-
 const Category = () => {
     const [loading, setLoading] = useState(false);
-    const [excelRows, setExcelRows] = useState([]);
-    const [selectedFile, setSelectedFile] = useState(null);
     const [rows, setRows] = useState([]);
     const [modal, setModal] = useState(false);
     const [currentCategory, setCurrentCategory] = useState({ _id: '', Kat_1_Opis_1: '' });
@@ -38,7 +33,44 @@ const Category = () => {
     };
 
     const handleUpdateChange = (e) => {
-        setCurrentCategory({ ...currentCategory, Kat_1_Opis_1: e.target.value });
+        const { name, value } = e.target;
+        setCurrentCategory({ ...currentCategory, [name]: value });
+    };
+
+    const addNewRow = async () => {
+        try {
+            setLoading(true);
+
+            // Get current categories to find next Kat_1_Kod_1 (będzie używać istniejącej getCategoryList)
+            const categoryList = await getCategoryList();
+            
+            let nextCode;
+            if (categoryList.length === 0) {
+                // First row - start from 1
+                nextCode = 1;
+            } else {
+                // Subsequent rows - increment from max
+                const maxCode = Math.max(...categoryList.map(cat => Number(cat.Kat_1_Kod_1) || 0));
+                nextCode = maxCode + 1;
+            }
+
+            // Create new category
+            const newCategory = {
+                Kat_1_Kod_1: nextCode.toString(),
+                Kat_1_Opis_1: "",
+                Plec: "D" // Default value
+            };
+
+            await axios.post('/api/excel/category/insert-many-categories', [newCategory]);
+            
+            fetchData();
+            alert('Nowy wiersz został dodany pomyślnie!');
+        } catch (error) {
+            console.error('Error adding new row:', error);
+            alert('Błąd podczas dodawania nowego wiersza: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleUpdateSubmit = async () => {
@@ -56,31 +88,12 @@ const Category = () => {
                 return;
             }
 
-            await axios.patch(`/api/excel/category/update-category/${currentCategory._id}`, { Kat_1_Opis_1: currentCategory.Kat_1_Opis_1 });
+            await axios.patch(`/api/excel/category/update-category/${currentCategory._id}`, { 
+                Kat_1_Opis_1: currentCategory.Kat_1_Opis_1,
+                Plec: currentCategory.Plec 
+            });
             fetchData();
             toggleModal();
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const removeFile = async () => {
-        try {
-            setLoading(true);
-
-            // Check if there are any records in the goods database
-            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
-            if (goodsResponse.data.goods.length > 0) {
-                alert("Nie można usunąć kategorii ponieważ na ich podstawie zostały już stworzone gotowe produkty. Usuń najpierw wszystkie produkty i spróbuj ponownie");
-                setLoading(false);
-                return;
-            }
-
-            await axios.delete(`/api/excel/category/delete-all-categories`);
-            resetState();
-            alert("Dane zostały usunięte poprawnie.");
         } catch (error) {
             console.error(error);
         } finally {
@@ -92,130 +105,26 @@ const Category = () => {
         try {
             setLoading(true);
             const result = (await axios.get(`/api/excel/category/get-all-categories`)).data;
-            setRows(Array.isArray(result.categories) ? result.categories : []);
+            const categories = Array.isArray(result.categories) ? result.categories : [];
+            
+            // Sort by Kat_1_Kod_1 in descending order (newest/highest codes first)
+            const sortedCategories = categories.sort((a, b) => {
+                const codeA = parseInt(a.Kat_1_Kod_1) || 0;
+                const codeB = parseInt(b.Kat_1_Kod_1) || 0;
+                return codeB - codeA; // Descending order
+            });
+            
+            setRows(sortedCategories);
         } catch (error) {
             console.error(error);
         } finally {
             setLoading(false);
         }
-    };
-
-    const uploadData = async () => {
-        try {
-            if (!selectedFile) {
-                alert("Proszę wybrać plik do załadowania danych.");
-                return;
-            }
-
-            setLoading(true);
-
-            // Check if there are any records in the goods database
-            const goodsResponse = await axios.get(`/api/excel/goods/get-all-goods`);
-            if (goodsResponse.data.goods.length > 0) {
-                alert("Na bazie istaniejego asortymentu zostały już stworzone produkty... Proszę usunąć wszystkie produkty i spróbować ponownie");
-                setLoading(false);
-                return;
-            }
-
-            if (!validateRequiredFields()) {
-                alert("Wymagane dane: " + JSON.stringify(requiredFields) + ". Proszę również umieścić dane w pierwszym arkuszu excela.");
-                return;
-            }
-
-            const categoryList = await getCategoryList();
-            if (categoryList.length > 0) {
-                alert("Tabela kategorii nie jest pusta. Proszę usunąć wszystkie dane aby wgrać nowe.");
-                return;
-            }
-
-            await insertOrUpdateCategories(categoryList);
-
-            fetchData();
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const readUploadFile = (e) => {
-        e.preventDefault();
-        if (e.target.files) {
-            const file = e.target.files[0];
-            setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = e.target.result;
-                    const workbook = read(data, { type: "array" });
-                    const sheetName = workbook.SheetNames[3]; // Wczytaj 4. arkusz
-                    const worksheet = workbook.Sheets[sheetName];
-                    const json = utils.sheet_to_json(worksheet, { defval: null, raw: true }); // Wczytaj wszystkie wiersze, nawet z pustymi komórkami
-
-                    // Wczytaj tylko wiersze, które mają dane w kolumnie A (Kat_1_Kod_1)
-                    const filteredRows = json.filter(row => row["Kat_1_Kod_1"] != null && row["Kat_1_Kod_1"].toString().trim() !== "");
-                    setExcelRows(filteredRows);
-                } catch (error) {
-                    handleFileReadError(error);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-    };
-
-    const validateRequiredFields = () => {
-        const firstItemKeys = excelRows[0] && Object.keys(excelRows[0]);
-        if (firstItemKeys.length) {
-            return requiredFields.every((field) => firstItemKeys.includes(field));
-        }
-        return false;
     };
 
     const getCategoryList = async () => {
         const categoryResponse = (await axios.get(`/api/excel/category/get-all-categories`)).data;
         return Array.isArray(categoryResponse.categories) ? categoryResponse.categories : [];
-    };
-
-    const insertOrUpdateCategories = async (categoryList) => {
-        const categories = excelRows.map((obj) => ({
-            _id: categoryList.find((x) => x.Kat_1_Kod_1 === obj["Kat_1_Kod_1"])?._id,
-            Kat_1_Kod_1: obj["Kat_1_Kod_1"] || "",
-            Kat_1_Opis_1: obj["Kat_1_Opis_1"] || "",
-            Plec: obj["Plec"] || "",
-            number_id: Number(obj["Kat_1_Kod_1"]) || 0
-        }));
-
-        const updatedCategories = categories.filter((x) => x._id);
-        const newCategories = categories.filter((x) => !x._id);
-
-        if (updatedCategories.length) {
-            const result = (await axios.post(`/api/excel/category/update-many-categories`, updatedCategories)).data;
-            if (result) {
-                alert("Dodano pomyślnie " + updatedCategories.length + " rekordów.");
-            }
-        }
-
-        if (newCategories.length) {
-            const result = (await axios.post(`/api/excel/category/insert-many-categories`, newCategories)).data;
-            if (result) {
-                alert("Dodano pomyślnie " + newCategories.length + " rekordów.");
-            }
-        }
-    };
-
-    const handleFileReadError = (error) => {
-        if (error.message.includes("File is password-protected")) {
-            alert("Plik jest chroniony hasłem. Proszę wybrać inny plik.");
-        } else {
-            alert("Wystąpił błąd podczas przetwarzania pliku. Proszę spróbować ponownie.");
-            console.error(error);
-        }
-    };
-
-    const resetState = () => {
-        setSelectedFile(null);
-        setExcelRows([]);
-        fetchData();
     };
 
     const renderDataTable = () => (
@@ -224,7 +133,7 @@ const Category = () => {
                 <tr>
                     <th>Kat_1_Kod_1</th>
                     <th>Kat_1_Opis_1</th>
-                    <th>Plec</th>
+                    <th>Rodzaj</th>
                     <th>Akcje</th>
                 </tr>
             </thead>
@@ -273,51 +182,50 @@ const Category = () => {
         <div>
             <Fragment>
                 <h3 className={`${styles.textCenter} ${styles.mt4} ${styles.mb4} ${styles.textWhite}`}>
-                    Kategorie
+                    Podkategorie kurtek kożuchów i futer
                 </h3>
                 <div className={styles.container}>
                     <Row className={styles.xxx}>
-                        <Col md="6" className={styles.textLeft}>
-                            <FormGroup>
-                                <div>
-                                    <input className={styles.inputFile}
-                                        id="inputEmpGroupFile"
-                                        name="file"
-                                        type="file"
-                                        onChange={readUploadFile}
-                                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-                                    />
-                                </div>
-
-                                <FormText className={styles.textWhite}>
-                                    {"UWAGA: Nagłówki w Excelu powinny być następujące!. => "}
-                                    {requiredFields.join(", ")}
-                                </FormText>
-                            </FormGroup>
-                        </Col>
-                        <Col md="6" className={styles.textRight}>
-                            <Button disabled={loading} color="success" size="sm" className={`${styles.button} ${styles.UploadButton}`} onClick={uploadData}>
-                                {"Wczytaj dane z pliku"}
-                            </Button>
-                            <Button disabled={loading} color="danger" size="sm" className={`${styles.button} ${styles.RemoveFiles}`} onClick={removeFile}>
-                                {"Usuń dane z bazy danych"}
-                            </Button>
+                        <Col md="12" className={styles.textCenter}>
+                            <div className={styles.buttonGroup}>
+                                <Button disabled={loading} color="primary" size="sm" className={`${styles.button} ${styles.buttonAdd}`} onClick={addNewRow}>
+                                    {"Dodaj nowy wiersz"}
+                                </Button>
+                                <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
+                            </div>
                         </Col>
                     </Row>
-                    <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
                     {renderDataTable()}
                 </div>
             </Fragment>
 
             <Modal isOpen={modal} toggle={toggleModal}>
-                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Aktualizuj Kat_1_Opis_1</ModalHeader>
+                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Aktualizuj kategorię</ModalHeader>
                 <ModalBody className={styles.modalBody}>
                     <FormGroup>
+                        <Label for="kat_1_opis_1">Nazwa kategorii:</Label>
                         <Input
+                            id="kat_1_opis_1"
+                            name="Kat_1_Opis_1"
                             type="text"
                             value={currentCategory.Kat_1_Opis_1}
                             onChange={handleUpdateChange}
                         />
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="plec">Rodzaj:</Label>
+                        <Input
+                            id="plec"
+                            name="Plec"
+                            type="select"
+                            value={currentCategory.Plec}
+                            onChange={handleUpdateChange}
+                        >
+                            <option value="">Wybierz rodzaj</option>
+                            <option value="D">D</option>
+                            <option value="M">M</option>
+                            <option value="Dz">Dz</option>
+                        </Input>
                     </FormGroup>
                 </ModalBody>
                 <ModalFooter className={styles.modalFooter}>

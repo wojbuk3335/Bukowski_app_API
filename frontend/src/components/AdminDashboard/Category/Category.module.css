@@ -34,6 +34,7 @@
     width: 60%;
     margin-left: auto;
     margin-right: auto;
+    margin-bottom: 30px;
     background-color: black;
     color: white;
     border: 1px solid white;
@@ -62,19 +63,24 @@
 
 .button {
     font-size: 0.875rem; /* Small button size */
+    margin-bottom: 10px;
 }
 
 .buttonRefresh {
-    background-color: #ffc107; /* Bootstrap yellow */
-    border-color: #ffc107;
-    color: #212529;
+    background-color: #6c757d; /* Bootstrap gray */
+    border-color: #6c757d;
+    color: white;
     margin-bottom: 10px;
 }
 
 .buttonRefresh:hover {
-    background-color: #ffe066; /* Lighter yellow */
-    border-color: #ffe066;
-    color: #212529;
+    background-color: #545b62; /* Darker gray */
+    border-color: #545b62;
+    color: white;
+}
+
+.buttonGroup {
+    margin-bottom: 20px;
 }
 
 .xxx{

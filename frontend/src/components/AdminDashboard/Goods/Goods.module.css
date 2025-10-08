@@ -636,6 +636,7 @@ th.tableCell {
 .button {
     font-size: 0.875rem;
     /* Small button size */
+    margin-bottom: 10px;
 }
 
 .buttonRefresh {

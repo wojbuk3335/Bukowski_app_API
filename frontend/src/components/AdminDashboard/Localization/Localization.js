@@ -119,7 +119,14 @@ const Localization = () => {
                 item.Miejsc_1_Kod_1.toString().trim() !== ""
             );
             
-            setRows(validLocalizations);
+            // Sort by Miejsc_1_Kod_1 in descending order (newest/highest codes first)
+            const sortedLocalizations = validLocalizations.sort((a, b) => {
+                const codeA = parseInt(a.Miejsc_1_Kod_1) || 0;
+                const codeB = parseInt(b.Miejsc_1_Kod_1) || 0;
+                return codeB - codeA; // Descending order
+            });
+            
+            setRows(sortedLocalizations);
         } catch (error) {
             // Możesz włączyć console.log do debugowania błędów
             // console.log("Błąd przy pobieraniu danych:", error);
@@ -183,7 +190,7 @@ const Localization = () => {
         <div>
             <Fragment>
                 <h3 className={`${styles.textCenter} ${styles.mt4} ${styles.mb4} ${styles.textWhite}`}>
-                    Lokalizacja
+                    Podkategorie torebek
                 </h3>
                 <div className={styles.container}>
                     <Row className={styles.xxx}>
