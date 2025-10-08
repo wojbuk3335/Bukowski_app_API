@@ -3,6 +3,13 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import RemainingProductsSubcategory from './RemainingProductsSubcategory';
 
+// Mock axios
+jest.mock('axios', () => ({
+    get: jest.fn(() => Promise.resolve({ data: { remainingCategories: [] } })),
+    post: jest.fn(() => Promise.resolve({ status: 201 })),
+    patch: jest.fn(() => Promise.resolve({ status: 200 }))
+}));
+
 // Helper function to render component with router
 const renderWithRouter = (component) => {
     return render(
@@ -24,18 +31,26 @@ describe('RemainingProductsSubcategory Component - Basic Tests', () => {
         expect(title).toBeInTheDocument();
     });
 
-    test('displays construction message', () => {
+    test('displays add new row button', () => {
         renderWithRouter(<RemainingProductsSubcategory />);
         
-        const message = screen.getByText(/Komponent podkategorii pozostałego asortymentu jest w trakcie budowy/i);
-        expect(message).toBeInTheDocument();
+        const addButton = screen.getByText('Dodaj nowy wiersz');
+        expect(addButton).toBeInTheDocument();
     });
 
-    test('component contains both expected texts', () => {
+    test('displays refresh button', () => {
         renderWithRouter(<RemainingProductsSubcategory />);
         
-        // Check if both title and message are present
-        expect(screen.getByText('Podkategorie - Pozostały asortyment')).toBeInTheDocument();
-        expect(screen.getByText(/Komponent podkategorii pozostałego asortymentu jest w trakcie budowy/i)).toBeInTheDocument();
+        const refreshButton = screen.getByText('Odśwież');
+        expect(refreshButton).toBeInTheDocument();
+    });
+
+    test('displays table with correct headers', () => {
+        renderWithRouter(<RemainingProductsSubcategory />);
+        
+        expect(screen.getByText('Rem_Kat_1_Kod_1')).toBeInTheDocument();
+        expect(screen.getByText('Rem_Kat_1_Opis_1')).toBeInTheDocument();
+        expect(screen.getByText('Rodzaj')).toBeInTheDocument();
+        expect(screen.getByText('Akcje')).toBeInTheDocument();
     });
 });

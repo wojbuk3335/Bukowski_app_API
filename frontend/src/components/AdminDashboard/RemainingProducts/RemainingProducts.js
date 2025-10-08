@@ -227,7 +227,7 @@ const RemainingProducts = () => {
                                 <Button disabled={loading} color="primary" size="sm" className={`${styles.button} ${styles.buttonAdd}`} onClick={addNewRow}>
                                     {"Dodaj nowy wiersz"}
                                 </Button>
-                                <Button className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
+                                <Button color="secondary" size="sm" className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
                             </div>
                         </Col>
                     </Row>

@@ -24,7 +24,12 @@ describe('RemainingProducts Routing Integration', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         // Mock API responses
-        mockedAxios.get.mockResolvedValue({ data: { remainingProducts: [] } });
+        mockedAxios.get.mockResolvedValue({ 
+            data: { 
+                remainingProducts: [],
+                remainingCategories: []
+            } 
+        });
     });
 
     test('renders RemainingProducts component on /remaining-products route', async () => {
@@ -52,7 +57,7 @@ describe('RemainingProducts Routing Integration', () => {
         );
 
         expect(screen.getByText('Podkategorie - Pozostały asortyment')).toBeInTheDocument();
-        expect(screen.getByText(/Komponent podkategorii pozostałego asortymentu jest w trakcie budowy/i)).toBeInTheDocument();
+        expect(screen.getByText('Rem_Kat_1_Kod_1')).toBeInTheDocument();
     });
 
     test('different components render on different routes', async () => {
@@ -116,8 +121,8 @@ describe('RemainingProducts Routing Integration', () => {
             </MemoryRouter>
         );
 
-        const subcategoryMessage = screen.getByText(/Komponent podkategorii pozostałego asortymentu jest w trakcie budowy/i);
-        expect(subcategoryMessage).toBeInTheDocument();
+        const subcategoryTitle = screen.getByText('Podkategorie - Pozostały asortyment');
+        expect(subcategoryTitle).toBeInTheDocument();
 
         // Verify they have different content
         expect(mainText).not.toBe(subcategoryContainer.textContent);

@@ -3,6 +3,13 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import RemainingProductsSubcategory from './RemainingProductsSubcategory';
 
+// Mock axios
+jest.mock('axios', () => ({
+    get: jest.fn(() => Promise.resolve({ data: { remainingCategories: [] } })),
+    post: jest.fn(() => Promise.resolve({ status: 201 })),
+    patch: jest.fn(() => Promise.resolve({ status: 200 }))
+}));
+
 // Helper function to render component with router
 const renderWithRouter = (component) => {
     return render(
@@ -20,76 +27,39 @@ describe('RemainingProductsSubcategory Component', () => {
     test('displays correct title', () => {
         renderWithRouter(<RemainingProductsSubcategory />);
         
-        const title = screen.getByRole('heading', { level: 2 });
+        const title = screen.getByText('Podkategorie - Pozostały asortyment');
         expect(title).toBeInTheDocument();
-        expect(title).toHaveTextContent('Podkategorie - Pozostały asortyment');
     });
 
-    test('displays construction message', () => {
+    test('displays add new row button', () => {
         renderWithRouter(<RemainingProductsSubcategory />);
         
-        const message = screen.getByText(/Komponent podkategorii pozostałego asortymentu jest w trakcie budowy/i);
-        expect(message).toBeInTheDocument();
+        const addButton = screen.getByText('Dodaj nowy wiersz');
+        expect(addButton).toBeInTheDocument();
     });
 
-    test('has correct styling structure', () => {
+    test('displays table with correct headers', () => {
         renderWithRouter(<RemainingProductsSubcategory />);
         
-        const container = screen.getByText(/Podkategorie - Pozostały asortyment/i).closest('div');
-        expect(container).toHaveStyle({
-            padding: '20px'
-        });
+        expect(screen.getByText('Rem_Kat_1_Kod_1')).toBeInTheDocument();
+        expect(screen.getByText('Rem_Kat_1_Opis_1')).toBeInTheDocument();
+        expect(screen.getByText('Rodzaj')).toBeInTheDocument();
+        expect(screen.getByText('Akcje')).toBeInTheDocument();
     });
 
     test('title has correct color styling', () => {
         renderWithRouter(<RemainingProductsSubcategory />);
-        
+
         const title = screen.getByRole('heading', { level: 2 });
         expect(title).toHaveStyle({
-            color: '#2c3e50',
-            marginBottom: '20px'
-        });
-    });
-
-    test('message has correct color and font size styling', () => {
-        renderWithRouter(<RemainingProductsSubcategory />);
-        
-        const message = screen.getByText(/Komponent podkategorii pozostałego asortymentu jest w trakcie budowy/i);
-        expect(message).toHaveStyle({
-            color: '#7f8c8d',
-            fontSize: '16px'
+            color: 'white'
         });
     });
 
     test('component structure is correct', () => {
         renderWithRouter(<RemainingProductsSubcategory />);
         
-        // Check if main container exists
-        const container = screen.getByText(/Podkategorie - Pozostały asortyment/i).closest('div');
-        expect(container).toBeInTheDocument();
-        
-        // Check if both title and message are children of the container
-        const title = screen.getByRole('heading', { level: 2 });
-        const message = screen.getByText(/Komponent podkategorii pozostałego asortymentu jest w trakcie budowy/i);
-        
-        expect(container).toContainElement(title);
-        expect(container).toContainElement(message);
-    });
-
-    test('is accessible', () => {
-        renderWithRouter(<RemainingProductsSubcategory />);
-        
-        // Check for proper heading hierarchy
-        const title = screen.getByRole('heading', { level: 2 });
-        expect(title).toBeInTheDocument();
-        
-        // Check if content is readable
-        const message = screen.getByText(/Komponent podkategorii pozostałego asortymentu jest w trakcie budowy/i);
-        expect(message).toBeVisible();
-    });
-
-    test('matches snapshot', () => {
-        const { container } = renderWithRouter(<RemainingProductsSubcategory />);
-        expect(container.firstChild).toMatchSnapshot();
+        const table = screen.getByRole('table');
+        expect(table).toBeInTheDocument();
     });
 });

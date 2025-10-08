@@ -77,16 +77,16 @@
 }
 
 .buttonRefresh {
-    background-color: #ffc107; /* Bootstrap yellow */
-    border-color: #ffc107;
-    color: #212529;
+    background-color: #6c757d; /* Bootstrap gray (secondary) */
+    border-color: #6c757d;
+    color: white;
     margin-bottom: 10px;
 }
 
 .buttonRefresh:hover {
-    background-color: #ffe066; /* Lighter yellow */
-    border-color: #ffe066;
-    color: #212529;
+    background-color: #5a6268; /* Darker gray on hover */
+    border-color: #545b62;
+    color: white;
 }
 
 .buttonAdd {
