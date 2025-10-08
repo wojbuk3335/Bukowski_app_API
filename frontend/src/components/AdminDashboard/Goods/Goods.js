@@ -40,6 +40,14 @@ const Goods = () => {
     const [remainingProductFilterText, setRemainingProductFilterText] = useState(''); // Filter text for remaining products
     const [isRemainingProductDropdownOpen, setIsRemainingProductDropdownOpen] = useState(false); // Dropdown state for remaining products
     const [selectedRemainingProductIndex, setSelectedRemainingProductIndex] = useState(-1); // Index for keyboard navigation
+    // States for color filtering
+    const [colorFilterText, setColorFilterText] = useState(''); // Filter text for colors
+    const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false); // Dropdown state for colors
+    const [selectedColorIndex, setSelectedColorIndex] = useState(-1); // Index for keyboard navigation in colors
+    // States for product filtering (Kurtki kożuchy futra)
+    const [productFilterText, setProductFilterText] = useState(''); // Filter text for products
+    const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false); // Dropdown state for products
+    const [selectedProductIndex, setSelectedProductIndex] = useState(-1); // Index for keyboard navigation in products
     const [price, setPrice] = useState(0);
     const [discountPrice, setDiscountPrice] = useState(0);
     const [priceExceptions, setPriceExceptions] = useState([]); // Initialize with an empty array
@@ -323,21 +331,51 @@ const Goods = () => {
         };
     }, [isRemainingProductDropdownOpen]);
 
+    // Close color dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            const colorSelects = ['#bagColorSelect', '#walletColorSelect', '#remainingColorSelect', '#colorFilterContainer'];
+            if (isColorDropdownOpen && !colorSelects.some(selector => event.target.closest(selector))) {
+                setIsColorDropdownOpen(false);
+                setSelectedColorIndex(-1);
+            }
+            
+            // Handle product dropdown
+            if (isProductDropdownOpen && !event.target.closest('#productFilterContainer')) {
+                setIsProductDropdownOpen(false);
+                setSelectedProductIndex(-1);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isColorDropdownOpen, isProductDropdownOpen]);
+
     const handleStockChange = (e) => {
         setSelectedStock(e.target.value);
         updateProductName(e.target.value, selectedColor);
     };
 
     const handleColorChange = (e) => {
-        setSelectedColor(e.target.value);
+        const colorId = e.target.value;
+        setSelectedColor(colorId);
+        
+        // Find color description for filter text
+        const selectedColorObj = colors.find(color => color._id === colorId);
+        if (selectedColorObj) {
+            setColorFilterText(selectedColorObj.Kol_Opis);
+        }
+        
         if (selectedCategory === 'Torebki') {
-            updateBagProductName(selectedWalletCode, e.target.value);
+            updateBagProductName(selectedWalletCode, colorId);
         } else if (selectedCategory === 'Portfele') {
-            updateWalletProductName(selectedWalletCodePortfele, e.target.value);
+            updateWalletProductName(selectedWalletCodePortfele, colorId);
         } else if (selectedCategory === 'Pozostały asortyment') {
-            updateRemainingProductName(selectedRemainingProductCode, e.target.value);
+            updateRemainingProductName(selectedRemainingProductCode, colorId);
         } else {
-            updateProductName(selectedStock, e.target.value);
+            updateProductName(selectedStock, colorId);
         }
     };
 
@@ -652,6 +690,114 @@ const Goods = () => {
             .filter(product => product.Poz_Kod && product.Poz_Kod.trim() !== '')
             .filter(product => 
                 product.Poz_Kod.toLowerCase().includes(remainingProductFilterText.toLowerCase())
+            )
+            .slice(0, 10); // Maksymalnie 10 wyników
+    };
+
+    // Functions for color filtering
+    const handleColorFilterChange = (e) => {
+        const value = e.target.value;
+        setColorFilterText(value);
+        setIsColorDropdownOpen(true);
+        setSelectedColorIndex(-1); // Reset keyboard selection
+    };
+
+    const handleColorSelect = (colorId, colorDescription) => {
+        setSelectedColor(colorId);
+        setColorFilterText(colorDescription);
+        setIsColorDropdownOpen(false);
+        
+        // Update product name based on current category
+        if (selectedCategory === 'Torby/torebki') {
+            updateBagProductName(selectedWalletCode, colorId);
+        } else if (selectedCategory === 'Portfele') {
+            updateWalletProductName(selectedWalletCodePortfele, colorId);
+        } else if (selectedCategory === 'Pozostały asortyment') {
+            updateRemainingProductName(selectedRemainingProductCode, colorId);
+        } else if (selectedCategory === 'Kurtki kożuchy futra') {
+            updateProductName(selectedStock, colorId);
+        }
+    };
+
+    const handleColorKeyDown = (e) => {
+        const filteredColors = getFilteredColors();
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedColorIndex(prev => 
+                prev < filteredColors.length - 1 ? prev + 1 : prev
+            );
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedColorIndex(prev => prev > 0 ? prev - 1 : prev);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (selectedColorIndex >= 0 && selectedColorIndex < filteredColors.length) {
+                const color = filteredColors[selectedColorIndex];
+                handleColorSelect(color._id, color.Kol_Opis);
+            }
+        } else if (e.key === 'Escape') {
+            setIsColorDropdownOpen(false);
+            setSelectedColorIndex(-1);
+        }
+    };
+
+    const getFilteredColors = () => {
+        return colors
+            .filter(color => color.Kol_Opis && color.Kol_Opis.trim() !== '')
+            .filter(color => 
+                color.Kol_Opis.toLowerCase().includes(colorFilterText.toLowerCase()) ||
+                color.Kol_Kod.toLowerCase().includes(colorFilterText.toLowerCase())
+            )
+            .slice(0, 10); // Maksymalnie 10 wyników
+    };
+
+    // Functions for product filtering (Kurtki kożuchy futra)
+    const handleProductFilterChange = (e) => {
+        const value = e.target.value;
+        setProductFilterText(value);
+        setIsProductDropdownOpen(true);
+        setSelectedProductIndex(-1); // Reset keyboard selection
+    };
+
+    const handleProductSelect = (productId, productDescription) => {
+        setSelectedStock(productId);
+        setProductFilterText(productDescription);
+        setIsProductDropdownOpen(false);
+        
+        // Update product name
+        updateProductName(productId, selectedColor);
+    };
+
+    const handleProductKeyDown = (e) => {
+        const filteredProducts = getFilteredProducts();
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setSelectedProductIndex(prev => 
+                prev < filteredProducts.length - 1 ? prev + 1 : prev
+            );
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setSelectedProductIndex(prev => prev > 0 ? prev - 1 : prev);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (selectedProductIndex >= 0 && selectedProductIndex < filteredProducts.length) {
+                const product = filteredProducts[selectedProductIndex];
+                handleProductSelect(product._id, product.Tow_Opis);
+            }
+        } else if (e.key === 'Escape') {
+            setIsProductDropdownOpen(false);
+            setSelectedProductIndex(-1);
+        }
+    };
+
+    const getFilteredProducts = () => {
+        return stocks
+            .filter(product => product.Tow_Opis && product.Tow_Opis.trim() !== '')
+            .filter(product => 
+                product.Tow_Opis.toLowerCase().includes(productFilterText.toLowerCase()) ||
+                product.Tow_Kod.toLowerCase().includes(productFilterText.toLowerCase())
             )
             .slice(0, 10); // Maksymalnie 10 wyników
     };
@@ -1233,6 +1379,17 @@ const Goods = () => {
         setRemainingProductFilterText(remainingProducts.length > 0 ? remainingProducts[0].Poz_Kod : ''); // Reset remaining product filter
         setIsRemainingProductDropdownOpen(false); // Close remaining products dropdown
         setSelectedRemainingProductIndex(-1); // Reset keyboard navigation
+        
+        // Reset color filtering states
+        setColorFilterText(colors.length > 0 ? colors[0].Kol_Opis : ''); // Reset color filter text
+        setIsColorDropdownOpen(false); // Close color dropdown
+        setSelectedColorIndex(-1); // Reset color keyboard navigation
+        
+        // Reset product filtering states (Kurtki kożuchy futra)
+        setProductFilterText(stocks.length > 0 ? stocks[0].Tow_Opis : ''); // Reset product filter text
+        setIsProductDropdownOpen(false); // Close product dropdown
+        setSelectedProductIndex(-1); // Reset product keyboard navigation
+        
         if (stocks.length > 0 && colors.length > 0) {
             updateProductName(stocks[0]._id, colors[0]._id);
         } else {
@@ -1381,31 +1538,177 @@ const Goods = () => {
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="productSelect" className={styles.label}>Produkt:</Label>
-                                <Input
-                                    type="select"
-                                    id="productSelect"
-                                    className={styles.inputField}
-                                    onChange={handleStockChange}
-                                    value={selectedStock}
-                                >
-                                    {stocks.map(stock => (
-                                        <option key={stock._id} value={stock._id} data-source="stock" tow_opis={stock.Tow_Opis} tow_kod={stock.Tow_Kod}>{stock.Tow_Opis}</option>
-                                    ))}
-                                </Input>
+                                <div id="productFilterContainer" style={{ position: 'relative' }}>
+                                    <Input
+                                        type="text"
+                                        value={productFilterText}
+                                        onChange={handleProductFilterChange}
+                                        onKeyDown={handleProductKeyDown}
+                                        onFocus={() => setIsProductDropdownOpen(true)}
+                                        placeholder="Wpisz lub wybierz produkt..."
+                                        autoComplete="off"
+                                        style={{
+                                            backgroundColor: '#000000',
+                                            color: '#ffffff',
+                                            border: '1px solid #333333',
+                                            borderRadius: '4px',
+                                            padding: '8px 12px',
+                                            width: '100%'
+                                        }}
+                                    />
+                                    <div 
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            cursor: 'pointer',
+                                            fontSize: '12px'
+                                        }}
+                                        onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+                                    >
+                                        ▼
+                                    </div>
+                                    {isProductDropdownOpen && (
+                                        <div 
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: '#000000',
+                                                color: '#ffffff',
+                                                border: '1px solid #333333',
+                                                borderTop: 'none',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 1000,
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            {getFilteredProducts().length > 0 ? (
+                                                getFilteredProducts().map((product, index) => (
+                                                    <div
+                                                        key={product._id}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid #333333',
+                                                            backgroundColor: 
+                                                                selectedProductIndex === index ? '#007bff' :
+                                                                selectedStock === product._id ? '#111111' : '#000000',
+                                                            color: '#ffffff'
+                                                        }}
+                                                        onClick={() => handleProductSelect(product._id, product.Tow_Opis)}
+                                                        onMouseEnter={(e) => {
+                                                            if (selectedProductIndex !== index) {
+                                                                e.target.style.backgroundColor = '#444444';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (selectedProductIndex !== index) {
+                                                                e.target.style.backgroundColor = selectedStock === product._id ? '#111111' : '#000000';
+                                                            }
+                                                        }}
+                                                    >
+                                                        {product.Tow_Opis}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '8px 12px', color: '#ccc' }}>
+                                                    Brak wyników
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="colorSelect" className={styles.label}>Kolor:</Label>
-                                <Input
-                                    type="select"
-                                    id="colorSelect"
-                                    className={styles.inputField}
-                                    onChange={handleColorChange}
-                                    value={selectedColor}
-                                >
-                                    {colors.map(color => (
-                                        <option key={color._id} value={color._id} kol_opis={color.Kol_Opis} kol_kod={color.Kol_Kod}>{color.Kol_Opis}</option>
-                                    ))}
-                                </Input>
+                                <div id="colorFilterContainer" style={{ position: 'relative' }}>
+                                    <Input
+                                        type="text"
+                                        value={colorFilterText}
+                                        onChange={handleColorFilterChange}
+                                        onKeyDown={handleColorKeyDown}
+                                        onFocus={() => setIsColorDropdownOpen(true)}
+                                        placeholder="Wpisz lub wybierz kolor..."
+                                        autoComplete="off"
+                                        style={{
+                                            backgroundColor: '#000000',
+                                            color: '#ffffff',
+                                            border: '1px solid #333333',
+                                            borderRadius: '4px',
+                                            padding: '8px 12px',
+                                            width: '100%'
+                                        }}
+                                    />
+                                    <div 
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            cursor: 'pointer',
+                                            fontSize: '12px'
+                                        }}
+                                        onClick={() => setIsColorDropdownOpen(!isColorDropdownOpen)}
+                                    >
+                                        ▼
+                                    </div>
+                                    {isColorDropdownOpen && (
+                                        <div 
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: '#000000',
+                                                color: '#ffffff',
+                                                border: '1px solid #333333',
+                                                borderTop: 'none',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 1000,
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            {getFilteredColors().length > 0 ? (
+                                                getFilteredColors().map((color, index) => (
+                                                    <div
+                                                        key={color._id}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid #333333',
+                                                            backgroundColor: 
+                                                                selectedColorIndex === index ? '#007bff' :
+                                                                selectedColor === color._id ? '#111111' : '#000000',
+                                                            color: '#ffffff'
+                                                        }}
+                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis)}
+                                                        onMouseEnter={(e) => {
+                                                            if (selectedColorIndex !== index) {
+                                                                e.target.style.backgroundColor = '#444444';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (selectedColorIndex !== index) {
+                                                                e.target.style.backgroundColor = selectedColor === color._id ? '#111111' : '#000000';
+                                                            }
+                                                        }}
+                                                    >
+                                                        {color.Kol_Opis} ({color.Kol_Kod})
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '8px 12px', color: '#ccc' }}>
+                                                    Brak wyników
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="productName" className={styles.label}>Nazwa produktu:</Label>
@@ -1497,6 +1800,33 @@ const Goods = () => {
                     {selectedCategory === 'Torebki' && (
                         <>
                             <FormGroup className={styles.formGroup}>
+                                <Label for="bagsCategorySelect" className={styles.label}>Podkategoria:</Label>
+                                <Input
+                                    type="select"
+                                    id="bagsCategorySelect"
+                                    className={styles.inputField}
+                                    onChange={(e) => {
+                                        const selectedId = e.target.value;
+                                        const selectedCategory = bagsCategories.find(cat => cat._id === selectedId);
+                                        if (selectedCategory) {
+                                            setSelectedBagsCategoryCode(selectedCategory.Kat_1_Kod_1);
+                                            setSelectedBagsCategoryId(selectedCategory._id);
+                                        }
+                                    }}
+                                    value={selectedBagsCategoryId}
+                                >
+                                    {bagsCategories.map(category => {
+                                        // Usuń cyfry, myślniki i spacje z początku
+                                        let displayCode = category.Kat_1_Opis_1; // Użyj bezpośrednio opisu
+                                        return (
+                                            <option key={category._id} value={category._id}>
+                                                {displayCode} ({category.Plec})
+                                            </option>
+                                        );
+                                    })}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
                                 <Label for="bagProductCode" className={styles.label}>Produkt:</Label>
                                 <div id="bagProductCode" style={{ position: 'relative' }}>
                                     <Input
@@ -1584,45 +1914,91 @@ const Goods = () => {
                                 </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
-                                <Label for="bagsCategorySelect" className={styles.label}>Podkategoria:</Label>
-                                <Input
-                                    type="select"
-                                    id="bagsCategorySelect"
-                                    className={styles.inputField}
-                                    onChange={(e) => {
-                                        const selectedId = e.target.value;
-                                        const selectedCategory = bagsCategories.find(cat => cat._id === selectedId);
-                                        if (selectedCategory) {
-                                            setSelectedBagsCategoryCode(selectedCategory.Kat_1_Kod_1);
-                                            setSelectedBagsCategoryId(selectedCategory._id);
-                                        }
-                                    }}
-                                    value={selectedBagsCategoryId}
-                                >
-                                    {bagsCategories.map(category => {
-                                        // Usuń cyfry, myślniki i spacje z początku
-                                        let displayCode = category.Kat_1_Opis_1; // Użyj bezpośrednio opisu
-                                        return (
-                                            <option key={category._id} value={category._id}>
-                                                {displayCode} ({category.Plec})
-                                            </option>
-                                        );
-                                    })}
-                                </Input>
-                            </FormGroup>
-                            <FormGroup className={styles.formGroup}>
                                 <Label for="bagColorSelect" className={styles.label}>Kolor:</Label>
-                                <Input
-                                    type="select"
-                                    id="bagColorSelect"
-                                    className={styles.inputField}
-                                    onChange={handleColorChange}
-                                    value={selectedColor}
-                                >
-                                    {colors.map(color => (
-                                        <option key={color._id} value={color._id} kol_opis={color.Kol_Opis} kol_kod={color.Kol_Kod}>{color.Kol_Opis}</option>
-                                    ))}
-                                </Input>
+                                <div id="bagColorSelect" style={{ position: 'relative' }}>
+                                    <Input
+                                        type="text"
+                                        value={colorFilterText}
+                                        onChange={handleColorFilterChange}
+                                        onKeyDown={handleColorKeyDown}
+                                        onFocus={() => setIsColorDropdownOpen(true)}
+                                        placeholder="Wpisz lub wybierz kolor..."
+                                        autoComplete="off"
+                                        style={{
+                                            backgroundColor: '#000000',
+                                            color: '#ffffff',
+                                            border: '1px solid #333333',
+                                            borderRadius: '4px',
+                                            padding: '8px 12px',
+                                            width: '100%'
+                                        }}
+                                    />
+                                    <div 
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            cursor: 'pointer',
+                                            fontSize: '12px'
+                                        }}
+                                        onClick={() => setIsColorDropdownOpen(!isColorDropdownOpen)}
+                                    >
+                                        ▼
+                                    </div>
+                                    {isColorDropdownOpen && (
+                                        <div 
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: '#000000',
+                                                color: '#ffffff',
+                                                border: '1px solid #333333',
+                                                borderTop: 'none',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 1000,
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            {getFilteredColors().length > 0 ? (
+                                                getFilteredColors().map((color, index) => (
+                                                    <div
+                                                        key={color._id}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid #333333',
+                                                            backgroundColor: 
+                                                                selectedColorIndex === index ? '#007bff' :
+                                                                selectedColor === color._id ? '#111111' : '#000000',
+                                                            color: '#ffffff'
+                                                        }}
+                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis)}
+                                                        onMouseEnter={(e) => {
+                                                            if (selectedColorIndex !== index) {
+                                                                e.target.style.backgroundColor = '#444444';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (selectedColorIndex !== index) {
+                                                                e.target.style.backgroundColor = selectedColor === color._id ? '#111111' : '#000000';
+                                                            }
+                                                        }}
+                                                    >
+                                                        {color.Kol_Opis} ({color.Kol_Kod})
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '8px 12px', color: '#ccc' }}>
+                                                    Brak wyników
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="bagProductName" className={styles.label}>Nazwa produktu:</Label>
@@ -1682,6 +2058,32 @@ const Goods = () => {
 
                     {selectedCategory === 'Portfele' && (
                         <>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletCategorySelect" className={styles.label}>Podkategoria:</Label>
+                                <Input
+                                    type="select"
+                                    id="walletCategorySelect"
+                                    className={styles.inputField}
+                                    onChange={(e) => {
+                                        const selectedId = e.target.value;
+                                        const selectedCategory = walletsCategories.find(cat => cat._id === selectedId);
+                                        if (selectedCategory) {
+                                            setSelectedWalletsCategoryCode(selectedCategory.Kat_1_Kod_1);
+                                            setSelectedWalletsCategoryId(selectedCategory._id);
+                                        }
+                                    }}
+                                    value={selectedWalletsCategoryId}
+                                >
+                                    {walletsCategories.map(category => {
+                                        let displayCode = category.Kat_1_Opis_1;
+                                        return (
+                                            <option key={category._id} value={category._id}>
+                                                {displayCode} ({category.Plec})
+                                            </option>
+                                        );
+                                    })}
+                                </Input>
+                            </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="walletProductCode" className={styles.label}>Produkt:</Label>
                                 <div id="walletProductCode" style={{ position: 'relative' }}>
@@ -1770,44 +2172,91 @@ const Goods = () => {
                                 </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
-                                <Label for="walletCategorySelect" className={styles.label}>Podkategoria:</Label>
-                                <Input
-                                    type="select"
-                                    id="walletCategorySelect"
-                                    className={styles.inputField}
-                                    onChange={(e) => {
-                                        const selectedId = e.target.value;
-                                        const selectedCategory = walletsCategories.find(cat => cat._id === selectedId);
-                                        if (selectedCategory) {
-                                            setSelectedWalletsCategoryCode(selectedCategory.Kat_1_Kod_1);
-                                            setSelectedWalletsCategoryId(selectedCategory._id);
-                                        }
-                                    }}
-                                    value={selectedWalletsCategoryId}
-                                >
-                                    {walletsCategories.map(category => {
-                                        let displayCode = category.Kat_1_Opis_1;
-                                        return (
-                                            <option key={category._id} value={category._id}>
-                                                {displayCode} ({category.Plec})
-                                            </option>
-                                        );
-                                    })}
-                                </Input>
-                            </FormGroup>
-                            <FormGroup className={styles.formGroup}>
                                 <Label for="walletColorSelect" className={styles.label}>Kolor:</Label>
-                                <Input
-                                    type="select"
-                                    id="walletColorSelect"
-                                    className={styles.inputField}
-                                    onChange={handleColorChange}
-                                    value={selectedColor}
-                                >
-                                    {colors.map(color => (
-                                        <option key={color._id} value={color._id} kol_opis={color.Kol_Opis} kol_kod={color.Kol_Kod}>{color.Kol_Opis}</option>
-                                    ))}
-                                </Input>
+                                <div id="walletColorSelect" style={{ position: 'relative' }}>
+                                    <Input
+                                        type="text"
+                                        value={colorFilterText}
+                                        onChange={handleColorFilterChange}
+                                        onKeyDown={handleColorKeyDown}
+                                        onFocus={() => setIsColorDropdownOpen(true)}
+                                        placeholder="Wpisz lub wybierz kolor..."
+                                        autoComplete="off"
+                                        style={{
+                                            backgroundColor: '#000000',
+                                            color: '#ffffff',
+                                            border: '1px solid #333333',
+                                            borderRadius: '4px',
+                                            padding: '8px 12px',
+                                            width: '100%'
+                                        }}
+                                    />
+                                    <div 
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            cursor: 'pointer',
+                                            fontSize: '12px'
+                                        }}
+                                        onClick={() => setIsColorDropdownOpen(!isColorDropdownOpen)}
+                                    >
+                                        ▼
+                                    </div>
+                                    {isColorDropdownOpen && (
+                                        <div 
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: '#000000',
+                                                color: '#ffffff',
+                                                border: '1px solid #333333',
+                                                borderTop: 'none',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 1000,
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            {getFilteredColors().length > 0 ? (
+                                                getFilteredColors().map((color, index) => (
+                                                    <div
+                                                        key={color._id}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid #333333',
+                                                            backgroundColor: 
+                                                                selectedColorIndex === index ? '#007bff' :
+                                                                selectedColor === color._id ? '#111111' : '#000000',
+                                                            color: '#ffffff'
+                                                        }}
+                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis)}
+                                                        onMouseEnter={(e) => {
+                                                            if (selectedColorIndex !== index) {
+                                                                e.target.style.backgroundColor = '#444444';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (selectedColorIndex !== index) {
+                                                                e.target.style.backgroundColor = selectedColor === color._id ? '#111111' : '#000000';
+                                                            }
+                                                        }}
+                                                    >
+                                                        {color.Kol_Opis} ({color.Kol_Kod})
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '8px 12px', color: '#ccc' }}>
+                                                    Brak wyników
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="walletProductName" className={styles.label}>Nazwa produktu:</Label>
@@ -1976,17 +2425,90 @@ const Goods = () => {
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="remainingColorSelect" className={styles.label}>Kolor:</Label>
-                                <Input
-                                    type="select"
-                                    id="remainingColorSelect"
-                                    className={styles.inputField}
-                                    onChange={handleColorChange}
-                                    value={selectedColor}
-                                >
-                                    {colors.map(color => (
-                                        <option key={color._id} value={color._id} kol_opis={color.Kol_Opis} kol_kod={color.Kol_Kod}>{color.Kol_Opis}</option>
-                                    ))}
-                                </Input>
+                                <div id="remainingColorSelect" style={{ position: 'relative' }}>
+                                    <Input
+                                        type="text"
+                                        value={colorFilterText}
+                                        onChange={handleColorFilterChange}
+                                        onKeyDown={handleColorKeyDown}
+                                        onFocus={() => setIsColorDropdownOpen(true)}
+                                        placeholder="Wpisz lub wybierz kolor..."
+                                        autoComplete="off"
+                                        style={{
+                                            backgroundColor: '#000000',
+                                            color: '#ffffff',
+                                            border: '1px solid #333333',
+                                            borderRadius: '4px',
+                                            padding: '8px 12px',
+                                            width: '100%'
+                                        }}
+                                    />
+                                    <div 
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            cursor: 'pointer',
+                                            fontSize: '12px'
+                                        }}
+                                        onClick={() => setIsColorDropdownOpen(!isColorDropdownOpen)}
+                                    >
+                                        ▼
+                                    </div>
+                                    {isColorDropdownOpen && (
+                                        <div 
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: '#000000',
+                                                color: '#ffffff',
+                                                border: '1px solid #333333',
+                                                borderTop: 'none',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 1000,
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            {getFilteredColors().length > 0 ? (
+                                                getFilteredColors().map((color, index) => (
+                                                    <div
+                                                        key={color._id}
+                                                        style={{
+                                                            padding: '8px 12px',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid #333333',
+                                                            backgroundColor: 
+                                                                selectedColorIndex === index ? '#007bff' :
+                                                                selectedColor === color._id ? '#111111' : '#000000',
+                                                            color: '#ffffff'
+                                                        }}
+                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis)}
+                                                        onMouseEnter={(e) => {
+                                                            if (selectedColorIndex !== index) {
+                                                                e.target.style.backgroundColor = '#444444';
+                                                            }
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            if (selectedColorIndex !== index) {
+                                                                e.target.style.backgroundColor = selectedColor === color._id ? '#111111' : '#000000';
+                                                            }
+                                                        }}
+                                                    >
+                                                        {color.Kol_Opis} ({color.Kol_Kod})
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ padding: '8px 12px', color: '#ccc' }}>
+                                                    Brak wyników
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="remainingProductName" className={styles.label}>Nazwa produktu:</Label>

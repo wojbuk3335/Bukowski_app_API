@@ -21,6 +21,21 @@ const RemainingProducts = () => {
     const [currentProduct, setCurrentProduct] = useState({ _id: '', Poz_Kod: '' });
     const [startingNumber, setStartingNumber] = useState(10);
 
+    // Validation function for Poz_Kod - allows max 3 decimal places
+    const validatePozKod = (value) => {
+        if (!value || value === '') return true;
+        
+        // Check for multiple decimal points or invalid characters
+        const decimalCount = (value.match(/\./g) || []).length;
+        if (decimalCount > 1) return false;
+        
+        const numberValue = parseFloat(value);
+        if (isNaN(numberValue)) return false;
+        
+        const decimalPart = value.split('.')[1];
+        return !decimalPart || decimalPart.length <= 3;
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -33,7 +48,10 @@ const RemainingProducts = () => {
     };
 
     const handleUpdateChange = (e) => {
-        setCurrentProduct({ ...currentProduct, Poz_Kod: e.target.value });
+        const newValue = e.target.value;
+        if (validatePozKod(newValue)) {
+            setCurrentProduct({ ...currentProduct, Poz_Kod: newValue });
+        }
     };
 
     const handleUpdateSubmit = async () => {
