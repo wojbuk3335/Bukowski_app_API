@@ -1544,19 +1544,20 @@ const Warehouse = () => {
             const summaryHeaderWidth = doc.getTextWidth(summaryHeaderText);
             doc.text(summaryHeaderText, (pageWidth - summaryHeaderWidth) / 2, 65);
             
-            // Tabela podsumowująca - sortowanie alfabetyczne
-            const summaryColumns = ['Lp.', 'Produkt', 'Ilosc', 'Kod kreskowy'];
+            // Tabela podsumowująca - sortowanie alfabetyczne z osobną kolumną rozmiar
+            const summaryColumns = ['Lp.', 'Produkt', 'Rozmiar', 'Ilosc', 'Kod kreskowy'];
             
-            // Sortuj alfabetycznie według nazwy produktu (productKey)
+            // Sortuj alfabetycznie według nazwy produktu (productName)
             const sortedSummary = [...data.summary].sort((a, b) => {
-                const nameA = (a.productKey || 'Nieznany produkt').toLowerCase();
-                const nameB = (b.productKey || 'Nieznany produkt').toLowerCase();
+                const nameA = (a.productName || 'Nieznany produkt').toLowerCase();
+                const nameB = (b.productName || 'Nieznany produkt').toLowerCase();
                 return nameA.localeCompare(nameB, 'pl', { sensitivity: 'base' });
             });
             
             const summaryRows = sortedSummary.map((item, index) => [
                 (index + 1).toString(),
-                convertPolishChars(item.productKey || 'Nieznany produkt'),
+                convertPolishChars(item.productName || 'Nieznany produkt'),
+                convertPolishChars(item.size || '-'),
                 `${item.count} szt.`,
                 item.barcode && item.barcode !== '-' ? item.barcode : 'Brak kodu'
             ]);
@@ -1571,7 +1572,8 @@ const Warehouse = () => {
                     fillColor: [41, 128, 185], // Niebieski nagłówek
                     textColor: [255, 255, 255],
                     fontSize: 11,
-                    fontStyle: 'bold'
+                    fontStyle: 'bold',
+                    halign: 'center' // Wyśrodkowanie nagłówków
                 },
                 bodyStyles: {
                     fontSize: 10,
@@ -1580,12 +1582,15 @@ const Warehouse = () => {
                 alternateRowStyles: {
                     fillColor: [245, 245, 245]
                 },
-                margin: { left: 15, right: 15 },
+                margin: { left: 35, right: 20 },
+                tableWidth: 'wrap',
+                halign: 'center',
                 columnStyles: {
-                    0: { cellWidth: 20, halign: 'center' }, // Lp.
-                    1: { cellWidth: 80 }, // Produkt (szersze dla pełnej nazwy)
-                    2: { cellWidth: 30, halign: 'center' }, // Ilość
-                    3: { cellWidth: 40, halign: 'center' }  // Kod kreskowy
+                    0: { cellWidth: 15, halign: 'center' }, // Lp.
+                    1: { cellWidth: 60 }, // Produkt (nazwa bez rozmiaru)
+                    2: { cellWidth: 20, halign: 'center' }, // Rozmiar
+                    3: { cellWidth: 25, halign: 'center' }, // Ilość
+                    4: { cellWidth: 35, halign: 'center' }  // Kod kreskowy
                 }
             });
         }
