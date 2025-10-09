@@ -171,30 +171,6 @@ class StatesController {
             const state = new State(stateData);
             const newState = await state.save();
 
-            // Create history entry for state creation
-            const History = require('../db/models/history');
-            const historyEntry = new History({
-                collectionName: 'Stan',
-                operation: user.symbol === 'MAGAZYN' ? 'Dodano do magazynu' : 'Dodano do stanu',
-                product: `${goods.fullName} ${req.body.size || '-'}`,
-                details: JSON.stringify({
-                    stateId: newState._id,
-                    fullName: goods._id,
-                    fullNameText: goods.fullName,
-                    size: size ? size._id : null,
-                    sizeText: req.body.size || '-',
-                    barcode: barcode,
-                    sellingPoint: user._id,
-                    sellingPointSymbol: user.symbol,
-                    price: finalPrice,
-                    discount_price: finalDiscountPrice,
-                    date: newState.date,
-                    operationType: user.symbol === 'MAGAZYN' ? 'warehouse_add' : 'state_add'
-                }),
-                timestamp: new Date()
-            });
-            await historyEntry.save();
-
             res.status(201).json(newState);
         } catch (error) {
             console.error('Error creating state:', error); // Log the error

@@ -61,7 +61,7 @@ const Category = () => {
                 Plec: "D" // Default value
             };
 
-            await axios.post('/api/excel/category/insert-many-categories', [newCategory]);
+            await axios.post('/api/excel/subcategoryCoats/insert-many-subcategoryCoats', [newCategory]);
             
             fetchData();
             alert('Nowy wiersz został dodany pomyślnie!');
@@ -78,8 +78,8 @@ const Category = () => {
             setLoading(true);
 
             // Check if the Kat_1_Opis_1 value is unique
-            const response = await axios.get(`/api/excel/category/get-all-categories`);
-            const categories = response.data.categories;
+            const response = await axios.get(`/api/excel/subcategoryCoats/get-all-subcategoryCoats`);
+            const categories = response.data.subcategoryCoats;
             const duplicate = categories.find(category => category.Kat_1_Opis_1 === currentCategory.Kat_1_Opis_1 && category._id !== currentCategory._id);
 
             if (duplicate && currentCategory.Kat_1_Opis_1 !== "") {
@@ -88,7 +88,7 @@ const Category = () => {
                 return;
             }
 
-            await axios.patch(`/api/excel/category/update-category/${currentCategory._id}`, { 
+            await axios.patch(`/api/excel/subcategoryCoats/update-subcategoryCoats/${currentCategory._id}`, { 
                 Kat_1_Opis_1: currentCategory.Kat_1_Opis_1,
                 Plec: currentCategory.Plec 
             });
@@ -104,8 +104,8 @@ const Category = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const result = (await axios.get(`/api/excel/category/get-all-categories`)).data;
-            const categories = Array.isArray(result.categories) ? result.categories : [];
+            const result = (await axios.get(`/api/excel/subcategoryCoats/get-all-subcategoryCoats`)).data;
+            const categories = Array.isArray(result.subcategoryCoats) ? result.subcategoryCoats : [];
             
             // Sort by Kat_1_Kod_1 in descending order (newest/highest codes first)
             const sortedCategories = categories.sort((a, b) => {
@@ -123,8 +123,8 @@ const Category = () => {
     };
 
     const getCategoryList = async () => {
-        const categoryResponse = (await axios.get(`/api/excel/category/get-all-categories`)).data;
-        return Array.isArray(categoryResponse.categories) ? categoryResponse.categories : [];
+        const categoryResponse = (await axios.get(`/api/excel/subcategoryCoats/get-all-subcategoryCoats`)).data;
+        return Array.isArray(categoryResponse.subcategoryCoats) ? categoryResponse.subcategoryCoats : [];
     };
 
     const renderDataTable = () => (

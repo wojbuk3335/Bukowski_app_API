@@ -57,8 +57,10 @@ function App() {
           </Route>
           <Route path='users' element={<Users />} />
           <Route path='goods' element={<Goods />} />
+          <Route path="subcategory">
+            <Route path="coats" element={<Category />} />
+          </Route>
           <Route path="category">
-            <Route path="category" element={<Category />} />
             <Route path="bags" element={<BagsCategory />} />
             <Route path="wallets" element={<WalletsCategory />} />
             <Route path="remaining" element={<RemainingProductsSubcategory />} />

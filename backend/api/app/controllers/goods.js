@@ -130,43 +130,64 @@ class GoodsController {
     }
 
     async getAllGoods(req, res, next) {
-        Goods.find()
-            .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory Plec price discount_price picture priceExceptions sellingPoint barcode')
-            .populate('stock', 'Tow_Opis Tow_Kod')
-            .populate('color', 'Kol_Opis Kol_Kod')
-            .populate('subcategory', 'Kat_1_Opis_1') // Populate subcategory with its description
-            .populate('priceExceptions.size', 'Roz_Opis') // Removed category population
-            .then(goods => {
-                res.status(200).json({
-                    count: goods.length,
-                    goods: goods.map(good => ({
-                        _id: good._id,
-                        stock: good.stock,
-                        color: good.color,
-                        bagProduct: good.bagProduct,
-                        bagId: good.bagId,
-                        bagsCategoryId: good.bagsCategoryId,
-                        fullName: good.fullName,
-                        code: good.code,
-                        category: good.category ? good.category.replace(/_/g, ' ') : 'Nieokreślona', // Replace underscores with spaces, handle null
-                        subcategory: good.subcategory,
-                        Plec: good.Plec, // Include Plec in the response
-                        price: good.price,
-                        discount_price: good.discount_price,
-                        picture: good.picture,
-                        priceExceptions: good.priceExceptions,
-                        sellingPoint: good.sellingPoint,
-                        barcode: good.barcode
-                    }))
-                });
-            })
-            .catch(err => {
-                res.status(500).json({
-                    error: {
-                        message: err.message
-                    }
-                });
+        try {
+            const goods = await Goods.find()
+                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory Plec price discount_price picture priceExceptions sellingPoint barcode')
+                .populate('stock', 'Tow_Opis Tow_Kod')
+                .populate('color', 'Kol_Opis Kol_Kod')
+                .populate('priceExceptions.size', 'Roz_Opis');
+
+            // Manually populate subcategory based on category
+            const populatedGoods = await Promise.all(goods.map(async (good) => {
+                if (good.category === 'Kurtki kożuchy futra' && good.subcategory) {
+                    // For coats, populate from SubcategoryCoats model
+                    const SubcategoryCoats = require('../db/models/subcategoryCoats');
+                    const subcategoryData = await SubcategoryCoats.findById(good.subcategory).select('Kat_1_Opis_1 Płeć');
+                    return {
+                        ...good.toObject(),
+                        subcategory: subcategoryData
+                    };
+                } else if (good.subcategory) {
+                    // For other categories, populate from Category model
+                    const Category = require('../db/models/category');
+                    const subcategoryData = await Category.findById(good.subcategory).select('Kat_1_Opis_1');
+                    return {
+                        ...good.toObject(),
+                        subcategory: subcategoryData
+                    };
+                }
+                return good.toObject();
+            }));
+
+            res.status(200).json({
+                count: populatedGoods.length,
+                goods: populatedGoods.map(good => ({
+                    _id: good._id,
+                    stock: good.stock,
+                    color: good.color,
+                    bagProduct: good.bagProduct,
+                    bagId: good.bagId,
+                    bagsCategoryId: good.bagsCategoryId,
+                    fullName: good.fullName,
+                    code: good.code,
+                    category: good.category ? good.category.replace(/_/g, ' ') : 'Nieokreślona', // Replace underscores with spaces, handle null
+                    subcategory: good.subcategory,
+                    Plec: good.Plec, // Include Plec in the response
+                    price: good.price,
+                    discount_price: good.discount_price,
+                    picture: good.picture,
+                    priceExceptions: good.priceExceptions,
+                    sellingPoint: good.sellingPoint,
+                    barcode: good.barcode
+                }))
             });
+        } catch (err) {
+            res.status(500).json({
+                error: {
+                    message: err.message
+                }
+            });
+        }
     }
 
     async updateGood(req, res, next) {

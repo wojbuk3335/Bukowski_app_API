@@ -25,6 +25,7 @@ const goodsRoutes = require('./routes/goods');
 const configRoutes = require('./routes/config');
 const stateRoutes = require('./routes/state');
 const categoryRoutes = require('./routes/category');
+const subcategoryCoatsRoutes = require('./routes/subcategoryCoats');
 const bagsCategoryRoutes = require('./routes/bagsCategory');
 const walletsCategoryRoutes = require('./routes/walletsCategory');
 const remainingCategoryRoutes = require('./routes/remainingCategory');
@@ -57,6 +58,7 @@ app.use('/api/excel/color', colorRoutes);
 app.use('/api/excel/size', sizeRoutes);
 app.use('/api/excel/goods', goodsRoutes);
 app.use('/api/excel/category', categoryRoutes);
+app.use('/api/excel/subcategoryCoats', subcategoryCoatsRoutes);
 app.use('/api/excel/bags-category', bagsCategoryRoutes);
 app.use('/api/excel/wallets-category', walletsCategoryRoutes);
 app.use('/api/excel/remaining-category', remainingCategoryRoutes);
@@ -67,6 +69,7 @@ app.use('/api/excel/remaining-products', remainingProductsRoutes); // Use remain
 app.use('/api/config', configRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/category', categoryRoutes);
+app.use('/api/subcategoryCoats', subcategoryCoatsRoutes);
 app.use('/api', printRoutes); // Use print routes
 
 // Serve static files from the React app

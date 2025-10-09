@@ -99,7 +99,7 @@ function Navigaton() {
                     position: 'static',
                   }}
                 >
-                  <NavDropdown.Item as={Link} to="/admin/dashboard/category/category">Kurtki Kożuchy Futra</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/admin/dashboard/subcategory/coats">Kurtki Kożuchy Futra</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/bags">Torebki</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/wallets">Portfele</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/remaining">Pozostały asortyment</NavDropdown.Item>

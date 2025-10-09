@@ -59,6 +59,7 @@ const historyLogger = (collectionName) => {
             if (collection === 'state') return 'Stan';
             if (collection === 'color') return 'Kolory';
             if (collection === 'category') return 'Kategoria';
+            if (collection === 'subcategoryCoats') return 'Podkategorie kurtek';
             if (collection === 'states') return 'Stan'; // Correct translation for "states"
             if (collection === 'users') return 'Użytkownicy'; // Replace "Users" with "Użytkownicy"
             if (collection === 'colors') return 'Kolory'; // Translate "colors" to "Kolory"

@@ -119,10 +119,11 @@ const Goods = () => {
     }, []);
 
     useEffect(() => {
-        fetch('/api/category/get-all-categories')
+        // Ładuj podkategorie dla kurtek z nowego endpointu
+        fetch('/api/excel/subcategoryCoats/get-all-subcategoryCoats')
             .then(response => response.json())
             .then(data => {
-                const filteredCategories = (data.categories || []).filter(cat => cat.Kat_1_Opis_1 && cat.Kat_1_Opis_1.trim() !== '');
+                const filteredCategories = (data.subcategoryCoats || []).filter(cat => cat.Kat_1_Opis_1 && cat.Kat_1_Opis_1.trim() !== '');
                 const updatedCategories = filteredCategories.map(cat => ({
                     ...cat,
                     Płeć: cat.Plec || '' // Ensure Płeć is included and defaults to an empty string if missing
@@ -132,7 +133,7 @@ const Goods = () => {
                     setSelectedSubcategory(updatedCategories[0]._id); // Set the first category as default
                 }
             })
-            .catch(error => console.error('Error fetching categories:', error));
+            .catch(error => console.error('Error fetching subcategory coats:', error));
     }, []);
 
     // Fetch bags data for bags category
@@ -382,6 +383,25 @@ const Goods = () => {
     const handleCategoryChange = (e) => {
         const newCategory = e.target.value;
         setSelectedCategory(newCategory);
+        
+        // Ładuj odpowiednie podkategorie w zależności od wybranej kategorii
+        if (newCategory === 'Kurtki kożuchy futra') {
+            // Ładuj podkategorie kurtek z nowego endpointu
+            fetch('/api/excel/subcategoryCoats/get-all-subcategoryCoats')
+                .then(response => response.json())
+                .then(data => {
+                    const filteredCategories = (data.subcategoryCoats || []).filter(cat => cat.Kat_1_Opis_1 && cat.Kat_1_Opis_1.trim() !== '');
+                    const updatedCategories = filteredCategories.map(cat => ({
+                        ...cat,
+                        Płeć: cat.Plec || ''
+                    }));
+                    setSubcategories(updatedCategories);
+                    if (updatedCategories.length > 0) {
+                        setSelectedSubcategory(updatedCategories[0]._id);
+                    }
+                })
+                .catch(error => console.error('Error fetching subcategory coats:', error));
+        }
         
         // Jeśli wybrano kategorię "Torebki", wyczyść modal i ustaw domyślne wartości
         if (newCategory === 'Torebki') {
