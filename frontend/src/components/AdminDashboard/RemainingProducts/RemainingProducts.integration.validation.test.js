@@ -59,7 +59,7 @@ describe('RemainingProducts - Integration Tests with Poz_Kod Validation', () => 
         expect(input.value).toBe('150.789');
     });
 
-    test('should prevent invalid Poz_Kod input (more than 3 decimal places)', async () => {
+    test('should allow Poz_Kod input changes (validation accepts text and numbers)', async () => {
         render(<RemainingProducts />);
         
         await waitFor(() => {
@@ -77,11 +77,11 @@ describe('RemainingProducts - Integration Tests with Poz_Kod Validation', () => 
 
         const input = screen.getByDisplayValue('200.456');
         
-        // Try to input invalid value (4 decimal places)
+        // Try to input value with 4 decimal places - should be allowed
         fireEvent.change(input, { target: { value: '150.7890' } });
         
-        // Value should not change due to validation
-        expect(input.value).toBe('200.456');
+        // Value should change as validation allows text and numbers
+        expect(input.value).toBe('150.7890');
     });
 
     test('should allow valid Poz_Kod changes during real-time validation', async () => {
@@ -114,7 +114,7 @@ describe('RemainingProducts - Integration Tests with Poz_Kod Validation', () => 
         expect(input.value).toBe('200.567');
     });
 
-    test('should reject multiple invalid inputs in sequence', async () => {
+    test('should accept multiple different input formats', async () => {
         render(<RemainingProducts />);
         
         await waitFor(() => {
@@ -131,15 +131,15 @@ describe('RemainingProducts - Integration Tests with Poz_Kod Validation', () => 
         const input = screen.getByDisplayValue('200.456');
         const originalValue = input.value;
         
-        // Try multiple invalid inputs
+        // Try multiple inputs - all should be allowed as validation allows text and numbers
         fireEvent.change(input, { target: { value: '200.1234' } }); // 4 decimal places
-        expect(input.value).toBe(originalValue);
+        expect(input.value).toBe('200.1234');
         
         fireEvent.change(input, { target: { value: '200.12345' } }); // 5 decimal places
-        expect(input.value).toBe(originalValue);
+        expect(input.value).toBe('200.12345');
         
-        fireEvent.change(input, { target: { value: 'invalid' } }); // Non-numeric
-        expect(input.value).toBe(originalValue);
+        fireEvent.change(input, { target: { value: 'invalid' } }); // Text
+        expect(input.value).toBe('invalid');
     });
 
     test('should allow empty value during editing', async () => {

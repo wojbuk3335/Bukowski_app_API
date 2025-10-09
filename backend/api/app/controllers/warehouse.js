@@ -552,6 +552,129 @@ class WarehouseController {
             res.status(500).json({ error: error.message });
         }
     };
+
+    // Generate inventory report (state on specific date)
+    generateInventoryReport = async (req, res) => {
+        try {
+            const { date, productFilter, productId, category, manufacturerId } = req.query;
+            
+            if (!date) {
+                return res.status(400).json({ 
+                    error: 'Date is required for inventory report' 
+                });
+            }
+
+            const targetDate = new Date(date);
+            targetDate.setHours(23, 59, 59, 999); // Include the entire target date
+
+            // Find MAGAZYN user
+            const magazynUser = await User.findOne({ symbol: 'MAGAZYN' });
+            if (!magazynUser) {
+                return res.status(404).json({ error: 'MAGAZYN user not found' });
+            }
+
+            // Build query for current state (items in warehouse on target date)
+            let stateQuery = {
+                sellingPoint: magazynUser._id,
+                date: { $lte: targetDate }
+            };
+
+            // Apply product filtering
+            if (productFilter === 'specific' && productId) {
+                stateQuery.fullName = productId;
+            }
+
+            // Handle category and manufacturer filtering
+            if ((productFilter === 'category' || productFilter === 'combined') && category) {
+                const Goods = require('../db/models/goods');
+                
+                let productsQuery = {};
+                
+                if (category === 'Paski') {
+                    productsQuery = { 
+                        category: 'Pozostały asortyment',
+                        subcategory: 'belts'
+                    };
+                } else if (category === 'Rękawiczki') {
+                    productsQuery = { 
+                        category: 'Pozostały asortyment',
+                        subcategory: 'gloves'
+                    };
+                } else {
+                    productsQuery.category = category;
+                }
+                
+                if ((productFilter === 'manufacturer' || productFilter === 'combined') && manufacturerId) {
+                    productsQuery.manufacturer = manufacturerId;
+                }
+                
+                const filteredProducts = await Goods.find(productsQuery).select('_id');
+                
+                if (filteredProducts.length > 0) {
+                    const productIds = filteredProducts.map(p => p._id);
+                    stateQuery.fullName = { $in: productIds };
+                } else {
+                    // No products match the filter
+                    return res.status(200).json({
+                        items: [],
+                        totalItems: 0,
+                        date: targetDate
+                    });
+                }
+            } else if (productFilter === 'manufacturer' && manufacturerId) {
+                const Goods = require('../db/models/goods');
+                
+                const productsFromManufacturer = await Goods.find({ 
+                    manufacturer: manufacturerId 
+                }).select('_id');
+                
+                if (productsFromManufacturer.length > 0) {
+                    const productIds = productsFromManufacturer.map(p => p._id);
+                    stateQuery.fullName = { $in: productIds };
+                } else {
+                    return res.status(200).json({
+                        items: [],
+                        totalItems: 0,
+                        date: targetDate
+                    });
+                }
+            }
+
+            console.log(`📦 Inventory query for ${date}:`, stateQuery);
+
+            // Get all items in warehouse on target date
+            const inventoryItems = await State.find(stateQuery)
+                .populate('fullName', 'fullName category manufacturer')
+                .populate('size', 'Roz_Opis')
+                .sort({ date: -1 })
+                .lean();
+
+            console.log(`📦 Found ${inventoryItems.length} items in inventory`);
+
+            // Format items for response
+            const formattedItems = inventoryItems.map(item => ({
+                productName: item.fullName?.fullName || 'Nieznany produkt',
+                category: item.fullName?.category || 'Brak kategorii',
+                manufacturer: item.fullName?.manufacturer || null,
+                size: item.size?.Roz_Opis || '-',
+                barcode: item.barcode || '-',
+                price: item.price || 0,
+                date: item.date
+            }));
+
+            const inventoryData = {
+                items: formattedItems,
+                totalItems: formattedItems.length,
+                date: targetDate
+            };
+
+            res.status(200).json(inventoryData);
+
+        } catch (error) {
+            console.error('Error generating inventory report:', error);
+            res.status(500).json({ error: error.message });
+        }
+    };
 }
 
 module.exports = new WarehouseController();

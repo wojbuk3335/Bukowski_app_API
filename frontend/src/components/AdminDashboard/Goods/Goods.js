@@ -46,6 +46,11 @@ const Goods = () => {
     // States for manufacturers
     const [manufacturers, setManufacturers] = useState([]); // State for manufacturers
     const [selectedManufacturer, setSelectedManufacturer] = useState(''); // Selected manufacturer
+    // States for belts and gloves
+    const [belts, setBelts] = useState([]); // State for belts
+    const [selectedBelt, setSelectedBelt] = useState(''); // Selected belt
+    const [gloves, setGloves] = useState([]); // State for gloves
+    const [selectedGlove, setSelectedGlove] = useState(''); // Selected glove
     // States for color filtering
     const [colorFilterText, setColorFilterText] = useState(''); // Filter text for colors
     const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false); // Dropdown state for colors
@@ -230,18 +235,36 @@ const Goods = () => {
 
     // Fetch remaining categories
     useEffect(() => {
+        // Używaj tylko statycznych kategorii "Paski" i "Rękawiczki" 
+        const staticCategories = [
+            { _id: 'belts', Rem_Kat_1_Opis_1: 'Paski', type: 'static' },
+            { _id: 'gloves', Rem_Kat_1_Opis_1: 'Rękawiczki', type: 'static' }
+        ];
+        
+        setRemainingCategories(staticCategories);
+        if (staticCategories.length > 0) {
+            setSelectedRemainingCategory(staticCategories[0]._id);
+        }
+        
+        // Opcjonalnie: nadal pobieraj standardowe kategorie jeśli potrzebne
+        /*
         fetch('/api/excel/remaining-category/get-all-remaining-categories')
             .then(response => response.json())
             .then(data => {
                 const filteredCategories = (data.remainingCategories || []).filter(cat => 
                     cat.Rem_Kat_1_Opis_1 && cat.Rem_Kat_1_Opis_1.trim() !== ''
                 );
-                setRemainingCategories(filteredCategories);
-                if (filteredCategories.length > 0) {
-                    setSelectedRemainingCategory(filteredCategories[0]._id);
+                
+                // Połącz standardowe kategorie ze statycznymi
+                const allCategories = [...filteredCategories, ...staticCategories];
+                
+                setRemainingCategories(allCategories);
+                if (allCategories.length > 0) {
+                    setSelectedRemainingCategory(allCategories[0]._id);
                 }
             })
             .catch(error => console.error('Error fetching remaining categories:', error));
+        */
     }, []);
 
     // Fetch manufacturers
@@ -257,6 +280,41 @@ const Goods = () => {
             })
             .catch(error => console.error('Error fetching manufacturers:', error));
     }, []);
+
+    // Fetch belts
+    useEffect(() => {
+        fetch('/api/excel/belts')
+            .then(response => response.json())
+            .then(data => {
+                const beltsList = data.belts || [];
+                setBelts(beltsList);
+                if (beltsList.length > 0) {
+                    setSelectedBelt(beltsList[0]._id);
+                }
+            })
+            .catch(error => console.error('Error fetching belts:', error));
+    }, []);
+
+    // Fetch gloves
+    useEffect(() => {
+        fetch('/api/excel/gloves')
+            .then(response => response.json())
+            .then(data => {
+                const glovesList = data.gloves || [];
+                setGloves(glovesList);
+                if (glovesList.length > 0) {
+                    setSelectedGlove(glovesList[0]._id);
+                }
+            })
+            .catch(error => console.error('Error fetching gloves:', error));
+    }, []);
+
+    // Load subcategories for remaining products when belts, gloves are loaded and remaining category is selected
+    useEffect(() => {
+        if (selectedRemainingCategory && (belts.length > 0 || gloves.length > 0)) {
+            handleRemainingCategoryChange(selectedRemainingCategory);
+        }
+    }, [selectedRemainingCategory, belts, gloves]);
 
     // Fetch remaining products
     useEffect(() => {
@@ -567,24 +625,57 @@ const Goods = () => {
     // Funkcja do ładowania podpodkategorii dla wybranej kategorii pozostałego asortymentu
     const handleRemainingCategoryChange = (categoryId) => {
         if (categoryId) {
-            fetch(`/api/excel/remaining-subcategory/get-by-category/${categoryId}`)
-                .then(response => response.json())
-                .then(data => {
-                    const filteredSubcategories = (data.remainingSubcategories || []).filter(sub => 
-                        sub.Sub_Opis && sub.Sub_Opis.trim() !== ''
-                    );
-                    setRemainingSubcategories(filteredSubcategories);
-                    if (filteredSubcategories.length > 0) {
-                        setSelectedRemainingSubcategory(filteredSubcategories[0]._id);
-                    } else {
-                        setSelectedRemainingSubcategory('');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching remaining subcategories:', error);
-                    setRemainingSubcategories([]);
+            // Sprawdź czy wybrano "Paski" lub "Rękawiczki"
+            if (categoryId === 'belts') {
+                // Załaduj dane z tabeli Belts
+                const beltsOptions = belts.map(belt => ({
+                    _id: belt._id,
+                    Sub_Opis: belt.Belt_Opis,
+                    type: 'belt'
+                }));
+                
+                setRemainingSubcategories(beltsOptions);
+                if (beltsOptions.length > 0) {
+                    setSelectedRemainingSubcategory(beltsOptions[0]._id);
+                } else {
                     setSelectedRemainingSubcategory('');
-                });
+                }
+            } else if (categoryId === 'gloves') {
+                // Załaduj dane z tabeli Gloves
+                const glovesOptions = gloves.map(glove => ({
+                    _id: glove._id,
+                    Sub_Opis: glove.Glove_Opis,
+                    type: 'glove'
+                }));
+                
+                setRemainingSubcategories(glovesOptions);
+                if (glovesOptions.length > 0) {
+                    setSelectedRemainingSubcategory(glovesOptions[0]._id);
+                } else {
+                    setSelectedRemainingSubcategory('');
+                }
+            } else {
+                // Standardowe ładowanie dla pozostałych kategorii
+                fetch(`/api/excel/remaining-subcategory/get-by-category/${categoryId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const filteredSubcategories = (data.remainingSubcategories || []).filter(sub => 
+                            sub.Sub_Opis && sub.Sub_Opis.trim() !== ''
+                        );
+                        
+                        setRemainingSubcategories(filteredSubcategories);
+                        if (filteredSubcategories.length > 0) {
+                            setSelectedRemainingSubcategory(filteredSubcategories[0]._id);
+                        } else {
+                            setSelectedRemainingSubcategory('');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching remaining subcategories:', error);
+                        setRemainingSubcategories([]);
+                        setSelectedRemainingSubcategory('');
+                    });
+            }
         } else {
             setRemainingSubcategories([]);
             setSelectedRemainingSubcategory('');
@@ -868,7 +959,13 @@ const Goods = () => {
                 color.Kol_Opis.toLowerCase().includes(colorFilterText.toLowerCase()) ||
                 color.Kol_Kod.toLowerCase().includes(colorFilterText.toLowerCase())
             )
-            .slice(0, 10); // Maksymalnie 10 wyników
+            .sort((a, b) => {
+                // Sortuj według kodu koloru numerycznie
+                const kodA = parseInt(a.Kol_Kod) || 999;
+                const kodB = parseInt(b.Kol_Kod) || 999;
+                return kodA - kodB;
+            })
+            .slice(0, 50); // Zwiększone do 50 wyników
     };
 
     // Functions for product filtering (Kurtki kożuchy futra)
@@ -1181,8 +1278,20 @@ const Goods = () => {
             }
         } else if (selectedCategory === 'Pozostały asortyment') {
             // Obsługa kategorii Pozostały asortyment
+            console.log('Sprawdzanie danych pozostały asortyment:', {
+                selectedRemainingProductCode,
+                selectedColor,
+                selectedRemainingCategory,
+                selectedRemainingSubcategory
+            });
+            
             if (!selectedRemainingProductCode || !selectedColor || !selectedRemainingCategory) {
                 alert('Wybierz podkategorię, produkt i kolor!');
+                return;
+            }
+            
+            if (!selectedRemainingSubcategory) {
+                alert('Wybierz podpodkategorię!');
                 return;
             }
 
@@ -1284,7 +1393,7 @@ const Goods = () => {
             formData.append('remainingSubcategory', ''); // Brak podpodkategorii dla portfeli
         } else if (selectedCategory === 'Pozostały asortyment') {
             formData.append('subcategory', selectedRemainingCategory); // Podkategoria dla pozostałego asortymentu
-            formData.append('remainingSubcategory', selectedRemainingSubcategory); // Podpodkategoria dla pozostałego asortymentu
+            formData.append('remainingsubsubcategory', selectedRemainingSubcategory); // Podpodkategoria dla pozostałego asortymentu
         } else {
             formData.append('subcategory', selectedSubcategory); // Standardowa podkategoria dla kurtek
             formData.append('remainingSubcategory', ''); // Brak podpodkategorii dla kurtek
@@ -1510,6 +1619,8 @@ const Goods = () => {
         setSelectedRemainingCategory(remainingCategories.length > 0 ? remainingCategories[0]._id : ''); // Reset remaining category
         setSelectedRemainingSubcategory(''); // Reset remaining subcategory
         setSelectedManufacturer(manufacturers.length > 0 ? manufacturers[0]._id : ''); // Reset manufacturer
+        setSelectedBelt(belts.length > 0 ? belts[0]._id : ''); // Reset belt
+        setSelectedGlove(gloves.length > 0 ? gloves[0]._id : ''); // Reset glove
         setSelectedRemainingProductCode(remainingProducts.length > 0 ? remainingProducts[0].Poz_Kod : ''); // Reset remaining product
         setRemainingProductFilterText(remainingProducts.length > 0 ? remainingProducts[0].Poz_Kod : ''); // Reset remaining product filter
         setIsRemainingProductDropdownOpen(false); // Close remaining products dropdown
@@ -1667,6 +1778,23 @@ const Goods = () => {
                                             plec={sub.Płeć} // Add Płeć as a hidden attribute
                                         >
                                             {sub.Kat_1_Opis_1} {/* Display only Kat_1_Opis_1 */}
+                                        </option>
+                                    ))}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="jacketManufacturerSelect" className={styles.label}>Producent:</Label>
+                                <Input
+                                    type="select"
+                                    id="jacketManufacturerSelect"
+                                    className={styles.inputField}
+                                    value={selectedManufacturer}
+                                    onChange={(e) => setSelectedManufacturer(e.target.value)}
+                                >
+                                    <option value="">Wybierz producenta</option>
+                                    {manufacturers.map(manufacturer => (
+                                        <option key={manufacturer._id} value={manufacturer._id}>
+                                            {manufacturer.Prod_Opis}
                                         </option>
                                     ))}
                                 </Input>
@@ -1962,6 +2090,23 @@ const Goods = () => {
                                 </Input>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
+                                <Label for="bagManufacturerSelect" className={styles.label}>Producent:</Label>
+                                <Input
+                                    type="select"
+                                    id="bagManufacturerSelect"
+                                    className={styles.inputField}
+                                    value={selectedManufacturer}
+                                    onChange={(e) => setSelectedManufacturer(e.target.value)}
+                                >
+                                    <option value="">Wybierz producenta</option>
+                                    {manufacturers.map(manufacturer => (
+                                        <option key={manufacturer._id} value={manufacturer._id}>
+                                            {manufacturer.Prod_Opis}
+                                        </option>
+                                    ))}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
                                 <Label for="bagProductCode" className={styles.label}>Produkt:</Label>
                                 <div id="bagProductCode" style={{ position: 'relative' }}>
                                     <Input
@@ -2217,6 +2362,23 @@ const Goods = () => {
                                             </option>
                                         );
                                     })}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletManufacturerSelect" className={styles.label}>Producent:</Label>
+                                <Input
+                                    type="select"
+                                    id="walletManufacturerSelect"
+                                    className={styles.inputField}
+                                    value={selectedManufacturer}
+                                    onChange={(e) => setSelectedManufacturer(e.target.value)}
+                                >
+                                    <option value="">Wybierz producenta</option>
+                                    {manufacturers.map(manufacturer => (
+                                        <option key={manufacturer._id} value={manufacturer._id}>
+                                            {manufacturer.Prod_Opis}
+                                        </option>
+                                    ))}
                                 </Input>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
@@ -2485,7 +2647,6 @@ const Goods = () => {
                                     onChange={(e) => setSelectedRemainingSubcategory(e.target.value)}
                                     disabled={!selectedRemainingCategory || remainingSubcategories.length === 0}
                                 >
-                                    <option value="">Wybierz podpodkategorię</option>
                                     {remainingSubcategories.map(subcategory => (
                                         <option key={subcategory._id} value={subcategory._id}>
                                             {subcategory.Sub_Opis}
@@ -2756,6 +2917,8 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Kod kreskowy</th>
                             <th className={styles.tableHeader}>Kategoria</th>
                             <th className={styles.tableHeader}>Podkategoria</th>
+                            <th className={styles.tableHeader}>Podpodkategoria</th>
+                            <th className={styles.tableHeader}>Producent</th>
                             <th className={styles.tableHeader}>Zdjęcie</th>
                             <th className={styles.tableHeader}>Cena (PLN)</th>
                             <th className={styles.tableHeader}>Cena promocyjna (PLN)</th>
@@ -2797,11 +2960,20 @@ const Goods = () => {
                                             })()
                                             : '-'
                                         ) : good.category === 'Pozostały asortyment' ?
-                                        (good.bagsCategoryId ? 
+                                        (good.subcategory ? 
                                             (() => {
-                                                const remainingCategory = remainingCategories.find(cat => cat._id === good.bagsCategoryId);
-                                                if (remainingCategory && remainingCategory.Rem_Kat_1_Opis_1) {
-                                                    return remainingCategory.Rem_Kat_1_Opis_1;
+                                                // For remaining assortment, show the subcategory type (belts/gloves)
+                                                if (good.subcategory === 'belts' || (good.subcategory && good.subcategory._id === 'belts')) {
+                                                    return 'Paski';
+                                                } else if (good.subcategory === 'gloves' || (good.subcategory && good.subcategory._id === 'gloves')) {
+                                                    return 'Rękawiczki';
+                                                } else {
+                                                    // For other subcategories, find in remainingCategories
+                                                    const subcategoryId = typeof good.subcategory === 'object' ? good.subcategory._id : good.subcategory;
+                                                    const remainingCategory = remainingCategories.find(cat => cat._id === subcategoryId);
+                                                    if (remainingCategory && remainingCategory.Rem_Kat_1_Opis_1) {
+                                                        return remainingCategory.Rem_Kat_1_Opis_1;
+                                                    }
                                                 }
                                                 return '-';
                                             })()
@@ -2809,6 +2981,44 @@ const Goods = () => {
                                         ) : 
                                         (good.subcategory ? good.subcategory.Kat_1_Opis_1 : '')
                                     }
+                                </td>
+                                <td className={styles.tableCell} data-label="Podpodkategoria">
+                                    {good.category === 'Kurtki kożuchy futra' ? '-' : 
+                                     good.category === 'Torebki' ? '-' :
+                                     good.category === 'Portfele' ? '-' :
+                                     good.category === 'Pozostały asortyment' ? 
+                                        (() => {
+                                            // Check both new and old field names
+                                            const remainingSubcategoryValue = good.remainingsubsubcategory || good.remainingSubcategory;
+                                            
+                                            if (remainingSubcategoryValue) {
+                                                // Backend już zwraca spopulowane dane
+                                                if (typeof remainingSubcategoryValue === 'object' && remainingSubcategoryValue.Sub_Opis) {
+                                                    return remainingSubcategoryValue.Sub_Opis;
+                                                }
+                                                
+                                                // If it's already text, return it directly
+                                                if (typeof remainingSubcategoryValue === 'string' && !remainingSubcategoryValue.match(/^[0-9a-fA-F]{24}$/)) {
+                                                    return remainingSubcategoryValue;
+                                                }
+                                                
+                                                // Fallback dla starych danych - sprawdź czy to ID pasków lub rękawiczek
+                                                const belt = belts.find(b => b._id === remainingSubcategoryValue);
+                                                if (belt) return belt.Belt_Opis;
+                                                
+                                                const glove = gloves.find(g => g._id === remainingSubcategoryValue);
+                                                if (glove) return glove.Glove_Opis;
+                                                
+                                                // Standardowe podpodkategorie
+                                                const subcategory = remainingSubcategories.find(sub => sub._id === remainingSubcategoryValue);
+                                                return subcategory ? subcategory.Sub_Opis : '-';
+                                            }
+                                            return '-';
+                                        })() : '-'
+                                    }
+                                </td>
+                                <td className={styles.tableCell} data-label="Producent">
+                                    {good.manufacturer ? good.manufacturer.Prod_Opis : '-'}
                                 </td>
                                 <td className={styles.tableCell} data-label="Zdjęcie">
                                     <img

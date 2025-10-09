@@ -8,8 +8,8 @@
   "license": "ISC",
   "scripts": {
     "start": "cross-env NODE_OPTIONS=--max-old-space-size=4096 nodemon app/app.js",
-    "test": "cross-env NODE_OPTIONS=--max-old-space-size=4096 jest --runInBand --maxWorkers=50%",
-    "test:once": "cross-env NODE_OPTIONS=--max-old-space-size=4096 jest --runInBand --maxWorkers=50%",
+    "test": "cross-env NODE_OPTIONS=--max-old-space-size=4096 jest --runInBand",
+    "test:once": "cross-env NODE_OPTIONS=--max-old-space-size=4096 jest --runInBand",
     "watch": "nodemon --signal SIGTERM --exec \"npm run test:once\" -e js,json,ejs",
     "debug": "cross-env NODE_OPTIONS=--max-old-space-size=4096 nodemon --inspect app/app.js -e js,json"
   },
@@ -36,10 +36,5 @@
     "mongodb-memory-server": "^10.2.0",
     "nodemon": "^3.1.9",
     "supertest": "^7.1.4"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "clearMocks": true,
-    "restoreMocks": true
   }
 }

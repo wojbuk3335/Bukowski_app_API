@@ -109,8 +109,8 @@ describe('AddToState - Yellow Products (Incoming Transfers) Enhanced Tests', () 
       render(<AddToState />);
     });
 
-    expect(screen.getByText('Magazyn')).toBeInTheDocument();
-    expect(screen.getByText('Dobieranie towaru')).toBeInTheDocument();
+    expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
+    expect(screen.getByText('Mechanizm Transferów')).toBeInTheDocument();
   });
 
   test('1. Wyświetlanie żółtych produktów w odpowiednim kolorze', async () => {

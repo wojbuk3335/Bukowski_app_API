@@ -7,8 +7,10 @@ import NavDropdown from 'react-bootstrap/NavDropdown';
 
 function Navigaton() {
   const [showNested, setShowNested] = useState(false);
+  const [showRemainingNested, setShowRemainingNested] = useState(false);
   const [states, setStates] = useState([]);
   const [hideTimeout, setHideTimeout] = useState(null);
+  const [hideRemainingTimeout, setHideRemainingTimeout] = useState(null);
 
   // Fetch users/states from API
   useEffect(() => {
@@ -47,14 +49,32 @@ function Navigaton() {
     setHideTimeout(timeout);
   };
 
+  const handleRemainingMouseEnter = () => {
+    if (hideRemainingTimeout) {
+      clearTimeout(hideRemainingTimeout);
+      setHideRemainingTimeout(null);
+    }
+    setShowRemainingNested(true);
+  };
+
+  const handleRemainingMouseLeave = () => {
+    const timeout = setTimeout(() => {
+      setShowRemainingNested(false);
+    }, 300); // 300ms delay
+    setHideRemainingTimeout(timeout);
+  };
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (hideTimeout) {
         clearTimeout(hideTimeout);
       }
+      if (hideRemainingTimeout) {
+        clearTimeout(hideRemainingTimeout);
+      }
     };
-  }, [hideTimeout]);
+  }, [hideTimeout, hideRemainingTimeout]);
 
   return (
     <Navbar bg="dark" data-bs-theme="dark">
@@ -103,7 +123,35 @@ function Navigaton() {
                   <NavDropdown.Item as={Link} to="/admin/dashboard/subcategory/coats">Kurtki Kożuchy Futra</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/admin/dashboard/subcategory/bags">Torebki</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/admin/dashboard/category/wallets">Portfele</NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/admin/dashboard/category/remaining">Pozostały asortyment</NavDropdown.Item>
+                  <NavDropdown.Item
+                    as="div"
+                    className="dropdown-submenu"
+                    onMouseEnter={handleRemainingMouseEnter}
+                    onMouseLeave={handleRemainingMouseLeave}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      height: '40px',
+                      position: 'relative',
+                    }}
+                  >
+                    <span>Pozostały asortyment</span>
+                    <NavDropdown
+                      drop="end"
+                      title="▶"
+                      id="remaining-nested-dropdown"
+                      show={showRemainingNested}
+                      onMouseEnter={handleRemainingMouseEnter}
+                      onMouseLeave={handleRemainingMouseLeave}
+                      style={{
+                        position: 'static',
+                      }}
+                    >
+                      <NavDropdown.Item as={Link} to="/admin/dashboard/subcategory/belts">Tabela pasków</NavDropdown.Item>
+                      <NavDropdown.Item as={Link} to="/admin/dashboard/subcategory/gloves">Tabela rękawiczek</NavDropdown.Item>
+                    </NavDropdown>
+                  </NavDropdown.Item>
                 </NavDropdown>
               </NavDropdown.Item>
             </NavDropdown>

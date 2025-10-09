@@ -56,120 +56,6 @@ const AddToState = ({ onAdd }) => {
   // Stan do śledzenia czy przycisk cofania ma być widoczny
   const [showUndoButton, setShowUndoButton] = useState(false);
 
-  // Stan Browser Print
-  const [browserPrintStatus, setBrowserPrintStatus] = useState('checking');
-
-  // Funkcja sprawdzająca status Zebra Browser Print
-  const checkBrowserPrintStatus = () => {
-    
-    if (typeof window.BrowserPrint === 'undefined') {
-      console.log('❌ BrowserPrint nie jest załadowany');
-      setBrowserPrintStatus('unavailable');
-      return;
-    }
-
-    setBrowserPrintStatus('available');
-  };
-
-  // Funkcja konwertująca polskie znaki do ZPL
-  const convertPolishCharsToZPL = (text) => {
-    const polishChars = {
-      'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
-      'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
-    };
-    
-    return text.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, char => polishChars[char] || char);
-  };
-
-  // Funkcja generująca kod ZPL dla etykiety 75x37mm
-  const generateZPLCode = (transfer) => {
-    // Wyciągnij nazwę produktu używając tej samej logiki co w handlePrintSingleLabel
-    const rawTransferName = transfer.isFromSale ? 
-      transfer.fullName : 
-      (typeof transfer.fullName === 'object' ? 
-        (transfer.fullName?.fullName || 'Nieznana nazwa') : 
-        (transfer.fullName || 'Nieznana nazwa'));
-    
-    // Wyciągnij rozmiar produktu
-    const rawTransferSize = transfer.isFromSale ? 
-      transfer.size : 
-      (typeof transfer.size === 'object' ? 
-        (transfer.size?.Roz_Opis || 'Nieznany rozmiar') : 
-        (transfer.size === '-' ? '' : (transfer.size || 'Nieznany rozmiar'))); // Don't show "Nieznany rozmiar" for bags and wallets
-        
-    const transferName = convertPolishCharsToZPL(rawTransferName);
-    const transferSize = convertPolishCharsToZPL(rawTransferSize);
-    const toLocation = convertPolishCharsToZPL(transfer.transfer_to || 'Nieznane');
-    
-    // Kod kreskowy - używamy barcode lub productId
-    const barcode = transfer.isFromSale ? 
-      transfer.barcode : 
-      transfer.productId || transfer.barcode || 'BRAK_KODU';
-
-    // Wyciągnij cenę produktu
-    const price = transfer.isFromSale ? 
-      transfer.price : 
-      transfer.price || '0.00';
-    
-    // Formatuj cenę do dwóch linii
-    const formattedPrice = `${price} PLN`;
-    const priceConverted = convertPolishCharsToZPL(formattedPrice);
-
-    return `^XA
-^MMT
-^PW592
-^LL296
-^LS0
-^CF0,40
-^FO20,30^FD${transferName}^FS
-^CF0,35
-^FO20,80^FD${transferSize}^FS
-^CF0,28
-^FO20,130^FDPunkt: ${toLocation}^FS
-^CF0,30
-^FO370,80^FDCena:^FS
-^CFB,38
-^FO370,110^FD${priceConverted}^FS
-^FO20,170^BY3,3,80^BCN,80,Y,N,N^FD${barcode}^FS
-^PQ1,0,1,Y^XZ`;
-  };
-
-  // Funkcja wysyłająca ZPL do drukarki
-  const sendZPLToPrinter = async (zplCode, transferName = '') => {
-    return new Promise((resolve, reject) => {
-      try {
-        if (typeof window.BrowserPrint === 'undefined') {
-          throw new Error('Browser Print nie jest dostępny');
-        }
-
-        window.BrowserPrint.getDefaultDevice('printer', 
-          (device) => {
-            if (device && device.send) {
-              device.send(zplCode, 
-                () => {
-                  resolve(true);
-                },
-                (error) => {
-                  console.error('Błąd wysyłania do drukarki:', error);
-                  reject(new Error('Błąd komunikacji z drukarką: ' + error));
-                }
-              );
-            } else {
-              reject(new Error('Nie znaleziono drukarki'));
-            }
-          },
-          (error) => {
-            console.error('Błąd znajdowania drukarki:', error);
-            reject(new Error('Nie można znaleźć drukarki: ' + error));
-          }
-        );
-      } catch (error) {
-        console.error('Błąd drukowania:', error);
-        reject(error);
-      }
-    });
-  };
-
   // Funkcja do oznaczania transakcji jako skorygowanej
   const markTransactionAsCorrected = (transactionId) => {
     setCorrectedTransactionIds(prev => new Set([...prev, transactionId]));
@@ -224,16 +110,6 @@ const AddToState = ({ onAdd }) => {
       window.removeEventListener('transactionCorrected', handleTransactionCorrected);
     };
   }, []); // Empty dependency array to avoid re-creating listener
-
-  // useEffect dla sprawdzania Browser Print
-  useEffect(() => {
-    // Sprawdź Browser Print po załadowaniu komponentu
-    const timer = setTimeout(() => {
-      checkBrowserPrintStatus();
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   // Funkcje pomocnicze dla synchronizacji
   const isProductMatched = (productId, type) => {
@@ -370,20 +246,10 @@ const AddToState = ({ onAdd }) => {
       const response = await fetch(`${API_BASE_URL}/api/user`);
       const data = await response.json();
       
-      // Filtruj użytkowników - usuń admin, magazyn i dom (sprawdzaj zarówno role jak i symbol)
+      // Filtruj użytkowników - usuń admin, magazyn i dom
       const filteredUsers = (data.users || []).filter(user => {
-        const role = user.role?.toLowerCase();
         const symbol = user.symbol?.toLowerCase();
-        
-        // Usuń użytkowników z rolami admin, magazyn, dom
-        // oraz tych ze symbolami admin, administrator, magazyn, dom
-        return role !== 'admin' && 
-               role !== 'magazyn' && 
-               role !== 'dom' && 
-               symbol !== 'admin' && 
-               symbol !== 'administrator' && 
-               symbol !== 'magazyn' && 
-               symbol !== 'dom';
+        return symbol !== 'admin' && symbol !== 'magazyn' && symbol !== 'dom';
       });
       
       setUsers(filteredUsers);
@@ -844,7 +710,7 @@ const AddToState = ({ onAdd }) => {
       id: warehouseItem._id,
       date: new Date().toISOString(),
       fullName: warehouseItem.fullName?.fullName || 'Nieznana nazwa',
-      size: warehouseItem.size === '-' ? '' : (warehouseItem.size?.Roz_Opis || 'Nieznany rozmiar'), // Don't show "Nieznany rozmiar" for bags and wallets
+      size: warehouseItem.size?.Roz_Opis || 'Nieznany rozmiar',
       barcode: warehouseItem.barcode || 'Brak kodu',
       symbol: selectedUserData.symbol,
       price: warehouseItem.price || 0,
@@ -853,10 +719,8 @@ const AddToState = ({ onAdd }) => {
       transfer_from: 'MAGAZYN',
       transfer_to: selectedUserData.symbol, // Używaj symbolu, nie ID
       productId: warehouseItem.barcode,
-      reason: 'Przeniesienie z magazynu',
-      category: warehouseItem.fullName?.category || warehouseItem.category // Dodaj kategorię
+      reason: 'Przeniesienie z magazynu'
     };
-    
     
     setTransfers(prev => {
       const newTransfers = [...prev, newTransferItem];
@@ -1124,7 +988,7 @@ const AddToState = ({ onAdd }) => {
   };
 
   // Funkcje drukowania etykiet
-  const handlePrintAllColoredLabels = async () => {
+  const handlePrintAllColoredLabels = () => {
     if (!Array.isArray(filteredItems) || filteredItems.length === 0) {
       alert('Brak produktów do drukowania');
       return;
@@ -1141,34 +1005,30 @@ const AddToState = ({ onAdd }) => {
       return;
     }
 
-    console.log('🖨️ Rozpoczynam drukowanie etykiet dla:', coloredItems.length, 'produktów');
+    console.log('🖨️ Drukowanie etykiet dla:', coloredItems.length, 'produktów');
     
-    let successful = 0;
-    let failed = 0;
+    // Generuj podgląd etykiet
+    let labelPreview = `📋 PODGLĄD ETYKIET DO DRUKOWANIA (${coloredItems.length} szt.)\n\n`;
     
-    for (const item of coloredItems) {
-      try {
-        const itemName = item.isFromSale 
-          ? item.fullName 
-          : (typeof item.fullName === 'object' ? item.fullName?.fullName : item.fullName);
-        
-        console.log(`🖨️ Drukuję etykietę dla: ${itemName}`);
-        
-        const zplCode = generateZPLCode(item);
-        await sendZPLToPrinter(zplCode, itemName);
-        
-        successful++;
-        
-        // Krótka pauza między drukowaniem etykiet
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-      } catch (error) {
-        console.error('Błąd drukowania etykiety:', error);
-        failed++;
-      }
-    }
-    
+    coloredItems.forEach((item, index) => {
+      const itemType = item.fromWarehouse ? '🟠 Pomarańczowy' : '🟡 Żółty';
+      const itemName = item.isFromSale 
+        ? item.fullName 
+        : (typeof item.fullName === 'object' ? item.fullName?.fullName : item.fullName);
+      const itemSize = item.isFromSale 
+        ? item.size 
+        : (typeof item.size === 'object' ? item.size?.Roz_Opis : item.size);
+      
+      labelPreview += `${index + 1}. ${itemType}\n`;
+      labelPreview += `   Nazwa: ${itemName || 'N/A'}\n`;
+      labelPreview += `   Rozmiar: ${itemSize || 'N/A'}\n`;
+      labelPreview += `   Barcode: ${item.barcode || 'N/A'}\n`;
+      labelPreview += `   Do: ${item.transfer_to || 'N/A'}\n\n`;
+    });
 
+    labelPreview += '\n🖨️ W prawdziwej implementacji tutaj byłaby integracja z drukarką etykiet (np. Zebra)';
+    
+    alert(labelPreview);
   };
 
   // Funkcja obsługująca potwierdzenie drukowania etykiet
@@ -1186,25 +1046,43 @@ const AddToState = ({ onAdd }) => {
     setPendingProcessItems(null);
   };
 
-  // Funkcja do drukowania pojedynczej etykiety ZPL
-  const handlePrintSingleLabel = async (transfer) => {
+  // Funkcja do drukowania pojedynczej etykiety
+  const handlePrintSingleLabel = (transfer) => {
+    let labelPreview = '🖨️ DRUKOWANIE POJEDYNCZEJ ETYKIETY\n';
+    labelPreview += '=====================================\n\n';
+
     const transferName = transfer.isFromSale ? 
       transfer.fullName : 
       (typeof transfer.fullName === 'object' ? 
         (transfer.fullName?.fullName || 'Nieznana nazwa') : 
         (transfer.fullName || 'Nieznana nazwa'));
 
-    // Natychmiastowe drukowanie bez potwierdzenia
-    // Rozpocznij drukowanie
-    try {
-      
-      const zplCode = generateZPLCode(transfer);
-      await sendZPLToPrinter(zplCode, transferName);
-      
-    } catch (error) {
-      console.error('Błąd drukowania:', error);
-      alert(`❌ Błąd drukowania: ${error.message}`);
-    }
+    const transferSize = transfer.isFromSale ? 
+      transfer.size : 
+      (typeof transfer.size === 'object' ? 
+        (transfer.size?.Roz_Opis || 'Nieznany rozmiar') : 
+        (transfer.size || 'Nieznany rozmiar'));
+
+    const transferBarcode = transfer.isFromSale ? 
+      transfer.barcode : 
+      transfer.productId;
+
+    const productType = transfer.fromWarehouse ? 
+      'POMARAŃCZOWY (z magazynu)' : 
+      transfer.isIncomingTransfer ? 
+        'ŻÓŁTY (przychodzący transfer)' : 
+        'NIEZNANY TYP';
+
+    labelPreview += `📦 PRODUKT: ${transferName}\n`;
+    labelPreview += `📏 ROZMIAR: ${transferSize}\n`;
+    labelPreview += `🏷️ KOD: ${transferBarcode || 'Brak kodu'}\n`;
+    labelPreview += `🎨 TYP: ${productType}\n`;
+    labelPreview += `📅 DATA: ${new Date(transfer.date).toLocaleDateString()}\n`;
+    labelPreview += `📍 Z: ${transfer.transfer_from}\n`;
+    labelPreview += `📍 DO: ${transfer.transfer_to}\n\n`;
+    labelPreview += '🖨️ Etykieta zostanie wysłana do drukarki etykiet.';
+
+    alert(labelPreview);
   };
 
   const getColoredItemsCount = () => {
@@ -1364,8 +1242,6 @@ const AddToState = ({ onAdd }) => {
 
         } else {
           console.error('Failed to process warehouse items');
-          const errorText = await warehouseResponse.text();
-          console.error('Warehouse processing error:', errorText);
         }
       }
 
@@ -2026,13 +1902,13 @@ const AddToState = ({ onAdd }) => {
         overflowY: 'auto'
       }}>
         <h2 style={{ textAlign: 'center', marginBottom: '20px', color: 'white' }}>
-          Magazyn
+          📦 Magazyn
         </h2>
         
         {/* Wyszukiwarka magazynu */}
         <div style={{ marginBottom: '20px' }}>
           <label htmlFor="warehouseSearch" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: 'white' }}>
-            Wyszukaj w magazynie:
+            🔍 Wyszukaj w magazynie:
           </label>
           <input
             id="warehouseSearch"
@@ -2073,29 +1949,28 @@ const AddToState = ({ onAdd }) => {
                 const isGreyed = isWarehouseItemGreyed(item._id);
                 return (
                 <tr key={item._id} style={{ 
-                  backgroundColor: isGreyed ? '#d6d6d6' : '#000000', // Wyszarzony jeśli sparowany, inaczej czarny
+                  backgroundColor: isGreyed ? '#d6d6d6' : '#e8f5e8', // Wyszarzony jeśli sparowany
                   opacity: isGreyed ? 0.6 : 1.0,
-                  color: isGreyed ? '#000000' : '#ffffff', // Biały tekst na czarnym tle
-                  '&:hover': { backgroundColor: isGreyed ? '#c0c0c0' : '#333333' }
+                  '&:hover': { backgroundColor: isGreyed ? '#c0c0c0' : '#d4edda' }
                 }}>
-                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
                     {item.fullName?.fullName || 'Nieznana nazwa'}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
-                    {item.size === '-' ? '' : (item.size?.Roz_Opis || 'Nieznany rozmiar')} {/* Don't show "Nieznany rozmiar" for bags and wallets */}
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                    {item.size?.Roz_Opis || 'Nieznany rozmiar'}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
                     {item.barcode || 'Brak kodu'}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
+                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
                     {item.price ? `${item.price} PLN` : 'Brak ceny'}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '6px', textAlign: 'center' }}>
+                  <td style={{ border: '1px solid #28a745', padding: '6px', textAlign: 'center' }}>
                     <button
                       onClick={() => !isGreyed && handleMoveFromWarehouse(item)}
                       disabled={isGreyed}
                       style={{
-                        backgroundColor: isGreyed ? '#6c757d' : '#0d6efd',
+                        backgroundColor: isGreyed ? '#6c757d' : '#17a2b8',
                         color: 'white',
                         border: 'none',
                         padding: '4px 8px',
@@ -2106,7 +1981,7 @@ const AddToState = ({ onAdd }) => {
                       }}
                       title={isGreyed ? "Produkt sparowany - niedostępny" : "Przenieś produkt do obszaru transferów"}
                     >
-                      {isGreyed ? 'Sparowany' : 'Przenieś'}
+                      {isGreyed ? '🔒 Sparowany' : '➤ Przenieś'}
                     </button>
                   </td>
                 </tr>
@@ -2140,7 +2015,7 @@ const AddToState = ({ onAdd }) => {
         overflowY: 'auto'
       }}>
         <h2 style={{ textAlign: 'center', marginBottom: '20px', color: 'white' }}>
-          Dobieranie towaru
+          Mechanizm Transferów
         </h2>
         
         <form>
@@ -2216,16 +2091,7 @@ const AddToState = ({ onAdd }) => {
           </div>
         </form>
 
-        <div style={{ 
-          marginTop: '20px', 
-          marginBottom: '20px', 
-          textAlign: 'center',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '10px',
-          flexWrap: 'wrap'
-        }}>
+        <div style={{ marginTop: '20px', marginBottom: '20px', textAlign: 'center' }}>
           <button 
             onClick={handleProcessAllTransfers}
             style={{
@@ -2237,10 +2103,7 @@ const AddToState = ({ onAdd }) => {
               cursor: 'pointer',
               fontSize: '16px',
               fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              lineHeight: '1.2'
+              marginRight: '10px'
             }}
             disabled={!Array.isArray(filteredItems) || filteredItems.length === 0}
           >
@@ -2250,7 +2113,7 @@ const AddToState = ({ onAdd }) => {
           <button 
             onClick={handlePrintAllColoredLabels}
             style={{
-              backgroundColor: '#0d6efd',
+              backgroundColor: '#ff8c00',
               color: 'white',
               border: 'none',
               padding: '10px 20px',
@@ -2258,14 +2121,11 @@ const AddToState = ({ onAdd }) => {
               cursor: 'pointer',
               fontSize: '16px',
               fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              lineHeight: '1.2'
+              margin: '5px'
             }}
             disabled={getColoredItemsCount() === 0}
           >
-            Drukuj wszystkie etykiety ({getColoredItemsCount()})
+            🖨️ Drukuj etykiety pomarańczowych i żółtych ({getColoredItemsCount()})
           </button>
 
           {canUndoTransaction && lastTransaction && showUndoButton &&
@@ -2339,13 +2199,13 @@ const AddToState = ({ onAdd }) => {
                   <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.isFromSale ? `SPRZEDANO w ${transfer.transfer_to}` : transfer.transfer_to}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px', textAlign: 'center' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
                     {transfer.isFromSale ? (
                       // Dla sprzedaży - brak przycisków akcji (nie można cofnąć sprzedaży tutaj)
                       <span style={{ fontStyle: 'italic' }}>Sprzedano</span>
                     ) : transfer.fromWarehouse ? (
                       // Przyciski dla produktów z magazynu (pomarańczowe) - przycisk Cofnij + Drukuj
-                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                         <button 
                           onClick={() => handleReturnToWarehouse(transfer)}
                           style={{
@@ -2359,23 +2219,22 @@ const AddToState = ({ onAdd }) => {
                           }}
                           title="Cofnij do magazynu"
                         >
-                          Cofnij
+                          ↩️ Cofnij
                         </button>
                         <button 
                           onClick={() => handlePrintSingleLabel(transfer)}
                           style={{
-                            backgroundColor: '#0d6efd',
+                            backgroundColor: '#fd7e14',
                             color: 'white',
                             border: 'none',
-                            padding: '6px 12px',
+                            padding: '4px 6px',
                             borderRadius: '3px',
                             cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 'normal'
+                            fontSize: '11px'
                           }}
                           title="Drukuj etykietę pomarańczowego produktu"
                         >
-                          Drukuj etykietkę
+                          🖨️
                         </button>
                       </div>
                     ) : (() => {
@@ -2434,18 +2293,18 @@ const AddToState = ({ onAdd }) => {
                             <button 
                               onClick={() => handlePrintSingleLabel(transfer)}
                               style={{
-                                backgroundColor: '#0d6efd',
-                                color: 'white',
+                                backgroundColor: '#ffc107',
+                                color: 'black',
                                 border: 'none',
-                                padding: '6px 12px',
+                                padding: '4px 6px',
                                 borderRadius: '3px',
                                 cursor: 'pointer',
-                                fontSize: '12px',
-                                fontWeight: 'normal'
+                                fontSize: '11px',
+                                fontWeight: 'bold'
                               }}
                               title="Drukuj etykietę żółtego produktu (przychodzący transfer)"
                             >
-                              Drukuj etykietkę
+                              🖨️
                             </button>
                           );
                         } else {

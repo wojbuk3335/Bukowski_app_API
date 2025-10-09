@@ -10,10 +10,10 @@ import 'react-date-range/dist/theme/default.css'; // Import default theme
 import styles from './Warehouse.module.css'; // Import the CSS module
 import Barcode from 'react-barcode'; // Import the Barcode component
 import { saveAs } from 'file-saver'; // For exporting files
-import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, ModalFooter, Spinner } from 'reactstrap'; // Import reactstrap components
+import { Button, Table, Modal, ModalHeader, ModalBody, FormGroup, Label, ModalFooter, Spinner, Input } from 'reactstrap'; // Import reactstrap components
 import * as XLSX from 'xlsx'; // Import XLSX for Excel export
 import jsPDF from 'jspdf'; // Import jsPDF for PDF export
-import autoTable from 'jspdf-autotable'; // Ensure correct import for autoTable
+import autoTable from 'jspdf-autotable'; // Import autoTable function for jsPDF
 import pl from 'date-fns/locale/pl'; // Import Polish locale
 
 
@@ -53,9 +53,14 @@ const Warehouse = () => {
     
     // Warehouse report states
     const [isWarehouseReportModalOpen, setIsWarehouseReportModalOpen] = useState(false);
+    const [reportType, setReportType] = useState('movements'); // 'movements' or 'inventory'
     const [reportDateRange, setReportDateRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }]);
-    const [reportProductFilter, setReportProductFilter] = useState('all'); // 'all' or specific product ID
+    const [inventoryDate, setInventoryDate] = useState(new Date()); // For inventory reports
+    const [selectedFiltersForReport, setSelectedFiltersForReport] = useState([]); // Multi-select filters
     const [selectedProductForReport, setSelectedProductForReport] = useState(null);
+    const [selectedCategoryForReport, setSelectedCategoryForReport] = useState(null);
+    const [selectedManufacturerForReport, setSelectedManufacturerForReport] = useState(null);
+    const [manufacturers, setManufacturers] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [reportLoading, setReportLoading] = useState(false);
 
@@ -149,7 +154,29 @@ const Warehouse = () => {
         };
 
         fetchSizes();
-    }, []);    useEffect(() => {
+    }, []);
+
+    useEffect(() => {
+        // Fetch manufacturers from the API
+        const fetchManufacturers = async () => {
+            try {
+                const response = await axios.get('/api/excel/manufacturers');
+                if (response.data && Array.isArray(response.data.manufacturers)) {
+                    setManufacturers(response.data.manufacturers);
+                } else {
+                    console.error('Unexpected API response format:', response.data);
+                    setManufacturers([]);
+                }
+            } catch (error) {
+                console.error('Error fetching manufacturers:', error);
+                setManufacturers([]);
+            }
+        };
+
+        fetchManufacturers();
+    }, []);
+
+    useEffect(() => {
         // Fetch user data from the API
         const fetchUsers = async () => {
             try {
@@ -1042,20 +1069,59 @@ const Warehouse = () => {
     const generateWarehouseReport = async () => {
         setReportLoading(true);
         try {
-            const startDate = reportDateRange[0].startDate;
-            const endDate = reportDateRange[0].endDate;
+            if (reportType === 'movements') {
+                const startDate = reportDateRange[0].startDate;
+                const endDate = reportDateRange[0].endDate;
+                
+                if (!startDate || !endDate) {
+                    alert('Proszę wybrać zakres dat');
+                    setReportLoading(false);
+                    return;
+                }
+                
+                await generateMovementsReport(startDate, endDate);
+            } else if (reportType === 'inventory') {
+                if (!inventoryDate) {
+                    alert('Proszę wybrać datę inwentarza');
+                    setReportLoading(false);
+                    return;
+                }
+                
+                await generateInventoryReport(inventoryDate);
+            }
+        } catch (error) {
+            console.error('Error generating report:', error);
+            alert('Błąd podczas generowania raportu');
+        } finally {
+            setReportLoading(false);
+        }
+    };
+
+    // Generate movements report (existing logic)
+    const generateMovementsReport = async (startDate, endDate) => {
+        try {
+
+            // Determine filter type based on selected options
+            let filterType = 'all';
+            const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
             
-            if (!startDate || !endDate) {
-                alert('Proszę wybrać zakres dat');
-                setReportLoading(false);
-                return;
+            if (selectedFiltersValues.includes('specific')) {
+                filterType = 'specific';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer')) {
+                filterType = 'combined';
+            } else if (selectedFiltersValues.includes('category')) {
+                filterType = 'category';  
+            } else if (selectedFiltersValues.includes('manufacturer')) {
+                filterType = 'manufacturer';
             }
 
             const params = {
                 startDate: startDate.toISOString().split('T')[0],
                 endDate: endDate.toISOString().split('T')[0],
-                productFilter: reportProductFilter,
-                productId: selectedProductForReport?.value || null
+                productFilter: filterType,
+                productId: selectedProductForReport?.value || null,
+                category: selectedCategoryForReport?.value || null,
+                manufacturerId: selectedManufacturerForReport?.value || null
             };
 
             const response = await axios.get('/api/warehouse/report', { params });
@@ -1067,8 +1133,43 @@ const Warehouse = () => {
         } catch (error) {
             console.error('Error generating warehouse report:', error);
             alert('Błąd podczas generowania raportu: ' + (error.response?.data?.message || error.message));
-        } finally {
-            setReportLoading(false);
+        }
+    };
+
+    // Generate inventory report (new function)
+    const generateInventoryReport = async (date) => {
+        try {
+            // Determine filter type based on selected options
+            let filterType = 'all';
+            const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
+            
+            if (selectedFiltersValues.includes('specific')) {
+                filterType = 'specific';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer')) {
+                filterType = 'combined';
+            } else if (selectedFiltersValues.includes('category')) {
+                filterType = 'category';  
+            } else if (selectedFiltersValues.includes('manufacturer')) {
+                filterType = 'manufacturer';
+            }
+
+            const params = {
+                date: date.toISOString().split('T')[0],
+                productFilter: filterType,
+                productId: selectedProductForReport?.value || null,
+                category: selectedCategoryForReport?.value || null,
+                manufacturerId: selectedManufacturerForReport?.value || null
+            };
+
+            const response = await axios.get('/api/warehouse/inventory', { params });
+            setReportData(response.data);
+            
+            // Generate PDF report
+            generateInventoryReportPDF(response.data, date);
+            
+        } catch (error) {
+            console.error('Error generating inventory report:', error);
+            alert('Błąd podczas generowania raportu inwentaryzacyjnego: ' + (error.response?.data?.message || error.message));
         }
     };
 
@@ -1127,11 +1228,25 @@ const Warehouse = () => {
         doc.text(periodText, (pageWidth - periodWidth) / 2, 35);
         
         // Product filter info - centered
-        let productText;
-        if (reportProductFilter === 'specific' && selectedProductForReport) {
+        let productText = '';
+        const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
+        
+        if (selectedFiltersValues.includes('specific') && selectedProductForReport) {
             productText = convertPolishChars(`Produkt: ${selectedProductForReport.label}`);
         } else {
-            productText = convertPolishChars('Wszystkie produkty');
+            let filters = [];
+            if (selectedFiltersValues.includes('category') && selectedCategoryForReport) {
+                filters.push(`Kategoria: ${selectedCategoryForReport.label}`);
+            }
+            if (selectedFiltersValues.includes('manufacturer') && selectedManufacturerForReport) {
+                filters.push(`Producent: ${selectedManufacturerForReport.label}`);
+            }
+            
+            if (filters.length > 0) {
+                productText = convertPolishChars(filters.join(', '));
+            } else {
+                productText = convertPolishChars('Wszystkie produkty');
+            }
         }
         const productWidth = doc.getTextWidth(productText);
         doc.text(productText, (pageWidth - productWidth) / 2, 45);
@@ -1256,6 +1371,144 @@ const Warehouse = () => {
             printWindow.onload = function() {
                 printWindow.print();
                 // Opcjonalnie zamknij okno po drukowaniu
+                printWindow.onafterprint = function() {
+                    printWindow.close();
+                    URL.revokeObjectURL(pdfUrl);
+                };
+            };
+        }
+        
+        setIsWarehouseReportModalOpen(false);
+    };
+
+    // Generate inventory PDF report 
+    const generateInventoryReportPDF = (data, date) => {
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm', 
+            format: 'a4',
+            putOnlyUsedFonts: true,
+            compress: true
+        });
+        
+        // Function to convert Polish characters for PDF
+        const convertPolishChars = (text) => {
+            if (!text) return text;
+            return text
+                .replace(/ą/g, 'a')
+                .replace(/ć/g, 'c')
+                .replace(/ę/g, 'e')
+                .replace(/ł/g, 'l')
+                .replace(/ń/g, 'n')
+                .replace(/ó/g, 'o')
+                .replace(/ś/g, 's')
+                .replace(/ź/g, 'z')
+                .replace(/ż/g, 'z')
+                .replace(/Ą/g, 'A')
+                .replace(/Ć/g, 'C')
+                .replace(/Ę/g, 'E')
+                .replace(/Ł/g, 'L')
+                .replace(/Ń/g, 'N')
+                .replace(/Ó/g, 'O')
+                .replace(/Ś/g, 'S')
+                .replace(/Ź/g, 'Z')
+                .replace(/Ż/g, 'Z');
+        };
+        
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Header - centered
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        const headerText = convertPolishChars('STAN MAGAZYNOWY');
+        const headerWidth = doc.getTextWidth(headerText);
+        doc.text(headerText, (pageWidth - headerWidth) / 2, 20);
+        
+        // Date - centered
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(12);
+        const dateText = convertPolishChars(`Data inwentarza: ${date.toLocaleDateString('pl-PL')}`);
+        const dateWidth = doc.getTextWidth(dateText);
+        doc.text(dateText, (pageWidth - dateWidth) / 2, 30);
+        
+        // Filter info - centered
+        let filterText = '';
+        const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
+        
+        if (selectedFiltersValues.includes('specific') && selectedProductForReport) {
+            filterText = convertPolishChars(`Produkt: ${selectedProductForReport.label}`);
+        } else {
+            let filters = [];
+            if (selectedFiltersValues.includes('category') && selectedCategoryForReport) {
+                filters.push(`Kategoria: ${selectedCategoryForReport.label}`);
+            }
+            if (selectedFiltersValues.includes('manufacturer') && selectedManufacturerForReport) {
+                filters.push(`Producent: ${selectedManufacturerForReport.label}`);
+            }
+            
+            if (filters.length > 0) {
+                filterText = convertPolishChars(filters.join(', '));
+            } else {
+                filterText = convertPolishChars('Wszystkie produkty');
+            }
+        }
+        const filterWidth = doc.getTextWidth(filterText);
+        doc.text(filterText, (pageWidth - filterWidth) / 2, 40);
+        
+        // Total count - centered
+        const totalText = convertPolishChars(`Calkowita liczba produktow w magazynie: ${data.totalItems || 0}`);
+        const totalWidth = doc.getTextWidth(totalText);
+        doc.text(totalText, (pageWidth - totalWidth) / 2, 50);
+        
+        // Table
+        if (data.items && data.items.length > 0) {
+            const tableColumns = ['Lp.', 'Nazwa produktu', 'Rozmiar', 'Kod kreskowy', 'Cena (PLN)'];
+            const tableRows = data.items.map((item, index) => [
+                (index + 1).toString(),
+                convertPolishChars(item.productName || item.fullName || 'Nieznany produkt'),
+                convertPolishChars(item.size || '-'),
+                item.barcode || '-',
+                `${item.price || 0} PLN`
+            ]);
+            
+            // Use autoTable function (imported at top of file)
+            autoTable(doc, {
+                head: [tableColumns],
+                body: tableRows,
+                startY: 60,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [0, 0, 0],
+                    textColor: [255, 255, 255],
+                    fontSize: 10,
+                    fontStyle: 'bold'
+                },
+                bodyStyles: {
+                    fontSize: 9,
+                    textColor: [0, 0, 0]
+                },
+                alternateRowStyles: {
+                    fillColor: [240, 240, 240]
+                },
+                margin: { left: 10, right: 10 },
+                columnStyles: {
+                    0: { cellWidth: 15 }, // Lp.
+                    1: { cellWidth: 60 }, // Nazwa produktu
+                    2: { cellWidth: 25 }, // Rozmiar
+                    3: { cellWidth: 40 }, // Kod kreskowy
+                    4: { cellWidth: 30 }  // Cena
+                }
+            });
+        }
+        
+        // Open print dialog
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        const printWindow = window.open(pdfUrl, '_blank');
+        if (printWindow) {
+            printWindow.onload = function() {
+                printWindow.print();
                 printWindow.onafterprint = function() {
                     printWindow.close();
                     URL.revokeObjectURL(pdfUrl);
@@ -1675,52 +1928,260 @@ const Warehouse = () => {
                 </ModalHeader>
                 <ModalBody>
                     <FormGroup>
-                        <Label for="reportDateRange">Zakres dat:</Label>
-                        <DateRangePicker
-                            ranges={reportDateRange}
-                            onChange={(ranges) => setReportDateRange([ranges.selection])}
-                            locale={pl}
-                            rangeColors={['#3d91ff']}
-                            staticRanges={customStaticRanges}
-                            inputRanges={customInputRanges}
-                        />
-                    </FormGroup>
-                    
-                    <FormGroup>
-                        <Label>Filtrowanie produktów:</Label>
+                        <Label>Typ raportu:</Label>
                         <div>
                             <div className="form-check">
                                 <input
                                     className="form-check-input"
                                     type="radio"
-                                    name="productFilter"
-                                    id="allProducts"
-                                    value="all"
-                                    checked={reportProductFilter === 'all'}
-                                    onChange={(e) => setReportProductFilter(e.target.value)}
+                                    name="reportType"
+                                    id="movementsReport"
+                                    value="movements"
+                                    checked={reportType === 'movements'}
+                                    onChange={(e) => setReportType(e.target.value)}
                                 />
-                                <label className="form-check-label" htmlFor="allProducts">
-                                    Wszystkie produkty
+                                <label className="form-check-label" htmlFor="movementsReport">
+                                    Przepływy magazynowe (okres)
                                 </label>
                             </div>
                             <div className="form-check">
                                 <input
                                     className="form-check-input"
                                     type="radio"
-                                    name="productFilter"
-                                    id="specificProduct"
-                                    value="specific"
-                                    checked={reportProductFilter === 'specific'}
-                                    onChange={(e) => setReportProductFilter(e.target.value)}
+                                    name="reportType"
+                                    id="inventoryReport"
+                                    value="inventory"
+                                    checked={reportType === 'inventory'}
+                                    onChange={(e) => setReportType(e.target.value)}
                                 />
-                                <label className="form-check-label" htmlFor="specificProduct">
-                                    Konkretny produkt
+                                <label className="form-check-label" htmlFor="inventoryReport">
+                                    Stan magazynowy (na datę)
                                 </label>
                             </div>
                         </div>
                     </FormGroup>
+
+                    {reportType === 'movements' && (
+                        <FormGroup>
+                            <Label for="reportDateRange">Zakres dat:</Label>
+                            <DateRangePicker
+                                ranges={reportDateRange}
+                                onChange={(ranges) => setReportDateRange([ranges.selection])}
+                                locale={pl}
+                                rangeColors={['#3d91ff']}
+                                staticRanges={customStaticRanges}
+                                inputRanges={customInputRanges}
+                            />
+                        </FormGroup>
+                    )}
+
+                    {reportType === 'inventory' && (
+                        <FormGroup>
+                            <Label for="inventoryDate">Data inwentarza:</Label>
+                            <Input
+                                type="date"
+                                id="inventoryDate"
+                                value={inventoryDate.toISOString().split('T')[0]}
+                                onChange={(e) => setInventoryDate(new Date(e.target.value))}
+                                style={{ 
+                                    backgroundColor: 'black', 
+                                    color: 'white', 
+                                    border: '1px solid white' 
+                                }}
+                            />
+                        </FormGroup>
+                    )}
                     
-                    {reportProductFilter === 'specific' && (
+                    <FormGroup>
+                        <Label for="filterSelect">Wybierz filtry:</Label>
+                        <Select
+                            isMulti
+                            value={selectedFiltersForReport}
+                            onChange={setSelectedFiltersForReport}
+                            options={[
+                                { value: 'all', label: 'Wszystkie produkty' },
+                                { value: 'category', label: 'Filtruj według kategorii' },
+                                { value: 'manufacturer', label: 'Filtruj według producenta' },
+                                { value: 'specific', label: 'Konkretny produkt' }
+                            ]}
+                            placeholder="Wybierz opcje filtrowania..."
+                            isClearable
+                            menuPortalTarget={document.body}
+                            menuPosition="fixed"
+                            maxMenuHeight={200}
+                            styles={{
+                                control: (provided) => ({
+                                    ...provided,
+                                    backgroundColor: 'black',
+                                    borderColor: 'white',
+                                    color: 'white'
+                                }),
+                                menu: (provided) => ({
+                                    ...provided,
+                                    backgroundColor: 'black',
+                                    border: '1px solid white',
+                                    zIndex: 9999
+                                }),
+                                menuPortal: (provided) => ({
+                                    ...provided,
+                                    zIndex: 9999
+                                }),
+                                option: (provided, state) => ({
+                                    ...provided,
+                                    backgroundColor: state.isSelected ? '#333' : 'black',
+                                    color: 'white',
+                                    '&:hover': {
+                                        backgroundColor: '#555'
+                                    }
+                                }),
+                                multiValue: (provided) => ({
+                                    ...provided,
+                                    backgroundColor: '#333',
+                                    color: 'white'
+                                }),
+                                multiValueLabel: (provided) => ({
+                                    ...provided,
+                                    color: 'white'
+                                }),
+                                multiValueRemove: (provided) => ({
+                                    ...provided,
+                                    color: 'white',
+                                    '&:hover': {
+                                        backgroundColor: '#555',
+                                        color: 'white'
+                                    }
+                                }),
+                                placeholder: (provided) => ({
+                                    ...provided,
+                                    color: '#ccc'
+                                }),
+                                input: (provided) => ({
+                                    ...provided,
+                                    color: 'white'
+                                })
+                            }}
+                        />
+                    </FormGroup>
+                    
+                    {selectedFiltersForReport.some(filter => filter.value === 'category') && (
+                        <FormGroup>
+                            <Label for="categorySelect">Wybierz kategorię:</Label>
+                            <Select
+                                value={selectedCategoryForReport}
+                                onChange={setSelectedCategoryForReport}
+                                options={[
+                                    { value: 'Kurtki kożuchy futra', label: 'Kurtki kożuchy futra' },
+                                    { value: 'Torebki', label: 'Torebki' },
+                                    { value: 'Portfele', label: 'Portfele' },
+                                    { value: 'Pozostały asortyment', label: 'Pozostały asortyment' },
+                                    { value: 'Paski', label: 'Paski' },
+                                    { value: 'Rękawiczki', label: 'Rękawiczki' }
+                                ]}
+                                placeholder="Wybierz kategorię..."
+                                isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        borderColor: 'white',
+                                        color: 'white'
+                                    }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        border: '1px solid white',
+                                        zIndex: 9999
+                                    }),
+                                    menuPortal: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999
+                                    }),
+                                    option: (provided, state) => ({
+                                        ...provided,
+                                        backgroundColor: state.isSelected ? '#333' : 'black',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#555'
+                                        }
+                                    }),
+                                    singleValue: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    }),
+                                    placeholder: (provided) => ({
+                                        ...provided,
+                                        color: '#ccc'
+                                    }),
+                                    input: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    })
+                                }}
+                            />
+                        </FormGroup>
+                    )}
+                    
+                    {selectedFiltersForReport.some(filter => filter.value === 'manufacturer') && (
+                        <FormGroup>
+                            <Label for="manufacturerSelect">Wybierz producenta:</Label>
+                            <Select
+                                value={selectedManufacturerForReport}
+                                onChange={setSelectedManufacturerForReport}
+                                options={manufacturers.map(manufacturer => ({
+                                    value: manufacturer._id,
+                                    label: manufacturer.Prod_Opis || manufacturer.Prod_Kod
+                                }))}
+                                placeholder="Wybierz producenta..."
+                                isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        borderColor: 'white',
+                                        color: 'white'
+                                    }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        border: '1px solid white',
+                                        zIndex: 9999
+                                    }),
+                                    menuPortal: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999
+                                    }),
+                                    option: (provided, state) => ({
+                                        ...provided,
+                                        backgroundColor: state.isSelected ? '#333' : 'black',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#555'
+                                        }
+                                    }),
+                                    singleValue: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    }),
+                                    placeholder: (provided) => ({
+                                        ...provided,
+                                        color: '#ccc'
+                                    }),
+                                    input: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    })
+                                }}
+                            />
+                        </FormGroup>
+                    )}
+                    
+                    {selectedFiltersForReport.some(filter => filter.value === 'specific') && (
                         <FormGroup>
                             <Label for="productSelect">Wybierz produkt:</Label>
                             <Select
@@ -1732,6 +2193,47 @@ const Warehouse = () => {
                                 }))}
                                 placeholder="Wybierz produkt..."
                                 isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        borderColor: 'white',
+                                        color: 'white'
+                                    }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        border: '1px solid white',
+                                        zIndex: 9999
+                                    }),
+                                    menuPortal: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999
+                                    }),
+                                    option: (provided, state) => ({
+                                        ...provided,
+                                        backgroundColor: state.isSelected ? '#333' : 'black',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#555'
+                                        }
+                                    }),
+                                    singleValue: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    }),
+                                    placeholder: (provided) => ({
+                                        ...provided,
+                                        color: '#ccc'
+                                    }),
+                                    input: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    })
+                                }}
                             />
                         </FormGroup>
                     )}

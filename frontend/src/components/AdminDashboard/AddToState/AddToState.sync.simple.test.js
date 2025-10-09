@@ -13,6 +13,6 @@ global.fetch = jest.fn(() =>
 describe('AddToState - Sync Simple Test', () => {
   test('renders without crashing', () => {
     render(<AddToState />);
-    expect(screen.getByText('Magazyn')).toBeInTheDocument();
+    expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
   });
 });

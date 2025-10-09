@@ -80,8 +80,8 @@ describe('Yellow Transfer Products Basic Test', () => {
 
     // Wait for component to load
     await waitFor(() => {
-      expect(screen.getByText('Magazyn')).toBeInTheDocument();
-      expect(screen.getByText('Dobieranie towaru')).toBeInTheDocument();
+      expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
+      expect(screen.getByText('Mechanizm Transferów')).toBeInTheDocument();
     });
 
     // Check for main controls
@@ -94,7 +94,7 @@ describe('Yellow Transfer Products Basic Test', () => {
 
     // Wait for data to load
     await waitFor(() => {
-      expect(screen.getByText('Dobieranie towaru')).toBeInTheDocument();
+      expect(screen.getByText('Mechanizm Transferów')).toBeInTheDocument();
     });
 
     // The component should render without errors

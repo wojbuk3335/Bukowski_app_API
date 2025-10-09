@@ -96,8 +96,8 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
       render(<AddToState />);
     });
 
-    expect(screen.getByText('Magazyn')).toBeInTheDocument();
-    expect(screen.getByText('Dobieranie towaru')).toBeInTheDocument();
+    expect(screen.getByText('📦 Magazyn')).toBeInTheDocument();
+    expect(screen.getByText('Mechanizm Transferów')).toBeInTheDocument();
   });
 
   test('2. Powinien wyświetlać kontrolki daty i użytkownika', async () => {
@@ -132,7 +132,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
 
     // Sprawdź czy interfejs się załadował (bez sprawdzania słowa "Transfery" które nie istnieje)
     await waitFor(() => {
-      expect(screen.getByText('Dobieranie towaru')).toBeInTheDocument();
+      expect(screen.getByText('Mechanizm Transferów')).toBeInTheDocument();
     });
     
     // Sprawdź nagłówki tabeli - używamy getAllByText bo są 2 tabele (magazyn + główna)
@@ -147,7 +147,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
       render(<AddToState />);
     });
 
-    const syncButton = screen.getByText('Dobieranie towaru');
+    const syncButton = screen.getByText('Mechanizm Transferów');
     expect(syncButton).toBeInTheDocument();
     expect(syncButton).toBeEnabled();
   });
@@ -207,7 +207,7 @@ describe('AddToState - Yellow Products (Incoming Transfers) - Fixed Tests', () =
       render(<AddToState />);
     });
 
-    const syncButton = screen.getByText('Dobieranie towaru'); // przycisk synchronizacji
+    const syncButton = screen.getByText('Mechanizm Transferów'); // przycisk synchronizacji
     
     await act(async () => {
       fireEvent.click(syncButton);
