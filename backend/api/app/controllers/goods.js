@@ -6,7 +6,7 @@ const config = require('../config');
 
 class GoodsController {
     async createGood(req, res, next) {
-        const { stock, color, fullName, code, category, subcategory, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId } = req.body; // Add bagsCategoryId
+        const { stock, color, fullName, code, category, subcategory, remainingSubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId } = req.body; // Add manufacturer
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
         
@@ -73,6 +73,11 @@ class GoodsController {
             barcode
         };
 
+        // Add manufacturer if provided
+        if (manufacturer) {
+            goodData.manufacturer = manufacturer;
+        }
+
         // Add fields based on category
         if (category === 'Torebki') {
             goodData.bagProduct = bagProduct;
@@ -89,6 +94,7 @@ class GoodsController {
             goodData.bagId = bagId; // ID produktu (może być puste)
             goodData.bagsCategoryId = bagsCategoryId; // ID kategorii pozostałego asortymentu
             goodData.subcategory = subcategory; // Podkategoria dla pozostałego asortymentu
+            goodData.remainingSubcategory = remainingSubcategory; // Podpodkategoria dla pozostałego asortymentu
             goodData.Plec = Plec; // Płeć z kategorii pozostałego asortymentu
         } else {
             goodData.stock = stock;
@@ -132,9 +138,10 @@ class GoodsController {
     async getAllGoods(req, res, next) {
         try {
             const goods = await Goods.find()
-                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory Plec price discount_price picture priceExceptions sellingPoint barcode')
+                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory manufacturer Plec price discount_price picture priceExceptions sellingPoint barcode')
                 .populate('stock', 'Tow_Opis Tow_Kod')
                 .populate('color', 'Kol_Opis Kol_Kod')
+                .populate('manufacturer', 'Prod_Opis Prod_Kod')
                 .populate('priceExceptions.size', 'Roz_Opis');
 
             // Manually populate subcategory based on category
@@ -146,6 +153,28 @@ class GoodsController {
                     return {
                         ...good.toObject(),
                         subcategory: subcategoryData
+                    };
+                } else if (good.category === 'Torebki' && good.bagsCategoryId) {
+                    // For bags, populate from BagsCategory model using bagsCategoryId
+                    const BagsCategory = require('../db/models/bagsCategory');
+                    const bagsCategoryData = await BagsCategory.findById(good.bagsCategoryId).select('Kat_1_Opis_1 Plec');
+                    return {
+                        ...good.toObject(),
+                        subcategory: bagsCategoryData // Map bagsCategory to subcategory for display
+                    };
+                } else if (good.category === 'Pozostały asortyment' && good.subcategory) {
+                    // For remaining products, populate subcategory from RemainingCategory and remainingSubcategory from RemainingSubcategory
+                    const RemainingCategory = require('../db/models/remainingCategory');
+                    const RemainingSubcategory = require('../db/models/remainingSubcategory');
+                    const subcategoryData = await RemainingCategory.findById(good.subcategory).select('Kat_1_Opis_1');
+                    let remainingSubcategoryData = null;
+                    if (good.remainingSubcategory) {
+                        remainingSubcategoryData = await RemainingSubcategory.findById(good.remainingSubcategory).select('Sub_Opis Sub_Kod');
+                    }
+                    return {
+                        ...good.toObject(),
+                        subcategory: subcategoryData,
+                        remainingSubcategory: remainingSubcategoryData
                     };
                 } else if (good.subcategory) {
                     // For other categories, populate from Category model
@@ -172,6 +201,8 @@ class GoodsController {
                     code: good.code,
                     category: good.category ? good.category.replace(/_/g, ' ') : 'Nieokreślona', // Replace underscores with spaces, handle null
                     subcategory: good.subcategory,
+                    remainingSubcategory: good.remainingSubcategory,
+                    manufacturer: good.manufacturer,
                     Plec: good.Plec, // Include Plec in the response
                     price: good.price,
                     discount_price: good.discount_price,
@@ -205,6 +236,11 @@ class GoodsController {
             barcode: req.body.barcode
         };
 
+        // Add manufacturer if provided
+        if (req.body.manufacturer) {
+            updateData.manufacturer = req.body.manufacturer;
+        }
+
         // Add fields based on category
         if (req.body.category === 'Torebki') {
             updateData.bagProduct = req.body.bagProduct;
@@ -221,6 +257,7 @@ class GoodsController {
             updateData.bagId = req.body.bagId;
             updateData.bagsCategoryId = req.body.bagsCategoryId;
             updateData.subcategory = req.body.subcategory;
+            updateData.remainingSubcategory = req.body.remainingSubcategory; // Dodaj podpodkategorię
             updateData.Plec = req.body.Plec; // Płeć z kategorii pozostałego asortymentu
         } else {
             updateData.stock = req.body.stock;

@@ -34,6 +34,7 @@ import Sales from './components/AdminDashboard/Sales/Sales';
 import AddToState from './components/AdminDashboard/AddToState/AddToState';
 import RemainingProducts from './components/AdminDashboard/RemainingProducts/RemainingProducts';
 import RemainingProductsSubcategory from './components/AdminDashboard/RemainingProducts/RemainingProductsSubcategory';
+import Manufacturers from './components/AdminDashboard/Manufacturers/Manufacturers';
 
 function App() {
   return (
@@ -59,7 +60,9 @@ function App() {
           <Route path='goods' element={<Goods />} />
           <Route path="subcategory">
             <Route path="coats" element={<Category />} />
+            <Route path="bags" element={<BagsCategory />} />
           </Route>
+          <Route path="manufacturers" element={<Manufacturers />} />
           <Route path="category">
             <Route path="bags" element={<BagsCategory />} />
             <Route path="wallets" element={<WalletsCategory />} />

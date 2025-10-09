@@ -29,6 +29,8 @@ const subcategoryCoatsRoutes = require('./routes/subcategoryCoats');
 const bagsCategoryRoutes = require('./routes/bagsCategory');
 const walletsCategoryRoutes = require('./routes/walletsCategory');
 const remainingCategoryRoutes = require('./routes/remainingCategory');
+const remainingSubcategoryRoutes = require('./routes/remainingSubcategory');
+const manufacturerRoutes = require('./routes/manufacturer');
 const printRoutes = require('./routes/print'); // Import print routes
 const historyRoutes = require('./routes/history'); // Import history routes
 const salesRoutes = require('./routes/sales'); // Import sales routes
@@ -60,8 +62,11 @@ app.use('/api/excel/goods', goodsRoutes);
 app.use('/api/excel/category', categoryRoutes);
 app.use('/api/excel/subcategoryCoats', subcategoryCoatsRoutes);
 app.use('/api/excel/bags-category', bagsCategoryRoutes);
+app.use('/api/excel/subcategoryBags', bagsCategoryRoutes); // Alias for bags subcategories
 app.use('/api/excel/wallets-category', walletsCategoryRoutes);
 app.use('/api/excel/remaining-category', remainingCategoryRoutes);
+app.use('/api/excel/remaining-subcategory', remainingSubcategoryRoutes);
+app.use('/api/excel/manufacturers', manufacturerRoutes);
 app.use('/api/excel/localization', localizationRoutes); // Use localization routes
 app.use('/api/excel/bags', bagsRoutes); // Use bags routes
 app.use('/api/excel/wallets', walletsRoutes); // Use wallets routes

@@ -64,6 +64,8 @@ const historyLogger = (collectionName) => {
             if (collection === 'users') return 'Użytkownicy'; // Replace "Users" with "Użytkownicy"
             if (collection === 'colors') return 'Kolory'; // Translate "colors" to "Kolory"
             if (collection === 'bagsCategory') return 'Kategorie torebek'; // Add bags category mapping
+            if (collection === 'remainingSubcategories') return 'Podpodkategorie pozostałego asortymentu'; // Add remaining subcategories mapping
+            if (collection === 'manufacturers') return 'Producenci'; // Add manufacturers mapping
             if (collection === 'wallets') return 'Portfele'; // Add wallets mapping
             if (collection === 'bags') return 'Torebki'; // Add bags mapping
             return collection;

@@ -40,6 +40,12 @@ const Goods = () => {
     const [remainingProductFilterText, setRemainingProductFilterText] = useState(''); // Filter text for remaining products
     const [isRemainingProductDropdownOpen, setIsRemainingProductDropdownOpen] = useState(false); // Dropdown state for remaining products
     const [selectedRemainingProductIndex, setSelectedRemainingProductIndex] = useState(-1); // Index for keyboard navigation
+    // States for remaining subcategories (podpodkategorie)
+    const [remainingSubcategories, setRemainingSubcategories] = useState([]); // State for remaining subcategories
+    const [selectedRemainingSubcategory, setSelectedRemainingSubcategory] = useState(''); // Selected remaining subcategory
+    // States for manufacturers
+    const [manufacturers, setManufacturers] = useState([]); // State for manufacturers
+    const [selectedManufacturer, setSelectedManufacturer] = useState(''); // Selected manufacturer
     // States for color filtering
     const [colorFilterText, setColorFilterText] = useState(''); // Filter text for colors
     const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false); // Dropdown state for colors
@@ -174,7 +180,7 @@ const Goods = () => {
 
     // Fetch bags categories for bags category
     useEffect(() => {
-        fetch('/api/excel/bags-category/get-all-bags-categories')
+        fetch('/api/excel/subcategoryBags/get-all-bags-categories')
             .then(response => response.json())
             .then(data => {
                 const bagsCategoriesData = data.bagCategories || [];
@@ -236,6 +242,20 @@ const Goods = () => {
                 }
             })
             .catch(error => console.error('Error fetching remaining categories:', error));
+    }, []);
+
+    // Fetch manufacturers
+    useEffect(() => {
+        fetch('/api/excel/manufacturers')
+            .then(response => response.json())
+            .then(data => {
+                const manufacturersList = data.manufacturers || [];
+                setManufacturers(manufacturersList);
+                if (manufacturersList.length > 0) {
+                    setSelectedManufacturer(manufacturersList[0]._id);
+                }
+            })
+            .catch(error => console.error('Error fetching manufacturers:', error));
     }, []);
 
     // Fetch remaining products
@@ -401,6 +421,19 @@ const Goods = () => {
                     }
                 })
                 .catch(error => console.error('Error fetching subcategory coats:', error));
+        } else if (newCategory === 'Torebki') {
+            // Ładuj podkategorie torebek z dedykowanego endpointu
+            fetch('/api/excel/subcategoryBags/get-all-bags-categories')
+                .then(response => response.json())
+                .then(data => {
+                    const filteredCategories = (data.bagCategories || []).filter(cat => cat.Kat_1_Opis_1 && cat.Kat_1_Opis_1.trim() !== '');
+                    setBagsCategories(filteredCategories);
+                    if (filteredCategories.length > 0) {
+                        setSelectedBagsCategoryId(filteredCategories[0]._id);
+                        setSelectedBagsCategoryCode(filteredCategories[0].Kat_1_Kod_1);
+                    }
+                })
+                .catch(error => console.error('Error fetching bags categories:', error));
         }
         
         // Jeśli wybrano kategorię "Torebki", wyczyść modal i ustaw domyślne wartości
@@ -528,6 +561,33 @@ const Goods = () => {
         // Jeśli wracamy z kategorii na "Kurtki kożuchy futra", zresetuj modal
         if (newCategory === 'Kurtki kożuchy futra') {
             resetForm();
+        }
+    };
+
+    // Funkcja do ładowania podpodkategorii dla wybranej kategorii pozostałego asortymentu
+    const handleRemainingCategoryChange = (categoryId) => {
+        if (categoryId) {
+            fetch(`/api/excel/remaining-subcategory/get-by-category/${categoryId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const filteredSubcategories = (data.remainingSubcategories || []).filter(sub => 
+                        sub.Sub_Opis && sub.Sub_Opis.trim() !== ''
+                    );
+                    setRemainingSubcategories(filteredSubcategories);
+                    if (filteredSubcategories.length > 0) {
+                        setSelectedRemainingSubcategory(filteredSubcategories[0]._id);
+                    } else {
+                        setSelectedRemainingSubcategory('');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching remaining subcategories:', error);
+                    setRemainingSubcategories([]);
+                    setSelectedRemainingSubcategory('');
+                });
+        } else {
+            setRemainingSubcategories([]);
+            setSelectedRemainingSubcategory('');
         }
     };
 
@@ -1218,16 +1278,21 @@ const Goods = () => {
         // Obsługa podkategorii w zależności od typu kategorii
         if (selectedCategory === 'Torebki') {
             formData.append('subcategory', ''); // Brak podkategorii dla torebek
+            formData.append('remainingSubcategory', ''); // Brak podpodkategorii dla torebek
         } else if (selectedCategory === 'Portfele') {
             formData.append('subcategory', ''); // Brak podkategorii dla portfeli
+            formData.append('remainingSubcategory', ''); // Brak podpodkategorii dla portfeli
         } else if (selectedCategory === 'Pozostały asortyment') {
             formData.append('subcategory', selectedRemainingCategory); // Podkategoria dla pozostałego asortymentu
+            formData.append('remainingSubcategory', selectedRemainingSubcategory); // Podpodkategoria dla pozostałego asortymentu
         } else {
             formData.append('subcategory', selectedSubcategory); // Standardowa podkategoria dla kurtek
+            formData.append('remainingSubcategory', ''); // Brak podpodkategorii dla kurtek
         }
         formData.append('price', price);
         formData.append('discount_price', discountPrice);
         formData.append('priceExceptions', JSON.stringify(priceExceptions));
+        formData.append('manufacturer', selectedManufacturer); // Dodaj producenta
         formData.append('sellingPoint', ''); // Default value for sellingPoint
         formData.append('barcode', ''); // Default value for barcode
         formData.append('Plec', finalPlec); // Płeć z kategorii torebek lub podkategorii
@@ -1443,6 +1508,8 @@ const Goods = () => {
         setSelectedImage(null);
         setEditingGood(null);
         setSelectedRemainingCategory(remainingCategories.length > 0 ? remainingCategories[0]._id : ''); // Reset remaining category
+        setSelectedRemainingSubcategory(''); // Reset remaining subcategory
+        setSelectedManufacturer(manufacturers.length > 0 ? manufacturers[0]._id : ''); // Reset manufacturer
         setSelectedRemainingProductCode(remainingProducts.length > 0 ? remainingProducts[0].Poz_Kod : ''); // Reset remaining product
         setRemainingProductFilterText(remainingProducts.length > 0 ? remainingProducts[0].Poz_Kod : ''); // Reset remaining product filter
         setIsRemainingProductDropdownOpen(false); // Close remaining products dropdown
@@ -2391,7 +2458,11 @@ const Goods = () => {
                                     id="remainingSubcategorySelect"
                                     className={styles.inputField}
                                     value={selectedRemainingCategory}
-                                    onChange={(e) => setSelectedRemainingCategory(e.target.value)}
+                                    onChange={(e) => {
+                                        const categoryId = e.target.value;
+                                        setSelectedRemainingCategory(categoryId);
+                                        handleRemainingCategoryChange(categoryId);
+                                    }}
                                 >
                                     {remainingCategories.length === 0 ? (
                                         <option value="">Brak dostępnych kategorii</option>
@@ -2402,6 +2473,41 @@ const Goods = () => {
                                             </option>
                                         ))
                                     )}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingSubcategoryDetailSelect" className={styles.label}>Podpodkategoria:</Label>
+                                <Input
+                                    type="select"
+                                    id="remainingSubcategoryDetailSelect"
+                                    className={styles.inputField}
+                                    value={selectedRemainingSubcategory}
+                                    onChange={(e) => setSelectedRemainingSubcategory(e.target.value)}
+                                    disabled={!selectedRemainingCategory || remainingSubcategories.length === 0}
+                                >
+                                    <option value="">Wybierz podpodkategorię</option>
+                                    {remainingSubcategories.map(subcategory => (
+                                        <option key={subcategory._id} value={subcategory._id}>
+                                            {subcategory.Sub_Opis}
+                                        </option>
+                                    ))}
+                                </Input>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="manufacturerSelect" className={styles.label}>Producent:</Label>
+                                <Input
+                                    type="select"
+                                    id="manufacturerSelect"
+                                    className={styles.inputField}
+                                    value={selectedManufacturer}
+                                    onChange={(e) => setSelectedManufacturer(e.target.value)}
+                                >
+                                    <option value="">Wybierz producenta</option>
+                                    {manufacturers.map(manufacturer => (
+                                        <option key={manufacturer._id} value={manufacturer._id}>
+                                            {manufacturer.Prod_Opis}
+                                        </option>
+                                    ))}
                                 </Input>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>

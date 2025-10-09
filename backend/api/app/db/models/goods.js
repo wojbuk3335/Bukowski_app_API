@@ -28,6 +28,16 @@ const goodsSchema = mongoose.Schema({
         ref: 'Category', // Reference to the subcategory model
         required: false // Not required for bags
     },
+    remainingSubcategory: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'RemainingSubcategory', // Reference to the remaining subcategory model
+        required: false // Only for remaining products
+    },
+    manufacturer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Manufacturer', // Reference to the manufacturer model
+        required: false // Optional for all products
+    },
     Plec: { type: String, required: false }, // Not required for bags
     picture: { type: String, default: "" },
     priceExceptions: {
