@@ -1043,8 +1043,8 @@ const AddToState = ({ onAdd }) => {
 ^LL0400
 ^LS0
 ^FT3,50^A0N,40,40^FD${safeName}^FS
-^FT320,55^A0N,40,40^FDCena:^FS
-^FT320,105^A0N,55,55^FD${safePrice} zl^FS
+^FT280,55^A0N,45,45^FDCena:^FS
+^FT280,125^A0N,70,70^FD${safePrice} zl^FS
 
 ^FT3,120^A0N,38,38^FDRozmiar: ${safeSize}^FS
 ^FT3,150^A0N,25,25^FDPunkt: ${safeTransfer}^FS

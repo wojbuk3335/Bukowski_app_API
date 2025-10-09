@@ -1490,30 +1490,43 @@ const Warehouse = () => {
         const dateWidth = doc.getTextWidth(dateText);
         doc.text(dateText, (pageWidth - dateWidth) / 2, 30);
         
-        // Filter info - centered
-        let filterText = '';
+        // Filter info - wyświetl wszystkie aktywne filtry
+        let filtersList = [];
         const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
         
+        console.log('🔍 DEBUG Filtry - selectedFiltersForReport:', selectedFiltersForReport);
+        console.log('🔍 DEBUG Filtry - selectedFiltersValues:', selectedFiltersValues);
+        
+        // Sprawdź i dodaj wszystkie aktywne filtry
         if (selectedFiltersValues.includes('specific') && selectedProductForReport) {
-            filterText = convertPolishChars(`Produkt: ${selectedProductForReport.label}`);
+            filtersList = [selectedProductForReport.label];
         } else {
-            let filters = [];
-            if (selectedFiltersValues.includes('category') && selectedCategoryForReport) {
-                filters.push(`Kategoria: ${selectedCategoryForReport.label}`);
-            }
-            if (selectedFiltersValues.includes('manufacturer') && selectedManufacturerForReport) {
-                filters.push(`Producent: ${selectedManufacturerForReport.label}`);
-            }
-            if (selectedFiltersValues.includes('size') && selectedSizeForReport) {
-                filters.push(`Rozmiar: ${selectedSizeForReport.label}`);
+            // Zawsze dodaj "Wszystkie produkty" jeśli jest zaznaczone
+            if (selectedFiltersValues.includes('all')) {
+                filtersList.push('Wszystkie produkty');
             }
             
-            if (filters.length > 0) {
-                filterText = convertPolishChars(filters.join(', '));
-            } else {
-                filterText = convertPolishChars('Wszystkie produkty');
+            // Dodaj każdy aktywny filtr
+            if (selectedFiltersValues.includes('category') && selectedCategoryForReport) {
+                filtersList.push(selectedCategoryForReport.label);
+            }
+            if (selectedFiltersValues.includes('manufacturer') && selectedManufacturerForReport) {
+                filtersList.push(selectedManufacturerForReport.label);
+            }
+            if (selectedFiltersValues.includes('size') && selectedSizeForReport) {
+                filtersList.push(selectedSizeForReport.label);
+            }
+            
+            // Jeśli brak jakichkolwiek filtrów (fallback)
+            if (filtersList.length === 0) {
+                filtersList = ['Wszystkie produkty'];
             }
         }
+        
+        console.log('🔍 DEBUG Filtry - finalFiltersList:', filtersList);
+        
+        // Twórz tekst z prefiksem "Filtry:"
+        const filterText = convertPolishChars(`Filtry: ${filtersList.join(', ')}`);
         const filterWidth = doc.getTextWidth(filterText);
         doc.text(filterText, (pageWidth - filterWidth) / 2, 40);
         
@@ -1522,99 +1535,82 @@ const Warehouse = () => {
         const totalWidth = doc.getTextWidth(totalText);
         doc.text(totalText, (pageWidth - totalWidth) / 2, 50);
         
-        // Table
-        if (data.items && data.items.length > 0) {
-            const tableColumns = ['Lp.', 'Nazwa produktu', 'Rozmiar', 'Kod kreskowy', 'Cena (PLN)'];
-            const tableRows = data.items.map((item, index) => [
+        // PODSUMOWANIE TABELA (zamiast szczegółowej tabeli)
+        if (data.summary && data.summary.length > 0) {
+            // Header podsumowania
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            const summaryHeaderText = convertPolishChars('PODSUMOWANIE');
+            const summaryHeaderWidth = doc.getTextWidth(summaryHeaderText);
+            doc.text(summaryHeaderText, (pageWidth - summaryHeaderWidth) / 2, 65);
+            
+            // Tabela podsumowująca - sortowanie alfabetyczne
+            const summaryColumns = ['Lp.', 'Produkt', 'Ilosc', 'Kod kreskowy'];
+            
+            // Sortuj alfabetycznie według nazwy produktu (productKey)
+            const sortedSummary = [...data.summary].sort((a, b) => {
+                const nameA = (a.productKey || 'Nieznany produkt').toLowerCase();
+                const nameB = (b.productKey || 'Nieznany produkt').toLowerCase();
+                return nameA.localeCompare(nameB, 'pl', { sensitivity: 'base' });
+            });
+            
+            const summaryRows = sortedSummary.map((item, index) => [
                 (index + 1).toString(),
-                convertPolishChars(item.productName || item.fullName || 'Nieznany produkt'),
-                convertPolishChars(item.size || '-'),
-                item.barcode || '-',
-                `${item.price || 0} PLN`
+                convertPolishChars(item.productKey || 'Nieznany produkt'),
+                `${item.count} szt.`,
+                item.barcode && item.barcode !== '-' ? item.barcode : 'Brak kodu'
             ]);
             
-            // Use autoTable function (imported at top of file)
+            // Use autoTable function dla tabeli podsumowującej
             autoTable(doc, {
-                head: [tableColumns],
-                body: tableRows,
-                startY: 60,
+                head: [summaryColumns],
+                body: summaryRows,
+                startY: 75,
                 theme: 'grid',
                 headStyles: {
-                    fillColor: [0, 0, 0],
+                    fillColor: [41, 128, 185], // Niebieski nagłówek
                     textColor: [255, 255, 255],
-                    fontSize: 10,
+                    fontSize: 11,
                     fontStyle: 'bold'
                 },
                 bodyStyles: {
-                    fontSize: 9,
+                    fontSize: 10,
                     textColor: [0, 0, 0]
                 },
                 alternateRowStyles: {
-                    fillColor: [240, 240, 240]
+                    fillColor: [245, 245, 245]
                 },
-                margin: { left: 10, right: 10 },
+                margin: { left: 15, right: 15 },
                 columnStyles: {
-                    0: { cellWidth: 15 }, // Lp.
-                    1: { cellWidth: 60 }, // Nazwa produktu
-                    2: { cellWidth: 25 }, // Rozmiar
-                    3: { cellWidth: 40 }, // Kod kreskowy
-                    4: { cellWidth: 30 }  // Cena
+                    0: { cellWidth: 20, halign: 'center' }, // Lp.
+                    1: { cellWidth: 80 }, // Produkt (szersze dla pełnej nazwy)
+                    2: { cellWidth: 30, halign: 'center' }, // Ilość
+                    3: { cellWidth: 40, halign: 'center' }  // Kod kreskowy
                 }
             });
         }
 
-        // Add summary table if available
+        // Add total value summary at the bottom (without unnecessary details)
         if (data.summary && data.summary.length > 0) {
-            // Get the Y position after the main table
-            const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 150;
+            // Get the Y position after the summary table
+            const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 200;
             
             // Check if we need a new page
-            if (finalY > 250) {
+            if (finalY > 260) {
                 doc.addPage();
                 var currentY = 20;
             } else {
                 var currentY = finalY;
             }
             
-            // Summary header
+            // Only show total summary (without total value)
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(14);
-            const summaryHeaderText = convertPolishChars('PODSUMOWANIE');
-            const summaryHeaderWidth = doc.getTextWidth(summaryHeaderText);
-            doc.text(summaryHeaderText, (pageWidth - summaryHeaderWidth) / 2, currentY);
+            doc.setFontSize(12);
             
-            currentY += 15;
-            
-            // Summary list (not table)
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(11);
-            
-            data.summary.forEach((item, index) => {
-                const itemText = convertPolishChars(`${index + 1}. ${item.productKey} - ${item.count} ${item.count === 1 ? 'sztuka' : item.count < 5 ? 'sztuki' : 'sztuk'}`);
-                
-                // Check if we need a new page
-                if (currentY > 270) {
-                    doc.addPage();
-                    currentY = 20;
-                }
-                
-                doc.text(itemText, 15, currentY);
-                currentY += 7;
-            });
-
-            // Add total summary at the bottom
-            const summaryY = currentY + 10;
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            
-            const totalUniqueText = convertPolishChars(`Unikalne produkty: ${data.totalUniqueProducts || 0}`);
-            doc.text(totalUniqueText, 15, summaryY);
-            
+            // Center the total information
             const totalItemsText = convertPolishChars(`Calkowita liczba sztuk: ${data.totalItems || 0}`);
-            doc.text(totalItemsText, 15, summaryY + 7);
-            
-            const totalValueText = convertPolishChars(`Calkowita wartosc: ${data.summary.reduce((sum, item) => sum + item.totalValue, 0).toFixed(2)} PLN`);
-            doc.text(totalValueText, 15, summaryY + 14);
+            const totalItemsWidth = doc.getTextWidth(totalItemsText);
+            doc.text(totalItemsText, (pageWidth - totalItemsWidth) / 2, currentY);
         }
         
         // Open print dialog

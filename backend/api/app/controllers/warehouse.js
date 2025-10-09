@@ -904,6 +904,7 @@ class WarehouseController {
                         size: item.size,
                         category: item.category,
                         manufacturer: item.manufacturer,
+                        barcode: item.barcode, // Dodajemy kod kreskowy
                         count: 0,
                         totalValue: 0
                     };
@@ -923,6 +924,7 @@ class WarehouseController {
                 size: data.size,
                 category: data.category,
                 manufacturer: data.manufacturer,
+                barcode: data.barcode, // Dodajemy kod kreskowy do response
                 count: data.count,
                 totalValue: data.totalValue,
                 averagePrice: data.count > 0 ? (data.totalValue / data.count).toFixed(2) : 0
