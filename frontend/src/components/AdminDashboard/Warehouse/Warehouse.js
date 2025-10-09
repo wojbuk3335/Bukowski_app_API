@@ -1273,8 +1273,10 @@ const Warehouse = () => {
                 new Date(operation.date).toLocaleDateString('pl-PL'),
                 convertPolishChars(operation.product || 'Nieznany produkt'),
                 convertPolishChars(operation.type),
-                operation.subtract || 0,
-                operation.add || 0
+                // Dla odjęć pokazuj ujemną wartość, dla zer nie pokazuj nic
+                operation.subtract && operation.subtract > 0 ? -operation.subtract : '',
+                // Dla dodań pokazuj dodatnią wartość, dla zer nie pokazuj nic
+                operation.add && operation.add > 0 ? operation.add : ''
             ];
             tableRows.push(row);
         });
@@ -1293,7 +1295,7 @@ const Warehouse = () => {
                     }
                 },
                 {
-                    content: data.summary.totalSubtracted || 0,
+                    content: data.summary.totalSubtracted && data.summary.totalSubtracted > 0 ? -data.summary.totalSubtracted : '',
                     styles: { 
                         halign: 'center',
                         fontStyle: 'bold',
@@ -1301,7 +1303,7 @@ const Warehouse = () => {
                     }
                 },
                 {
-                    content: data.summary.totalAdded || 0,
+                    content: data.summary.totalAdded && data.summary.totalAdded > 0 ? data.summary.totalAdded : '',
                     styles: { 
                         halign: 'center',
                         fontStyle: 'bold',
@@ -1351,14 +1353,23 @@ const Warehouse = () => {
             }
         });
         
-        // Add final state after table - centered
+        // Add final calculation and final state after table - centered
         if (data.summary) {
-            const finalY = doc.lastAutoTable.finalY + 20;
+            let finalY = doc.lastAutoTable.finalY + 20;
+            
+            // Stan końcowy z formułą
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
-            const finalText = convertPolishChars(`Stan koncowy (${endDate.toLocaleDateString('pl-PL')}): ${data.summary.finalState || 0}`);
-            const finalWidth = doc.getTextWidth(finalText);
-            doc.text(finalText, (pageWidth - finalWidth) / 2, finalY);
+            
+            const initialState = data.initialState?.quantity || 0;
+            const totalAdded = data.summary.totalAdded || 0;
+            const totalSubtracted = data.summary.totalSubtracted || 0;
+            const finalState = data.summary.finalState || 0;
+            
+            // Formuła: Stan końcowy (data): stan początkowy + dodano - odjęto = wynik
+            const formulaText = convertPolishChars(`Stan koncowy (${endDate.toLocaleDateString('pl-PL')}): ${initialState} + ${totalAdded} - ${totalSubtracted} = ${finalState}`);
+            const formulaWidth = doc.getTextWidth(formulaText);
+            doc.text(formulaText, (pageWidth - formulaWidth) / 2, finalY);
         }
         
         // Otwórz tryb drukowania zamiast pobierania PDF
