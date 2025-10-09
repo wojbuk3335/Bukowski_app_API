@@ -3,15 +3,16 @@
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
-  "scripts": {
-    "start": "nodemon app/app.js",
-    "test": "jest",
-    "watch": "nodemon --exec \"npm test\" -e js,json,ejs",
-    "debug": "nodemon --inspect app/app.js -e js,json"
-  },
+  "type": "commonjs",
   "author": "TworcaStron.pl",
   "license": "ISC",
-  "type": "commonjs",
+  "scripts": {
+    "start": "cross-env NODE_OPTIONS=--max-old-space-size=4096 nodemon app/app.js",
+    "test": "cross-env NODE_OPTIONS=--max-old-space-size=4096 jest --runInBand --maxWorkers=50%",
+    "test:once": "cross-env NODE_OPTIONS=--max-old-space-size=4096 jest --runInBand --maxWorkers=50%",
+    "watch": "nodemon --signal SIGTERM --exec \"npm run test:once\" -e js,json,ejs",
+    "debug": "cross-env NODE_OPTIONS=--max-old-space-size=4096 nodemon --inspect app/app.js -e js,json"
+  },
   "dependencies": {
     "argon2": "^0.41.1",
     "axios": "^1.7.9",
@@ -30,9 +31,15 @@
     "node-zpl": "^1.0.5"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "jest": "^30.0.1",
     "mongodb-memory-server": "^10.2.0",
     "nodemon": "^3.1.9",
     "supertest": "^7.1.4"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "clearMocks": true,
+    "restoreMocks": true
   }
 }

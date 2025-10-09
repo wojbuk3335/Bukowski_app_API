@@ -6,7 +6,8 @@ const config = require('../config');
 
 class GoodsController {
     async createGood(req, res, next) {
-        const { stock, color, fullName, code, category, subcategory, remainingSubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId } = req.body; // Add manufacturer
+        console.log('Creating good with data:', req.body);
+        const { stock, color, fullName, code, category, subcategory, remainingsubsubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId } = req.body; // Add manufacturer
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
         
@@ -23,8 +24,20 @@ class GoodsController {
             }
         } else if (category === 'Pozostały asortyment') {
             // Validation for remaining assortment
+            console.log('Validating remaining assortment:', {
+                bagProduct: bagProduct,
+                subcategory: subcategory,
+                remainingsubsubcategory: remainingsubsubcategory
+            });
+            
             if (!bagProduct) {
                 return res.status(400).json({ message: 'Product code is required for remaining assortment category' });
+            }
+            if (!subcategory) {
+                return res.status(400).json({ message: 'Subcategory is required for remaining assortment' });
+            }
+            if (!remainingsubsubcategory) {
+                return res.status(400).json({ message: 'Remaining subcategory is required for remaining assortment' });
             }
         } else {
             // Validation for other products
@@ -94,8 +107,41 @@ class GoodsController {
             goodData.bagId = bagId; // ID produktu (może być puste)
             goodData.bagsCategoryId = bagsCategoryId; // ID kategorii pozostałego asortymentu
             goodData.subcategory = subcategory; // Podkategoria dla pozostałego asortymentu
-            goodData.remainingSubcategory = remainingSubcategory; // Podpodkategoria dla pozostałego asortymentu
+            
+            // Convert remainingsubsubcategory ID to text description
+            let remainingSubcategoryText = '';
+            if (remainingsubsubcategory && subcategory) {
+                if (subcategory === 'belts') {
+                    const Belts = require('../models/belts');
+                    const mongoose = require('mongoose');
+                    let beltId = remainingsubsubcategory;
+                    if (typeof beltId === 'string') {
+                        beltId = new mongoose.Types.ObjectId(beltId);
+                    }
+                    const beltData = await Belts.findById(beltId).select('Belt_Opis');
+                    remainingSubcategoryText = beltData ? beltData.Belt_Opis : '';
+                } else if (subcategory === 'gloves') {
+                    const Gloves = require('../models/gloves');
+                    const mongoose = require('mongoose');
+                    let gloveId = remainingsubsubcategory;
+                    if (typeof gloveId === 'string') {
+                        gloveId = new mongoose.Types.ObjectId(gloveId);
+                    }
+                    const gloveData = await Gloves.findById(gloveId).select('Glove_Opis');
+                    remainingSubcategoryText = gloveData ? gloveData.Glove_Opis : '';
+                } else {
+                    remainingSubcategoryText = remainingsubsubcategory; // For regular subcategories
+                }
+            }
+            
+            goodData.remainingsubsubcategory = remainingSubcategoryText; // Save text description instead of ObjectId
             goodData.Plec = Plec; // Płeć z kategorii pozostałego asortymentu
+            
+            console.log('Saving remaining assortment data:', {
+                subcategory: goodData.subcategory,
+                remainingsubsubcategory: goodData.remainingsubsubcategory,
+                bagsCategoryId: goodData.bagsCategoryId
+            });
         } else {
             goodData.stock = stock;
             goodData.subcategory = subcategory;
@@ -106,6 +152,14 @@ class GoodsController {
 
         newGood.save()
             .then(result => {
+                console.log('Saved good to database:', {
+                    _id: result._id,
+                    category: result.category,
+                    subcategory: result.subcategory,
+                    remainingsubsubcategory: result.remainingsubsubcategory,
+                    bagsCategoryId: result.bagsCategoryId
+                });
+                
                 res.status(201).json({
                     message: 'Good created successfully',
                     createdGood: {
@@ -129,8 +183,11 @@ class GoodsController {
                 });
             })
             .catch(error => {
+                console.error('Error creating good:', error);
+                console.error('Good data:', goodData);
                 res.status(500).json({
-                    error
+                    error: error.message || error,
+                    message: 'Failed to create good'
                 });
             });
     }
@@ -138,7 +195,7 @@ class GoodsController {
     async getAllGoods(req, res, next) {
         try {
             const goods = await Goods.find()
-                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory manufacturer Plec price discount_price picture priceExceptions sellingPoint barcode')
+                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec price discount_price picture priceExceptions sellingPoint barcode')
                 .populate('stock', 'Tow_Opis Tow_Kod')
                 .populate('color', 'Kol_Opis Kol_Kod')
                 .populate('manufacturer', 'Prod_Opis Prod_Kod')
@@ -163,14 +220,78 @@ class GoodsController {
                         subcategory: bagsCategoryData // Map bagsCategory to subcategory for display
                     };
                 } else if (good.category === 'Pozostały asortyment' && good.subcategory) {
-                    // For remaining products, populate subcategory from RemainingCategory and remainingSubcategory from RemainingSubcategory
+                    // For remaining products, populate subcategory from RemainingCategory
+                    console.log('Processing remaining product:', good._id, 'subcategory:', good.subcategory);
                     const RemainingCategory = require('../db/models/remainingCategory');
-                    const RemainingSubcategory = require('../db/models/remainingSubcategory');
-                    const subcategoryData = await RemainingCategory.findById(good.subcategory).select('Kat_1_Opis_1');
-                    let remainingSubcategoryData = null;
-                    if (good.remainingSubcategory) {
-                        remainingSubcategoryData = await RemainingSubcategory.findById(good.remainingSubcategory).select('Sub_Opis Sub_Kod');
+                    
+                    // Check if subcategory is "belts" or "gloves" (static categories)
+                    let subcategoryData = null;
+                    if (good.subcategory === 'belts' || good.subcategory === 'gloves') {
+                        // Handle static categories
+                        if (good.subcategory === 'belts') {
+                            subcategoryData = { _id: 'belts', Rem_Kat_1_Opis_1: 'Paski' };
+                        } else if (good.subcategory === 'gloves') {
+                            subcategoryData = { _id: 'gloves', Rem_Kat_1_Opis_1: 'Rękawiczki' };
+                        }
+                    } else {
+                        // Handle regular remaining categories
+                        subcategoryData = await RemainingCategory.findById(good.subcategory).select('Rem_Kat_1_Opis_1');
                     }
+                    
+                    // Check both old and new field names for remaining subcategory
+                    let remainingSubcategoryData = null;
+                    const remainingSubcategoryValue = good.remainingsubsubcategory || good.remainingSubcategory;
+                    
+                    if (remainingSubcategoryValue) {
+                        // If it's already text, use it directly
+                        if (typeof remainingSubcategoryValue === 'string' && !remainingSubcategoryValue.match(/^[0-9a-fA-F]{24}$/)) {
+                            remainingSubcategoryData = {
+                                Sub_Opis: remainingSubcategoryValue
+                            };
+                        } else {
+                            // Legacy data - still ObjectId, need to populate
+                            if (good.subcategory === 'belts') {
+                                const Belts = require('../models/belts');
+                                const mongoose = require('mongoose');
+                                let beltId = remainingSubcategoryValue;
+                                if (typeof beltId === 'string') {
+                                    beltId = new mongoose.Types.ObjectId(beltId);
+                                }
+                                const beltData = await Belts.findById(beltId).select('Belt_Opis Belt_Kod');
+                                if (beltData) {
+                                    remainingSubcategoryData = {
+                                        _id: beltData._id,
+                                        Sub_Opis: beltData.Belt_Opis,
+                                        Sub_Kod: beltData.Belt_Kod
+                                    };
+                                }
+                            } else if (good.subcategory === 'gloves') {
+                                const Gloves = require('../models/gloves');
+                                const mongoose = require('mongoose');
+                                let gloveId = remainingSubcategoryValue;
+                                if (typeof gloveId === 'string') {
+                                    gloveId = new mongoose.Types.ObjectId(gloveId);
+                                }
+                                const gloveData = await Gloves.findById(gloveId).select('Glove_Opis Glove_Kod');
+                                if (gloveData) {
+                                    remainingSubcategoryData = {
+                                        _id: gloveData._id,
+                                        Sub_Opis: gloveData.Glove_Opis,
+                                        Sub_Kod: gloveData.Glove_Kod
+                                    };
+                                }
+                            } else {
+                                const RemainingSubcategory = require('../db/models/remainingSubcategory');
+                                const mongoose = require('mongoose');
+                                let subcategoryId = remainingSubcategoryValue;
+                                if (typeof subcategoryId === 'string') {
+                                    subcategoryId = new mongoose.Types.ObjectId(subcategoryId);
+                                }
+                                remainingSubcategoryData = await RemainingSubcategory.findById(subcategoryId).select('Sub_Opis Sub_Kod');
+                            }
+                        }
+                    }
+                    
                     return {
                         ...good.toObject(),
                         subcategory: subcategoryData,

@@ -16,7 +16,7 @@ const goodsSchema = mongoose.Schema({
     // Fields for bags category
     bagProduct: { type: String, required: false }, // Bag product code
     bagId: { type: String, required: false }, // Bag ID
-    bagsCategoryId: { type: String, required: false }, // Bags category ID
+    bagsCategoryId: { type: mongoose.Schema.Types.Mixed, required: false }, // Bags category ID (can be ObjectId or String)
     
     fullName: { type: String, required: true, unique: true },
     code: { type: String, required: true, unique: true },
@@ -24,13 +24,12 @@ const goodsSchema = mongoose.Schema({
     discount_price: { type: Number },
     category: { type: String, required: true }, // Changed to string
     subcategory: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: mongoose.Schema.Types.Mixed, // Changed to Mixed to handle both ObjectId and String
         ref: 'Category', // Reference to the subcategory model
         required: false // Not required for bags
     },
-    remainingSubcategory: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'RemainingSubcategory', // Reference to the remaining subcategory model
+    remainingsubsubcategory: {
+        type: String, // Changed from ObjectId to String to handle different table references
         required: false // Only for remaining products
     },
     manufacturer: {

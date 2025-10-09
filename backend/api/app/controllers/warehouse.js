@@ -110,7 +110,7 @@ class WarehouseController {
     // Generate warehouse report
     generateReport = async (req, res) => {
         try {
-            const { startDate, endDate, productFilter, productId } = req.query;
+            const { startDate, endDate, productFilter, productId, category, manufacturerId } = req.query;
             
             if (!startDate || !endDate) {
                 return res.status(400).json({ 
@@ -151,6 +151,169 @@ class WarehouseController {
                 }
             }
 
+            // If category is selected, filter by product category
+            if (productFilter === 'category' && category) {
+                console.log(`🔍 Filtering by category: ${category}`);
+                const Goods = require('../db/models/goods');
+                
+                let productsInCategory = [];
+                
+                if (category === 'Paski') {
+                    // Filter products from "Pozostały asortyment" category with subcategory "belts"
+                    productsInCategory = await Goods.find({ 
+                        category: 'Pozostały asortyment',
+                        subcategory: 'belts'
+                    }).select('_id fullName');
+                    console.log(`📦 Found ${productsInCategory.length} products in Paski category`);
+                    if (productsInCategory.length > 0) {
+                        console.log(`📝 Paski products found:`, productsInCategory.map(p => p.fullName));
+                    }
+                } else if (category === 'Rękawiczki') {
+                    // Filter products from "Pozostały asortyment" category with subcategory "gloves"
+                    productsInCategory = await Goods.find({ 
+                        category: 'Pozostały asortyment',
+                        subcategory: 'gloves'
+                    }).select('_id fullName');
+                    console.log(`📦 Found ${productsInCategory.length} products in Rękawiczki category`);
+                } else if (category === 'Portfele') {
+                    // Filter products from "Portfele" category
+                    productsInCategory = await Goods.find({ 
+                        category: 'Portfele'
+                    }).select('_id fullName');
+                    console.log(`📦 Found ${productsInCategory.length} products in Portfele category`);
+                } else {
+                    // Get all products from selected category
+                    productsInCategory = await Goods.find({ category: category }).select('fullName');
+                    console.log(`📦 Found ${productsInCategory.length} products in ${category} category`);
+                }
+                
+                if (productsInCategory.length > 0) {
+                    const productNames = productsInCategory.map(p => p.fullName);
+                    console.log(`🔎 Looking for products in history:`, productNames.slice(0, 5));
+                    
+                    // Use regex to match product names with possible suffixes (sizes, symbols, etc.)
+                    if (productNames.length === 1) {
+                        // For single product, use regex to match with optional suffix
+                        const escapedName = productNames[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regexPattern = `^${escapedName}(\\s+.*)?$`;
+                        historyQuery.product = { $regex: regexPattern, $options: 'i' };
+                        console.log(`🔍 Using regex pattern: ${regexPattern}`);
+                    } else {
+                        // For multiple products, use $or with regex patterns
+                        historyQuery.$and = historyQuery.$and || [];
+                        historyQuery.$and.push({
+                            $or: productNames.map(name => {
+                                const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                return { product: { $regex: `^${escapedName}(\\s+.*)?$`, $options: 'i' } };
+                            })
+                        });
+                        delete historyQuery.product; // Remove the product field since we're using $or
+                    }
+                    
+                    // Store productNames for debugging later
+                    historyQuery._debugProductNames = productNames;
+                } else {
+                    console.log(`⚠️ No products found in category ${category}`);
+                }
+            }
+
+            // If combined filter is used (category AND manufacturer)
+            if (productFilter === 'combined' && (category || manufacturerId)) {
+                console.log(`🔍🏭 Combined filtering - Category: ${category}, Manufacturer: ${manufacturerId}`);
+                const Goods = require('../db/models/goods');
+                
+                let query = {};
+                
+                // Build query for category
+                if (category) {
+                    if (category === 'Paski') {
+                        query.category = 'Pozostały asortyment';
+                        query.subcategory = 'belts';
+                    } else if (category === 'Rękawiczki') {
+                        query.category = 'Pozostały asortyment';
+                        query.subcategory = 'gloves';
+                    } else {
+                        query.category = category;
+                    }
+                }
+                
+                // Add manufacturer filter
+                if (manufacturerId) {
+                    query.manufacturer = manufacturerId;
+                }
+                
+                const combinedProducts = await Goods.find(query).select('_id fullName');
+                console.log(`📦 Found ${combinedProducts.length} products matching combined filters`);
+                
+                if (combinedProducts.length > 0) {
+                    const productNames = combinedProducts.map(p => p.fullName);
+                    console.log(`🔎 Looking for combined products in history:`, productNames.slice(0, 5));
+                    
+                    // Use regex to match product names with possible suffixes
+                    if (productNames.length === 1) {
+                        const escapedName = productNames[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regexPattern = `^${escapedName}(\\s+.*)?$`;
+                        historyQuery.product = { $regex: regexPattern, $options: 'i' };
+                        console.log(`🔍 Using combined regex pattern: ${regexPattern}`);
+                    } else {
+                        historyQuery.$and = historyQuery.$and || [];
+                        historyQuery.$and.push({
+                            $or: productNames.map(name => {
+                                const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                return { product: { $regex: `^${escapedName}(\\s+.*)?$`, $options: 'i' } };
+                            })
+                        });
+                        delete historyQuery.product;
+                    }
+                    
+                    historyQuery._debugCombinedProducts = productNames;
+                } else {
+                    console.log(`⚠️ No products found matching combined filters`);
+                }
+            }
+
+            // If manufacturer is selected, filter by manufacturer
+            if (productFilter === 'manufacturer' && manufacturerId) {
+                console.log(`🏭 Filtering by manufacturer ID: ${manufacturerId}`);
+                const Goods = require('../db/models/goods');
+                
+                // Find all products from selected manufacturer
+                const productsFromManufacturer = await Goods.find({ 
+                    manufacturer: manufacturerId 
+                }).select('_id fullName');
+                
+                console.log(`📦 Found ${productsFromManufacturer.length} products from manufacturer`);
+                
+                if (productsFromManufacturer.length > 0) {
+                    const productNames = productsFromManufacturer.map(p => p.fullName);
+                    console.log(`🔎 Looking for manufacturer products in history:`, productNames.slice(0, 5));
+                    
+                    // Use regex to match product names with possible suffixes (sizes, symbols, etc.)
+                    if (productNames.length === 1) {
+                        // For single product, use regex to match with optional suffix
+                        const escapedName = productNames[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regexPattern = `^${escapedName}(\\s+.*)?$`;
+                        historyQuery.product = { $regex: regexPattern, $options: 'i' };
+                        console.log(`🔍 Using regex pattern for manufacturer: ${regexPattern}`);
+                    } else {
+                        // For multiple products, use $or with regex patterns
+                        historyQuery.$and = historyQuery.$and || [];
+                        historyQuery.$and.push({
+                            $or: productNames.map(name => {
+                                const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                return { product: { $regex: `^${escapedName}(\\s+.*)?$`, $options: 'i' } };
+                            })
+                        });
+                        delete historyQuery.product; // Remove the product field since we're using $or
+                    }
+                    
+                    // Store productNames for debugging
+                    historyQuery._debugManufacturerProducts = productNames;
+                } else {
+                    console.log(`⚠️ No products found from manufacturer ${manufacturerId}`);
+                }
+            }
+
             // Get initial state (count at start date)
             let initialStateQuery = {
                 sellingPoint: magazynUser._id,
@@ -158,15 +321,128 @@ class WarehouseController {
             };
 
             if (productFilter === 'specific' && productId) {
+                // productId is already an ObjectId from frontend
                 initialStateQuery.fullName = productId;
+            }
+
+            if (productFilter === 'category' && category) {
+                const Goods = require('../db/models/goods');
+                
+                let productsInCategory = [];
+                
+                if (category === 'Paski') {
+                    // Filter products from "Pozostały asortyment" category with subcategory "belts"
+                    productsInCategory = await Goods.find({ 
+                        category: 'Pozostały asortyment',
+                        subcategory: 'belts'
+                    }).select('_id fullName');
+                } else if (category === 'Rękawiczki') {
+                    // Filter products from "Pozostały asortyment" category with subcategory "gloves"
+                    productsInCategory = await Goods.find({ 
+                        category: 'Pozostały asortyment',
+                        subcategory: 'gloves'
+                    }).select('_id fullName');
+                } else if (category === 'Portfele') {
+                    // Filter products from "Portfele" category for state query
+                    productsInCategory = await Goods.find({ 
+                        category: 'Portfele'
+                    }).select('_id fullName');
+                } else {
+                    // Get all products from selected category for state query
+                    productsInCategory = await Goods.find({ category: category }).select('_id fullName');
+                }
+                
+                if (productsInCategory.length > 0) {
+                    // Use product IDs for State query (fullName field in State is ObjectId reference to Goods)
+                    const productIds = productsInCategory.map(p => p._id);
+                    initialStateQuery.fullName = { $in: productIds };
+                    console.log(`🆔 Using product IDs for State query:`, productIds.slice(0, 3));
+                }
+            }
+
+            if (productFilter === 'combined' && (category || manufacturerId)) {
+                const Goods = require('../db/models/goods');
+                
+                let query = {};
+                
+                // Build query for category
+                if (category) {
+                    if (category === 'Paski') {
+                        query.category = 'Pozostały asortyment';
+                        query.subcategory = 'belts';
+                    } else if (category === 'Rękawiczki') {
+                        query.category = 'Pozostały asortyment';
+                        query.subcategory = 'gloves';
+                    } else {
+                        query.category = category;
+                    }
+                }
+                
+                // Add manufacturer filter
+                if (manufacturerId) {
+                    query.manufacturer = manufacturerId;
+                }
+                
+                const combinedProducts = await Goods.find(query).select('_id fullName');
+                
+                if (combinedProducts.length > 0) {
+                    const productIds = combinedProducts.map(p => p._id);
+                    initialStateQuery.fullName = { $in: productIds };
+                    console.log(`🏭🆔 Using combined product IDs for State query:`, productIds.slice(0, 3));
+                }
+            }
+
+            if (productFilter === 'manufacturer' && manufacturerId) {
+                const Goods = require('../db/models/goods');
+                
+                // Find all products from selected manufacturer for state query
+                const productsFromManufacturer = await Goods.find({ 
+                    manufacturer: manufacturerId 
+                }).select('_id fullName');
+                
+                if (productsFromManufacturer.length > 0) {
+                    // Use product IDs for State query (fullName field in State is ObjectId reference to Goods)
+                    const productIds = productsFromManufacturer.map(p => p._id);
+                    initialStateQuery.fullName = { $in: productIds };
+                    console.log(`🏭🆔 Using manufacturer product IDs for State query:`, productIds.slice(0, 3));
+                }
             }
 
             const initialStateCount = await State.countDocuments(initialStateQuery);
 
             // Get operations within date range
+            // Remove debug fields before query
+            delete historyQuery._debugProductNames;
+            delete historyQuery._debugManufacturerProducts;
+            delete historyQuery._debugCombinedProducts;
+            console.log(`📋 History query:`, historyQuery);
             const operations = await History.find(historyQuery)
                 .sort({ timestamp: 1 })
                 .lean();
+            
+            console.log(`📊 Found ${operations.length} operations in history`);
+            
+            // Debug: Show what operations we found
+            if (operations.length > 0) {
+                console.log(`🔍 Operations found:`, operations.map(op => `"${op.operation}" - "${op.product}"`));
+            } else {
+                console.log(`🔍 No operations found. Let's check what's in history for debugging...`);
+                // Check if there are any operations for this product in the date range
+                const debugProductNames = historyQuery._debugProductNames || ['Adela KAKAO'];
+                const debugOps = await History.find({
+                    timestamp: { $gte: start, $lte: end },
+                    product: { $in: debugProductNames }
+                }).select('operation product timestamp').lean();
+                console.log(`🐛 Debug - Found ${debugOps.length} operations for our products:`, 
+                    debugOps.map(op => `"${op.operation}" - "${op.product}" - ${op.timestamp}`));
+                    
+                // Also check what operations exist in general for the date range
+                const allOpsInRange = await History.find({
+                    timestamp: { $gte: start, $lte: end }
+                }).select('operation product').lean();
+                console.log(`🐛 All operations in date range (${allOpsInRange.length}):`, 
+                    allOpsInRange.slice(0, 5).map(op => `"${op.operation}" - "${op.product}"`));
+            }
 
             // Process operations into report format
             const reportOperations = [];

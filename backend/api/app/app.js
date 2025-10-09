@@ -9,6 +9,12 @@ const { domain } = require('./config'); // Import domain configuration
 app.use(express.json({ limit: '50mb' })); // Increase JSON payload limit
 app.use(cors());
 
+// Set UTF-8 headers for all responses
+app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    next();
+});
+
 const mongoose = require('./db/mongoose');
 
 app.use(morgan('dev'));
@@ -31,6 +37,8 @@ const walletsCategoryRoutes = require('./routes/walletsCategory');
 const remainingCategoryRoutes = require('./routes/remainingCategory');
 const remainingSubcategoryRoutes = require('./routes/remainingSubcategory');
 const manufacturerRoutes = require('./routes/manufacturer');
+const beltsRoutes = require('./routes/belts');
+const glovesRoutes = require('./routes/gloves');
 const printRoutes = require('./routes/print'); // Import print routes
 const historyRoutes = require('./routes/history'); // Import history routes
 const salesRoutes = require('./routes/sales'); // Import sales routes
@@ -67,6 +75,8 @@ app.use('/api/excel/wallets-category', walletsCategoryRoutes);
 app.use('/api/excel/remaining-category', remainingCategoryRoutes);
 app.use('/api/excel/remaining-subcategory', remainingSubcategoryRoutes);
 app.use('/api/excel/manufacturers', manufacturerRoutes);
+app.use('/api/excel/belts', beltsRoutes);
+app.use('/api/excel/gloves', glovesRoutes);
 app.use('/api/excel/localization', localizationRoutes); // Use localization routes
 app.use('/api/excel/bags', bagsRoutes); // Use bags routes
 app.use('/api/excel/wallets', walletsRoutes); // Use wallets routes
