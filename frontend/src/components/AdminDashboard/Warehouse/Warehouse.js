@@ -41,8 +41,7 @@ const Warehouse = () => {
     const [input1Value, setInput1Value] = useState('');
     const [input2Value, setInput2Value] = useState('');
     const inputRefs = useRef([null, null]); // Array of refs for both inputs
-    const [printer, setPrinter] = useState(null); // State for Zebra printer
-    const [printerError, setPrinterError] = useState(null); // State for printer errors
+
     const [selectedIds, setSelectedIds] = useState([]); // State for selected row IDs
     const [columnFilters, setColumnFilters] = useState({}); // State for column filters
     const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]); // State for date range
@@ -890,18 +889,7 @@ const Warehouse = () => {
         }
     };
 
-    useEffect(() => {
-        // Initialize Zebra printer
-        if (window.BrowserPrint) {
-            window.BrowserPrint.getDefaultDevice(
-                "printer",
-                (device) => setPrinter(device),
-                (err) => setPrinterError("Nie znaleziono drukarki: " + err)
-            );
-        } else {
-            setPrinterError("Nie załadowano biblioteki BrowserPrint.");
-        }
-    }, []);
+
 
     const toggleRowSelection = (id) => {
         setSelectedIds((prevSelectedIds) => {
@@ -915,172 +903,191 @@ const Warehouse = () => {
         });
     };
 
-    const handlePrint = async () => {
-        if (!printer) {
-            alert("Brak drukarki");
-            return;
+    // Funkcja do generowania ZPL kodu dla drukarki Zebra (skopiowane z AddToState)
+    const generateZPLCode = (item) => {
+        const itemName = item.fullName || item.jacketName || 'N/A';
+        const itemSize = item.size || 'N/A';
+        const barcode = item.barcode || 'NO-BARCODE';
+        const price = item.price || 'N/A';
+        const symbol = item.symbol || 'N/A';
+        
+        // Mapowanie punktów na numery (dodamy symbol jako punkt)
+        const pointMapping = {
+            'P': '01',
+            'M': '02', 
+            'K': '03',
+            'T': '04',
+            'S': '05',
+            'Kar': '06'
+        };
+        const mappedPoint = pointMapping[symbol] || symbol;
+        
+        // Usuń polskie znaki które mogą powodować problemy i przetwórz nazwę
+        let processedName = (itemName || 'N/A');
+        // Usuń kolor z nazwy - znajdź tylko model (rozszerzona lista kolorów)
+        processedName = processedName.replace(/\s*(czarny|czarna|czarne|biały|biała|białe|niebieski|niebieska|niebieskie|czerwony|czerwona|czerwone|zielony|zielona|zielone|żółty|żółta|żółte|szary|szara|szare|brązowy|brązowa|brązowe|różowy|różowa|różowe|fioletowy|fioletowa|fioletowe|pomarańczowy|pomarańczowa|pomarańczowe|kakao|beżowy|beżowa|beżowe|kremowy|kremowa|kremowe|granatowy|granatowa|granatowe|bordowy|bordowa|bordowe|khaki|oliwkowy|oliwkowa|oliwkowe|złoty|złota|złote|srebrny|srebrna|srebrne|miętowy|miętowa|miętowe)\s*/gi, '').trim();
+        
+        // Dodaj pozycje 4 i 5 z kodu kreskowego do nazwy
+        const barcodeDigits = (barcode && barcode.length >= 5) ? barcode.substring(3, 5) : '';
+        if (barcodeDigits) {
+            processedName += ' ' + barcodeDigits;
         }
+        
+        const safeName = processedName.replace(/[^\x00-\x7F]/g, "?");
+        const safeSize = (itemSize || 'N/A').replace(/[^\x00-\x7F]/g, "?");
+        const safeTransfer = (mappedPoint || 'N/A').replace(/[^\x00-\x7F]/g, "?");
+        const safePrice = (price || 'N/A').toString().replace(/[^\x00-\x7F]/g, "?");
+        
+        // Format z większą szerokością - nazwa bez koloru, większy rozmiar, cena z marginesem
+        const zplCode = `^XA
+^MMT
+^PW450
+^LL0400
+^LS0
+^FT3,50^A0N,40,40^FD${safeName}^FS
+^FT320,55^A0N,40,40^FDCena:^FS
+^FT320,105^A0N,55,55^FD${safePrice} zl^FS
 
+^FT3,120^A0N,38,38^FDRozmiar: ${safeSize}^FS
+^FT3,150^A0N,25,25^FDPunkt: ${safeTransfer}^FS
+^BY3,3,70^FT15,250^BCN,,N,N
+^FD${barcode || 'NO-BARCODE'}^FS
+^FT125,280^A0N,28,28^FB200,1,0,C,0^FD${barcode || 'NO-BARCODE'}^FS
+^XZ`;
+        
+        return zplCode;
+    };
+
+    // Funkcja do wysyłania ZPL do drukarki Zebra przez Browser Print HTTP API (skopiowane z AddToState)
+    const sendToZebraPrinter = async (zplCode) => {
+        try {
+            // Pobierz dostępne drukarki
+            const availableResponse = await fetch('http://localhost:9100/available');
+            if (!availableResponse.ok) {
+                throw new Error('Browser Print nie jest dostępny');
+            }
+            
+            const availableData = await availableResponse.json();
+            if (!availableData.printer || availableData.printer.length === 0) {
+                throw new Error('Brak dostępnych drukarek');
+            }
+            
+            const printer = availableData.printer[0];
+            
+            // Wysłij ZPL przez Browser Print z kompletną strukturą device
+            const deviceData = {
+                device: {
+                    deviceType: printer.deviceType,
+                    uid: printer.uid,
+                    name: printer.name,
+                    connection: printer.connection,
+                    provider: printer.provider,
+                    version: printer.version,
+                    manufacturer: printer.manufacturer
+                },
+                data: zplCode
+            };
+            
+            const printResponse = await fetch('http://localhost:9100/write', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(deviceData)
+            });
+            
+            if (printResponse.ok) {
+                const result = await printResponse.text();
+                return true;
+            } else {
+                const errorText = await printResponse.text();
+                console.error('❌ Browser Print błąd:', printResponse.status, errorText);
+                throw new Error(`Browser Print error: ${printResponse.status} ${errorText}`);
+            }
+        } catch (error) {
+            console.error('❌ Błąd drukowania:', error.message);
+            throw error;
+        }
+    };
+
+    const handlePrint = async () => {
         if (selectedIds.length === 0) {
             alert("Proszę wybrać wiersze do wydrukowania.");
             return;
         }
 
-        // Generate ZPL labels for each selected row
-        const allLabels = [];
-        selectedIds.forEach((id) => {
-            const row = tableData.find((item) => item.id === id);
-            const jacketName = row?.fullName || "Brak nazwy";
-            const size = row?.size || "Brak rozmiaru";
-            const barcode = row?.barcode || "Brak kodu";
-            const symbol = row?.symbol || "Brak symbolu";
-            const rawPrice = row?.price || null;
-
-            // Convert Polish characters for ZPL printer compatibility
-            const convertPolishChars = (text) => {
-                if (!text || typeof text !== 'string') {
-                    return text || '';
-                }
-                return text
-                    .replace(/ą/g, 'a')
-                    .replace(/ć/g, 'c')
-                    .replace(/ę/g, 'e')
-                    .replace(/ł/g, 'l')
-                    .replace(/ń/g, 'n')
-                    .replace(/ó/g, 'o')
-                    .replace(/ś/g, 's')
-                    .replace(/ź/g, 'z')
-                    .replace(/ż/g, 'z')
-                    .replace(/Ą/g, 'A')
-                    .replace(/Ć/g, 'C')
-                    .replace(/Ę/g, 'E')
-                    .replace(/Ł/g, 'L')
-                    .replace(/Ń/g, 'N')
-                    .replace(/Ó/g, 'O')
-                    .replace(/Ś/g, 'S')
-                    .replace(/Ź/g, 'Z')
-                    .replace(/Ż/g, 'Z');
-            };
-
-            const printableJacketName = convertPolishChars(String(jacketName));
-            const printableSize = convertPolishChars(String(size));
-            const printableSymbol = convertPolishChars(String(symbol));
-            
-            // Handle double prices (separated by semicolon) - create two separate labels
-            if (rawPrice && rawPrice.toString().includes(';')) {
-                // Split prices by semicolon and create two separate labels
-                const prices = rawPrice.toString().split(';');
-                if (prices.length === 2) {
-                    const price1 = convertPolishChars(prices[0].trim() + ' PLN');
-                    const price2 = convertPolishChars(prices[1].trim() + ' PLN');
-                    
-                    // Add two separate labels to the array
-                    allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${price1}^FS
-^XZ`);
-                    
-                    allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${price2}^FS
-^XZ`);
-                } else {
-                    // Single price - single label
-                    const price = rawPrice ? `${rawPrice} PLN` : "Brak ceny";
-                    const printablePrice = convertPolishChars(String(price));
-                    allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${printablePrice}^FS
-^XZ`);
-                }
-            } else {
-                // Single price - single label
-                const price = rawPrice ? `${rawPrice} PLN` : "Brak ceny";
-                const printablePrice = convertPolishChars(String(price));
-                allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${printablePrice}^FS
-^XZ`);
-            }
-        });
-
-        // Send each label separately to the printer
-        let labelIndex = 0;
-        const sendNextLabel = () => {
-            if (labelIndex >= allLabels.length) {
-                setSelectedIds([]); // Clear selected IDs after all labels are printed
-                alert(`Wysłano ${allLabels.length} etykiet do drukarki!`);
-                return;
-            }
-            
-            printer.send(
-                allLabels[labelIndex],
-                () => {
-                    labelIndex++;
-                    // Small delay between labels to ensure proper processing
-                    setTimeout(sendNextLabel, 100);
-                },
-                (err) => alert(`Błąd drukowania etykiety ${labelIndex + 1}: ${err}`)
-            );
-        };
+        let successCount = 0;
+        let errorCount = 0;
         
-        sendNextLabel();
+        // Drukuj każdą etykietę z zaznaczonych wierszy
+        for (let i = 0; i < selectedIds.length; i++) {
+            const id = selectedIds[i];
+            const row = tableData.find((item) => item.id === id);
+            
+            if (!row) continue;
+            
+            try {
+                // Obsługa podwójnych cen (oddzielonych średnikiem) - stwórz dwie osobne etykiety
+                const rawPrice = row?.price || null;
+                if (rawPrice && rawPrice.toString().includes(';')) {
+                    const prices = rawPrice.toString().split(';');
+                    if (prices.length === 2) {
+                        // Pierwsza etykieta z pierwszą ceną
+                        const labelData1 = {
+                            fullName: row?.fullName || "N/A",
+                            size: row?.size || "N/A", 
+                            barcode: row?.barcode || "NO-BARCODE",
+                            price: prices[0].trim(),
+                            symbol: row?.symbol || "N/A"
+                        };
+                        
+                        const zplCode1 = generateZPLCode(labelData1);
+                        await sendToZebraPrinter(zplCode1);
+                        successCount++;
+                        
+                        // Druga etykieta z drugą ceną
+                        const labelData2 = {
+                            fullName: row?.fullName || "N/A",
+                            size: row?.size || "N/A",
+                            barcode: row?.barcode || "NO-BARCODE", 
+                            price: prices[1].trim(),
+                            symbol: row?.symbol || "N/A"
+                        };
+                        
+                        const zplCode2 = generateZPLCode(labelData2);
+                        await sendToZebraPrinter(zplCode2);
+                        successCount++;
+                    }
+                } else {
+                    // Pojedyncza etykieta
+                    const labelData = {
+                        fullName: row?.fullName || "N/A",
+                        size: row?.size || "N/A",
+                        barcode: row?.barcode || "NO-BARCODE",
+                        price: rawPrice || "N/A",
+                        symbol: row?.symbol || "N/A"
+                    };
+                    
+                    const zplCode = generateZPLCode(labelData);
+                    await sendToZebraPrinter(zplCode);
+                    successCount++;
+                }
+            } catch (error) {
+                console.error(`Błąd drukowania etykiety ${i + 1}:`, error);
+                errorCount++;
+            }
+        }
+        
+        // Podsumowanie
+        setSelectedIds([]); // Wyczyść zaznaczenie
+        
+        if (successCount === 0 && errorCount > 0) {
+            alert(`Nie udało się wydrukować żadnej etykiety.\nSprawdź czy drukarka Zebra jest podłączona i włączona.`);
+        } else if (errorCount > 0) {
+            alert(`Wydrukowano ${successCount} etykiet.\n${errorCount} etykiet nie zostało wydrukowanych.`);
+        } else {
+            alert(`Pomyślnie wydrukowano ${successCount} etykiet!`);
+        }
     };
 
     // Handle warehouse report button click

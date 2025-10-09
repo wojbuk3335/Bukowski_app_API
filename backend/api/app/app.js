@@ -9,6 +9,12 @@ const { domain } = require('./config'); // Import domain configuration
 app.use(express.json({ limit: '50mb' })); // Increase JSON payload limit
 app.use(cors());
 
+// Log wszystkich requestów
+app.use((req, res, next) => {
+    console.log(`📨 ${req.method} ${req.url} from ${req.get('host')} - Origin: ${req.get('origin')}`);
+    next();
+});
+
 // Set UTF-8 headers for all responses
 app.use((req, res, next) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -85,7 +91,7 @@ app.use('/api/config', configRoutes);
 app.use('/api/state', stateRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/subcategoryCoats', subcategoryCoatsRoutes);
-app.use('/api', printRoutes); // Use print routes
+app.use('/api/print', printRoutes); // Use print routes
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../public')));

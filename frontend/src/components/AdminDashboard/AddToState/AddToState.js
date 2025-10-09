@@ -364,14 +364,19 @@ const AddToState = ({ onAdd }) => {
         setLastTransaction(data);
         setCanUndoTransaction(data.canUndo);
       } else if (response.status === 404) {
+        // No recent transaction found - this is normal when starting fresh
         setLastTransaction(null);
         setCanUndoTransaction(false);
       } else {
+        // Other HTTP errors
         setLastTransaction(null);
         setCanUndoTransaction(false);
       }
     } catch (error) {
-      console.error('Error checking last transaction:', error);
+      // Network or other errors - only log if it's not a 404
+      if (error.name !== 'TypeError' || !error.message.includes('404')) {
+        console.error('Error checking last transaction:', error);
+      }
       setLastTransaction(null);
       setCanUndoTransaction(false);
     }
@@ -987,8 +992,127 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  // Funkcja do generowania ZPL kodu dla drukarki Zebra
+  const generateZPLCode = (item) => {
+    const itemName = item.isFromSale 
+      ? item.fullName 
+      : (typeof item.fullName === 'object' ? item.fullName?.fullName : item.fullName);
+    const itemSize = item.isFromSale 
+      ? item.size 
+      : (typeof item.size === 'object' ? item.size?.Roz_Opis : item.size);
+    const barcode = item.barcode || '';
+    const transferTo = item.transfer_to || '';
+    const price = item.price || item.cena || item.Cena || '';
+    
+    // Mapowanie punktów na numery
+    const pointMapping = {
+      'P': '01',
+      'M': '02', 
+      'K': '03',
+      'T': '04',
+      'S': '05',
+      'Kar': '06'
+    };
+    const mappedPoint = pointMapping[transferTo] || transferTo;
+    
+    // ZPL kod dla etykiety 50mm x 30mm
+    
+    // Usuń polskie znaki które mogą powodować problemy i przetwórz nazwę
+    let processedName = (itemName || 'N/A');
+    // Usuń kolor z nazwy - znajdź tylko model (rozszerzona lista kolorów)
+    processedName = processedName.replace(/\s*(czarny|czarna|czarne|biały|biała|białe|niebieski|niebieska|niebieskie|czerwony|czerwona|czerwone|zielony|zielona|zielone|żółty|żółta|żółte|szary|szara|szare|brązowy|brązowa|brązowe|różowy|różowa|różowe|fioletowy|fioletowa|fioletowe|pomarańczowy|pomarańczowa|pomarańczowe|kakao|beżowy|beżowa|beżowe|kremowy|kremowa|kremowe|granatowy|granatowa|granatowe|bordowy|bordowa|bordowe|khaki|oliwkowy|oliwkowa|oliwkowe|złoty|złota|złote|srebrny|srebrna|srebrne|miętowy|miętowa|miętowe)\s*/gi, '').trim();
+    
+    // Dodaj pozycje 4 i 5 z kodu kreskowego do nazwy
+    const barcodeDigits = (barcode && barcode.length >= 5) ? barcode.substring(3, 5) : '';
+    if (barcodeDigits) {
+      processedName += ' ' + barcodeDigits;
+    }
+    
+    const safeName = processedName.replace(/[^\x00-\x7F]/g, "?");
+    const safeSize = (itemSize || 'N/A').replace(/[^\x00-\x7F]/g, "?");
+    const safeTransfer = (mappedPoint || 'N/A').replace(/[^\x00-\x7F]/g, "?");
+    const safePrice = (price || 'N/A').toString().replace(/[^\x00-\x7F]/g, "?");
+    
+    // Prosty ZPL test - jesli to zadziala, problem jest w zlozonym formacie
+    const simpleZPL = `^XA^FO50,50^A0N,50,50^FD${safeName}^FS^FO50,150^A0N,30,30^FD${safeSize}^FS^XZ`;
+    
+    // Format z większą szerokością - nazwa bez koloru, większy rozmiar, cena z marginesem
+    const zplCode = `^XA
+^MMT
+^PW450
+^LL0400
+^LS0
+^FT3,50^A0N,40,40^FD${safeName}^FS
+^FT320,55^A0N,40,40^FDCena:^FS
+^FT320,105^A0N,55,55^FD${safePrice} zl^FS
+
+^FT3,120^A0N,38,38^FDRozmiar: ${safeSize}^FS
+^FT3,150^A0N,25,25^FDPunkt: ${safeTransfer}^FS
+^BY3,3,70^FT15,250^BCN,,N,N
+^FD${barcode || 'NO-BARCODE'}^FS
+^FT125,280^A0N,28,28^FB200,1,0,C,0^FD${barcode || 'NO-BARCODE'}^FS
+^XZ`;
+    
+    // Wybierz prosty lub zlozony ZPL (zmien na simpleZPL jesli chcesz przetestowac)
+    const finalZPL = zplCode;
+    
+    return finalZPL;
+  };
+
+  // Funkcja do wysyłania ZPL do drukarki Zebra przez Browser Print HTTP API
+  const sendToZebraPrinter = async (zplCode) => {
+    try {
+      // Pobierz dostępne drukarki
+      const availableResponse = await fetch('http://localhost:9100/available');
+      if (!availableResponse.ok) {
+        throw new Error('Browser Print nie jest dostępny');
+      }
+      
+      const availableData = await availableResponse.json();
+      if (!availableData.printer || availableData.printer.length === 0) {
+        throw new Error('Brak dostępnych drukarek');
+      }
+      
+      const printer = availableData.printer[0];
+      
+      // Wysłij ZPL przez Browser Print z kompletną strukturą device
+      const deviceData = {
+        device: {
+          deviceType: printer.deviceType,
+          uid: printer.uid,
+          name: printer.name,
+          connection: printer.connection,
+          provider: printer.provider,
+          version: printer.version,
+          manufacturer: printer.manufacturer
+        },
+        data: zplCode
+      };
+      
+      const printResponse = await fetch('http://localhost:9100/write', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(deviceData)
+      });
+      
+      if (printResponse.ok) {
+        const result = await printResponse.text();
+        return true;
+      } else {
+        const errorText = await printResponse.text();
+        console.error('❌ Browser Print błąd:', printResponse.status, errorText);
+        throw new Error(`Browser Print error: ${printResponse.status} ${errorText}`);
+      }
+    } catch (error) {
+      console.error('❌ Błąd drukowania:', error.message);
+      throw error;
+    }
+  };
+
   // Funkcje drukowania etykiet
-  const handlePrintAllColoredLabels = () => {
+  const handlePrintAllColoredLabels = async () => {
     if (!Array.isArray(filteredItems) || filteredItems.length === 0) {
       alert('Brak produktów do drukowania');
       return;
@@ -1005,30 +1129,37 @@ const AddToState = ({ onAdd }) => {
       return;
     }
 
-    console.log('🖨️ Drukowanie etykiet dla:', coloredItems.length, 'produktów');
+    let successCount = 0;
+    let errorCount = 0;
     
-    // Generuj podgląd etykiet
-    let labelPreview = `📋 PODGLĄD ETYKIET DO DRUKOWANIA (${coloredItems.length} szt.)\n\n`;
-    
-    coloredItems.forEach((item, index) => {
-      const itemType = item.fromWarehouse ? '🟠 Pomarańczowy' : '🟡 Żółty';
-      const itemName = item.isFromSale 
-        ? item.fullName 
-        : (typeof item.fullName === 'object' ? item.fullName?.fullName : item.fullName);
-      const itemSize = item.isFromSale 
-        ? item.size 
-        : (typeof item.size === 'object' ? item.size?.Roz_Opis : item.size);
+    // Drukuj każdą etykietę
+    for (let i = 0; i < coloredItems.length; i++) {
+      const item = coloredItems[i];
       
-      labelPreview += `${index + 1}. ${itemType}\n`;
-      labelPreview += `   Nazwa: ${itemName || 'N/A'}\n`;
-      labelPreview += `   Rozmiar: ${itemSize || 'N/A'}\n`;
-      labelPreview += `   Barcode: ${item.barcode || 'N/A'}\n`;
-      labelPreview += `   Do: ${item.transfer_to || 'N/A'}\n\n`;
-    });
-
-    labelPreview += '\n🖨️ W prawdziwej implementacji tutaj byłaby integracja z drukarką etykiet (np. Zebra)';
+      try {
+        const zplCode = generateZPLCode(item);
+        const success = await sendToZebraPrinter(zplCode);
+        
+        if (success) {
+          successCount++;
+          // Krótka pauza między etykietami
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          errorCount++;
+        }
+      } catch (error) {
+        console.error(`Błąd drukowania etykiety ${i + 1}:`, error);
+        errorCount++;
+      }
+    }
     
-    alert(labelPreview);
+    // Podsumowanie
+    
+    if (successCount === 0 && errorCount > 0) {
+      alert(`Nie udało się wydrukować żadnej etykiety.\nSprawdź czy drukarka Zebra jest podłączona i włączona.`);
+    } else if (errorCount > 0) {
+      alert(`Wydrukowano ${successCount} z ${coloredItems.length} etykiet.\n${errorCount} etykiet nie zostało wydrukowanych.`);
+    }
   };
 
   // Funkcja obsługująca potwierdzenie drukowania etykiet
@@ -1047,42 +1178,53 @@ const AddToState = ({ onAdd }) => {
   };
 
   // Funkcja do drukowania pojedynczej etykiety
-  const handlePrintSingleLabel = (transfer) => {
-    let labelPreview = '🖨️ DRUKOWANIE POJEDYNCZEJ ETYKIETY\n';
-    labelPreview += '=====================================\n\n';
+  const handlePrintSingleLabel = async (transfer) => {
+    try {
+      const transferName = transfer.isFromSale ? 
+        transfer.fullName : 
+        (typeof transfer.fullName === 'object' ? 
+          (transfer.fullName?.fullName || 'N/A') : 
+          (transfer.fullName || 'N/A'));
 
-    const transferName = transfer.isFromSale ? 
-      transfer.fullName : 
-      (typeof transfer.fullName === 'object' ? 
-        (transfer.fullName?.fullName || 'Nieznana nazwa') : 
-        (transfer.fullName || 'Nieznana nazwa'));
+      const transferSize = transfer.isFromSale ? 
+        transfer.size : 
+        (typeof transfer.size === 'object' ? 
+          (transfer.size?.Roz_Opis || 'N/A') : 
+          (transfer.size || 'N/A'));
 
-    const transferSize = transfer.isFromSale ? 
-      transfer.size : 
-      (typeof transfer.size === 'object' ? 
-        (transfer.size?.Roz_Opis || 'Nieznany rozmiar') : 
-        (transfer.size || 'Nieznany rozmiar'));
+      const transferBarcode = transfer.isFromSale ? 
+        transfer.barcode : 
+        transfer.productId;
 
-    const transferBarcode = transfer.isFromSale ? 
-      transfer.barcode : 
-      transfer.productId;
+      // Pobierz cenę z różnych możliwych źródeł
+      const transferPrice = transfer.price || transfer.cena || transfer.Cena || 'N/A';
+      
+      // Pobierz transfer_to (punkt docelowy)
+      const transferTo = transfer.transfer_to || 'N/A';
 
-    const productType = transfer.fromWarehouse ? 
-      'POMARAŃCZOWY (z magazynu)' : 
-      transfer.isIncomingTransfer ? 
-        'ŻÓŁTY (przychodzący transfer)' : 
-        'NIEZNANY TYP';
+      // Stwórz obiekt w formacie oczekiwanym przez generateZPLCode (identyczny jak w drukowa isak wszystkich)
+      const labelData = {
+        fullName: transferName,
+        size: transferSize,
+        barcode: transferBarcode || 'NO-BARCODE',
+        price: transferPrice,
+        cena: transferPrice,
+        Cena: transferPrice,
+        transfer_to: transferTo,
+        fromWarehouse: transfer.fromWarehouse,
+        isIncomingTransfer: transfer.isIncomingTransfer,
+        isFromSale: transfer.isFromSale
+      };
 
-    labelPreview += `📦 PRODUKT: ${transferName}\n`;
-    labelPreview += `📏 ROZMIAR: ${transferSize}\n`;
-    labelPreview += `🏷️ KOD: ${transferBarcode || 'Brak kodu'}\n`;
-    labelPreview += `🎨 TYP: ${productType}\n`;
-    labelPreview += `📅 DATA: ${new Date(transfer.date).toLocaleDateString()}\n`;
-    labelPreview += `📍 Z: ${transfer.transfer_from}\n`;
-    labelPreview += `📍 DO: ${transfer.transfer_to}\n\n`;
-    labelPreview += '🖨️ Etykieta zostanie wysłana do drukarki etykiet.';
-
-    alert(labelPreview);
+      // Generuj kod ZPL dla pojedynczej etykiety (przekaż obiekt, nie tablicę!)
+      const zplCode = generateZPLCode(labelData);
+      
+      // Wyślij do drukarki
+      await sendToZebraPrinter(zplCode);
+      
+    } catch (error) {
+      console.error('❌ Błąd podczas drukowania pojedynczej etykiety:', error);
+    }
   };
 
   const getColoredItemsCount = () => {

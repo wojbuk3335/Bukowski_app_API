@@ -102,6 +102,20 @@ class PrintController {
         console.log('📋 Request body:', req.body);
         
         const { zplCode, printerIP = '192.168.1.100', itemName = 'Nieznany produkt' } = req.body;
+        
+        // Tryb debugowania - wyświetl ZPL zamiast drukowania
+        const debugMode = process.env.ZEBRA_DEBUG === 'true';
+        
+        if (debugMode) {
+            console.log('🐛 ZEBRA DEBUG MODE - ZPL Code:');
+            console.log(zplCode);
+            return res.json({
+                success: true,
+                message: 'DEBUG MODE: ZPL code logged to console',
+                zplCode: zplCode,
+                debugMode: true
+            });
+        }
         const printerPort = 9100; // Default Zebra printer port
 
         if (!zplCode) {
@@ -184,6 +198,217 @@ class PrintController {
                 });
                 responseSent = true;
             }
+        }
+    }
+
+    // Nowa metoda dla drukarki USB
+    async printLabelUSB(req, res) {
+        console.log('🔄 printLabelUSB method called');
+        console.log('📋 Request body:', req.body);
+        
+        const { zplCode, itemName = 'Nieznany produkt' } = req.body;
+
+        if (!zplCode) {
+            console.log('❌ No ZPL code provided');
+            return res.status(400).json({
+                success: false,
+                message: 'Brak kodu ZPL do drukowania'
+            });
+        }
+        
+        // DEBUG: Wyświetl kod ZPL
+        console.log('🐛 DEBUG - ZPL Code to print:');
+        console.log('==========================================');
+        console.log(zplCode);
+        console.log('==========================================');
+
+        try {
+            // Import fs and child_process modules
+            const fs = require('fs');
+            const { exec } = require('child_process');
+            const path = require('path');
+            const os = require('os');
+
+            // Ścieżka do tymczasowego pliku ZPL
+            const tempDir = os.tmpdir();
+            const tempFile = path.join(tempDir, `label_${Date.now()}.zpl`);
+
+            console.log('📄 Zapisywanie ZPL do pliku:', tempFile);
+            
+            // Zapisz ZPL do pliku tymczasowego
+            fs.writeFileSync(tempFile, zplCode);
+
+            // Komendy dla różnych systemów operacyjnych
+            let printCommand;
+            const platform = os.platform();
+            
+            if (platform === 'win32') {
+                // Windows - spróbuj znaleźć prawidłowy port drukarki
+                const { exec: execSync } = require('child_process');
+                
+                // Lista portów do przetestowania - dodany PRN: który często działa dla USB
+                const portsToTry = [
+                    'PRN:',        // Domyślna drukarka Windows
+                    'LPT1:',
+                    'COM1:',
+                    'COM2:',
+                    'COM3:',
+                    'COM4:',
+                    'USB001:',
+                    'USB002:',
+                    'USB003:'
+                ];
+                
+                let responseSent = false;
+                let portIndex = 0;
+                
+                const tryNextPort = () => {
+                    if (portIndex >= portsToTry.length || responseSent) {
+                        if (!responseSent) {
+                            // Wyczyść plik tymczasowy
+                            try { fs.unlinkSync(tempFile); } catch (e) {}
+                            
+                            // Jeśli porty nie działają, sprawdź wszystkie drukarki (nie tylko Zebra)
+                            exec('wmic printer get name /format:list | findstr "Name="', (error, stdout, stderr) => {
+                                console.log('🖨️ Dostępne drukarki w systemie:', stdout);
+                                if (!error && stdout && stdout.includes('Zebra')) {
+                                    // Znaleziono drukarkę Zebra, spróbuj drukować bezpośrednio
+                                    const printerLines = stdout.split('\n');
+                                    const zebraPrinter = printerLines.find(line => 
+                                        line.includes('Name=') && line.toLowerCase().includes('zebra')
+                                    );
+                                    
+                                    if (zebraPrinter) {
+                                        const printerName = zebraPrinter.replace('Name=', '').trim();
+                                        const printCommand = `copy "${tempFile}" "${printerName}" /B`;
+                                        
+                                        console.log(`🦓 Próba drukowania przez nazwę drukarki: ${printerName}`);
+                                        
+                                        exec(printCommand, (error3, stdout3, stderr3) => {
+                                            try { fs.unlinkSync(tempFile); } catch (e) {}
+                                            
+                                            if (!error3 && !responseSent) {
+                                                res.json({
+                                                    success: true,
+                                                    message: `Etykieta "${itemName}" została wysłana do drukarki`,
+                                                    method: 'printer-name',
+                                                    printerName: printerName
+                                                });
+                                                responseSent = true;
+                                            } else if (!responseSent) {
+                                                res.status(500).json({
+                                                    success: false,
+                                                    message: `Nie udało się wydrukować przez żaden port ani nazwę drukarki. Błąd: ${error3?.message || 'Nieznany błąd'}`,
+                                                    testedPorts: portsToTry,
+                                                    foundPrinter: printerName,
+                                                    suggestion: 'Sprawdź czy drukarka Zebra jest włączona i gotowa do drukowania.'
+                                                });
+                                                responseSent = true;
+                                            }
+                                        });
+                                        return;
+                                    }
+                                }
+                                
+                                // Nie znaleziono drukarki Zebra lub błąd
+                                if (!responseSent) {
+                                    try { fs.unlinkSync(tempFile); } catch (e) {}
+                                    
+                                    res.status(500).json({
+                                        success: false,
+                                        message: `Nie znaleziono drukarki Zebra w systemie. Sprawdź czy drukarka jest podłączona i zainstalowana.`,
+                                        testedPorts: portsToTry,
+                                        suggestion: 'Zainstaluj sterowniki drukarki Zebra i upewnij się że drukarka jest widoczna w Panelu Sterowania > Drukarki.'
+                                    });
+                                    responseSent = true;
+                                }
+                            });
+                        }
+                        return;
+                    }
+                    
+                    const currentPort = portsToTry[portIndex];
+                    const currentCommand = `copy "${tempFile}" ${currentPort} /B`;
+                    
+                    console.log(`🔍 Próba portu ${portIndex + 1}/${portsToTry.length}: ${currentPort}`);
+                    
+                    exec(currentCommand, (error, stdout, stderr) => {
+                        if (!error && !responseSent) {
+                            // Sukces!
+                            try { fs.unlinkSync(tempFile); } catch (e) {}
+                            
+                            console.log(`✅ Etykieta wysłana przez port: ${currentPort}`);
+                            
+                            // Dodatkowo spróbuj też przez domyślną drukarkę
+                            exec('wmic printer where default=true get name /format:list | findstr "Name="', (err, out) => {
+                                if (!err && out) {
+                                    console.log(`🖨️ Domyślna drukarka: ${out.trim()}`);
+                                }
+                            });
+                            
+                            res.json({
+                                success: true,
+                                message: `Etykieta "${itemName}" została wysłana do drukarki przez ${currentPort}. Sprawdź czy drukarka fizycznie drukuje.`,
+                                method: currentPort,
+                                workingPort: currentPort,
+                                zplSent: true,
+                                instruction: 'Jeśli drukarka nie drukuje, sprawdź: 1) Status drukarki, 2) Papier/taśmę, 3) Czy nie jest wstrzymana'
+                            });
+                            responseSent = true;
+                        } else {
+                            // Błąd, spróbuj następny port
+                            console.log(`❌ Port ${currentPort} nie działa:`, error?.message?.substring(0, 100));
+                            portIndex++;
+                            setTimeout(tryNextPort, 100); // Krótka pauza między próbami
+                        }
+                    });
+                };
+                
+                // Rozpocznij testowanie portów
+                tryNextPort();
+                
+            } else if (platform === 'linux' || platform === 'darwin') {
+                // Linux/Mac - użyj lp command
+                printCommand = `lp -d zebra "${tempFile}"`;
+                
+                console.log('🖨️ Próba drukowania na Linux/Mac:', printCommand);
+                
+                exec(printCommand, (error, stdout, stderr) => {
+                    // Wyczyść plik tymczasowy
+                    try { fs.unlinkSync(tempFile); } catch (e) {}
+                    
+                    if (error) {
+                        console.error('❌ Błąd drukowania:', error);
+                        return res.status(500).json({
+                            success: false,
+                            message: `Błąd drukowania: ${error.message}. Sprawdź czy drukarka jest skonfigurowana jako 'zebra' w systemie.`,
+                            error: error.code
+                        });
+                    }
+                    
+                    console.log('✅ Etykieta wysłana do drukarki');
+                    res.json({
+                        success: true,
+                        message: `Etykieta "${itemName}" została wysłana do drukarki`,
+                        method: 'lp'
+                    });
+                });
+            } else {
+                // Nieobsługiwany system
+                try { fs.unlinkSync(tempFile); } catch (e) {}
+                return res.status(500).json({
+                    success: false,
+                    message: `Nieobsługiwany system operacyjny: ${platform}`
+                });
+            }
+
+        } catch (error) {
+            console.error('💥 Błąd podczas drukowania etykiety USB:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Błąd podczas drukowania etykiety: ' + error.message,
+                error: error.code || 'UNKNOWN_ERROR'
+            });
         }
     }
 }
