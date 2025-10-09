@@ -110,7 +110,15 @@ class WarehouseController {
     // Generate warehouse report
     generateReport = async (req, res) => {
         try {
-            const { startDate, endDate, productFilter, productId, category, manufacturerId } = req.query;
+            const { startDate, endDate, productFilter, productId, category, manufacturerId, sizeId } = req.query;
+            
+            console.log(`📋 WAREHOUSE REPORT REQUEST:`, { startDate, endDate, productFilter, productId, category, manufacturerId, sizeId });
+            console.log(`🔍 Checking filter conditions:`);
+            console.log(`  - productFilter === 'size': ${productFilter === 'size'}`);
+            console.log(`  - productFilter === 'specific': ${productFilter === 'specific'}`);
+            console.log(`  - productFilter === 'category': ${productFilter === 'category'}`);
+            console.log(`  - productFilter === 'manufacturer': ${productFilter === 'manufacturer'}`);
+            console.log(`  - sizeId present: ${!!sizeId}`);
             
             if (!startDate || !endDate) {
                 return res.status(400).json({ 
@@ -311,6 +319,209 @@ class WarehouseController {
                     historyQuery._debugManufacturerProducts = productNames;
                 } else {
                     console.log(`⚠️ No products found from manufacturer ${manufacturerId}`);
+                }
+            }
+
+            // If size filter is used
+            if (productFilter === 'size' && sizeId) {
+                console.log(`📐 Filtering by size ID: ${sizeId}`);
+                const Size = require('../db/models/size');
+                
+                // Find size name for logging
+                const size = await Size.findById(sizeId);
+                console.log(`📐 Size found: ${size ? size.Roz_Opis : 'Unknown'}`);
+                
+                if (size && size.Roz_Opis) {
+                    // Direct approach: search in history for products containing the size
+                    console.log(`🔍 Direct size filtering - Looking for products ending with size: ${size.Roz_Opis}`);
+                    
+                    historyQuery.$and = historyQuery.$and || [];
+                    historyQuery.$and.push({
+                        product: { $regex: `\\s${size.Roz_Opis}(\\s|$)`, $options: 'i' }
+                    });
+                    
+                    console.log(`🔍 Applied size filter regex: \\s${size.Roz_Opis}(\\s|$)`);
+                } else {
+                    console.log(`⚠️ Size not found for ID: ${sizeId}`);
+                }
+            }
+
+            // If category + size filter is used
+            if (productFilter === 'category_size' && (category && sizeId)) {
+                console.log(`🔍📐 Category + Size filtering - Category: ${category}, Size: ${sizeId}`);
+                const Goods = require('../db/models/goods');
+                const Size = require('../db/models/size');
+                
+                const size = await Size.findById(sizeId);
+                console.log(`📐 Size found: ${size ? size.Roz_Opis : 'Unknown'}`);
+                
+                let query = { sizes: sizeId };
+                
+                // Build query for category
+                if (category === 'Paski') {
+                    query.category = 'Pozostały asortyment';
+                    query.subcategory = 'belts';
+                } else if (category === 'Rękawiczki') {
+                    query.category = 'Pozostały asortyment';
+                    query.subcategory = 'gloves';
+                } else {
+                    query.category = category;
+                }
+                
+                const categoryProducts = await Goods.find(query).select('_id fullName');
+                console.log(`📦 Found ${categoryProducts.length} products in category ${category} with size ${size ? size.Roz_Opis : sizeId}`);
+                
+                if (categoryProducts.length > 0) {
+                    const productNames = categoryProducts.map(p => p.fullName);
+                    console.log(`🔎 Looking for category+size products in history:`, productNames.slice(0, 5));
+                    
+                    historyQuery.$and = historyQuery.$and || [];
+                    historyQuery.$and.push({
+                        $and: [
+                            { 
+                                $or: productNames.map(name => {
+                                    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                    return { product: { $regex: `^${escapedName}`, $options: 'i' } };
+                                })
+                            },
+                            { 
+                                product: { $regex: `\\s+${size ? size.Roz_Opis : ''}(\\s|$)`, $options: 'i' } 
+                            }
+                        ]
+                    });
+                    
+                    historyQuery._debugCategorySizeProducts = productNames;
+                } else {
+                    console.log(`⚠️ No products found in category ${category} with size ${size ? size.Roz_Opis : sizeId}`);
+                }
+            }
+
+            // If manufacturer + size filter is used
+            if (productFilter === 'manufacturer_size' && (manufacturerId && sizeId)) {
+                console.log(`🏭📐 Manufacturer + Size filtering - Manufacturer: ${manufacturerId}, Size: ${sizeId}`);
+                const Goods = require('../db/models/goods');
+                const Size = require('../db/models/size');
+                
+                const size = await Size.findById(sizeId);
+                console.log(`📐 Size found: ${size ? size.Roz_Opis : 'Unknown'}`);
+                
+                const manufacturerSizeProducts = await Goods.find({ 
+                    manufacturer: manufacturerId,
+                    sizes: sizeId 
+                }).select('_id fullName');
+                
+                console.log(`📦 Found ${manufacturerSizeProducts.length} products from manufacturer with size ${size ? size.Roz_Opis : sizeId}`);
+                
+                if (manufacturerSizeProducts.length > 0) {
+                    const productNames = manufacturerSizeProducts.map(p => p.fullName);
+                    console.log(`🔎 Looking for manufacturer+size products in history:`, productNames.slice(0, 5));
+                    
+                    historyQuery.$and = historyQuery.$and || [];
+                    historyQuery.$and.push({
+                        $and: [
+                            { 
+                                $or: productNames.map(name => {
+                                    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                    return { product: { $regex: `^${escapedName}`, $options: 'i' } };
+                                })
+                            },
+                            { 
+                                product: { $regex: `\\s+${size ? size.Roz_Opis : ''}(\\s|$)`, $options: 'i' } 
+                            }
+                        ]
+                    });
+                    
+                    historyQuery._debugManufacturerSizeProducts = productNames;
+                } else {
+                    console.log(`⚠️ No products found from manufacturer with size ${size ? size.Roz_Opis : sizeId}`);
+                }
+            }
+
+            // If combined all filter is used (category + manufacturer + size)
+            if (productFilter === 'combined_all' && (category || manufacturerId || sizeId)) {
+                console.log(`🔍🏭📐 Combined ALL filtering - Category: ${category}, Manufacturer: ${manufacturerId}, Size: ${sizeId}`);
+                const Goods = require('../db/models/goods');
+                const Size = require('../db/models/size');
+                
+                let query = {};
+                
+                // Build query for category
+                if (category) {
+                    if (category === 'Paski') {
+                        query.category = 'Pozostały asortyment';
+                        query.subcategory = 'belts';
+                    } else if (category === 'Rękawiczki') {
+                        query.category = 'Pozostały asortyment';
+                        query.subcategory = 'gloves';
+                    } else {
+                        query.category = category;
+                    }
+                }
+                
+                // Add manufacturer filter
+                if (manufacturerId) {
+                    query.manufacturer = manufacturerId;
+                }
+                
+                // Add size filter
+                if (sizeId) {
+                    query.sizes = sizeId;
+                }
+                
+                const size = sizeId ? await Size.findById(sizeId) : null;
+                
+                const combinedAllProducts = await Goods.find(query).select('_id fullName');
+                console.log(`📦 Found ${combinedAllProducts.length} products matching all combined filters`);
+                
+                if (combinedAllProducts.length > 0) {
+                    const productNames = combinedAllProducts.map(p => p.fullName);
+                    console.log(`🔎 Looking for combined all products in history:`, productNames.slice(0, 5));
+                    
+                    historyQuery.$and = historyQuery.$and || [];
+                    if (size) {
+                        historyQuery.$and.push({
+                            $and: [
+                                { 
+                                    $or: productNames.map(name => {
+                                        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                        return { product: { $regex: `^${escapedName}`, $options: 'i' } };
+                                    })
+                                },
+                                { 
+                                    product: { $regex: `\\s+${size.Roz_Opis}(\\s|$)`, $options: 'i' } 
+                                }
+                            ]
+                        });
+                    } else {
+                        historyQuery.$and.push({
+                            $or: productNames.map(name => {
+                                const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                return { product: { $regex: `^${escapedName}(\\s+.*)?$`, $options: 'i' } };
+                            })
+                        });
+                    }
+                    
+                    historyQuery._debugCombinedAllProducts = productNames;
+                } else {
+                    console.log(`⚠️ No products found matching all combined filters`);
+                }
+            }
+
+            // Apply universal size filter (works with any product filter above)
+            if (sizeId && productFilter !== 'size' && productFilter !== 'category_size' && productFilter !== 'manufacturer_size' && productFilter !== 'combined_all') {
+                console.log(`📐 MOVEMENTS: Adding universal size filter - ${sizeId}`);
+                const Size = require('../db/models/size');
+                
+                const size = await Size.findById(sizeId);
+                if (size && size.Roz_Opis) {
+                    console.log(`📐 MOVEMENTS: Universal size filtering for: ${size.Roz_Opis}`);
+                    
+                    historyQuery.$and = historyQuery.$and || [];
+                    historyQuery.$and.push({
+                        product: { $regex: `\\s${size.Roz_Opis}(\\s|$)`, $options: 'i' }
+                    });
+                    
+                    console.log(`📐 MOVEMENTS: Applied universal size filter regex: \\s${size.Roz_Opis}(\\s|$)`);
                 }
             }
 
@@ -556,7 +767,7 @@ class WarehouseController {
     // Generate inventory report (state on specific date)
     generateInventoryReport = async (req, res) => {
         try {
-            const { date, productFilter, productId, category, manufacturerId } = req.query;
+            const { date, productFilter, productId, category, manufacturerId, sizeId } = req.query;
             
             if (!date) {
                 return res.status(400).json({ 
@@ -579,13 +790,11 @@ class WarehouseController {
                 date: { $lte: targetDate }
             };
 
-            // Apply product filtering
+            // Apply product filtering (now with size support)
             if (productFilter === 'specific' && productId) {
                 stateQuery.fullName = productId;
-            }
-
-            // Handle category and manufacturer filtering
-            if ((productFilter === 'category' || productFilter === 'combined') && category) {
+                console.log(`📐 INVENTORY: Specific product filter - ${productId}`);
+            } else if ((productFilter === 'category' || productFilter === 'combined') && category) {
                 const Goods = require('../db/models/goods');
                 
                 let productsQuery = {};
@@ -613,8 +822,9 @@ class WarehouseController {
                 if (filteredProducts.length > 0) {
                     const productIds = filteredProducts.map(p => p._id);
                     stateQuery.fullName = { $in: productIds };
+                    console.log(`📐 INVENTORY: Category/combined filter - ${productIds.length} products`);
                 } else {
-                    // No products match the filter
+                    console.log(`📐 INVENTORY: No products found for category/combined filter`);
                     return res.status(200).json({
                         items: [],
                         totalItems: 0,
@@ -631,7 +841,9 @@ class WarehouseController {
                 if (productsFromManufacturer.length > 0) {
                     const productIds = productsFromManufacturer.map(p => p._id);
                     stateQuery.fullName = { $in: productIds };
+                    console.log(`📐 INVENTORY: Manufacturer filter - ${productIds.length} products`);
                 } else {
+                    console.log(`📐 INVENTORY: No products found for manufacturer filter`);
                     return res.status(200).json({
                         items: [],
                         totalItems: 0,
@@ -639,6 +851,14 @@ class WarehouseController {
                     });
                 }
             }
+
+            // Apply size filter (works with any of the above product filters)
+            if (sizeId) {
+                console.log(`📐 INVENTORY: Adding size filter - ${sizeId}`);
+                stateQuery.size = sizeId;
+            }
+
+
 
             console.log(`📦 Inventory query for ${date}:`, stateQuery);
 

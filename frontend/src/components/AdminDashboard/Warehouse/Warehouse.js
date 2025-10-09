@@ -60,7 +60,9 @@ const Warehouse = () => {
     const [selectedProductForReport, setSelectedProductForReport] = useState(null);
     const [selectedCategoryForReport, setSelectedCategoryForReport] = useState(null);
     const [selectedManufacturerForReport, setSelectedManufacturerForReport] = useState(null);
+    const [selectedSizeForReport, setSelectedSizeForReport] = useState(null);
     const [manufacturers, setManufacturers] = useState([]);
+    const [availableSizes, setAvailableSizes] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [reportLoading, setReportLoading] = useState(false);
 
@@ -174,6 +176,27 @@ const Warehouse = () => {
         };
 
         fetchManufacturers();
+        
+        // Fetch available sizes from the API
+        const fetchSizes = async () => {
+            try {
+                const response = await axios.get('/api/excel/size/get-all-sizes');
+                if (response.data && Array.isArray(response.data.sizes)) {
+                    setAvailableSizes(response.data.sizes.map(size => ({
+                        value: size._id,
+                        label: `${size.Roz_Kod} - ${size.Roz_Opis}`
+                    })));
+                } else {
+                    console.error('Unexpected sizes API response format:', response.data);
+                    setAvailableSizes([]);
+                }
+            } catch (error) {
+                console.error('Error fetching sizes:', error);
+                setAvailableSizes([]);
+            }
+        };
+
+        fetchSizes();
     }, []);
 
     useEffect(() => {
@@ -1107,12 +1130,20 @@ const Warehouse = () => {
             
             if (selectedFiltersValues.includes('specific')) {
                 filterType = 'specific';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer') && selectedFiltersValues.includes('size')) {
+                filterType = 'combined_all';
             } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer')) {
                 filterType = 'combined';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('size')) {
+                filterType = 'category_size';
+            } else if (selectedFiltersValues.includes('manufacturer') && selectedFiltersValues.includes('size')) {
+                filterType = 'manufacturer_size';
             } else if (selectedFiltersValues.includes('category')) {
                 filterType = 'category';  
             } else if (selectedFiltersValues.includes('manufacturer')) {
                 filterType = 'manufacturer';
+            } else if (selectedFiltersValues.includes('size')) {
+                filterType = 'size';
             }
 
             const params = {
@@ -1121,7 +1152,8 @@ const Warehouse = () => {
                 productFilter: filterType,
                 productId: selectedProductForReport?.value || null,
                 category: selectedCategoryForReport?.value || null,
-                manufacturerId: selectedManufacturerForReport?.value || null
+                manufacturerId: selectedManufacturerForReport?.value || null,
+                sizeId: selectedSizeForReport?.value || null
             };
 
             const response = await axios.get('/api/warehouse/report', { params });
@@ -1145,12 +1177,20 @@ const Warehouse = () => {
             
             if (selectedFiltersValues.includes('specific')) {
                 filterType = 'specific';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer') && selectedFiltersValues.includes('size')) {
+                filterType = 'combined_all';
             } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer')) {
                 filterType = 'combined';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('size')) {
+                filterType = 'category_size';
+            } else if (selectedFiltersValues.includes('manufacturer') && selectedFiltersValues.includes('size')) {
+                filterType = 'manufacturer_size';
             } else if (selectedFiltersValues.includes('category')) {
                 filterType = 'category';  
             } else if (selectedFiltersValues.includes('manufacturer')) {
                 filterType = 'manufacturer';
+            } else if (selectedFiltersValues.includes('size')) {
+                filterType = 'size';
             }
 
             const params = {
@@ -1158,7 +1198,8 @@ const Warehouse = () => {
                 productFilter: filterType,
                 productId: selectedProductForReport?.value || null,
                 category: selectedCategoryForReport?.value || null,
-                manufacturerId: selectedManufacturerForReport?.value || null
+                manufacturerId: selectedManufacturerForReport?.value || null,
+                sizeId: selectedSizeForReport?.value || null
             };
 
             const response = await axios.get('/api/warehouse/inventory', { params });
@@ -2013,6 +2054,7 @@ const Warehouse = () => {
                                 { value: 'all', label: 'Wszystkie produkty' },
                                 { value: 'category', label: 'Filtruj według kategorii' },
                                 { value: 'manufacturer', label: 'Filtruj według producenta' },
+                                { value: 'size', label: 'Filtruj według rozmiaru' },
                                 { value: 'specific', label: 'Konkretny produkt' }
                             ]}
                             placeholder="Wybierz opcje filtrowania..."
@@ -2203,6 +2245,63 @@ const Warehouse = () => {
                                     label: good.fullName
                                 }))}
                                 placeholder="Wybierz produkt..."
+                                isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        borderColor: 'white',
+                                        color: 'white'
+                                    }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        border: '1px solid white',
+                                        zIndex: 9999
+                                    }),
+                                    menuPortal: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999
+                                    }),
+                                    option: (provided, state) => ({
+                                        ...provided,
+                                        backgroundColor: state.isSelected ? '#333' : 'black',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#555'
+                                        }
+                                    }),
+                                    singleValue: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    }),
+                                    placeholder: (provided) => ({
+                                        ...provided,
+                                        color: '#ccc'
+                                    }),
+                                    input: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    })
+                                }}
+                            />
+                        </FormGroup>
+                    )}
+
+                    {(selectedFiltersForReport.some(filter => filter.value === 'size') ||
+                      selectedFiltersForReport.some(filter => filter.value === 'category_size') ||
+                      selectedFiltersForReport.some(filter => filter.value === 'manufacturer_size') ||
+                      selectedFiltersForReport.some(filter => filter.value === 'combined_all')) && (
+                        <FormGroup>
+                            <Label for="sizeSelect">Wybierz rozmiar:</Label>
+                            <Select
+                                value={selectedSizeForReport}
+                                onChange={setSelectedSizeForReport}
+                                options={availableSizes}
+                                placeholder="Wybierz rozmiar..."
                                 isClearable
                                 menuPortalTarget={document.body}
                                 menuPosition="fixed"
