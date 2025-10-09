@@ -882,9 +882,59 @@ class WarehouseController {
                 date: item.date
             }));
 
+            // Create summary grouped by product name and size
+            console.log(`📊 SUMMARY DEBUG: Processing ${formattedItems.length} items for summary`);
+            console.log(`📊 First 5 items:`, formattedItems.slice(0, 5).map(item => ({ 
+                productName: item.productName, 
+                size: item.size, 
+                barcode: item.barcode 
+            })));
+            
+            const summary = {};
+            formattedItems.forEach((item, index) => {
+                // Group by product name AND size (current behavior)
+                const key = `${item.productName} ${item.size !== '-' ? item.size : ''}`.trim();
+                
+                // If you want to group only by product name (ignoring size), use this instead:
+                // const key = item.productName;
+                
+                if (!summary[key]) {
+                    summary[key] = {
+                        productName: item.productName,
+                        size: item.size,
+                        category: item.category,
+                        manufacturer: item.manufacturer,
+                        count: 0,
+                        totalValue: 0
+                    };
+                    console.log(`📊 NEW GROUP: Created group "${key}"`);
+                }
+                
+                summary[key].count += 1;
+                summary[key].totalValue += item.price || 0;
+                
+                console.log(`📊 ITEM ${index + 1}: "${key}" -> count: ${summary[key].count}, price: ${item.price}`);
+            });
+
+            // Convert summary object to array and sort by product name
+            const summaryArray = Object.entries(summary).map(([key, data]) => ({
+                productKey: key,
+                productName: data.productName,
+                size: data.size,
+                category: data.category,
+                manufacturer: data.manufacturer,
+                count: data.count,
+                totalValue: data.totalValue,
+                averagePrice: data.count > 0 ? (data.totalValue / data.count).toFixed(2) : 0
+            })).sort((a, b) => a.productName.localeCompare(b.productName));
+
+            console.log(`📊 Generated summary for ${summaryArray.length} unique product variants`);
+
             const inventoryData = {
                 items: formattedItems,
+                summary: summaryArray,
                 totalItems: formattedItems.length,
+                totalUniqueProducts: summaryArray.length,
                 date: targetDate
             };
 

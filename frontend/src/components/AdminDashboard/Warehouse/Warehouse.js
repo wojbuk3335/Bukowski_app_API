@@ -1497,6 +1497,9 @@ const Warehouse = () => {
             if (selectedFiltersValues.includes('manufacturer') && selectedManufacturerForReport) {
                 filters.push(`Producent: ${selectedManufacturerForReport.label}`);
             }
+            if (selectedFiltersValues.includes('size') && selectedSizeForReport) {
+                filters.push(`Rozmiar: ${selectedSizeForReport.label}`);
+            }
             
             if (filters.length > 0) {
                 filterText = convertPolishChars(filters.join(', '));
@@ -1551,6 +1554,60 @@ const Warehouse = () => {
                     4: { cellWidth: 30 }  // Cena
                 }
             });
+        }
+
+        // Add summary table if available
+        if (data.summary && data.summary.length > 0) {
+            // Get the Y position after the main table
+            const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 20 : 150;
+            
+            // Check if we need a new page
+            if (finalY > 250) {
+                doc.addPage();
+                var currentY = 20;
+            } else {
+                var currentY = finalY;
+            }
+            
+            // Summary header
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            const summaryHeaderText = convertPolishChars('PODSUMOWANIE');
+            const summaryHeaderWidth = doc.getTextWidth(summaryHeaderText);
+            doc.text(summaryHeaderText, (pageWidth - summaryHeaderWidth) / 2, currentY);
+            
+            currentY += 15;
+            
+            // Summary list (not table)
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(11);
+            
+            data.summary.forEach((item, index) => {
+                const itemText = convertPolishChars(`${index + 1}. ${item.productKey} - ${item.count} ${item.count === 1 ? 'sztuka' : item.count < 5 ? 'sztuki' : 'sztuk'}`);
+                
+                // Check if we need a new page
+                if (currentY > 270) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+                
+                doc.text(itemText, 15, currentY);
+                currentY += 7;
+            });
+
+            // Add total summary at the bottom
+            const summaryY = currentY + 10;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            
+            const totalUniqueText = convertPolishChars(`Unikalne produkty: ${data.totalUniqueProducts || 0}`);
+            doc.text(totalUniqueText, 15, summaryY);
+            
+            const totalItemsText = convertPolishChars(`Calkowita liczba sztuk: ${data.totalItems || 0}`);
+            doc.text(totalItemsText, 15, summaryY + 7);
+            
+            const totalValueText = convertPolishChars(`Calkowita wartosc: ${data.summary.reduce((sum, item) => sum + item.totalValue, 0).toFixed(2)} PLN`);
+            doc.text(totalValueText, 15, summaryY + 14);
         }
         
         // Open print dialog
