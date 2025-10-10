@@ -82,8 +82,13 @@ const Wallets = () => {
     };
 
     const handleStartingNumberChange = (e) => {
-        const value = parseInt(e.target.value) || 100;
-        setStartingNumber(value);
+        const value = parseInt(e.target.value);
+        // Ensure minimum value is 100
+        if (value < 100) {
+            setStartingNumber(100);
+        } else {
+            setStartingNumber(value || 100);
+        }
     };
 
     const fetchData = async () => {
@@ -222,7 +227,7 @@ const Wallets = () => {
                                     </label>
                                     <Input
                                         type="number"
-                                        min="1"
+                                        min="100"
                                         max="999"
                                         value={startingNumber}
                                         onChange={handleStartingNumberChange}

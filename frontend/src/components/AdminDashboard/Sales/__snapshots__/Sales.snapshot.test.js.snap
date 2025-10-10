@@ -2,58 +2,8 @@
 
 exports[`Sales Component Snapshots should match snapshot with empty sales data 1`] = `
 <div>
-  <h1
-    className="title"
-  >
-    Sprzedaż
-  </h1>
   <div
-    className="d-flex flex-column align-items-center mb-3"
-  >
-    <div
-      className="d-flex justify-content-center mb-3"
-    >
-      <div
-        className="me-3"
-      >
-        <label>
-          Data początkowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę początkową"
-          type="date"
-        />
-      </div>
-      <div>
-        <label>
-          Data końcowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę końcową"
-          type="date"
-        />
-      </div>
-    </div>
-    <div
-      style={
-        Object {
-          "width": "200px",
-        }
-      }
-    >
-      <input
-        className="form-control"
-        onChange={[Function]}
-        placeholder="Wyszukaj..."
-        type="text"
-        value=""
-      />
-    </div>
-  </div>
-  <div
-    className="d-flex justify-content-center mb-3"
+    className="d-flex justify-content-center align-items-center mb-3"
   >
     <button
       className="btn btn-primary me-2"
@@ -76,11 +26,48 @@ exports[`Sales Component Snapshots should match snapshot with empty sales data 1
       Drukuj Raport
     </button>
     <button
-      className="btn btn-info"
+      className="btn btn-info me-3"
       onClick={[Function]}
     >
       Eksportuj Excel
     </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
   </div>
   <div
     className="tableContainer"
@@ -99,14 +86,14 @@ exports[`Sales Component Snapshots should match snapshot with empty sales data 1
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Lp. 
-            <input
-              className="form-control form-control-sm mt-1"
-              onChange={[Function]}
-              placeholder="Filter"
-              type="text"
-            />
           </th>
           <th
             className="tableHeader noWrap"
@@ -123,22 +110,32 @@ exports[`Sales Component Snapshots should match snapshot with empty sales data 1
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Data 
-            <input
-              data-testid="mock-datepicker"
-              placeholder="Wybierz datę"
-              type="date"
-            />
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Punkt sprzedaży 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -149,12 +146,21 @@ exports[`Sales Component Snapshots should match snapshot with empty sales data 1
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Rozmiar 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -178,6 +184,12 @@ exports[`Sales Component Snapshots should match snapshot with empty sales data 1
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Płatności 
           </th>
@@ -212,58 +224,8 @@ exports[`Sales Component Snapshots should match snapshot with empty sales data 1
 
 exports[`Sales Component Snapshots should match snapshot with error state 1`] = `
 <div>
-  <h1
-    className="title"
-  >
-    Sprzedaż
-  </h1>
   <div
-    className="d-flex flex-column align-items-center mb-3"
-  >
-    <div
-      className="d-flex justify-content-center mb-3"
-    >
-      <div
-        className="me-3"
-      >
-        <label>
-          Data początkowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę początkową"
-          type="date"
-        />
-      </div>
-      <div>
-        <label>
-          Data końcowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę końcową"
-          type="date"
-        />
-      </div>
-    </div>
-    <div
-      style={
-        Object {
-          "width": "200px",
-        }
-      }
-    >
-      <input
-        className="form-control"
-        onChange={[Function]}
-        placeholder="Wyszukaj..."
-        type="text"
-        value=""
-      />
-    </div>
-  </div>
-  <div
-    className="d-flex justify-content-center mb-3"
+    className="d-flex justify-content-center align-items-center mb-3"
   >
     <button
       className="btn btn-primary me-2"
@@ -286,11 +248,48 @@ exports[`Sales Component Snapshots should match snapshot with error state 1`] = 
       Drukuj Raport
     </button>
     <button
-      className="btn btn-info"
+      className="btn btn-info me-3"
       onClick={[Function]}
     >
       Eksportuj Excel
     </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
   </div>
   <div
     className="tableContainer"
@@ -309,14 +308,14 @@ exports[`Sales Component Snapshots should match snapshot with error state 1`] = 
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Lp. 
-            <input
-              className="form-control form-control-sm mt-1"
-              onChange={[Function]}
-              placeholder="Filter"
-              type="text"
-            />
           </th>
           <th
             className="tableHeader noWrap"
@@ -333,22 +332,32 @@ exports[`Sales Component Snapshots should match snapshot with error state 1`] = 
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Data 
-            <input
-              data-testid="mock-datepicker"
-              placeholder="Wybierz datę"
-              type="date"
-            />
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Punkt sprzedaży 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -359,12 +368,21 @@ exports[`Sales Component Snapshots should match snapshot with error state 1`] = 
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Rozmiar 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -388,6 +406,12 @@ exports[`Sales Component Snapshots should match snapshot with error state 1`] = 
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Płatności 
           </th>
@@ -422,58 +446,8 @@ exports[`Sales Component Snapshots should match snapshot with error state 1`] = 
 
 exports[`Sales Component Snapshots should match snapshot with multi-currency payments 1`] = `
 <div>
-  <h1
-    className="title"
-  >
-    Sprzedaż
-  </h1>
   <div
-    className="d-flex flex-column align-items-center mb-3"
-  >
-    <div
-      className="d-flex justify-content-center mb-3"
-    >
-      <div
-        className="me-3"
-      >
-        <label>
-          Data początkowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę początkową"
-          type="date"
-        />
-      </div>
-      <div>
-        <label>
-          Data końcowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę końcową"
-          type="date"
-        />
-      </div>
-    </div>
-    <div
-      style={
-        Object {
-          "width": "200px",
-        }
-      }
-    >
-      <input
-        className="form-control"
-        onChange={[Function]}
-        placeholder="Wyszukaj..."
-        type="text"
-        value=""
-      />
-    </div>
-  </div>
-  <div
-    className="d-flex justify-content-center mb-3"
+    className="d-flex justify-content-center align-items-center mb-3"
   >
     <button
       className="btn btn-primary me-2"
@@ -496,11 +470,48 @@ exports[`Sales Component Snapshots should match snapshot with multi-currency pay
       Drukuj Raport
     </button>
     <button
-      className="btn btn-info"
+      className="btn btn-info me-3"
       onClick={[Function]}
     >
       Eksportuj Excel
     </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
   </div>
   <div
     className="tableContainer"
@@ -519,14 +530,14 @@ exports[`Sales Component Snapshots should match snapshot with multi-currency pay
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Lp. 
-            <input
-              className="form-control form-control-sm mt-1"
-              onChange={[Function]}
-              placeholder="Filter"
-              type="text"
-            />
           </th>
           <th
             className="tableHeader noWrap"
@@ -543,22 +554,32 @@ exports[`Sales Component Snapshots should match snapshot with multi-currency pay
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Data 
-            <input
-              data-testid="mock-datepicker"
-              placeholder="Wybierz datę"
-              type="date"
-            />
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Punkt sprzedaży 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -569,12 +590,21 @@ exports[`Sales Component Snapshots should match snapshot with multi-currency pay
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Rozmiar 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -598,6 +628,12 @@ exports[`Sales Component Snapshots should match snapshot with multi-currency pay
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Płatności 
           </th>
@@ -632,58 +668,8 @@ exports[`Sales Component Snapshots should match snapshot with multi-currency pay
 
 exports[`Sales Component Snapshots should match snapshot with no payment data 1`] = `
 <div>
-  <h1
-    className="title"
-  >
-    Sprzedaż
-  </h1>
   <div
-    className="d-flex flex-column align-items-center mb-3"
-  >
-    <div
-      className="d-flex justify-content-center mb-3"
-    >
-      <div
-        className="me-3"
-      >
-        <label>
-          Data początkowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę początkową"
-          type="date"
-        />
-      </div>
-      <div>
-        <label>
-          Data końcowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę końcową"
-          type="date"
-        />
-      </div>
-    </div>
-    <div
-      style={
-        Object {
-          "width": "200px",
-        }
-      }
-    >
-      <input
-        className="form-control"
-        onChange={[Function]}
-        placeholder="Wyszukaj..."
-        type="text"
-        value=""
-      />
-    </div>
-  </div>
-  <div
-    className="d-flex justify-content-center mb-3"
+    className="d-flex justify-content-center align-items-center mb-3"
   >
     <button
       className="btn btn-primary me-2"
@@ -706,11 +692,48 @@ exports[`Sales Component Snapshots should match snapshot with no payment data 1`
       Drukuj Raport
     </button>
     <button
-      className="btn btn-info"
+      className="btn btn-info me-3"
       onClick={[Function]}
     >
       Eksportuj Excel
     </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
   </div>
   <div
     className="tableContainer"
@@ -729,14 +752,14 @@ exports[`Sales Component Snapshots should match snapshot with no payment data 1`
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Lp. 
-            <input
-              className="form-control form-control-sm mt-1"
-              onChange={[Function]}
-              placeholder="Filter"
-              type="text"
-            />
           </th>
           <th
             className="tableHeader noWrap"
@@ -753,22 +776,32 @@ exports[`Sales Component Snapshots should match snapshot with no payment data 1`
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Data 
-            <input
-              data-testid="mock-datepicker"
-              placeholder="Wybierz datę"
-              type="date"
-            />
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Punkt sprzedaży 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -779,12 +812,21 @@ exports[`Sales Component Snapshots should match snapshot with no payment data 1`
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Rozmiar 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -808,6 +850,12 @@ exports[`Sales Component Snapshots should match snapshot with no payment data 1`
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Płatności 
           </th>
@@ -842,58 +890,8 @@ exports[`Sales Component Snapshots should match snapshot with no payment data 1`
 
 exports[`Sales Component Snapshots should match snapshot with payment data 1`] = `
 <div>
-  <h1
-    className="title"
-  >
-    Sprzedaż
-  </h1>
   <div
-    className="d-flex flex-column align-items-center mb-3"
-  >
-    <div
-      className="d-flex justify-content-center mb-3"
-    >
-      <div
-        className="me-3"
-      >
-        <label>
-          Data początkowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę początkową"
-          type="date"
-        />
-      </div>
-      <div>
-        <label>
-          Data końcowa:
-        </label>
-        <input
-          data-testid="mock-datepicker"
-          placeholder="Wybierz datę końcową"
-          type="date"
-        />
-      </div>
-    </div>
-    <div
-      style={
-        Object {
-          "width": "200px",
-        }
-      }
-    >
-      <input
-        className="form-control"
-        onChange={[Function]}
-        placeholder="Wyszukaj..."
-        type="text"
-        value=""
-      />
-    </div>
-  </div>
-  <div
-    className="d-flex justify-content-center mb-3"
+    className="d-flex justify-content-center align-items-center mb-3"
   >
     <button
       className="btn btn-primary me-2"
@@ -916,11 +914,48 @@ exports[`Sales Component Snapshots should match snapshot with payment data 1`] =
       Drukuj Raport
     </button>
     <button
-      className="btn btn-info"
+      className="btn btn-info me-3"
       onClick={[Function]}
     >
       Eksportuj Excel
     </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
   </div>
   <div
     className="tableContainer"
@@ -939,14 +974,14 @@ exports[`Sales Component Snapshots should match snapshot with payment data 1`] =
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Lp. 
-            <input
-              className="form-control form-control-sm mt-1"
-              onChange={[Function]}
-              placeholder="Filter"
-              type="text"
-            />
           </th>
           <th
             className="tableHeader noWrap"
@@ -963,22 +998,32 @@ exports[`Sales Component Snapshots should match snapshot with payment data 1`] =
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Data 
-            <input
-              data-testid="mock-datepicker"
-              placeholder="Wybierz datę"
-              type="date"
-            />
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Punkt sprzedaży 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -989,12 +1034,21 @@ exports[`Sales Component Snapshots should match snapshot with payment data 1`] =
           </th>
           <th
             className="tableHeader noWrap"
-            onClick={[Function]}
           >
-            Rozmiar 
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
             <select
               className="form-control form-control-sm mt-1"
               onChange={[Function]}
+              value=""
             >
               <option
                 value=""
@@ -1018,6 +1072,12 @@ exports[`Sales Component Snapshots should match snapshot with payment data 1`] =
           <th
             className="tableHeader noWrap"
             onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
           >
             Płatności 
           </th>

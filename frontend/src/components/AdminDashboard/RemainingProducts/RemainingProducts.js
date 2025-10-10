@@ -88,8 +88,13 @@ const RemainingProducts = () => {
     };
 
     const handleStartingNumberChange = (e) => {
-        const value = parseInt(e.target.value) || 10;
-        setStartingNumber(value);
+        const value = parseInt(e.target.value);
+        // Ensure minimum value is 10
+        if (value < 10) {
+            setStartingNumber(10);
+        } else {
+            setStartingNumber(value || 10);
+        }
     };
 
     const addNewRow = async () => {
@@ -214,7 +219,7 @@ const RemainingProducts = () => {
                                     </label>
                                     <Input
                                         type="number"
-                                        min="1"
+                                        min="10"
                                         max="99"
                                         value={startingNumber}
                                         onChange={handleStartingNumberChange}
