@@ -108,11 +108,13 @@ const Goods = () => {
         fetch('/api/excel/stock/get-all-stocks')
             .then(response => response.json())
             .then(data => {
-                const filteredStocks = (data.stocks || []).filter(stock => stock.Tow_Opis !== '');
-                setStocks(filteredStocks);
-                if (filteredStocks.length > 0) {
-                    setSelectedStock(filteredStocks[0]._id);
-                    updateProductName(filteredStocks[0]._id, selectedColor);
+                const stocks = (data.stocks || []).filter(stock => 
+                    stock.Tow_Opis && stock.Tow_Opis.trim() !== ''
+                );
+                setStocks(stocks);
+                if (stocks.length > 0) {
+                    setSelectedStock(stocks[0]._id);
+                    updateProductName(stocks[0]._id, selectedColor);
                 }
             })
             .catch(error => console.error('Error fetching stocks:', error));
@@ -120,11 +122,13 @@ const Goods = () => {
         fetch('/api/excel/color/get-all-colors')
             .then(response => response.json())
             .then(data => {
-                const filteredColors = (data.colors || []).filter(color => color.Kol_Opis !== '');
-                setColors(filteredColors);
-                if (filteredColors.length > 0) {
-                    setSelectedColor(filteredColors[0]._id);
-                    updateProductName(selectedStock, filteredColors[0]._id);
+                const colors = (data.colors || []).filter(color => 
+                    color.Kol_Opis && color.Kol_Opis.trim() !== ''
+                );
+                setColors(colors);
+                if (colors.length > 0) {
+                    setSelectedColor(colors[0]._id);
+                    updateProductName(selectedStock, colors[0]._id);
                 }
             })
             .catch(error => console.error('Error fetching colors:', error));
@@ -836,7 +840,7 @@ const Goods = () => {
             .filter(wallet => 
                 wallet.Torebki_Kod.toLowerCase().startsWith(walletFilterText.toLowerCase())
             )
-            .slice(0, 10); // Maksymalnie 10 wyników
+            .slice(0, 100); // Zwiększone do 100 wyników
     };
 
     // Functions for actual wallets (Portfele)
@@ -855,7 +859,7 @@ const Goods = () => {
             .filter(wallet => 
                 wallet.Portfele_Kod.toLowerCase().startsWith(walletFilterTextPortfele.toLowerCase())
             )
-            .slice(0, 10); // Maksymalnie 10 wyników
+            .slice(0, 100); // Zwiększone do 100 wyników
     };
 
     // Functions for remaining products
@@ -917,7 +921,7 @@ const Goods = () => {
             .filter(product => 
                 product.Poz_Kod.toLowerCase().startsWith(remainingProductFilterText.toLowerCase())
             )
-            .slice(0, 10); // Maksymalnie 10 wyników
+            .slice(0, 100); // Zwiększone do 100 wyników
     };
 
     // Functions for color filtering
@@ -991,7 +995,7 @@ const Goods = () => {
                 const kodB = parseInt(b.Kol_Kod) || 999;
                 return kodA - kodB;
             })
-            .slice(0, 50); // Zwiększone do 50 wyników
+            .slice(0, 100); // Zwiększone do 100 wyników
     };
 
     // Functions for product filtering (Kurtki kożuchy futra)
@@ -1045,12 +1049,11 @@ const Goods = () => {
 
     const getFilteredProducts = () => {
         return stocks
-            .filter(product => product.Tow_Opis && product.Tow_Opis.trim() !== '')
             .filter(product => 
                 product.Tow_Opis.toLowerCase().startsWith(productFilterText.toLowerCase()) ||
                 product.Tow_Kod.toLowerCase().startsWith(productFilterText.toLowerCase())
             )
-            .slice(0, 10); // Maksymalnie 10 wyników
+            .slice(0, 100); // Zwiększone do 100 wyników
     };
 
     const handlePriceChange = (e) => {
