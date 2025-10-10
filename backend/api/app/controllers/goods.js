@@ -7,9 +7,11 @@ const config = require('../config');
 class GoodsController {
     async createGood(req, res, next) {
         console.log('Creating good with data:', req.body);
-        const { stock, color, fullName, code, category, subcategory, remainingsubsubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId } = req.body; // Add manufacturer
+        console.log('Karpacz prices received:', { priceKarpacz: req.body.priceKarpacz, discount_priceKarpacz: req.body.discount_priceKarpacz });
+        const { stock, color, fullName, code, category, subcategory, remainingsubsubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId, priceKarpacz, discount_priceKarpacz } = req.body; // Add manufacturer and Karpacz fields
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : '';
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
+        const priceExceptionsKarpacz = JSON.parse(req.body.priceExceptionsKarpacz || '[]');
         
         // Different validation for bags/wallets vs other products
         if (category === 'Torebki') {
@@ -78,12 +80,16 @@ class GoodsController {
             fullName,
             code,
             category: category.replace(/_/g, ' '), // Replace underscores with spaces
-            price,
-            discount_price,
+            price: parseFloat(price) || 0,
+            discount_price: parseFloat(discount_price) || 0,
             picture,
             priceExceptions,
             sellingPoint,
-            barcode
+            barcode,
+            // Karpacz pricing fields
+            priceKarpacz: parseFloat(priceKarpacz) || 0,
+            discount_priceKarpacz: parseFloat(discount_priceKarpacz) || 0,
+            priceExceptionsKarpacz
         };
 
         // Add manufacturer if provided
@@ -178,7 +184,11 @@ class GoodsController {
                         picture: result.picture,
                         priceExceptions: result.priceExceptions,
                         sellingPoint: result.sellingPoint,
-                        barcode: result.barcode
+                        barcode: result.barcode,
+                        // Karpacz pricing fields
+                        priceKarpacz: result.priceKarpacz,
+                        discount_priceKarpacz: result.discount_priceKarpacz,
+                        priceExceptionsKarpacz: result.priceExceptionsKarpacz
                     }
                 });
             })
@@ -195,11 +205,12 @@ class GoodsController {
     async getAllGoods(req, res, next) {
         try {
             const goods = await Goods.find()
-                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec price discount_price picture priceExceptions sellingPoint barcode')
+                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz')
                 .populate('stock', 'Tow_Opis Tow_Kod')
                 .populate('color', 'Kol_Opis Kol_Kod')
                 .populate('manufacturer', 'Prod_Opis Prod_Kod')
-                .populate('priceExceptions.size', 'Roz_Opis');
+                .populate('priceExceptions.size', 'Roz_Opis')
+                .populate('priceExceptionsKarpacz.size', 'Roz_Opis');
 
             // Manually populate subcategory based on category
             const populatedGoods = await Promise.all(goods.map(async (good) => {
@@ -327,6 +338,9 @@ class GoodsController {
                     Plec: good.Plec, // Include Plec in the response
                     price: good.price,
                     discount_price: good.discount_price,
+                    priceKarpacz: good.priceKarpacz,
+                    discount_priceKarpacz: good.discount_priceKarpacz,
+                    priceExceptionsKarpacz: good.priceExceptionsKarpacz,
                     picture: good.picture,
                     priceExceptions: good.priceExceptions,
                     sellingPoint: good.sellingPoint,
@@ -354,7 +368,11 @@ class GoodsController {
             discount_price: parseFloat(req.body.discount_price) || 0,
             priceExceptions: JSON.parse(req.body.priceExceptions || '[]'),
             sellingPoint: req.body.sellingPoint,
-            barcode: req.body.barcode
+            barcode: req.body.barcode,
+            // Karpacz pricing fields
+            priceKarpacz: parseFloat(req.body.priceKarpacz) || 0,
+            discount_priceKarpacz: parseFloat(req.body.discount_priceKarpacz) || 0,
+            priceExceptionsKarpacz: JSON.parse(req.body.priceExceptionsKarpacz || '[]')
         };
 
         // Add manufacturer if provided

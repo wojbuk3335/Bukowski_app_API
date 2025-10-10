@@ -49,6 +49,16 @@ const goodsSchema = mongoose.Schema({
     symbol: { type: String, required: false, default: '' },
     sellingPoint: { type: String, required: false, default: '' }, // Default to an empty string
     barcode: { type: String, required: false, default: '' }, // Default to an empty string
+    // Karpacz pricing fields
+    priceKarpacz: { type: Number, required: false, default: 0 },
+    discount_priceKarpacz: { type: Number, required: false, default: 0 },
+    priceExceptionsKarpacz: {
+        type: [{
+            size: { type: mongoose.Schema.Types.ObjectId, ref: 'Size' },
+            value: { type: Number }
+        }],
+        default: []
+    }
 });
 
 goodsSchema.post('save', function (error, doc, next) {

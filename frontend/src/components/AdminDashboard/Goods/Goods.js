@@ -2,6 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import styles from './Goods.module.css';
 import { Modal, ModalHeader, ModalBody, FormGroup, Label, Input, Button, Table, ModalFooter } from 'reactstrap';
 import defaultPicture from '../../../assets/images/default_image_2.png'; // Import the default picture icon
+import * as XLSX from 'xlsx'; // Import XLSX for Excel export
+import { saveAs } from 'file-saver'; // For exporting files
+import jsPDF from 'jspdf'; // Import jsPDF for PDF printing
+import autoTable from 'jspdf-autotable'; // Import autoTable for jsPDF
 
 const Goods = () => {
     const [loading, setLoading] = useState(true);
@@ -62,6 +66,10 @@ const Goods = () => {
     const [price, setPrice] = useState(0);
     const [discountPrice, setDiscountPrice] = useState(0);
     const [priceExceptions, setPriceExceptions] = useState([]); // Initialize with an empty array
+    // Karpacz pricing states
+    const [priceKarpacz, setPriceKarpacz] = useState(0);
+    const [discountPriceKarpacz, setDiscountPriceKarpacz] = useState(0);
+    const [priceExceptionsKarpacz, setPriceExceptionsKarpacz] = useState([]);
     const [sizes, setSizes] = useState([]);
     const [editingGood, setEditingGood] = useState(null); // New state for editing
     const [productName, setProductName] = useState(''); // New state for product name
@@ -336,6 +344,24 @@ const Goods = () => {
     useEffect(() => {
         if (modal) {
             setTimeout(() => {
+                // Wycentruj modal od razu po otwarciu
+                const modalElement = modalRef.current;
+                if (modalElement) {
+                    const modalDialog = modalElement.querySelector('.modal-dialog');
+                    if (modalDialog) {
+                        const modalWidth = 1140;
+                        const modalHeight = modalDialog.offsetHeight;
+                        const centerX = (window.innerWidth - modalWidth) / 2 + 160; // Przesunięcie o 160px w prawo
+                        const centerY = (window.innerHeight - modalHeight) / 2;
+                        
+                        modalDialog.style.position = 'fixed';
+                        modalDialog.style.margin = '0';
+                        modalDialog.style.left = `${centerX}px`;
+                        modalDialog.style.top = `${centerY}px`;
+                        modalDialog.style.width = '1140px';
+                        modalDialog.style.maxWidth = '1140px';
+                    }
+                }
                 makeModalDraggable();
             }, 300);
         }
@@ -1050,6 +1076,22 @@ const Goods = () => {
         setPriceExceptions(newPriceExceptions);
     };
 
+    // Karpacz price exception handlers
+    const handlePriceExceptionKarpaczChange = (index, field, value) => {
+        const newPriceExceptions = [...priceExceptionsKarpacz];
+        newPriceExceptions[index][field] = value;
+        setPriceExceptionsKarpacz(newPriceExceptions);
+    };
+
+    const handleAddPriceExceptionKarpacz = () => {
+        setPriceExceptionsKarpacz([...priceExceptionsKarpacz, { size: '', value: 0 }]);
+    };
+
+    const handleRemovePriceExceptionKarpacz = (index) => {
+        const newPriceExceptions = priceExceptionsKarpacz.filter((_, i) => i !== index);
+        setPriceExceptionsKarpacz(newPriceExceptions);
+    };
+
     const updateProductName = (stockId, colorId) => {
         const stock = stocks.find(stock => stock._id === stockId);
         const color = colors.find(color => color._id === colorId);
@@ -1278,13 +1320,6 @@ const Goods = () => {
             }
         } else if (selectedCategory === 'Pozostały asortyment') {
             // Obsługa kategorii Pozostały asortyment
-            console.log('Sprawdzanie danych pozostały asortyment:', {
-                selectedRemainingProductCode,
-                selectedColor,
-                selectedRemainingCategory,
-                selectedRemainingSubcategory
-            });
-            
             if (!selectedRemainingProductCode || !selectedColor || !selectedRemainingCategory) {
                 alert('Wybierz podkategorię, produkt i kolor!');
                 return;
@@ -1401,6 +1436,10 @@ const Goods = () => {
         formData.append('price', price);
         formData.append('discount_price', discountPrice);
         formData.append('priceExceptions', JSON.stringify(priceExceptions));
+        // Karpacz pricing fields
+        formData.append('priceKarpacz', priceKarpacz);
+        formData.append('discount_priceKarpacz', discountPriceKarpacz);
+        formData.append('priceExceptionsKarpacz', JSON.stringify(priceExceptionsKarpacz));
         formData.append('manufacturer', selectedManufacturer); // Dodaj producenta
         formData.append('sellingPoint', ''); // Default value for sellingPoint
         formData.append('barcode', ''); // Default value for barcode
@@ -1492,6 +1531,10 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+            // Set Karpacz prices for bags
+            setPriceKarpacz(good.priceKarpacz || 0);
+            setDiscountPriceKarpacz(good.discount_priceKarpacz || 0);
+            setPriceExceptionsKarpacz(good.priceExceptionsKarpacz || []);
             
         } else if (good.category === 'Portfele') {
             // Obsługa edycji portfeli
@@ -1509,6 +1552,10 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+            // Set Karpacz prices for wallets
+            setPriceKarpacz(good.priceKarpacz || 0);
+            setDiscountPriceKarpacz(good.discount_priceKarpacz || 0);
+            setPriceExceptionsKarpacz(good.priceExceptionsKarpacz || []);
             
         } else if (good.category === 'Pozostały asortyment') {
             // Obsługa edycji pozostałego asortymentu
@@ -1527,6 +1574,10 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+            // Set Karpacz prices for remaining products
+            setPriceKarpacz(good.priceKarpacz || 0);
+            setDiscountPriceKarpacz(good.discount_priceKarpacz || 0);
+            setPriceExceptionsKarpacz(good.priceExceptionsKarpacz || []);
             
         } else {
             // Obsługa edycji kurtek
@@ -1565,6 +1616,23 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+            
+            // Set Karpacz prices for jackets - validate priceExceptionsKarpacz
+            const validPriceExceptionsKarpacz = (good.priceExceptionsKarpacz || []).map(exception => {
+                const size = sizes.find(size => size._id === exception.size?._id);
+                if (!size) {
+                    console.warn(`Nie znaleziono rozmiaru dla Karpacz exception: ${exception.size?._id}`);
+                    return null;
+                }
+                return {
+                    size: size._id,
+                    value: exception.value
+                };
+            }).filter(exception => exception !== null);
+            
+            setPriceKarpacz(good.priceKarpacz || 0);
+            setDiscountPriceKarpacz(good.discount_priceKarpacz || 0);
+            setPriceExceptionsKarpacz(validPriceExceptionsKarpacz);
         }
         setSelectedImage(null); // Reset image selection for editing
         setModal(true);
@@ -1614,6 +1682,10 @@ const Goods = () => {
         setPrice(0);
         setDiscountPrice(0);
         setPriceExceptions([]); // Reset to an empty array
+        // Reset Karpacz prices
+        setPriceKarpacz(0);
+        setDiscountPriceKarpacz(0);
+        setPriceExceptionsKarpacz([]);
         setSelectedImage(null);
         setEditingGood(null);
         setSelectedRemainingCategory(remainingCategories.length > 0 ? remainingCategories[0]._id : ''); // Reset remaining category
@@ -1677,14 +1749,22 @@ const Goods = () => {
             startX = e.clientX;
             startY = e.clientY;
             
-            const rect = modalDialog.getBoundingClientRect();
-            initialX = rect.left;
-            initialY = rect.top;
+            // Wycentruj modal przed rozpoczęciem przeciągania
+            const modalWidth = 1140;
+            const modalHeight = modalDialog.offsetHeight;
+            const centerX = (window.innerWidth - modalWidth) / 2 + 160; // Ta sama logika co w useEffect
+            const centerY = (window.innerHeight - modalHeight) / 2;
+            
+            initialX = centerX;
+            initialY = centerY;
             
             modalDialog.style.position = 'fixed';
             modalDialog.style.margin = '0';
-            modalDialog.style.left = `${initialX}px`;
-            modalDialog.style.top = `${initialY}px`;
+            modalDialog.style.left = `${centerX}px`;
+            modalDialog.style.top = `${centerY}px`;
+            // Zachowaj szerokość XL modala podczas przeciągania
+            modalDialog.style.width = '1140px';
+            modalDialog.style.maxWidth = '1140px';
             
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
@@ -1728,10 +1808,407 @@ const Goods = () => {
         );
     }
 
+    // Export function for Excel
+    const handleExport = (format) => {
+        switch (format) {
+            case 'excel':
+                const exportData = goods.map((good, index) => ({
+                    'Lp': index + 1,
+                    'Produkt': (good.category === 'Torebki' || good.category === 'Portfele' || good.category === 'Pozostały asortyment') ? 
+                        (good.bagProduct || '-') : 
+                        (good.stock ? good.stock.Tow_Opis : '-'),
+                    'Kolor': good.color ? good.color.Kol_Opis : '-',
+                    'Nazwa produktu': good.fullName || '-',
+                    'Kod kreskowy': good.code || '-',
+                    'Kategoria': good.category || '-',
+                    'Podkategoria': (() => {
+                        if (good.category === 'Torebki') {
+                            if (good.bagsCategoryId) {
+                                const bagsCategory = bagsCategories.find(cat => cat._id === good.bagsCategoryId);
+                                return bagsCategory && bagsCategory.Kat_1_Opis_1 ? bagsCategory.Kat_1_Opis_1 : '-';
+                            }
+                            return '-';
+                        } else if (good.category === 'Portfele') {
+                            if (good.bagsCategoryId) {
+                                const walletsCategory = walletsCategories.find(cat => cat._id === good.bagsCategoryId);
+                                return walletsCategory && walletsCategory.Kat_1_Opis_1 ? walletsCategory.Kat_1_Opis_1 : '-';
+                            }
+                            return '-';
+                        } else if (good.category === 'Pozostały asortyment') {
+                            if (good.subcategory) {
+                                if (good.subcategory === 'belts' || (good.subcategory && good.subcategory._id === 'belts')) {
+                                    return 'Paski';
+                                } else if (good.subcategory === 'gloves' || (good.subcategory && good.subcategory._id === 'gloves')) {
+                                    return 'Rękawiczki';
+                                } else {
+                                    const subcategoryId = typeof good.subcategory === 'object' ? good.subcategory._id : good.subcategory;
+                                    const remainingCategory = remainingCategories.find(cat => cat._id === subcategoryId);
+                                    return remainingCategory && remainingCategory.Rem_Kat_1_Opis_1 ? remainingCategory.Rem_Kat_1_Opis_1 : '-';
+                                }
+                            }
+                            return '-';
+                        } else {
+                            return good.subcategory ? good.subcategory.Kat_1_Opis_1 : '-';
+                        }
+                    })(),
+                    'Podpodkategoria': (() => {
+                        if (good.category === 'Kurtki kożuchy futra' || good.category === 'Torebki' || good.category === 'Portfele') {
+                            return '-';
+                        } else if (good.category === 'Pozostały asortyment') {
+                            const remainingSubcategoryValue = good.remainingsubsubcategory || good.remainingSubcategory;
+                            if (remainingSubcategoryValue) {
+                                if (typeof remainingSubcategoryValue === 'object' && remainingSubcategoryValue.Sub_Opis) {
+                                    return remainingSubcategoryValue.Sub_Opis;
+                                }
+                                if (typeof remainingSubcategoryValue === 'string' && !remainingSubcategoryValue.match(/^[0-9a-fA-F]{24}$/)) {
+                                    return remainingSubcategoryValue;
+                                }
+                                const belt = belts.find(b => b._id === remainingSubcategoryValue);
+                                if (belt) return belt.Belt_Opis;
+                                const glove = gloves.find(g => g._id === remainingSubcategoryValue);
+                                if (glove) return glove.Glove_Opis;
+                                const subcategory = remainingSubcategories.find(sub => sub._id === remainingSubcategoryValue);
+                                return subcategory ? subcategory.Sub_Opis : '-';
+                            }
+                            return '-';
+                        }
+                        return '-';
+                    })(),
+                    'Producent': good.manufacturer ? good.manufacturer.Prod_Opis : '-',
+                    'Zdjęcie': good.fullName || '-', // Nome do zdjęcia używamy nazwy produktu
+                    'Cena': good.price || 0,
+                    'Cena promocyjna': (good.discount_price === 0 || good.discount_price === '') ? '' : good.discount_price,
+                    'Wyjątki': (() => {
+                        if (good.category === 'Torebki' || good.category === 'Portfele' || good.category === 'Pozostały asortyment') {
+                            return '-';
+                        } else {
+                            return good.priceExceptions.map(exception => 
+                                (exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru') + '=' + exception.value
+                            ).join(', ') || '-';
+                        }
+                    })(),
+                    'Cena Karpacz': good.priceKarpacz || 0,
+                    'Promocja Karpacz': (good.discount_priceKarpacz === 0 || good.discount_priceKarpacz === '') ? '' : good.discount_priceKarpacz,
+                    'Wyjątki Karpacz': (() => {
+                        if (good.category === 'Kurtki kożuchy futra') {
+                            return good.priceExceptionsKarpacz && good.priceExceptionsKarpacz.length > 0 ? 
+                                good.priceExceptionsKarpacz.map(exception => 
+                                    (exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru') + '=' + exception.value
+                                ).join(', ') : '-';
+                        }
+                        return '-';
+                    })(),
+                    'Rodzaj': (() => {
+                        if (good.category === 'Torebki') {
+                            return good.Plec || (good.bagsCategoryId ? 
+                                (() => {
+                                    const bagsCategory = bagsCategories.find(cat => cat._id === good.bagsCategoryId);
+                                    return bagsCategory ? bagsCategory.Plec : '-';
+                                })() : '-');
+                        } else if (good.category === 'Portfele') {
+                            return good.Plec || (good.bagsCategoryId ? 
+                                (() => {
+                                    const walletsCategory = subcategories.find(cat => cat._id === good.bagsCategoryId);
+                                    return walletsCategory ? walletsCategory.Plec : '-';
+                                })() : '-');
+                        } else if (good.category === 'Pozostały asortyment') {
+                            return good.Plec || (good.bagsCategoryId ? 
+                                (() => {
+                                    const remainingCategory = remainingCategories.find(cat => cat._id === good.bagsCategoryId);
+                                    return remainingCategory ? remainingCategory.Plec : '-';
+                                })() : '-');
+                        } else {
+                            return good.subcategory ? subcategories.find(sub => sub._id === good.subcategory._id)?.Płeć || 'Nieokreślona' : 'Nieokreślona';
+                        }
+                    })()
+                }));
+                
+                const worksheet = XLSX.utils.json_to_sheet(exportData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Goods');
+                XLSX.writeFile(workbook, 'goods_cennik.xlsx');
+                break;
+            default:
+                console.error('Unsupported export format:', format);
+        }
+    };
+
+    // Print function for full price list - optimized for A4 landscape
+    const handlePrint = async () => {
+        if (goods.length === 0) {
+            alert("Brak produktów do wydrukowania.");
+            return;
+        }
+
+        try {
+            // Create PDF in landscape orientation with Polish characters support
+            const doc = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: 'a4',
+                compress: true,
+                putOnlyUsedFonts: true
+            });
+            
+            // Try to set encoding for Polish characters
+            try {
+                doc.setFont('helvetica', 'normal');
+                doc.setCharSpace(0.1);
+            } catch (e) {
+                console.log('Font setting error:', e);
+            }
+
+            // A4 landscape dimensions: 297mm x 210mm
+            const pageWidth = doc.internal.pageSize.getWidth(); // 297mm
+            const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
+            
+            // Function to convert Polish characters for PDF (same as in Warehouse)
+            const convertPolishChars = (text) => {
+                if (!text) return text;
+                return text.toString()
+                    .replace(/ą/g, 'a')
+                    .replace(/ć/g, 'c')
+                    .replace(/ę/g, 'e')
+                    .replace(/ł/g, 'l')
+                    .replace(/ń/g, 'n')
+                    .replace(/ó/g, 'o')
+                    .replace(/ś/g, 's')
+                    .replace(/ź/g, 'z')
+                    .replace(/ż/g, 'z')
+                    .replace(/Ą/g, 'A')
+                    .replace(/Ć/g, 'C')
+                    .replace(/Ę/g, 'E')
+                    .replace(/Ł/g, 'L')
+                    .replace(/Ń/g, 'N')
+                    .replace(/Ó/g, 'O')
+                    .replace(/Ś/g, 'S')
+                    .replace(/Ź/g, 'Z')
+                    .replace(/Ż/g, 'Z');
+            };
+            
+            // Prepare full table data with all columns
+            const tableData = goods.map((good, index) => [
+                index + 1, // Lp
+                // Produkt
+                convertPolishChars((good.category === 'Torebki' || good.category === 'Portfele' || good.category === 'Pozostały asortyment') ? 
+                    (good.bagProduct || '-') : 
+                    (good.stock ? good.stock.Tow_Opis : '-')),
+                // Kolor
+                convertPolishChars(good.color ? good.color.Kol_Opis : '-'),
+                // Nazwa produktu
+                convertPolishChars(good.fullName || '-'),
+                // Kod kreskowy
+                good.code || '-',
+                // Kategoria
+                convertPolishChars((() => {
+                    const category = good.category || '-';
+                    if (category === 'Kurtki kożuchy futra') return 'Kurtki';
+                    if (category === 'Pozostały asortyment') return 'Pozost.';
+                    return category;
+                })()),
+                // Podkategoria
+                convertPolishChars((() => {
+                    if (good.category === 'Torebki') {
+                        if (good.bagsCategoryId) {
+                            const bagsCategory = bagsCategories.find(cat => cat._id === good.bagsCategoryId);
+                            return bagsCategory && bagsCategory.Kat_1_Opis_1 ? bagsCategory.Kat_1_Opis_1 : '-';
+                        }
+                        return '-';
+                    } else if (good.category === 'Portfele') {
+                        if (good.bagsCategoryId) {
+                            const walletsCategory = walletsCategories.find(cat => cat._id === good.bagsCategoryId);
+                            return walletsCategory && walletsCategory.Kat_1_Opis_1 ? walletsCategory.Kat_1_Opis_1 : '-';
+                        }
+                        return '-';
+                    } else if (good.category === 'Pozostały asortyment') {
+                        if (good.subcategory) {
+                            if (good.subcategory === 'belts' || (good.subcategory && good.subcategory._id === 'belts')) {
+                                return 'Paski';
+                            } else if (good.subcategory === 'gloves' || (good.subcategory && good.subcategory._id === 'gloves')) {
+                                return 'Rekawiczki';
+                            } else {
+                                const subcategoryId = typeof good.subcategory === 'object' ? good.subcategory._id : good.subcategory;
+                                const remainingCategory = remainingCategories.find(cat => cat._id === subcategoryId);
+                                return remainingCategory && remainingCategory.Rem_Kat_1_Opis_1 ? remainingCategory.Rem_Kat_1_Opis_1 : '-';
+                            }
+                        }
+                        return '-';
+                    } else {
+                        return good.subcategory ? good.subcategory.Kat_1_Opis_1 : '-';
+                    }
+                })()),
+                // Podpodkategoria
+                (() => {
+                    if (good.category === 'Kurtki kożuchy futra' || good.category === 'Torebki' || good.category === 'Portfele') {
+                        return '-';
+                    } else if (good.category === 'Pozostały asortyment') {
+                        const remainingSubcategoryValue = good.remainingsubsubcategory || good.remainingSubcategory;
+                        if (remainingSubcategoryValue) {
+                            if (typeof remainingSubcategoryValue === 'object' && remainingSubcategoryValue.Sub_Opis) {
+                                return remainingSubcategoryValue.Sub_Opis;
+                            }
+                            if (typeof remainingSubcategoryValue === 'string' && !remainingSubcategoryValue.match(/^[0-9a-fA-F]{24}$/)) {
+                                return remainingSubcategoryValue;
+                            }
+                            const belt = belts.find(b => b._id === remainingSubcategoryValue);
+                            if (belt) return belt.Belt_Opis;
+                            const glove = gloves.find(g => g._id === remainingSubcategoryValue);
+                            if (glove) return glove.Glove_Opis;
+                            const subcategory = remainingSubcategories.find(sub => sub._id === remainingSubcategoryValue);
+                            return subcategory ? subcategory.Sub_Opis : '-';
+                        }
+                        return '-';
+                    }
+                    return '-';
+                })(),
+                // Producent
+                good.manufacturer ? good.manufacturer.Prod_Opis : '-',
+                // Zdjęcie (nazwa pliku)
+                good.fullName || '-',
+                // Cena
+                good.price || 0,
+                // Cena promocyjna
+                (good.discount_price === 0 || good.discount_price === '') ? '' : good.discount_price,
+                // Cena Karpacz
+                good.priceKarpacz || 0,
+                // Promocja Karpacz
+                (good.discount_priceKarpacz === 0 || good.discount_priceKarpacz === '') ? '' : good.discount_priceKarpacz,
+                // Wyjątki
+                convertPolishChars((() => {
+                    if (good.category === 'Torebki' || good.category === 'Portfele' || good.category === 'Pozostały asortyment') {
+                        return '-';
+                    } else {
+                        return good.priceExceptions.map(exception => 
+                            (exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'BR') + '=' + exception.value
+                        ).join(', ') || '-';
+                    }
+                })()),
+                // Wyjątki Karpacz
+                convertPolishChars((() => {
+                    if (good.category === 'Kurtki kożuchy futra') {
+                        return good.priceExceptionsKarpacz && good.priceExceptionsKarpacz.length > 0 ? 
+                            good.priceExceptionsKarpacz.map(exception => 
+                                (exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'BR') + '=' + exception.value
+                            ).join(', ') : '-';
+                    }
+                    return '-';
+                })()),
+                // Rodzaj
+                convertPolishChars((() => {
+                    if (good.category === 'Torebki') {
+                        const plec = good.Plec || (good.bagsCategoryId ? 
+                            (() => {
+                                const bagsCategory = bagsCategories.find(cat => cat._id === good.bagsCategoryId);
+                                return bagsCategory ? bagsCategory.Plec : '-';
+                            })() : '-');
+                        return plec === 'Damska' ? 'D' : plec === 'Meska' ? 'M' : plec === 'Dzieci' ? 'Dz' : plec;
+                    } else if (good.category === 'Portfele') {
+                        const plec = good.Plec || (good.bagsCategoryId ? 
+                            (() => {
+                                const walletsCategory = subcategories.find(cat => cat._id === good.bagsCategoryId);
+                                return walletsCategory ? walletsCategory.Plec : '-';
+                            })() : '-');
+                        return plec === 'Damska' ? 'D' : plec === 'Meska' ? 'M' : plec === 'Dzieci' ? 'Dz' : plec;
+                    } else if (good.category === 'Pozostaly asortyment') {
+                        const plec = good.Plec || (good.bagsCategoryId ? 
+                            (() => {
+                                const remainingCategory = remainingCategories.find(cat => cat._id === good.bagsCategoryId);
+                                return remainingCategory ? remainingCategory.Plec : '-';
+                            })() : '-');
+                        return plec === 'Damska' ? 'D' : plec === 'Meska' ? 'M' : plec === 'Dzieci' ? 'Dz' : plec;
+                    } else {
+                        const plec = good.subcategory ? subcategories.find(sub => sub._id === good.subcategory._id)?.Płeć || 'Nieokreslona' : 'Nieokreslona';
+                        return plec === 'Damska' ? 'D' : plec === 'Meska' ? 'M' : plec === 'Dzieci' ? 'Dz' : plec === 'Nieokreslona' ? 'N' : plec;
+                    }
+                })())
+            ]);
+
+            // Full table headers (17 columns - without Akcje)
+            const headers = [
+                'Lp', 'Produkt', 'Kolor', 'Nazwa produktu', 'Kod kreskowy', 'Kategoria', 
+                'Podkategoria', 'Podpodkategoria', 'Producent', 'Zdjecie', 'Cena', 'Cena promocyjna', 'Wyjatki', 'Cena Karpacz', 'Promocja Karpacz', 'Wyjatki Karpacz', 'Rodzaj'
+            ];
+
+            // Title
+            doc.setFontSize(14);
+            doc.text('CENNIK PRODUKTÓW - BUKOWSKI', pageWidth / 2, 15, { align: 'center' });
+            doc.setFontSize(8);
+            doc.text(`Data wydruku: ${new Date().toLocaleDateString('pl-PL')}`, pageWidth / 2, 22, { align: 'center' });
+
+            // Create table optimized for A4 landscape (297mm width)
+            autoTable(doc, {
+                head: [headers],
+                body: tableData,
+                startY: 28,
+                margin: { left: 1, right: 1 }, // Very minimal margins - available width: 295mm
+                styles: {
+                    fontSize: 4, // Very small font to fit everything
+                    cellPadding: 0.3,
+                    lineColor: [0, 0, 0],
+                    lineWidth: 0.1,
+                    overflow: 'linebreak'
+                },
+                headStyles: {
+                    fillColor: [41, 128, 185],
+                    textColor: 255,
+                    fontSize: 5,
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    cellPadding: 0.3
+                },
+                // Optimized column widths for 17 columns in 295mm total width (1mm margins)
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 8 },   // Lp - 8mm
+                    1: { halign: 'center', cellWidth: 18 },    // Produkt - 18mm
+                    2: { halign: 'center', cellWidth: 12 },    // Kolor - 12mm
+                    3: { halign: 'center', cellWidth: 25 },    // Nazwa produktu - 25mm
+                    4: { halign: 'center', cellWidth: 18 },  // Kod kreskowy - 18mm
+                    5: { halign: 'center', cellWidth: 15 },    // Kategoria - 15mm
+                    6: { halign: 'center', cellWidth: 18 },    // Podkategoria - 18mm
+                    7: { halign: 'center', cellWidth: 18 },    // Podpodkategoria - 18mm
+                    8: { halign: 'center', cellWidth: 18 },    // Producent - 18mm
+                    9: { halign: 'center', cellWidth: 18 },    // Zdjęcie - 18mm
+                    10: { halign: 'center', cellWidth: 12 },  // Cena - 12mm
+                    11: { halign: 'center', cellWidth: 15 },  // Cena promocyjna - 15mm
+                    12: { halign: 'center', cellWidth: 18 },   // Wyjątki - 18mm
+                    13: { halign: 'center', cellWidth: 15 },  // Cena Karpacz - 15mm
+                    14: { halign: 'center', cellWidth: 15 },  // Promocja Karpacz - 15mm
+                    15: { halign: 'center', cellWidth: 18 },   // Wyjątki Karpacz - 18mm
+                    16: { halign: 'center', cellWidth: 8 }   // Rodzaj - 8mm
+                }, // Total: 269mm (safe fit in 295mm with buffer)
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245]
+                },
+                showHead: 'everyPage',
+                pageBreak: 'auto'
+            });
+
+            // Page numbers
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(6);
+                doc.text(`Strona ${i} z ${pageCount}`, pageWidth - 10, pageHeight - 5, { align: 'right' });
+            }
+
+            // Print directly
+            doc.autoPrint();
+            window.open(doc.output('bloburl'), '_blank');
+
+        } catch (error) {
+            console.error('Błąd podczas drukowania:', error);
+            alert('Wystąpił błąd podczas generowania cennika do druku.');
+        }
+    };
+
     return (
         <div>
-            <Button color="primary" className={`${styles.addButton} ${styles.button} btn-sm`} style={{marginBottom: '20px'}} onClick={toggle}>Dodaj produkt</Button>
-            <Modal isOpen={modal} toggle={toggle} innerRef={modalRef}>
+            <Modal 
+                isOpen={modal} 
+                toggle={toggle} 
+                innerRef={modalRef}
+                size="xl"
+            >
                 <ModalHeader
                     style={{ cursor: 'grab' }}
                     onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
@@ -2056,6 +2533,71 @@ const Goods = () => {
                     <div style={{ textAlign: 'center', marginBottom: '15px', marginTop: '-20px' }}>
                         <Button color="primary" size="sm" onClick={handleAddPriceException}>Dodaj wyjątek</Button>
                     </div>
+
+                    {/* Cennik dla Karpacza */}
+                    <div style={{ marginTop: '30px', marginBottom: '20px', textAlign: 'center' }}>
+                        <h5 style={{ color: '#ffffff', borderBottom: '2px solid #ffffff', paddingBottom: '10px' }}>
+                            Cennik dla Karpacza
+                        </h5>
+                    </div>
+                    
+                    <FormGroup className={styles.formGroup}>
+                        <Label for="priceKarpacz" className={styles.label}>Cena (PLN):</Label>
+                        <Input
+                            type="number"
+                            id="priceKarpacz"
+                            className={`${styles.inputField} digit-color`}
+                            value={priceKarpacz}
+                            onChange={(e) => setPriceKarpacz(parseFloat(e.target.value) || 0)}
+                        />
+                    </FormGroup>
+                    
+                    <FormGroup className={styles.formGroup}>
+                        <Label for="discountPriceKarpacz" className={styles.label}>Promocyjna (PLN):</Label>
+                        <Input
+                            type="number"
+                            id="discountPriceKarpacz"
+                            className={`${styles.inputField} digit-color`}
+                            value={discountPriceKarpacz === 0 ? '' : discountPriceKarpacz}
+                            onChange={(e) => setDiscountPriceKarpacz(parseFloat(e.target.value) || 0)}
+                        />
+                    </FormGroup>
+                    
+                    <FormGroup className={styles.formGroup} style={{ marginBottom: '-100px' }}>
+                        <div>
+                            <Label className={styles.label}>Wyjątki:</Label>
+                        </div>
+                        <div>
+                            {priceExceptionsKarpacz.map((exception, index) => (
+                                <div key={index} className={styles.priceExceptionRow}>
+                                    <Input
+                                        type="select"
+                                        value={exception.size}
+                                        onChange={(e) => handlePriceExceptionKarpaczChange(index, 'size', e.target.value)}
+                                        className={styles.inputField}
+                                        style={{ marginRight: '10px', marginLeft: '10px', width: '180px' }}
+                                    >
+                                        {sizes.map(size => (
+                                            <option key={size._id} value={size._id}>{size.Roz_Opis}</option>
+                                        ))}
+                                    </Input>
+                                    <Input
+                                        type="number"
+                                        value={exception.value}
+                                        onChange={(e) => handlePriceExceptionKarpaczChange(index, 'value', e.target.value)}
+                                        className={styles.inputField}
+                                        style={{ marginRight: '10px', marginLeft: '10px', width: '110px' }}
+                                        min="0"
+                                    />
+                                    <Button color="danger" size="sm" onClick={() => handleRemovePriceExceptionKarpacz(index)} style={{ marginRight: '10px', marginLeft: '10px' }}>Usuń</Button>
+                                </div>
+                            ))}
+                        </div>
+                    </FormGroup>
+                    
+                    <div style={{ textAlign: 'center', marginBottom: '15px', marginTop: '-20px' }}>
+                        <Button color="primary" size="sm" onClick={handleAddPriceExceptionKarpacz}>Dodaj wyjątek</Button>
+                    </div>
                         </>
                     )}
                     
@@ -2333,6 +2875,35 @@ const Goods = () => {
                                     min="0"
                                 />
                             </FormGroup>
+                            
+                            {/* Cennik dla Karpacza - Torebki */}
+                            <div style={{ marginTop: '30px', marginBottom: '20px', textAlign: 'center' }}>
+                                <h5 style={{ color: '#ffffff', borderBottom: '2px solid #ffffff', paddingBottom: '10px' }}>
+                                    Cennik dla Karpacza
+                                </h5>
+                            </div>
+                            
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="bagPriceKarpacz" className={styles.label}>Cena (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="bagPriceKarpacz"
+                                    className={`${styles.inputField} digit-color`}
+                                    value={priceKarpacz}
+                                    onChange={(e) => setPriceKarpacz(parseFloat(e.target.value) || 0)}
+                                />
+                            </FormGroup>
+                            
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="bagDiscountPriceKarpacz" className={styles.label}>Promocyjna (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="bagDiscountPriceKarpacz"
+                                    className={`${styles.inputField} digit-color`}
+                                    value={discountPriceKarpacz === 0 ? '' : discountPriceKarpacz}
+                                    onChange={(e) => setDiscountPriceKarpacz(parseFloat(e.target.value) || 0)}
+                                />
+                            </FormGroup>
                         </>
                     )}
 
@@ -2606,6 +3177,35 @@ const Goods = () => {
                                     onChange={(e) => setDiscountPrice(parseFloat(e.target.value) || 0)}
                                     step="0.01"
                                     min="0"
+                                />
+                            </FormGroup>
+                            
+                            {/* Cennik dla Karpacza - Portfele */}
+                            <div style={{ marginTop: '30px', marginBottom: '20px', textAlign: 'center' }}>
+                                <h5 style={{ color: '#ffffff', borderBottom: '2px solid #ffffff', paddingBottom: '10px' }}>
+                                    Cennik dla Karpacza
+                                </h5>
+                            </div>
+                            
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletPriceKarpacz" className={styles.label}>Cena (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="walletPriceKarpacz"
+                                    className={`${styles.inputField} digit-color`}
+                                    value={priceKarpacz}
+                                    onChange={(e) => setPriceKarpacz(parseFloat(e.target.value) || 0)}
+                                />
+                            </FormGroup>
+                            
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletDiscountPriceKarpacz" className={styles.label}>Promocyjna (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="walletDiscountPriceKarpacz"
+                                    className={`${styles.inputField} digit-color`}
+                                    value={discountPriceKarpacz === 0 ? '' : discountPriceKarpacz}
+                                    onChange={(e) => setDiscountPriceKarpacz(parseFloat(e.target.value) || 0)}
                                 />
                             </FormGroup>
                         </>
@@ -2898,6 +3498,35 @@ const Goods = () => {
                                     min="0"
                                 />
                             </FormGroup>
+                            
+                            {/* Cennik dla Karpacza - Pozostały asortyment */}
+                            <div style={{ marginTop: '30px', marginBottom: '20px', textAlign: 'center' }}>
+                                <h5 style={{ color: '#ffffff', borderBottom: '2px solid #ffffff', paddingBottom: '10px' }}>
+                                    Cennik dla Karpacza
+                                </h5>
+                            </div>
+                            
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingPriceKarpacz" className={styles.label}>Cena (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="remainingPriceKarpacz"
+                                    className={`${styles.inputField} digit-color`}
+                                    value={priceKarpacz}
+                                    onChange={(e) => setPriceKarpacz(parseFloat(e.target.value) || 0)}
+                                />
+                            </FormGroup>
+                            
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="remainingDiscountPriceKarpacz" className={styles.label}>Promocyjna (PLN):</Label>
+                                <Input
+                                    type="number"
+                                    id="remainingDiscountPriceKarpacz"
+                                    className={`${styles.inputField} digit-color`}
+                                    value={discountPriceKarpacz === 0 ? '' : discountPriceKarpacz}
+                                    onChange={(e) => setDiscountPriceKarpacz(parseFloat(e.target.value) || 0)}
+                                />
+                            </FormGroup>
                         </>
                     )}
                     
@@ -2906,6 +3535,22 @@ const Goods = () => {
                     </Button>
                 </ModalBody>
             </Modal>
+            
+            {/* Action buttons */}
+            <div className="d-flex justify-content-center mb-3">
+                <div className="btn-group">
+                    <Button color="primary" className="me-2 btn btn-sm" onClick={toggle}>
+                        Dodaj produkt
+                    </Button>
+                    <Button color="success" className="me-2 btn btn-sm" onClick={() => handleExport('excel')}>
+                        Export to Excel
+                    </Button>
+                    <Button color="warning" className="btn btn-sm" onClick={handlePrint}>
+                        Drukuj cennik
+                    </Button>
+                </div>
+            </div>
+            
             <div className={styles.tableContainer}>
                 <Table bordered className={`${styles.table} ${styles.responsiveTable}`}>
                     <thead>
@@ -2920,10 +3565,13 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Podpodkategoria</th>
                             <th className={styles.tableHeader}>Producent</th>
                             <th className={styles.tableHeader}>Zdjęcie</th>
-                            <th className={styles.tableHeader}>Cena (PLN)</th>
-                            <th className={styles.tableHeader}>Cena promocyjna (PLN)</th>
+                            <th className={styles.tableHeader}>Cena</th>
+                            <th className={styles.tableHeader}>Cena promocyjna</th>
                             <th className={styles.tableHeader}>Wyjątki</th>
-                            <th className={styles.tableHeader}>Płeć</th>
+                            <th className={styles.tableHeader}>Cena Karpacz</th>
+                            <th className={styles.tableHeader}>Promocja Karpacz</th>
+                            <th className={styles.tableHeader}>Wyjątki Karpacz</th>
+                            <th className={styles.tableHeader}>Rodzaj</th>
                             <th className={styles.tableHeader}>Akcje</th>
                         </tr>
                     </thead>
@@ -3029,8 +3677,8 @@ const Goods = () => {
                                         onClick={() => handlePictureClick(good.picture || defaultPicture)}
                                     />
                                 </td>
-                                <td className={styles.tableCell} data-label="Cena (PLN)">{good.price}</td>
-                                <td className={styles.tableCell} data-label="Cena promocyjna (PLN)">
+                                <td className={styles.tableCell} data-label="Cena">{good.price}</td>
+                                <td className={styles.tableCell} data-label="Cena promocyjna">
                                     {good.discount_price === 0 || good.discount_price === '' ? '' : good.discount_price}
                                 </td>
                                 <td className={styles.tableCell} data-label="Wyjątki">
@@ -3043,7 +3691,22 @@ const Goods = () => {
                                         ))
                                     )}
                                 </td>
-                                <td className={styles.tableCell} data-label="Płeć">
+                                <td className={styles.tableCell} data-label="Cena Karpacz">{good.priceKarpacz || 0}</td>
+                                <td className={styles.tableCell} data-label="Promocja Karpacz">
+                                    {good.discount_priceKarpacz === 0 || good.discount_priceKarpacz === '' ? '' : good.discount_priceKarpacz}
+                                </td>
+                                <td className={styles.tableCell} data-label="Wyjątki Karpacz">
+                                    {good.category === 'Kurtki kożuchy futra' ? (
+                                        good.priceExceptionsKarpacz && good.priceExceptionsKarpacz.length > 0 ? 
+                                        good.priceExceptionsKarpacz.map((exception, i) => (
+                                            <span key={i}>
+                                                {exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru'}={exception.value}
+                                                {i < good.priceExceptionsKarpacz.length - 1 && ', '}
+                                            </span>
+                                        )) : '-'
+                                    ) : '-'}
+                                </td>
+                                <td className={styles.tableCell} data-label="Rodzaj">
                                     {good.category === 'Torebki' ? 
                                         (good.Plec || 
                                             (good.bagsCategoryId ? 
