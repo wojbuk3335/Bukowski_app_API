@@ -15,8 +15,8 @@ app.use((req, res, next) => {
     next();
 });
 
-// Set UTF-8 headers for all responses
-app.use((req, res, next) => {
+// Set UTF-8 headers only for API routes
+app.use('/api', (req, res, next) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     next();
 });
