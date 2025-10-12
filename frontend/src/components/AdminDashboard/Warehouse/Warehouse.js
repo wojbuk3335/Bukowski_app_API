@@ -1287,7 +1287,7 @@ const Warehouse = () => {
                 filters.push(`Kategoria: ${selectedCategoryForReport.label}`);
             }
             if (selectedFiltersValues.includes('manufacturer') && selectedManufacturerForReport) {
-                filters.push(`Producent: ${selectedManufacturerForReport.label}`);
+                filters.push(`Grupa: ${selectedManufacturerForReport.label}`);
             }
             
             if (filters.length > 0) {
@@ -2118,7 +2118,7 @@ const Warehouse = () => {
                             options={[
                                 { value: 'all', label: 'Wszystkie produkty' },
                                 { value: 'category', label: 'Filtruj według kategorii' },
-                                { value: 'manufacturer', label: 'Filtruj według producenta' },
+                                { value: 'manufacturer', label: 'Filtruj według grupy' },
                                 { value: 'size', label: 'Filtruj według rozmiaru' },
                                 { value: 'specific', label: 'Konkretny produkt' }
                             ]}
@@ -2244,7 +2244,7 @@ const Warehouse = () => {
                     
                     {selectedFiltersForReport.some(filter => filter.value === 'manufacturer') && (
                         <FormGroup>
-                            <Label for="manufacturerSelect">Wybierz producenta:</Label>
+                            <Label for="manufacturerSelect">Wybierz grupę:</Label>
                             <Select
                                 value={selectedManufacturerForReport}
                                 onChange={setSelectedManufacturerForReport}
@@ -2252,7 +2252,7 @@ const Warehouse = () => {
                                     value: manufacturer._id,
                                     label: manufacturer.Prod_Opis || manufacturer.Prod_Kod
                                 }))}
-                                placeholder="Wybierz producenta..."
+                                placeholder="Wybierz grupę..."
                                 isClearable
                                 menuPortalTarget={document.body}
                                 menuPosition="fixed"

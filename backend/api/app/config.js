@@ -1,6 +1,13 @@
 const { json } = require('body-parser');
 const dotenv = require('dotenv');
-dotenv.config({path: '../.env'});
+const path = require('path');
+dotenv.config({path: path.join(__dirname, '../.env')});
+
+// DEBUG - sprawdź czy .env się ładuje
+console.log('🔍 DEBUG CONFIG:');
+console.log('DATABASE from env:', process.env.DATABASE);
+console.log('Config directory:', __dirname);
+console.log('ENV path:', path.join(__dirname, '../.env'));
 
 module.exports = {
   port: process.env.PORT || 3000,

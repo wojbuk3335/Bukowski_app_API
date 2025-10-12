@@ -1443,7 +1443,7 @@ const Goods = () => {
         formData.append('priceKarpacz', priceKarpacz);
         formData.append('discount_priceKarpacz', discountPriceKarpacz);
         formData.append('priceExceptionsKarpacz', JSON.stringify(priceExceptionsKarpacz));
-        formData.append('manufacturer', selectedManufacturer); // Dodaj producenta
+        formData.append('manufacturer', selectedManufacturer); // Dodaj grupę
         formData.append('sellingPoint', ''); // Default value for sellingPoint
         formData.append('barcode', ''); // Default value for barcode
         formData.append('Plec', finalPlec); // Płeć z kategorii torebek lub podkategorii
@@ -1530,7 +1530,9 @@ const Goods = () => {
             setSelectedWalletCode(good.bagProduct || '');
             setSelectedWalletId(good.bagId || '');
             setWalletFilterText(good.bagProduct || '');
+            setColorFilterText(color.Kol_Opis || '');
             setSelectedCategory(good.category);
+            setSelectedManufacturer(good.manufacturer ? good.manufacturer._id : '');
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
@@ -1551,7 +1553,9 @@ const Goods = () => {
             setSelectedColor(color._id);
             setSelectedWalletCodePortfele(good.bagProduct || '');
             setWalletFilterTextPortfele(good.bagProduct || '');
+            setColorFilterText(color.Kol_Opis || '');
             setSelectedCategory(good.category);
+            setSelectedManufacturer(good.manufacturer ? good.manufacturer._id : '');
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
@@ -1572,8 +1576,10 @@ const Goods = () => {
             setSelectedColor(color._id);
             setSelectedRemainingProductCode(good.bagProduct || '');
             setRemainingProductFilterText(good.bagProduct || '');
+            setColorFilterText(color.Kol_Opis || '');
             setSelectedRemainingCategory(good.bagsCategoryId || '');
             setSelectedCategory(good.category);
+            setSelectedManufacturer(good.manufacturer ? good.manufacturer._id : '');
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
@@ -1599,6 +1605,8 @@ const Goods = () => {
 
             setSelectedStock(stock._id);
             setSelectedColor(color._id);
+            setProductFilterText(stock.Tow_Opis || '');
+            setColorFilterText(color.Kol_Opis || '');
 
             // Walidacja dla rozmiarów w priceExceptions
             const validPriceExceptions = good.priceExceptions.map(exception => {
@@ -1616,6 +1624,7 @@ const Goods = () => {
             setPriceExceptions(validPriceExceptions);
             setSelectedCategory(good.category);
             setSelectedSubcategory(good.subcategory ? good.subcategory._id : '');
+            setSelectedManufacturer(good.manufacturer ? good.manufacturer._id : '');
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
@@ -1856,7 +1865,7 @@ const Goods = () => {
                     })(),
                     'Podpodkategoria': (() => {
                         if (good.category === 'Kurtki kożuchy futra' || good.category === 'Torebki' || good.category === 'Portfele') {
-                            return '-';
+                            return '';
                         } else if (good.category === 'Pozostały asortyment') {
                             const remainingSubcategoryValue = good.remainingsubsubcategory || good.remainingSubcategory;
                             if (remainingSubcategoryValue) {
@@ -1871,13 +1880,13 @@ const Goods = () => {
                                 const glove = gloves.find(g => g._id === remainingSubcategoryValue);
                                 if (glove) return glove.Glove_Opis;
                                 const subcategory = remainingSubcategories.find(sub => sub._id === remainingSubcategoryValue);
-                                return subcategory ? subcategory.Sub_Opis : '-';
+                                return subcategory ? subcategory.Sub_Opis : '';
                             }
-                            return '-';
+                            return '';
                         }
-                        return '-';
+                        return '';
                     })(),
-                    'Producent': good.manufacturer ? good.manufacturer.Prod_Opis : '-',
+                    'Grupa': good.manufacturer ? good.manufacturer.Prod_Opis : '-',
                     'Zdjęcie': good.fullName || '-', // Nome do zdjęcia używamy nazwy produktu
                     'Cena': good.price || 0,
                     'Cena promocyjna': (good.discount_price === 0 || good.discount_price === '') ? '' : good.discount_price,
@@ -1890,16 +1899,16 @@ const Goods = () => {
                             ).join(', ') || '-';
                         }
                     })(),
-                    'Cena Karpacz': good.priceKarpacz || 0,
+                    'Cena Karpacz': good.priceKarpacz || '',
                     'Promocja Karpacz': (good.discount_priceKarpacz === 0 || good.discount_priceKarpacz === '') ? '' : good.discount_priceKarpacz,
                     'Wyjątki Karpacz': (() => {
                         if (good.category === 'Kurtki kożuchy futra') {
                             return good.priceExceptionsKarpacz && good.priceExceptionsKarpacz.length > 0 ? 
                                 good.priceExceptionsKarpacz.map(exception => 
                                     (exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru') + '=' + exception.value
-                                ).join(', ') : '-';
+                                ).join(', ') : '';
                         }
-                        return '-';
+                        return '';
                     })(),
                     'Rodzaj': (() => {
                         if (good.category === 'Torebki') {
@@ -2043,7 +2052,7 @@ const Goods = () => {
                 // Podpodkategoria
                 (() => {
                     if (good.category === 'Kurtki kożuchy futra' || good.category === 'Torebki' || good.category === 'Portfele') {
-                        return '-';
+                        return '';
                     } else if (good.category === 'Pozostały asortyment') {
                         const remainingSubcategoryValue = good.remainingsubsubcategory || good.remainingSubcategory;
                         if (remainingSubcategoryValue) {
@@ -2058,13 +2067,13 @@ const Goods = () => {
                             const glove = gloves.find(g => g._id === remainingSubcategoryValue);
                             if (glove) return glove.Glove_Opis;
                             const subcategory = remainingSubcategories.find(sub => sub._id === remainingSubcategoryValue);
-                            return subcategory ? subcategory.Sub_Opis : '-';
+                            return subcategory ? subcategory.Sub_Opis : '';
                         }
-                        return '-';
+                        return '';
                     }
-                    return '-';
+                    return '';
                 })(),
-                // Producent
+                // Grupa
                 good.manufacturer ? good.manufacturer.Prod_Opis : '-',
                 // Zdjęcie (nazwa pliku)
                 good.fullName || '-',
@@ -2073,7 +2082,7 @@ const Goods = () => {
                 // Cena promocyjna
                 (good.discount_price === 0 || good.discount_price === '') ? '' : good.discount_price,
                 // Cena Karpacz
-                good.priceKarpacz || 0,
+                good.priceKarpacz || '',
                 // Promocja Karpacz
                 (good.discount_priceKarpacz === 0 || good.discount_priceKarpacz === '') ? '' : good.discount_priceKarpacz,
                 // Wyjątki
@@ -2092,9 +2101,9 @@ const Goods = () => {
                         return good.priceExceptionsKarpacz && good.priceExceptionsKarpacz.length > 0 ? 
                             good.priceExceptionsKarpacz.map(exception => 
                                 (exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'BR') + '=' + exception.value
-                            ).join(', ') : '-';
+                            ).join(', ') : '';
                     }
-                    return '-';
+                    return '';
                 })()),
                 // Rodzaj
                 convertPolishChars((() => {
@@ -2129,7 +2138,7 @@ const Goods = () => {
             // Full table headers (17 columns - without Akcje)
             const headers = [
                 'Lp', 'Produkt', 'Kolor', 'Nazwa produktu', 'Kod kreskowy', 'Kategoria', 
-                'Podkategoria', 'Podpodkategoria', 'Producent', 'Zdjecie', 'Cena', 'Cena promocyjna', 'Wyjatki', 'Cena Karpacz', 'Promocja Karpacz', 'Wyjatki Karpacz', 'Rodzaj'
+                'Podkategoria', 'Podpodkategoria', 'Grupa', 'Zdjecie', 'Cena', 'Cena promocyjna', 'Wyjatki', 'Cena Karpacz', 'Promocja Karpacz', 'Wyjatki Karpacz', 'Rodzaj'
             ];
 
             // Title
@@ -2169,7 +2178,7 @@ const Goods = () => {
                     5: { halign: 'center', cellWidth: 15 },    // Kategoria - 15mm
                     6: { halign: 'center', cellWidth: 18 },    // Podkategoria - 18mm
                     7: { halign: 'center', cellWidth: 18 },    // Podpodkategoria - 18mm
-                    8: { halign: 'center', cellWidth: 18 },    // Producent - 18mm
+                    8: { halign: 'center', cellWidth: 18 },    // Grupa - 18mm
                     9: { halign: 'center', cellWidth: 18 },    // Zdjęcie - 18mm
                     10: { halign: 'center', cellWidth: 12 },  // Cena - 12mm
                     11: { halign: 'center', cellWidth: 15 },  // Cena promocyjna - 15mm
@@ -2263,7 +2272,7 @@ const Goods = () => {
                                 </Input>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
-                                <Label for="jacketManufacturerSelect" className={styles.label}>Producent:</Label>
+                                <Label for="jacketManufacturerSelect" className={styles.label}>Grupa:</Label>
                                 <Input
                                     type="select"
                                     id="jacketManufacturerSelect"
@@ -2271,7 +2280,6 @@ const Goods = () => {
                                     value={selectedManufacturer}
                                     onChange={(e) => setSelectedManufacturer(e.target.value)}
                                 >
-                                    <option value="">Wybierz producenta</option>
                                     {manufacturers.map(manufacturer => (
                                         <option key={manufacturer._id} value={manufacturer._id}>
                                             {manufacturer.Prod_Opis}
@@ -2635,7 +2643,7 @@ const Goods = () => {
                                 </Input>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
-                                <Label for="bagManufacturerSelect" className={styles.label}>Producent:</Label>
+                                <Label for="bagManufacturerSelect" className={styles.label}>Grupa:</Label>
                                 <Input
                                     type="select"
                                     id="bagManufacturerSelect"
@@ -2643,7 +2651,6 @@ const Goods = () => {
                                     value={selectedManufacturer}
                                     onChange={(e) => setSelectedManufacturer(e.target.value)}
                                 >
-                                    <option value="">Wybierz producenta</option>
                                     {manufacturers.map(manufacturer => (
                                         <option key={manufacturer._id} value={manufacturer._id}>
                                             {manufacturer.Prod_Opis}
@@ -2939,7 +2946,7 @@ const Goods = () => {
                                 </Input>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
-                                <Label for="walletManufacturerSelect" className={styles.label}>Producent:</Label>
+                                <Label for="walletManufacturerSelect" className={styles.label}>Grupa:</Label>
                                 <Input
                                     type="select"
                                     id="walletManufacturerSelect"
@@ -2947,7 +2954,6 @@ const Goods = () => {
                                     value={selectedManufacturer}
                                     onChange={(e) => setSelectedManufacturer(e.target.value)}
                                 >
-                                    <option value="">Wybierz producenta</option>
                                     {manufacturers.map(manufacturer => (
                                         <option key={manufacturer._id} value={manufacturer._id}>
                                             {manufacturer.Prod_Opis}
@@ -3258,7 +3264,7 @@ const Goods = () => {
                                 </Input>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
-                                <Label for="manufacturerSelect" className={styles.label}>Producent:</Label>
+                                <Label for="manufacturerSelect" className={styles.label}>Grupa:</Label>
                                 <Input
                                     type="select"
                                     id="manufacturerSelect"
@@ -3266,7 +3272,6 @@ const Goods = () => {
                                     value={selectedManufacturer}
                                     onChange={(e) => setSelectedManufacturer(e.target.value)}
                                 >
-                                    <option value="">Wybierz producenta</option>
                                     {manufacturers.map(manufacturer => (
                                         <option key={manufacturer._id} value={manufacturer._id}>
                                             {manufacturer.Prod_Opis}
@@ -3566,7 +3571,7 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Kategoria</th>
                             <th className={styles.tableHeader}>Podkategoria</th>
                             <th className={styles.tableHeader}>Podpodkategoria</th>
-                            <th className={styles.tableHeader}>Producent</th>
+                            <th className={styles.tableHeader}>Grupa</th>
                             <th className={styles.tableHeader}>Zdjęcie</th>
                             <th className={styles.tableHeader}>Cena</th>
                             <th className={styles.tableHeader}>Cena promocyjna</th>
@@ -3634,9 +3639,9 @@ const Goods = () => {
                                     }
                                 </td>
                                 <td className={styles.tableCell} data-label="Podpodkategoria">
-                                    {good.category === 'Kurtki kożuchy futra' ? '-' : 
-                                     good.category === 'Torebki' ? '-' :
-                                     good.category === 'Portfele' ? '-' :
+                                    {good.category === 'Kurtki kożuchy futra' ? '' : 
+                                     good.category === 'Torebki' ? '' :
+                                     good.category === 'Portfele' ? '' :
                                      good.category === 'Pozostały asortyment' ? 
                                         (() => {
                                             // Check both new and old field names
@@ -3662,13 +3667,13 @@ const Goods = () => {
                                                 
                                                 // Standardowe podpodkategorie
                                                 const subcategory = remainingSubcategories.find(sub => sub._id === remainingSubcategoryValue);
-                                                return subcategory ? subcategory.Sub_Opis : '-';
+                                                return subcategory ? subcategory.Sub_Opis : '';
                                             }
-                                            return '-';
-                                        })() : '-'
+                                            return '';
+                                        })() : ''
                                     }
                                 </td>
-                                <td className={styles.tableCell} data-label="Producent">
+                                <td className={styles.tableCell} data-label="Grupa">
                                     {good.manufacturer ? good.manufacturer.Prod_Opis : '-'}
                                 </td>
                                 <td className={styles.tableCell} data-label="Zdjęcie">
@@ -3694,7 +3699,7 @@ const Goods = () => {
                                         ))
                                     )}
                                 </td>
-                                <td className={styles.tableCell} data-label="Cena Karpacz">{good.priceKarpacz || 0}</td>
+                                <td className={styles.tableCell} data-label="Cena Karpacz">{good.priceKarpacz || ''}</td>
                                 <td className={styles.tableCell} data-label="Promocja Karpacz">
                                     {good.discount_priceKarpacz === 0 || good.discount_priceKarpacz === '' ? '' : good.discount_priceKarpacz}
                                 </td>
@@ -3706,8 +3711,8 @@ const Goods = () => {
                                                 {exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru'}={exception.value}
                                                 {i < good.priceExceptionsKarpacz.length - 1 && ', '}
                                             </span>
-                                        )) : '-'
-                                    ) : '-'}
+                                        )) : ''
+                                    ) : ''}
                                 </td>
                                 <td className={styles.tableCell} data-label="Rodzaj">
                                     {good.category === 'Torebki' ? 

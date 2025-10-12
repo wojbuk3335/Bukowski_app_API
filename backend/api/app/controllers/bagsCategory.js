@@ -102,6 +102,11 @@ class BagsCategoryController {
             Kat_1_Opis_1: req.body.Kat_1_Opis_1
         };
 
+        // Dodaj Plec do updateData jeśli zostało przesłane
+        if (req.body.Plec !== undefined) {
+            updateData.Plec = req.body.Plec;
+        }
+
         BagsCategory.updateOne({ _id: id }, { $set: updateData })
             .then(result => {
                 if (result.modifiedCount > 0) {

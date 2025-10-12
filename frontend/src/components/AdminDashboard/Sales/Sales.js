@@ -1304,7 +1304,7 @@ const Sales = () => {
                             options={[
                                 { value: 'all', label: 'Wszystkie produkty' },
                                 { value: 'category', label: 'Filtruj według kategorii' },
-                                { value: 'manufacturer', label: 'Filtruj według producenta' },
+                                { value: 'manufacturer', label: 'Filtruj według grupy' },
                                 { value: 'size', label: 'Filtruj według rozmiaru' },
                                 { value: 'sellingPoint', label: 'Filtruj według punktu sprzedaży' },
                                 { value: 'specific', label: 'Konkretny produkt' }
@@ -1488,7 +1488,7 @@ const Sales = () => {
                     
                     {selectedFiltersForSalesReport.some(filter => filter.value === 'manufacturer') && (
                         <FormGroup>
-                            <Label for="salesManufacturerSelect">Wybierz producenta:</Label>
+                            <Label for="salesManufacturerSelect">Wybierz grupę:</Label>
                             <Select
                                 value={selectedManufacturerForSalesReport}
                                 onChange={setSelectedManufacturerForSalesReport}
@@ -1496,7 +1496,7 @@ const Sales = () => {
                                     value: manufacturer._id,
                                     label: manufacturer.Prod_Opis || manufacturer.Prod_Kod
                                 }))}
-                                placeholder="Wybierz producenta..."
+                                placeholder="Wybierz grupę..."
                                 isClearable
                                 menuPortalTarget={document.body}
                                 menuPosition="fixed"

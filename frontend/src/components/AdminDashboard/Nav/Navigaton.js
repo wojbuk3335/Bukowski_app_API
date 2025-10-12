@@ -94,7 +94,7 @@ function Navigaton() {
               <NavDropdown.Item as={Link} to="/admin/dashboard/bags">Tabela torebek</NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/admin/dashboard/wallets">Tabela portfeli</NavDropdown.Item>
               <NavDropdown.Item as={Link} to="/admin/dashboard/remaining-products">Tabela pozostałego asortymentu</NavDropdown.Item>
-              <NavDropdown.Item as={Link} to="/admin/dashboard/manufacturers">Tabela producentów</NavDropdown.Item>
+              <NavDropdown.Item as={Link} to="/admin/dashboard/manufacturers">Tabela grup</NavDropdown.Item>
               <NavDropdown.Item
                 as="div"
                 className="dropdown-submenu"

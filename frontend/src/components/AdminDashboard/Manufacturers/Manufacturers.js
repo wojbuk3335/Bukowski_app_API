@@ -94,7 +94,7 @@ const Manufacturers = () => {
             toggleModal();
         } catch (error) {
             console.error('Error updating manufacturer:', error);
-            alert('Błąd podczas aktualizacji producenta: ' + (error.response?.data?.message || error.message));
+            alert('Błąd podczas aktualizacji grupy: ' + (error.response?.data?.message || error.message));
         } finally {
             setLoading(false);
         }
@@ -185,7 +185,7 @@ const Manufacturers = () => {
         <div>
             <Fragment>
                 <h3 className={`${styles.textCenter} ${styles.mt4} ${styles.mb4} ${styles.textWhite}`}>
-                    Producenci
+                    Grupy
                 </h3>
                 <div className={styles.container}>
                     <div className={styles.buttonGroup}>
@@ -210,7 +210,7 @@ const Manufacturers = () => {
             </Fragment>
 
             <Modal isOpen={modal} toggle={toggleModal}>
-                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Edytuj opis producenta</ModalHeader>
+                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Edytuj opis grupy</ModalHeader>
                 <ModalBody className={styles.modalBody}>
                     <FormGroup>
                         <Label for="prodOpis">Prod_Opis</Label>
