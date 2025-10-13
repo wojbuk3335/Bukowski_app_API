@@ -66,10 +66,6 @@ const Goods = () => {
     const [price, setPrice] = useState(0);
     const [discountPrice, setDiscountPrice] = useState(0);
     const [priceExceptions, setPriceExceptions] = useState([]); // Initialize with an empty array
-    // Karpacz pricing states
-    const [priceKarpacz, setPriceKarpacz] = useState(0);
-    const [discountPriceKarpacz, setDiscountPriceKarpacz] = useState(0);
-    const [priceExceptionsKarpacz, setPriceExceptionsKarpacz] = useState([]);
     const [sizes, setSizes] = useState([]);
     const [editingGood, setEditingGood] = useState(null); // New state for editing
     const [productName, setProductName] = useState(''); // New state for product name
@@ -1079,21 +1075,7 @@ const Goods = () => {
         setPriceExceptions(newPriceExceptions);
     };
 
-    // Karpacz price exception handlers
-    const handlePriceExceptionKarpaczChange = (index, field, value) => {
-        const newPriceExceptions = [...priceExceptionsKarpacz];
-        newPriceExceptions[index][field] = value;
-        setPriceExceptionsKarpacz(newPriceExceptions);
-    };
 
-    const handleAddPriceExceptionKarpacz = () => {
-        setPriceExceptionsKarpacz([...priceExceptionsKarpacz, { size: '', value: 0 }]);
-    };
-
-    const handleRemovePriceExceptionKarpacz = (index) => {
-        const newPriceExceptions = priceExceptionsKarpacz.filter((_, i) => i !== index);
-        setPriceExceptionsKarpacz(newPriceExceptions);
-    };
 
     const updateProductName = (stockId, colorId) => {
         const stock = stocks.find(stock => stock._id === stockId);
@@ -1439,10 +1421,6 @@ const Goods = () => {
         formData.append('price', price);
         formData.append('discount_price', discountPrice);
         formData.append('priceExceptions', JSON.stringify(priceExceptions));
-        // Karpacz pricing fields
-        formData.append('priceKarpacz', priceKarpacz);
-        formData.append('discount_priceKarpacz', discountPriceKarpacz);
-        formData.append('priceExceptionsKarpacz', JSON.stringify(priceExceptionsKarpacz));
         formData.append('manufacturer', selectedManufacturer); // Dodaj grupę
         formData.append('sellingPoint', ''); // Default value for sellingPoint
         formData.append('barcode', ''); // Default value for barcode
@@ -1494,8 +1472,9 @@ const Goods = () => {
                 });
                 const data = await response.json();
 
-                if (data.message === 'Good deleted successfully') {
+                if (response.ok && (data.message.includes('Good deleted successfully') || data.message.includes('deleted successfully'))) {
                     fetchGoods(); // Refresh the goods list
+                    alert('Produkt został usunięty oraz automatycznie usunięty ze wszystkich cenników.');
                 } else {
                     alert('Nie znaleziono produktu');
                 }
@@ -1536,10 +1515,6 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
-            // Set Karpacz prices for bags
-            setPriceKarpacz(good.priceKarpacz || 0);
-            setDiscountPriceKarpacz(good.discount_priceKarpacz || 0);
-            setPriceExceptionsKarpacz(good.priceExceptionsKarpacz || []);
             
         } else if (good.category === 'Portfele') {
             // Obsługa edycji portfeli
@@ -1559,10 +1534,6 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
-            // Set Karpacz prices for wallets
-            setPriceKarpacz(good.priceKarpacz || 0);
-            setDiscountPriceKarpacz(good.discount_priceKarpacz || 0);
-            setPriceExceptionsKarpacz(good.priceExceptionsKarpacz || []);
             
         } else if (good.category === 'Pozostały asortyment') {
             // Obsługa edycji pozostałego asortymentu
@@ -1583,10 +1554,6 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
-            // Set Karpacz prices for remaining products
-            setPriceKarpacz(good.priceKarpacz || 0);
-            setDiscountPriceKarpacz(good.discount_priceKarpacz || 0);
-            setPriceExceptionsKarpacz(good.priceExceptionsKarpacz || []);
             
         } else {
             // Obsługa edycji kurtek
@@ -1628,23 +1595,6 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
-            
-            // Set Karpacz prices for jackets - validate priceExceptionsKarpacz
-            const validPriceExceptionsKarpacz = (good.priceExceptionsKarpacz || []).map(exception => {
-                const size = sizes.find(size => size._id === exception.size?._id);
-                if (!size) {
-                    console.warn(`Nie znaleziono rozmiaru dla Karpacz exception: ${exception.size?._id}`);
-                    return null;
-                }
-                return {
-                    size: size._id,
-                    value: exception.value
-                };
-            }).filter(exception => exception !== null);
-            
-            setPriceKarpacz(good.priceKarpacz || 0);
-            setDiscountPriceKarpacz(good.discount_priceKarpacz || 0);
-            setPriceExceptionsKarpacz(validPriceExceptionsKarpacz);
         }
         setSelectedImage(null); // Reset image selection for editing
         setModal(true);
@@ -1694,10 +1644,6 @@ const Goods = () => {
         setPrice(0);
         setDiscountPrice(0);
         setPriceExceptions([]); // Reset to an empty array
-        // Reset Karpacz prices
-        setPriceKarpacz(0);
-        setDiscountPriceKarpacz(0);
-        setPriceExceptionsKarpacz([]);
         setSelectedImage(null);
         setEditingGood(null);
         setSelectedRemainingCategory(remainingCategories.length > 0 ? remainingCategories[0]._id : ''); // Reset remaining category
@@ -1898,17 +1844,6 @@ const Goods = () => {
                                 (exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru') + '=' + exception.value
                             ).join(', ') || '-';
                         }
-                    })(),
-                    'Cena Karpacz': good.priceKarpacz || '',
-                    'Promocja Karpacz': (good.discount_priceKarpacz === 0 || good.discount_priceKarpacz === '') ? '' : good.discount_priceKarpacz,
-                    'Wyjątki Karpacz': (() => {
-                        if (good.category === 'Kurtki kożuchy futra') {
-                            return good.priceExceptionsKarpacz && good.priceExceptionsKarpacz.length > 0 ? 
-                                good.priceExceptionsKarpacz.map(exception => 
-                                    (exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru') + '=' + exception.value
-                                ).join(', ') : '';
-                        }
-                        return '';
                     })(),
                     'Rodzaj': (() => {
                         if (good.category === 'Torebki') {
@@ -2135,10 +2070,10 @@ const Goods = () => {
                 })())
             ]);
 
-            // Full table headers (17 columns - without Akcje)
+            // Full table headers (14 columns - without Akcje and Karpacz fields)
             const headers = [
                 'Lp', 'Produkt', 'Kolor', 'Nazwa produktu', 'Kod kreskowy', 'Kategoria', 
-                'Podkategoria', 'Podpodkategoria', 'Grupa', 'Zdjecie', 'Cena', 'Cena promocyjna', 'Wyjatki', 'Cena Karpacz', 'Promocja Karpacz', 'Wyjatki Karpacz', 'Rodzaj'
+                'Podkategoria', 'Podpodkategoria', 'Grupa', 'Zdjecie', 'Cena', 'Cena promocyjna', 'Wyjatki', 'Rodzaj'
             ];
 
             // Title
@@ -2168,26 +2103,23 @@ const Goods = () => {
                     halign: 'center',
                     cellPadding: 0.3
                 },
-                // Optimized column widths for 17 columns in 295mm total width (1mm margins)
+                // Optimized column widths for 14 columns in 295mm total width (1mm margins)
                 columnStyles: {
                     0: { halign: 'center', cellWidth: 8 },   // Lp - 8mm
-                    1: { halign: 'center', cellWidth: 18 },    // Produkt - 18mm
-                    2: { halign: 'center', cellWidth: 12 },    // Kolor - 12mm
-                    3: { halign: 'center', cellWidth: 25 },    // Nazwa produktu - 25mm
-                    4: { halign: 'center', cellWidth: 18 },  // Kod kreskowy - 18mm
-                    5: { halign: 'center', cellWidth: 15 },    // Kategoria - 15mm
-                    6: { halign: 'center', cellWidth: 18 },    // Podkategoria - 18mm
-                    7: { halign: 'center', cellWidth: 18 },    // Podpodkategoria - 18mm
-                    8: { halign: 'center', cellWidth: 18 },    // Grupa - 18mm
-                    9: { halign: 'center', cellWidth: 18 },    // Zdjęcie - 18mm
-                    10: { halign: 'center', cellWidth: 12 },  // Cena - 12mm
-                    11: { halign: 'center', cellWidth: 15 },  // Cena promocyjna - 15mm
-                    12: { halign: 'center', cellWidth: 18 },   // Wyjątki - 18mm
-                    13: { halign: 'center', cellWidth: 15 },  // Cena Karpacz - 15mm
-                    14: { halign: 'center', cellWidth: 15 },  // Promocja Karpacz - 15mm
-                    15: { halign: 'center', cellWidth: 18 },   // Wyjątki Karpacz - 18mm
-                    16: { halign: 'center', cellWidth: 8 }   // Rodzaj - 8mm
-                }, // Total: 269mm (safe fit in 295mm with buffer)
+                    1: { halign: 'center', cellWidth: 22 },    // Produkt - 22mm
+                    2: { halign: 'center', cellWidth: 18 },    // Kolor - 18mm
+                    3: { halign: 'center', cellWidth: 28 },    // Nazwa produktu - 28mm
+                    4: { halign: 'center', cellWidth: 20 },  // Kod kreskowy - 20mm
+                    5: { halign: 'center', cellWidth: 18 },    // Kategoria - 18mm
+                    6: { halign: 'center', cellWidth: 22 },    // Podkategoria - 22mm
+                    7: { halign: 'center', cellWidth: 22 },    // Podpodkategoria - 22mm
+                    8: { halign: 'center', cellWidth: 20 },    // Grupa - 20mm
+                    9: { halign: 'center', cellWidth: 20 },    // Zdjęcie - 20mm
+                    10: { halign: 'center', cellWidth: 15 },  // Cena - 15mm
+                    11: { halign: 'center', cellWidth: 18 },  // Cena promocyjna - 18mm
+                    12: { halign: 'center', cellWidth: 25 },   // Wyjątki - 25mm
+                    13: { halign: 'center', cellWidth: 12 }   // Rodzaj - 12mm
+                }, // Total: 268mm (fits comfortably in 295mm)
                 alternateRowStyles: {
                     fillColor: [245, 245, 245]
                 },
@@ -2545,70 +2477,7 @@ const Goods = () => {
                         <Button color="primary" size="sm" onClick={handleAddPriceException}>Dodaj wyjątek</Button>
                     </div>
 
-                    {/* Cennik dla Karpacza */}
-                    <div style={{ marginTop: '30px', marginBottom: '20px', textAlign: 'center' }}>
-                        <h5 style={{ color: '#ffffff', borderBottom: '2px solid #ffffff', paddingBottom: '10px' }}>
-                            Cennik dla Karpacza
-                        </h5>
-                    </div>
-                    
-                    <FormGroup className={styles.formGroup}>
-                        <Label for="priceKarpacz" className={styles.label}>Cena (PLN):</Label>
-                        <Input
-                            type="number"
-                            id="priceKarpacz"
-                            className={`${styles.inputField} digit-color`}
-                            value={priceKarpacz}
-                            onChange={(e) => setPriceKarpacz(parseFloat(e.target.value) || 0)}
-                        />
-                    </FormGroup>
-                    
-                    <FormGroup className={styles.formGroup}>
-                        <Label for="discountPriceKarpacz" className={styles.label}>Promocyjna (PLN):</Label>
-                        <Input
-                            type="number"
-                            id="discountPriceKarpacz"
-                            className={`${styles.inputField} digit-color`}
-                            value={discountPriceKarpacz === 0 ? '' : discountPriceKarpacz}
-                            onChange={(e) => setDiscountPriceKarpacz(parseFloat(e.target.value) || 0)}
-                        />
-                    </FormGroup>
-                    
-                    <FormGroup className={styles.formGroup} style={{ marginBottom: '-100px' }}>
-                        <div>
-                            <Label className={styles.label}>Wyjątki:</Label>
-                        </div>
-                        <div>
-                            {priceExceptionsKarpacz.map((exception, index) => (
-                                <div key={index} className={styles.priceExceptionRow}>
-                                    <Input
-                                        type="select"
-                                        value={exception.size}
-                                        onChange={(e) => handlePriceExceptionKarpaczChange(index, 'size', e.target.value)}
-                                        className={styles.inputField}
-                                        style={{ marginRight: '10px', marginLeft: '10px', width: '180px' }}
-                                    >
-                                        {sizes.map(size => (
-                                            <option key={size._id} value={size._id}>{size.Roz_Opis}</option>
-                                        ))}
-                                    </Input>
-                                    <Input
-                                        type="number"
-                                        value={exception.value}
-                                        onChange={(e) => handlePriceExceptionKarpaczChange(index, 'value', e.target.value)}
-                                        className={styles.inputField}
-                                        style={{ marginRight: '10px', marginLeft: '10px', width: '110px' }}
-                                        min="0"
-                                    />
-                                    <Button color="danger" size="sm" onClick={() => handleRemovePriceExceptionKarpacz(index)} style={{ marginRight: '10px', marginLeft: '10px' }}>Usuń</Button>
-                                </div>
-                            ))}
-                        </div>
-                    </FormGroup>
-                    
-                    <div style={{ textAlign: 'center', marginBottom: '15px', marginTop: '-20px' }}>
-                        <Button color="primary" size="sm" onClick={handleAddPriceExceptionKarpacz}>Dodaj wyjątek</Button>
-                    </div>
+
                         </>
                     )}
                     
@@ -2886,34 +2755,7 @@ const Goods = () => {
                                 />
                             </FormGroup>
                             
-                            {/* Cennik dla Karpacza - Torebki */}
-                            <div style={{ marginTop: '30px', marginBottom: '20px', textAlign: 'center' }}>
-                                <h5 style={{ color: '#ffffff', borderBottom: '2px solid #ffffff', paddingBottom: '10px' }}>
-                                    Cennik dla Karpacza
-                                </h5>
-                            </div>
-                            
-                            <FormGroup className={styles.formGroup}>
-                                <Label for="bagPriceKarpacz" className={styles.label}>Cena (PLN):</Label>
-                                <Input
-                                    type="number"
-                                    id="bagPriceKarpacz"
-                                    className={`${styles.inputField} digit-color`}
-                                    value={priceKarpacz}
-                                    onChange={(e) => setPriceKarpacz(parseFloat(e.target.value) || 0)}
-                                />
-                            </FormGroup>
-                            
-                            <FormGroup className={styles.formGroup}>
-                                <Label for="bagDiscountPriceKarpacz" className={styles.label}>Promocyjna (PLN):</Label>
-                                <Input
-                                    type="number"
-                                    id="bagDiscountPriceKarpacz"
-                                    className={`${styles.inputField} digit-color`}
-                                    value={discountPriceKarpacz === 0 ? '' : discountPriceKarpacz}
-                                    onChange={(e) => setDiscountPriceKarpacz(parseFloat(e.target.value) || 0)}
-                                />
-                            </FormGroup>
+
                         </>
                     )}
 
@@ -3189,34 +3031,7 @@ const Goods = () => {
                                 />
                             </FormGroup>
                             
-                            {/* Cennik dla Karpacza - Portfele */}
-                            <div style={{ marginTop: '30px', marginBottom: '20px', textAlign: 'center' }}>
-                                <h5 style={{ color: '#ffffff', borderBottom: '2px solid #ffffff', paddingBottom: '10px' }}>
-                                    Cennik dla Karpacza
-                                </h5>
-                            </div>
-                            
-                            <FormGroup className={styles.formGroup}>
-                                <Label for="walletPriceKarpacz" className={styles.label}>Cena (PLN):</Label>
-                                <Input
-                                    type="number"
-                                    id="walletPriceKarpacz"
-                                    className={`${styles.inputField} digit-color`}
-                                    value={priceKarpacz}
-                                    onChange={(e) => setPriceKarpacz(parseFloat(e.target.value) || 0)}
-                                />
-                            </FormGroup>
-                            
-                            <FormGroup className={styles.formGroup}>
-                                <Label for="walletDiscountPriceKarpacz" className={styles.label}>Promocyjna (PLN):</Label>
-                                <Input
-                                    type="number"
-                                    id="walletDiscountPriceKarpacz"
-                                    className={`${styles.inputField} digit-color`}
-                                    value={discountPriceKarpacz === 0 ? '' : discountPriceKarpacz}
-                                    onChange={(e) => setDiscountPriceKarpacz(parseFloat(e.target.value) || 0)}
-                                />
-                            </FormGroup>
+
                         </>
                     )}
 
@@ -3507,34 +3322,7 @@ const Goods = () => {
                                 />
                             </FormGroup>
                             
-                            {/* Cennik dla Karpacza - Pozostały asortyment */}
-                            <div style={{ marginTop: '30px', marginBottom: '20px', textAlign: 'center' }}>
-                                <h5 style={{ color: '#ffffff', borderBottom: '2px solid #ffffff', paddingBottom: '10px' }}>
-                                    Cennik dla Karpacza
-                                </h5>
-                            </div>
-                            
-                            <FormGroup className={styles.formGroup}>
-                                <Label for="remainingPriceKarpacz" className={styles.label}>Cena (PLN):</Label>
-                                <Input
-                                    type="number"
-                                    id="remainingPriceKarpacz"
-                                    className={`${styles.inputField} digit-color`}
-                                    value={priceKarpacz}
-                                    onChange={(e) => setPriceKarpacz(parseFloat(e.target.value) || 0)}
-                                />
-                            </FormGroup>
-                            
-                            <FormGroup className={styles.formGroup}>
-                                <Label for="remainingDiscountPriceKarpacz" className={styles.label}>Promocyjna (PLN):</Label>
-                                <Input
-                                    type="number"
-                                    id="remainingDiscountPriceKarpacz"
-                                    className={`${styles.inputField} digit-color`}
-                                    value={discountPriceKarpacz === 0 ? '' : discountPriceKarpacz}
-                                    onChange={(e) => setDiscountPriceKarpacz(parseFloat(e.target.value) || 0)}
-                                />
-                            </FormGroup>
+
                         </>
                     )}
                     
@@ -3576,9 +3364,6 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Cena</th>
                             <th className={styles.tableHeader}>Cena promocyjna</th>
                             <th className={styles.tableHeader}>Wyjątki</th>
-                            <th className={styles.tableHeader}>Cena Karpacz</th>
-                            <th className={styles.tableHeader}>Promocja Karpacz</th>
-                            <th className={styles.tableHeader}>Wyjątki Karpacz</th>
                             <th className={styles.tableHeader}>Rodzaj</th>
                             <th className={styles.tableHeader}>Akcje</th>
                         </tr>
@@ -3698,21 +3483,6 @@ const Goods = () => {
                                             </span>
                                         ))
                                     )}
-                                </td>
-                                <td className={styles.tableCell} data-label="Cena Karpacz">{good.priceKarpacz || ''}</td>
-                                <td className={styles.tableCell} data-label="Promocja Karpacz">
-                                    {good.discount_priceKarpacz === 0 || good.discount_priceKarpacz === '' ? '' : good.discount_priceKarpacz}
-                                </td>
-                                <td className={styles.tableCell} data-label="Wyjątki Karpacz">
-                                    {good.category === 'Kurtki kożuchy futra' ? (
-                                        good.priceExceptionsKarpacz && good.priceExceptionsKarpacz.length > 0 ? 
-                                        good.priceExceptionsKarpacz.map((exception, i) => (
-                                            <span key={i}>
-                                                {exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru'}={exception.value}
-                                                {i < good.priceExceptionsKarpacz.length - 1 && ', '}
-                                            </span>
-                                        )) : ''
-                                    ) : ''}
                                 </td>
                                 <td className={styles.tableCell} data-label="Rodzaj">
                                     {good.category === 'Torebki' ? 

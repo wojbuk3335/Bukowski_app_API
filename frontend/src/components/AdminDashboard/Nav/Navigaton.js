@@ -177,6 +177,7 @@ function Navigaton() {
             <Nav.Link as={Link} to="/admin/dashboard/history">Historia</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/corrections">Korekty</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/addtostate">Dobieranie</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/cennik">Cenniki</Nav.Link>
 
           </Nav>
         </Navbar.Collapse>

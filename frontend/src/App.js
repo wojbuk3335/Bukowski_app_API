@@ -37,6 +37,7 @@ import RemainingProductsSubcategory from './components/AdminDashboard/RemainingP
 import Manufacturers from './components/AdminDashboard/Manufacturers/Manufacturers';
 import Belts from './components/AdminDashboard/Belts/Belts';
 import Gloves from './components/AdminDashboard/Gloves/Gloves';
+import Cennik from './components/AdminDashboard/Cennik/Cennik';
 
 function App() {
   return (
@@ -80,6 +81,7 @@ function App() {
           <Route path="addtostate" element={<AddToState />} />
           <Route path="sales" element={<Sales/>} />
           <Route path="remaining-products" element={<RemainingProducts />} />
+          <Route path="cennik" element={<Cennik />} />
         </Route>
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />
         <Route path="/user/dashboard/*" element={<UserPrivateRoute element={UserDashboard} allowedRoles={['user']} />}>

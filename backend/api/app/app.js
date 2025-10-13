@@ -58,8 +58,10 @@ const deductionsRoutes = require('./routes/deductions'); // Import deductions ro
 const transferProcessingRoutes = require('./routes/transferProcessing'); // Import transfer processing routes
 const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
 const correctionsRoutes = require('./routes/corrections'); // Import corrections routes
+const priceListRoutes = require('./routes/priceList'); // Import price list routes
 
 app.use('/api/corrections', correctionsRoutes); // Use corrections routes
+app.use('/api/pricelists', priceListRoutes); // Use price list routes
 app.use('/api/sales', salesRoutes); // Use sales routes
 app.use('/api/warehouse', warehouseRoutes); // Use warehouse routes
 app.use('/api/transfer', transferProcessingRoutes); // Use transfer processing routes
@@ -117,9 +119,11 @@ app.use((error, req, res, next) => {
     });
 });
 
-// Start the server
-app.listen(port, () => {
-    console.log(`Server uruchomiony na ${domain}`);
-});
+// Start the server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(port, () => {
+        console.log(`Server uruchomiony na ${domain}`);
+    });
+}
 
 module.exports = app;

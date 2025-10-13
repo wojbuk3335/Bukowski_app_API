@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const upload = multer();
 const config = require('../config');
+const axios = require('axios');
+const PriceListController = require('./priceList');
 
 class GoodsController {
     async createGood(req, res, next) {
@@ -157,7 +159,7 @@ class GoodsController {
         const newGood = new Goods(goodData);
 
         newGood.save()
-            .then(result => {
+            .then(async result => {
                 console.log('Saved good to database:', {
                     _id: result._id,
                     category: result.category,
@@ -166,8 +168,22 @@ class GoodsController {
                     bagsCategoryId: result.bagsCategoryId
                 });
                 
+                // New product created - sync all price lists to add new product INCLUDING prices
+                try {
+                    await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
+                        updateOutdated: false, // Don't update existing items when creating new product
+                        addNew: true, // Add this new product to all price lists
+                        removeDeleted: false,
+                        updatePrices: true // THIS IS KEY - include prices when new product comes from product card
+                    });
+                    console.log('All price lists synchronized with new product including prices');
+                } catch (syncError) {
+                    console.error('Error synchronizing price lists after product creation:', syncError.message);
+                    // Don't fail the product creation if sync fails - just log the error
+                }
+                
                 res.status(201).json({
-                    message: 'Good created successfully',
+                    message: 'Good created successfully and added to all price lists',
                     createdGood: {
                         _id: result._id,
                         stock: result.stock,
@@ -447,11 +463,25 @@ class GoodsController {
         }
 
         Goods.updateOne({ _id: id }, { $set: updateData })
-            .then(result => {
+            .then(async result => {
                 if (result.matchedCount > 0) {
                     if (result.modifiedCount > 0 || result.nModified > 0) {
+                        // Product was updated - sync all price lists with new data INCLUDING prices
+                        try {
+                            await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
+                                updateOutdated: true,
+                                addNew: false, // Don't add new items when updating existing product
+                                removeDeleted: false,
+                                updatePrices: true // THIS IS KEY - update prices when changes come from product card
+                            });
+                            console.log('All price lists synchronized with updated product data including prices');
+                        } catch (syncError) {
+                            console.error('Error synchronizing price lists after product update:', syncError.message);
+                            // Don't fail the product update if sync fails - just log the error
+                        }
+
                         return res.status(200).json({
-                            message: 'Good updated successfully'
+                            message: 'Good updated successfully and price lists synchronized'
                         });
                     } else {
                         return res.status(200).json({
@@ -473,23 +503,44 @@ class GoodsController {
 
     async deleteGood(req, res, next) {
         const id = req.params.goodId;
-        Goods.deleteOne({ _id: id })
-            .then(result => {
-                if (result.deletedCount > 0) {
-                    res.status(200).json({
-                        message: 'Good deleted successfully'
+        console.log('🗑️ DELETE REQUEST - Product ID:', id);
+        
+        try {
+            const result = await Goods.deleteOne({ _id: id });
+            console.log('�️ Delete result - deletedCount:', result.deletedCount);
+            
+            if (result.deletedCount > 0) {
+                // Synchronize all price lists to remove deleted product
+                try {
+                    console.log('🔄 Starting product removal from price lists...');
+                    const syncResult = await PriceListController.performSyncAllPriceLists({
+                        updateOutdated: true,
+                        addNew: false,
+                        removeDeleted: true,
+                        updatePrices: false
                     });
-                } else {
-                    res.status(404).json({
-                        message: 'Good not found'
-                    });
+                    
+                    console.log('✅ Product successfully removed from all price lists:', syncResult.totalRemovedProducts, 'products removed');
+                    console.log('📊 Sync result:', syncResult);
+                } catch (syncError) {
+                    console.error('❌ Error synchronizing price lists after product deletion:', syncError);
+                    console.error('❌ Stack trace:', syncError.stack);
+                    // Don't fail the delete operation if sync fails
                 }
-            })
-            .catch(error => {
-                res.status(500).json({
-                    error
+                
+                res.status(200).json({
+                    message: 'Good deleted successfully and removed from all price lists'
                 });
+            } else {
+                res.status(404).json({
+                    message: 'Good not found'
+                });
+            }
+        } catch (error) {
+            res.status(500).json({
+                error
             });
+        }
     }
 }
 
