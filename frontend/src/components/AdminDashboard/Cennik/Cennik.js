@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Cennik.module.css';
 import { FormGroup, Label, Input, Button, Table, Modal, ModalHeader, ModalBody, ModalFooter } from 'reactstrap';
+import defaultPicture from '../../../assets/images/default_image_2.png';
 
 const Cennik = () => {
     const [users, setUsers] = useState([]);
@@ -21,6 +22,7 @@ const Cennik = () => {
     const [showOutdatedWarning, setShowOutdatedWarning] = useState(false);
     const [sizes, setSizes] = useState([]);
     const [editPriceExceptions, setEditPriceExceptions] = useState([]);
+    const [selectedPicture, setSelectedPicture] = useState(null);
 
     // Fetch users/selling points from API
     useEffect(() => {
@@ -273,6 +275,15 @@ const Cennik = () => {
     const handleRemovePriceException = (index) => {
         const newPriceExceptions = editPriceExceptions.filter((_, i) => i !== index);
         setEditPriceExceptions(newPriceExceptions);
+    };
+
+    // Handle picture click for enlargement
+    const handlePictureClick = (picture) => {
+        setSelectedPicture(picture);
+    };
+
+    const handleClosePictureModal = () => {
+        setSelectedPicture(null);
     };
 
     // Delete price list
@@ -583,17 +594,17 @@ const Cennik = () => {
                                                 </td>
                                                 <td className={styles.tableCell} data-label="Grupa">{item.manufacturer ? item.manufacturer.Prod_Opis : '-'}</td>
                                                 <td className={styles.tableCell} data-label="Zdjęcie">
-                                                    {item.picture ? (
-                                                        <img 
-                                                            src={item.picture.startsWith('http') ? item.picture : `http://localhost:3000/images/${item.picture}`} 
-                                                            alt={item.fullName}
-                                                            style={{width: '40px', height: '40px', objectFit: 'cover'}}
-                                                            onError={(e) => {
-                                                                console.log('Image load error:', e.target.src);
-                                                                e.target.style.display = 'none';
-                                                            }}
-                                                        />
-                                                    ) : '-'}
+                                                    <img 
+                                                        src={item.picture ? (item.picture.startsWith('http') ? item.picture : `http://localhost:3000/images/${item.picture}`) : defaultPicture} 
+                                                        alt={item.fullName}
+                                                        className={styles.thumbnail}
+                                                        style={{width: '40px', height: '40px', objectFit: 'cover', cursor: 'pointer'}}
+                                                        onClick={() => handlePictureClick(item.picture ? (item.picture.startsWith('http') ? item.picture : `http://localhost:3000/images/${item.picture}`) : defaultPicture)}
+                                                        onError={(e) => {
+                                                            console.log('Image load error:', e.target.src);
+                                                            e.target.src = defaultPicture; // Fallback to default image
+                                                        }}
+                                                    />
                                                 </td>
                                                 <td className={styles.tableCell} data-label="Cena">{item.price ? `${item.price.toFixed(2)}` : ''}</td>
                                                 <td className={styles.tableCell} data-label="Cena promocyjna">{item.discountPrice ? `${item.discountPrice.toFixed(2)}` : ''}</td>
@@ -894,6 +905,25 @@ const Cennik = () => {
                     </Button>
                 </ModalFooter>
             </Modal>
+
+            {/* Picture enlargement modal */}
+            {selectedPicture && (
+                <Modal 
+                    isOpen={true} 
+                    toggle={handleClosePictureModal} 
+                    size="lg"
+                    className={styles.pictureModal}
+                >
+                    <ModalHeader toggle={handleClosePictureModal}>Zdjęcie produktu</ModalHeader>
+                    <ModalBody className="text-center">
+                        <img 
+                            src={selectedPicture} 
+                            alt="Powiększone zdjęcie produktu" 
+                            style={{ width: '100%', height: 'auto', maxHeight: '80vh', objectFit: 'contain' }} 
+                        />
+                    </ModalBody>
+                </Modal>
+            )}
         </div>
     );
 };

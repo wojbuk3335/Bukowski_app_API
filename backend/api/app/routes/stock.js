@@ -8,5 +8,6 @@ router.post('/insert-many-stocks', historyLogger('stock'), StockController.inser
 router.delete('/delete-all-stocks', historyLogger('stock'), StockController.deleteAllStocks);
 router.get('/:stockId', StockController.getStockById);
 router.patch('/update-stock/:stockId', historyLogger('stock'), StockController.updateStockById);
+router.put('/:stockId', historyLogger('stock'), StockController.updateStockById); // Add PUT route for tests
 
 module.exports = router;

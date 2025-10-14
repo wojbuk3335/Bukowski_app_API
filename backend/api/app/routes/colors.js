@@ -8,5 +8,6 @@ router.post('/insert-many-colors',historyLogger('colors'), ColorsController.inse
 router.delete('/delete-all-colors',historyLogger('colors'), ColorsController.deleteAllColors);
 router.get('/:colorId', ColorsController.getColorById);
 router.patch('/update-color/:colorId',historyLogger('colors'), ColorsController.updateColorById);
+router.put('/:colorId', historyLogger('colors'), ColorsController.updateColorById);
 
 module.exports = router;

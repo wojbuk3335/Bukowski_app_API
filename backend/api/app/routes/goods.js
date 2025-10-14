@@ -26,5 +26,9 @@ router.post('/create-goods', upload.single('Picture'),historyLogger('goods'), Go
 router.get('/get-all-goods', GoodsController.getAllGoods);
 router.put('/:goodId', upload.single('Picture'),historyLogger('goods'), GoodsController.updateGood);
 router.delete('/:goodId',historyLogger('goods'), GoodsController.deleteGood);
+router.post('/sync-product-names', (req, res, next) => {
+    console.log('🚀 Route /sync-product-names hit with body:', JSON.stringify(req.body));
+    next();
+}, GoodsController.syncProductNames);
 
 module.exports = router;

@@ -864,3 +864,16 @@ span {
     color: red;
     /* Change this to your desired color */
 }
+
+/* Style for disabled fields during edit mode */
+.disabledField {
+    background-color: #f5f5f5 !important;
+    color: #6c757d !important;
+    cursor: not-allowed !important;
+    opacity: 0.7 !important;
+}
+
+.disabledField:disabled {
+    background-color: #e9ecef !important;
+    border-color: #d6d8db !important;
+}

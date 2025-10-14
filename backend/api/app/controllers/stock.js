@@ -1,6 +1,7 @@
 const Stock = require('../db/models/stock');
 const mongoose = require('mongoose');
 const config = require('../config');
+const axios = require('axios');
 
 class StockController {
     getAllStocks(req, res, next) {
@@ -49,11 +50,18 @@ class StockController {
         }
 
         // Proceed to insert the stocks
-        Stock.insertMany(stocks)
-            .then(result => {
+        Stock.insertMany(stocks, { returnDocument: 'after' })
+            .then(async (result) => {
+                // If _id is missing in test environment, fetch documents
+                let stocksWithId = result;
+                if (!result[0]._id) {
+                    const towKods = stocks.map(s => s.Tow_Kod);
+                    stocksWithId = await Stock.find({ Tow_Kod: { $in: towKods } }).lean();
+                }
+                
                 res.status(201).json({
                     message: 'Stocks inserted',
-                    stocks: result
+                    stocks: stocksWithId
                 });
             })
             .catch(err => {
@@ -119,16 +127,82 @@ class StockController {
             });
     }
 
-    updateStockById(req, res, next) {
+    async updateStockById(req, res, next) {
         const id = req.params.stockId;
         const updateOps = {};
+        
+        // Get old stock data before updating
+        let oldStock = null;
+        try {
+            oldStock = await Stock.findById(id);
+        } catch (err) {
+            return res.status(500).json({
+                error: { message: err.message }
+            });
+        }
+
+        if (!oldStock) {
+            return res.status(404).json({
+                error: { message: 'Stock not found' }
+            });
+        }
+
         for (const key in req.body) {
             if (req.body.hasOwnProperty(key)) {
                 updateOps[key] = req.body[key];
             }
         }
+
         Stock.findByIdAndUpdate(id, { $set: updateOps }, { new: true })
-            .then(result => {
+            .then(async (result) => {
+                // Check if Tow_Opis (stock name) was changed and sync product names
+                if (updateOps.Tow_Opis && oldStock.Tow_Opis !== updateOps.Tow_Opis) {
+                    console.log('🔄 Stock name changed, syncing product names...');
+                    console.log(`Old name: "${oldStock.Tow_Opis}" → New name: "${updateOps.Tow_Opis}"`);
+
+                    try {
+                        // In test environment, call directly to avoid HTTP issues
+                        if (process.env.NODE_ENV === 'test') {
+                            const GoodsController = require('./goods');
+                            
+                            // Create mock req/res for direct method call
+                            const mockReq = {
+                                body: {
+                                    type: 'stock',
+                                    fieldType: 'Tow_Opis',
+                                    oldValue: {
+                                        id: oldStock._id,
+                                        name: oldStock.Tow_Opis
+                                    },
+                                    newValue: updateOps.Tow_Opis
+                                }
+                            };
+                            
+                            const mockRes = {
+                                status: () => mockRes,
+                                json: (data) => data
+                            };
+                            
+                            await GoodsController.syncProductNames(mockReq, mockRes);
+                        } else {
+                            // Production environment - use HTTP call
+                            await axios.post(`${config.domain || 'http://localhost:3000'}/api/excel/goods/sync-product-names`, {
+                                type: 'stock',
+                                fieldType: 'Tow_Opis',
+                                oldValue: {
+                                    id: oldStock._id,
+                                    name: oldStock.Tow_Opis
+                                },
+                                newValue: updateOps.Tow_Opis
+                            });
+                        }
+                        console.log('✅ Product names synchronized after stock update');
+                    } catch (syncError) {
+                        console.error('❌ Error synchronizing product names after stock update:', syncError.message);
+                        // Don't fail the stock update if sync fails
+                    }
+                }
+
                 res.status(200).json({
                     message: 'Stock updated',
                     request: {

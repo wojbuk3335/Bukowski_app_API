@@ -62,6 +62,7 @@ const priceListRoutes = require('./routes/priceList'); // Import price list rout
 
 app.use('/api/corrections', correctionsRoutes); // Use corrections routes
 app.use('/api/pricelists', priceListRoutes); // Use price list routes
+app.use('/api/excel/priceList', priceListRoutes); // Use price list routes for excel namespace
 app.use('/api/sales', salesRoutes); // Use sales routes
 app.use('/api/warehouse', warehouseRoutes); // Use warehouse routes
 app.use('/api/transfer', transferProcessingRoutes); // Use transfer processing routes

@@ -45,18 +45,20 @@ const Colors = () => {
         try {
             setLoading(true);
 
-            // Check if the Kol_Opis value is unique
+            // Convert color name to uppercase for validation and sending
+            const upperCaseKolOpis = currentColor.Kol_Opis.toUpperCase();
+            
+            // Check if the Kol_Opis value is unique (compare in uppercase)
             const response = await axios.get(`/api/excel/color/get-all-colors`);
             const colors = response.data.colors;
-            const duplicate = colors.find(color => color.Kol_Opis === currentColor.Kol_Opis && color._id !== currentColor._id);
+            const duplicate = colors.find(color => color.Kol_Opis.toUpperCase() === upperCaseKolOpis && color._id !== currentColor._id);
 
-            if (duplicate && currentColor.Kol_Opis !== "") {
-                alert(`Wartość Kol_Opis "${currentColor.Kol_Opis}" już istnieje w bazie danych. Proszę wybrać inną wartość.`);
+            if (duplicate && upperCaseKolOpis !== "") {
+                alert(`Wartość Kol_Opis "${upperCaseKolOpis}" już istnieje w bazie danych. Proszę wybrać inną wartość.`);
                 setLoading(false);
                 return;
             }
-
-            await axios.patch(`/api/excel/color/update-color/${currentColor._id}`, { Kol_Opis: currentColor.Kol_Opis });
+            await axios.patch(`/api/excel/color/update-color/${currentColor._id}`, { Kol_Opis: upperCaseKolOpis });
             fetchData();
             toggleModal();
         } catch (error) {
@@ -184,7 +186,7 @@ const Colors = () => {
         const colors = excelRows.map((obj) => ({
             _id: colorList.find((x) => x.Kol_Kod === obj["Kol_Kod"])?._id,
             Kol_Kod: obj["Kol_Kod"] || "",
-            Kol_Opis: obj["Kol_Opis"] || "",
+            Kol_Opis: (obj["Kol_Opis"] || "").toUpperCase(), // Convert to uppercase
             number_id: Number(obj["Kol_Kod"]) || 0
         }));
 

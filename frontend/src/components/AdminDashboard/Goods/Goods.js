@@ -2168,9 +2168,11 @@ const Goods = () => {
                         <Input
                             type="select"
                             id="categorySelect"
-                            className={styles.inputField}
+                            className={`${styles.inputField} ${editingGood ? styles.disabledField : ''}`}
                             value={selectedCategory}
                             onChange={handleCategoryChange}
+                            disabled={editingGood ? true : false}
+                            title={editingGood ? "Kategoria nie może być zmieniona podczas edycji" : ""}
                         >
                             <option value="Kurtki kożuchy futra">Kurtki kożuchy futra</option>
                             <option value="Torebki">Torebki</option>
