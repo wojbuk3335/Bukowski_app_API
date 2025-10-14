@@ -1510,6 +1510,7 @@ const Goods = () => {
             setSelectedWalletId(good.bagId || '');
             setWalletFilterText(good.bagProduct || '');
             setColorFilterText(color.Kol_Opis || '');
+            setSelectedBagsCategoryId(good.bagsCategoryId || '');
             setSelectedCategory(good.category);
             setSelectedManufacturer(good.manufacturer ? good.manufacturer._id : '');
             setPrice(good.price);
@@ -1529,6 +1530,7 @@ const Goods = () => {
             setSelectedWalletCodePortfele(good.bagProduct || '');
             setWalletFilterTextPortfele(good.bagProduct || '');
             setColorFilterText(color.Kol_Opis || '');
+            setSelectedWalletsCategoryId(good.bagsCategoryId || '');
             setSelectedCategory(good.category);
             setSelectedManufacturer(good.manufacturer ? good.manufacturer._id : '');
             setPrice(good.price);

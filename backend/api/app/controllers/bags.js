@@ -1,6 +1,9 @@
 const Bags = require('../db/models/bags');
 const History = require('../db/models/history');
+const Goods = require('../db/models/goods');
 const mongoose = require('mongoose');
+const axios = require('axios');
+const config = require('../config');
 
 // Get all bags
 exports.getAllBags = async (req, res, next) => {
@@ -62,8 +65,11 @@ exports.insertManyBags = async (req, res, next) => {
 // Update many Bags
 exports.updateManyBags = async (req, res, next) => {
     try {
-        const updatePromises = req.body.map(bagItem => {
-            return Bags.findByIdAndUpdate(
+        const updatePromises = req.body.map(async (bagItem) => {
+            // Get old bag data before update
+            const oldBag = await Bags.findById(bagItem._id);
+            
+            const updatedBag = await Bags.findByIdAndUpdate(
                 bagItem._id,
                 { 
                     Torebki_Nr: bagItem.Torebki_Nr,
@@ -71,9 +77,65 @@ exports.updateManyBags = async (req, res, next) => {
                 },
                 { new: true }
             );
+
+            // If Torebki_Kod changed, update corresponding goods
+            if (oldBag && oldBag.Torebki_Kod !== bagItem.Torebki_Kod) {
+                // Find all goods that have this bag by bagId and category 'Torebki'
+                const goodsToUpdate = await Goods.find({
+                    bagId: bagItem._id,
+                    category: 'Torebki'
+                }).populate('color');
+
+                // Update each product
+                for (const good of goodsToUpdate) {
+                    const colorName = good.color ? good.color.Kol_Opis : '';
+                    const newFullName = `${bagItem.Torebki_Kod} ${colorName}`.trim();
+                    
+                    await Goods.updateOne(
+                        { _id: good._id },
+                        { 
+                            $set: { 
+                                bagProduct: bagItem.Torebki_Kod,
+                                fullName: newFullName
+                            } 
+                        }
+                    );
+
+                    // Log goods update to history
+                    const goodsHistoryEntry = new History({
+                        collectionName: 'Towary',
+                        operation: 'Aktualizacja nazwy produktu',
+                        product: newFullName,
+                        details: `Nazwa produktu zmieniona z "${good.fullName}" na "${newFullName}" ze względu na zmianę kodu torebki`,
+                        userloggedinId: req.user ? req.user._id : null,
+                        timestamp: new Date()
+                    });
+                    await goodsHistoryEntry.save();
+                }
+            }
+
+            return updatedBag;
         });
 
         const results = await Promise.all(updatePromises);
+        
+        // Check if any bags were actually updated and if any goods were affected
+        const updatedCount = results.filter(bag => bag !== null).length;
+        
+        // Synchronize price lists after updating multiple bags
+        if (updatedCount > 0) {
+            try {
+                await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
+                    updateOutdated: true,
+                    addNew: false,
+                    removeDeleted: false,
+                    updatePrices: false // TYLKO NAZWY, nie ceny
+                });
+                console.log('Price lists synchronized after multiple bags update');
+            } catch (syncError) {
+                console.error('Error synchronizing price lists after multiple bags update:', syncError.message);
+            }
+        }
         
         // Log to history
         for (const bagItem of results) {
@@ -134,6 +196,57 @@ exports.updateBags = async (req, res, next) => {
 
         if (!updatedBag) {
             return res.status(404).json({ message: "Bag not found" });
+        }
+
+        // Update corresponding goods if Torebki_Kod changed
+        if (req.body.Torebki_Kod !== undefined && oldBag.Torebki_Kod !== req.body.Torebki_Kod) {
+            // Find all goods that have this bag by bagId and category 'Torebki'
+            const goodsToUpdate = await Goods.find({
+                bagId: id,
+                category: 'Torebki'
+            }).populate('color');
+            
+            // Update each product
+            for (const good of goodsToUpdate) {
+                const colorName = good.color ? good.color.Kol_Opis : '';
+                const newFullName = `${req.body.Torebki_Kod} ${colorName}`.trim();
+                
+                await Goods.updateOne(
+                    { _id: good._id },
+                    { 
+                        $set: { 
+                            bagProduct: req.body.Torebki_Kod,
+                            fullName: newFullName
+                        } 
+                    }
+                );
+
+                // Log goods update to history
+                const goodsHistoryEntry = new History({
+                    collectionName: 'Towary',
+                    operation: 'Aktualizacja nazwy produktu',
+                    product: newFullName,
+                    details: `Nazwa produktu zmieniona z "${good.fullName}" na "${newFullName}" ze względu na zmianę kodu torebki`,
+                    userloggedinId: req.user ? req.user._id : null,
+                    timestamp: new Date()
+                });
+                await goodsHistoryEntry.save();
+            }
+
+            // Synchronize price lists after updating goods
+            if (goodsToUpdate.length > 0) {
+                try {
+                    await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
+                        updateOutdated: true,
+                        addNew: false,
+                        removeDeleted: false,
+                        updatePrices: false // TYLKO NAZWY, nie ceny
+                    });
+                    console.log('Price lists synchronized after bag name update');
+                } catch (syncError) {
+                    console.error('Error synchronizing price lists after bag update:', syncError.message);
+                }
+            }
         }
 
         // Log to history with changes comparison

@@ -24,6 +24,10 @@ const priceListItemSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'SubcategoryCoats'
     },
+    bagsCategoryId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'BagsCategory'
+    },
     remainingsubsubcategory: {
         type: String
     },

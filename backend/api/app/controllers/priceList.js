@@ -147,6 +147,24 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
                 });
             }
 
+            // Check for bagsCategoryId changes (for bags/wallets)
+            if (currentGood.category === 'Torebki') {
+                const priceBagsCategoryId = priceItem.bagsCategoryId?.toString() || '';
+                const goodBagsCategoryId = currentGood.bagsCategoryId?.toString() || '';
+                if (priceBagsCategoryId !== goodBagsCategoryId) {
+                    console.log('BagsCategoryId change detected:', {
+                        product: priceItem.fullName,
+                        oldBagsCategoryId: priceBagsCategoryId,
+                        newBagsCategoryId: goodBagsCategoryId
+                    });
+                    changes_detected.push({
+                        field: 'bagsCategoryId',
+                        oldValue: priceBagsCategoryId,
+                        newValue: goodBagsCategoryId
+                    });
+                }
+            }
+
             // Check for price changes ONLY when explicitly requested (e.g., changes from product card)
             if (includePricing) {
                 if (priceItem.price !== currentGood.price) {
@@ -272,6 +290,7 @@ class PriceListController {
                 .populate('items.stock', 'Tow_Opis Tow_Kod')
                 .populate('items.color', 'Kol_Opis Kol_Kod')
                 .populate('items.subcategory', 'Kat_1_Opis_1')
+                .populate('items.bagsCategoryId', 'Kat_1_Opis_1')
                 .populate('items.manufacturer', 'Prod_Opis')
                 .populate('items.priceExceptions.size', 'Roz_Opis');
             
@@ -287,10 +306,16 @@ class PriceListController {
                     const SubcategoryCoats = require('../db/models/subcategoryCoats');
                     const subcategoryData = await SubcategoryCoats.findById(itemObj.subcategory).select('Kat_1_Opis_1');
                     itemObj.subcategory = subcategoryData;
-                } else if (itemObj.category === 'Torebki' && itemObj.subcategory) {
-                    const BagsCategory = require('../db/models/bagsCategory');
-                    const bagsCategoryData = await BagsCategory.findById(itemObj.subcategory).select('Kat_1_Opis_1');
-                    itemObj.subcategory = bagsCategoryData;
+                } else if (itemObj.category === 'Torebki') {
+                    if (itemObj.bagsCategoryId) {
+                        // New format: use bagsCategoryId which should be already populated
+                        itemObj.subcategory = itemObj.bagsCategoryId;
+                    } else if (itemObj.subcategory) {
+                        // Old format: subcategory contains bagsCategoryId, manually populate it
+                        const BagsCategory = require('../db/models/bagsCategory');
+                        const bagsCategoryData = await BagsCategory.findById(itemObj.subcategory).select('Kat_1_Opis_1');
+                        itemObj.subcategory = bagsCategoryData;
+                    }
                 } else if (itemObj.category === 'Pozostały asortyment' && itemObj.subcategory) {
                     const RemainingCategory = require('../db/models/remainingCategory');
                     if (itemObj.subcategory === 'belts') {
@@ -401,6 +426,7 @@ class PriceListController {
                 code: good.code,
                 category: good.category,
                 subcategory: good.subcategory?._id || good.subcategory,
+                bagsCategoryId: good.bagsCategoryId?._id || good.bagsCategoryId,
                 remainingsubsubcategory: good.remainingsubsubcategory,
                 manufacturer: good.manufacturer?._id || good.manufacturer,
                 picture: good.picture,
@@ -479,6 +505,7 @@ class PriceListController {
                 code: item.code,
                 category: item.category,
                 subcategory: item.subcategory,
+                bagsCategoryId: item.bagsCategoryId,
                 remainingsubsubcategory: item.remainingsubsubcategory,
                 manufacturer: item.manufacturer,
                 picture: item.picture,
@@ -633,6 +660,7 @@ class PriceListController {
                 code: good.code,
                 category: good.category,
                 subcategory: good.subcategory?._id,
+                bagsCategoryId: good.bagsCategoryId?._id || good.bagsCategoryId,
                 remainingsubsubcategory: good.remainingsubsubcategory,
                 manufacturer: good.manufacturer?._id,
                 picture: good.picture,
@@ -941,6 +969,7 @@ class PriceListController {
             .populate('items.color', 'Kol_Opis Kol_Kod')
             .populate('items.subcategory', 'Kat_1_Opis_1')
             .populate('items.manufacturer', 'Prod_Opis')
+            .populate('items.bagsCategoryId', 'Kat_1_Opis_1')
             .populate('items.priceExceptions.size', 'Roz_Opis');
         
         if (allPriceLists.length === 0) {
@@ -984,6 +1013,7 @@ class PriceListController {
                         priceList.items[priceListItemIndex].remainingsubsubcategory = currentGood.remainingsubsubcategory;
                         priceList.items[priceListItemIndex].bagProduct = currentGood.bagProduct;
                         priceList.items[priceListItemIndex].picture = currentGood.picture;
+                        priceList.items[priceListItemIndex].bagsCategoryId = currentGood.bagsCategoryId;
 
                         // Update pricing only if explicitly requested
                         if (updatePrices) {
@@ -1013,6 +1043,7 @@ class PriceListController {
                         remainingsubsubcategory: newItem.remainingsubsubcategory,
                         bagProduct: newItem.bagProduct,
                         picture: newItem.picture,
+                        bagsCategoryId: newItem.bagsCategoryId,
                         price: updatePrices ? (newItem.price || 0) : 0,
                         discountPrice: updatePrices ? (newItem.discount_price || 0) : 0,
                         priceExceptions: updatePrices ? (newItem.priceExceptions || []) : []

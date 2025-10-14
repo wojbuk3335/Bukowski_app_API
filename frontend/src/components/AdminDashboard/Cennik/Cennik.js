@@ -153,8 +153,8 @@ const Cennik = () => {
             });
             
             if (response.ok) {
-                const data = await response.json();
-                setPriceList(data.priceList || []);
+                // Refresh price list with full populated data
+                await fetchPriceList(selectedSellingPoint);
                 alert('Cennik został utworzony na podstawie aktualnych produktów!');
             } else {
                 alert('Błąd podczas tworzenia cennika');
@@ -181,8 +181,8 @@ const Cennik = () => {
             });
             
             if (response.ok) {
-                const data = await response.json();
-                setPriceList(data.priceList || []);
+                // Refresh price list with full populated data
+                await fetchPriceList(selectedSellingPoint);
                 setCloneModal(false);
                 setSourcePointForClone('');
                 alert('Cennik został sklonowany!');
@@ -583,6 +583,10 @@ const Cennik = () => {
                                                 <td className={styles.tableCell} data-label="Podkategoria">
                                                     {item.category === 'Kurtki kożuchy futra' ? 
                                                         (item.subcategory ? item.subcategory.Kat_1_Opis_1 : '') : 
+                                                    item.category === 'Torebki' ?
+                                                        (item.subcategory ? item.subcategory.Kat_1_Opis_1 : '') :
+                                                    item.category === 'Portfele' ?
+                                                        (item.subcategory ? item.subcategory.Kat_1_Opis_1 : '') :
                                                         ''
                                                     }
                                                 </td>
