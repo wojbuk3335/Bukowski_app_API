@@ -59,9 +59,9 @@ class GoodsController {
                     return res.status(400).json({ message: 'Remaining subcategory is required for remaining assortment' });
                 }
             } else {
-                // Validation for other products
-                if (stock === 'NIEOKREŚLONY') {
-                    return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
+                // Validation for other products (Kurtki, etc.)
+                if (!stock || stock === 'NIEOKREŚLONY') {
+                    return res.status(400).json({ message: 'Stock is required for this category and cannot be NIEOKREŚLONY' });
                 }
             }
         }
@@ -92,6 +92,16 @@ class GoodsController {
             }
         }
 
+        // Check stock field requirement based on category
+        const normalizedCategory = category.replace(/_/g, ' ');
+        const categoriesWithoutStock = ['Torebki', 'Portfele', 'Pozostały asortyment'];
+        if (!categoriesWithoutStock.includes(normalizedCategory)) {
+            // For other categories (Kurtki, etc.), stock is required
+            if (!stock || stock.trim() === '') {
+                return res.status(400).json({ message: 'Stock is required for this category' });
+            }
+        }
+
         const goodData = {
             _id: new mongoose.Types.ObjectId(),
             color,
@@ -116,7 +126,6 @@ class GoodsController {
         }
 
         // Add common fields for all categories
-        goodData.stock = stock;
         goodData.Plec = Plec;
 
         // Add fields based on category
@@ -124,10 +133,12 @@ class GoodsController {
             goodData.bagProduct = bagProduct;
             goodData.bagId = bagId;
             goodData.bagsCategoryId = bagsCategoryId;
+            // Don't add stock field for bags
         } else if (category === 'Portfele') {
             goodData.bagProduct = bagProduct; // Kod portfela
             goodData.bagId = bagId; // ID portfela (może być puste)
             goodData.bagsCategoryId = bagsCategoryId; // ID kategorii portfela
+            // Don't add stock field for wallets
         } else if (category === 'Pozostały asortyment') {
             goodData.bagProduct = bagProduct; // Kod produktu pozostałego asortymentu
             goodData.bagId = bagId; // ID produktu (może być puste)
@@ -168,6 +179,10 @@ class GoodsController {
                 bagsCategoryId: goodData.bagsCategoryId
             });
         } else {
+            // For other categories (Kurtki, etc.), add stock field only if provided
+            if (stock && stock.trim() !== '') {
+                goodData.stock = stock;
+            }
             goodData.subcategory = subcategory;
         }
 
@@ -462,11 +477,13 @@ class GoodsController {
             updateData.bagId = req.body.bagId;
             updateData.bagsCategoryId = req.body.bagsCategoryId;
             updateData.Plec = req.body.Plec; // Płeć z kategorii torebek
+            // Don't update stock field for bags
         } else if (req.body.category === 'Portfele') {
             updateData.bagProduct = req.body.bagProduct;
             updateData.bagId = req.body.bagId;
             updateData.bagsCategoryId = req.body.bagsCategoryId;
             updateData.Plec = req.body.Plec; // Płeć z kategorii portfeli
+            // Don't update stock field for wallets
         } else if (req.body.category === 'Pozostały asortyment') {
             updateData.bagProduct = req.body.bagProduct;
             updateData.bagId = req.body.bagId;
@@ -475,7 +492,10 @@ class GoodsController {
             updateData.remainingSubcategory = req.body.remainingSubcategory; // Dodaj podpodkategorię
             updateData.Plec = req.body.Plec; // Płeć z kategorii pozostałego asortymentu
         } else {
-            updateData.stock = req.body.stock;
+            // For other categories (Kurtki, etc.), update stock field only if provided
+            if (req.body.stock && req.body.stock.trim() !== '') {
+                updateData.stock = req.body.stock;
+            }
             updateData.subcategory = req.body.subcategory;
             updateData.Plec = req.body.Plec;
         }
@@ -506,9 +526,9 @@ class GoodsController {
                     return res.status(400).json({ message: 'Product code is required for remaining assortment category' });
                 }
             } else {
-                // Validation for other products
-                if (updateData.stock === 'NIEOKREŚLONY') {
-                    return res.status(400).json({ message: 'Produkt value cannot be NIEOKREŚLONY' });
+                // Validation for other products (Kurtki, etc.)
+                if (!req.body.stock || req.body.stock === 'NIEOKREŚLONY') {
+                    return res.status(400).json({ message: 'Stock is required for this category and cannot be NIEOKREŚLONY' });
                 }
             }
         }
@@ -534,16 +554,16 @@ class GoodsController {
                     if (result.modifiedCount > 0 || result.nModified > 0) {
                         // Product was updated - sync all price lists with new data INCLUDING prices
                         try {
+                            // Synchronizuj cenniki po zmianie nazwy produktu
                             await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                                 updateOutdated: true,
-                                addNew: false, // Don't add new items when updating existing product
+                                addNew: false,
                                 removeDeleted: false,
-                                updatePrices: true // THIS IS KEY - update prices when changes come from product card
+                                updatePrices: false // TYLKO NAZWY, nie ceny
                             });
-                            console.log('All price lists synchronized with updated product data including prices');
+                            console.log('All price lists synchronized with updated product names');
                         } catch (syncError) {
-                            console.error('Error synchronizing price lists after product update:', syncError.message);
-                            // Don't fail the product update if sync fails - just log the error
+                            console.error('Error synchronizing price lists after product name update:', syncError.message);
                         }
 
                         return res.status(200).json({
