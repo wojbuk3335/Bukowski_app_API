@@ -205,6 +205,56 @@ class ColorsController {
                         }
                         
                         console.log(`✅ Product names synchronized directly. Updated: ${updatedCount} products`);
+                        
+                        // Now synchronize price lists with updated product names
+                        if (updatedCount > 0) {
+                            try {
+                                console.log('🔄 Synchronizing price lists after color name change...');
+                                
+                                const PriceList = require('../db/models/priceList');
+                                
+                                // Find all price lists
+                                const priceLists = await PriceList.find({});
+                                console.log(`🔍 Found ${priceLists.length} price lists to update`);
+                                
+                                let totalPriceListUpdates = 0;
+                                
+                                for (const priceList of priceLists) {
+                                    let hasChanges = false;
+                                    
+                                    // Update fullName in price list items that match the updated goods
+                                    for (const item of priceList.items) {
+                                        // Check if this price list item corresponds to one of the updated goods
+                                        const updatedGood = goods.find(g => g._id.toString() === item.originalGoodId.toString());
+                                        if (updatedGood) {
+                                            const oldPriceListName = item.fullName;
+                                            const newPriceListName = item.fullName.replace(
+                                                new RegExp(oldColor.Kol_Opis.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), 
+                                                updateOps.Kol_Opis
+                                            );
+                                            
+                                            if (oldPriceListName !== newPriceListName) {
+                                                item.fullName = newPriceListName;
+                                                hasChanges = true;
+                                                totalPriceListUpdates++;
+                                                console.log(`📋 Updated price list item: "${oldPriceListName}" → "${newPriceListName}"`);
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Save price list if changes were made
+                                    if (hasChanges) {
+                                        await priceList.save();
+                                    }
+                                }
+                                
+                                console.log(`✅ Price lists synchronized. Updated: ${totalPriceListUpdates} price list items`);
+                                
+                            } catch (priceListError) {
+                                console.error('❌ Error synchronizing price lists after color update:', priceListError.message);
+                                console.error('Stack trace:', priceListError.stack);
+                            }
+                        }
                     } catch (syncError) {
                         console.error('❌ Error synchronizing product names after color update:', syncError.message);
                         console.error('Stack trace:', syncError.stack);
