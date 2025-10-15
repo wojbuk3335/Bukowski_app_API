@@ -170,7 +170,6 @@ const Users = () => {
             ...newUser,
             userLoggedInId: localStorage.getItem('AdminEmail') // Add userLoggedInId to the payload
         };
-        console.log("Payload wysyłany na backend:", payload);
 
         axios.post('/api/user/signup', payload, {
             headers: {

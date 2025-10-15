@@ -27,6 +27,13 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
                 ...good.toObject(),
                 subcategory: bagsCategoryData
             };
+        } else if (good.category === 'Portfele' && good.bagsCategoryId) {
+            const WalletsCategory = require('../db/models/walletsCategory');
+            const walletsCategoryData = await WalletsCategory.findById(good.bagsCategoryId).select('Kat_1_Opis_1');
+            return {
+                ...good.toObject(),
+                subcategory: walletsCategoryData
+            };
         } else if (good.category === 'Pozostały asortyment' && good.subcategory) {
             const RemainingCategory = require('../db/models/remainingCategory');
             let subcategoryData = null;
@@ -148,7 +155,7 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
             }
 
             // Check for bagsCategoryId changes (for bags/wallets)
-            if (currentGood.category === 'Torebki') {
+            if (currentGood.category === 'Torebki' || currentGood.category === 'Portfele') {
                 const priceBagsCategoryId = priceItem.bagsCategoryId?.toString() || '';
                 const goodBagsCategoryId = currentGood.bagsCategoryId?.toString() || '';
                 if (priceBagsCategoryId !== goodBagsCategoryId) {
@@ -290,7 +297,6 @@ class PriceListController {
                 .populate('items.stock', 'Tow_Opis Tow_Kod')
                 .populate('items.color', 'Kol_Opis Kol_Kod')
                 .populate('items.subcategory', 'Kat_1_Opis_1')
-                .populate('items.bagsCategoryId', 'Kat_1_Opis_1')
                 .populate('items.manufacturer', 'Prod_Opis')
                 .populate('items.priceExceptions.size', 'Roz_Opis');
             
@@ -308,13 +314,27 @@ class PriceListController {
                     itemObj.subcategory = subcategoryData;
                 } else if (itemObj.category === 'Torebki') {
                     if (itemObj.bagsCategoryId) {
-                        // New format: use bagsCategoryId which should be already populated
-                        itemObj.subcategory = itemObj.bagsCategoryId;
+                        // Manually populate bagsCategoryId for bags
+                        const BagsCategory = require('../db/models/bagsCategory');
+                        const bagsCategoryData = await BagsCategory.findById(itemObj.bagsCategoryId).select('Kat_1_Opis_1');
+                        itemObj.subcategory = bagsCategoryData;
                     } else if (itemObj.subcategory) {
                         // Old format: subcategory contains bagsCategoryId, manually populate it
                         const BagsCategory = require('../db/models/bagsCategory');
                         const bagsCategoryData = await BagsCategory.findById(itemObj.subcategory).select('Kat_1_Opis_1');
                         itemObj.subcategory = bagsCategoryData;
+                    }
+                } else if (itemObj.category === 'Portfele') {
+                    if (itemObj.bagsCategoryId) {
+                        // Manually populate bagsCategoryId for wallets
+                        const WalletsCategory = require('../db/models/walletsCategory');
+                        const walletsCategoryData = await WalletsCategory.findById(itemObj.bagsCategoryId).select('Kat_1_Opis_1');
+                        itemObj.subcategory = walletsCategoryData;
+                    } else if (itemObj.subcategory) {
+                        // Old format: subcategory contains wallets category id, manually populate it
+                        const WalletsCategory = require('../db/models/walletsCategory');
+                        const walletsCategoryData = await WalletsCategory.findById(itemObj.subcategory).select('Kat_1_Opis_1');
+                        itemObj.subcategory = walletsCategoryData;
                     }
                 } else if (itemObj.category === 'Pozostały asortyment' && itemObj.subcategory) {
                     const RemainingCategory = require('../db/models/remainingCategory');
@@ -395,6 +415,13 @@ class PriceListController {
                     return {
                         ...good.toObject(),
                         subcategory: bagsCategoryData
+                    };
+                } else if (good.category === 'Portfele' && good.bagsCategoryId) {
+                    const WalletsCategory = require('../db/models/walletsCategory');
+                    const walletsCategoryData = await WalletsCategory.findById(good.bagsCategoryId).select('Kat_1_Opis_1');
+                    return {
+                        ...good.toObject(),
+                        subcategory: walletsCategoryData
                     };
                 } else if (good.category === 'Pozostały asortyment' && good.subcategory) {
                     const RemainingCategory = require('../db/models/remainingCategory');
@@ -969,7 +996,6 @@ class PriceListController {
             .populate('items.color', 'Kol_Opis Kol_Kod')
             .populate('items.subcategory', 'Kat_1_Opis_1')
             .populate('items.manufacturer', 'Prod_Opis')
-            .populate('items.bagsCategoryId', 'Kat_1_Opis_1')
             .populate('items.priceExceptions.size', 'Roz_Opis');
         
         if (allPriceLists.length === 0) {
@@ -1173,8 +1199,6 @@ class PriceListController {
     // Get all price lists
     async getAllPriceLists(req, res, next) {
         try {
-            console.log('🔍 Getting all price lists...');
-            
             // In test environment, use simpler approach without population to avoid errors
             let priceLists;
             if (process.env.NODE_ENV === 'test') {

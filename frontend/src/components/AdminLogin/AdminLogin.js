@@ -42,11 +42,11 @@ const AdminLogin = () => {
     try {
       const response = await axios.post('/api/user/login', { email, password });
       if (response.data.success) {
-        localStorage.setItem('AdminRole', response.data.role); // Store role in localStorage
-        localStorage.setItem('AdminEmail', email); // Store email in localStorage
+        localStorage.setItem('AdminRole', response.data.role);
+        localStorage.setItem('AdminEmail', email);
         if (response.data.role === 'admin') {
-          setAuth(response.data); // Pass true and response.data to setAuth
-          localStorage.setItem('AdminToken', response.data.token); // Always store token in localStorage
+          setAuth(response.data);
+          localStorage.setItem('AdminToken', response.data.token);
           navigate('/admin/dashboard');
         } else {
           setError('Dostęp tylko dla administratorów.');
@@ -55,7 +55,12 @@ const AdminLogin = () => {
         setError('Niepoprawne dane logowania.');
       }
     } catch (error) {
-      setError('Wystąpił błąd podczas logowania.');
+      // Cicha obsługa błędów - bez logowania do konsoli
+      if (error.response && error.response.status === 401) {
+        setError('Niepoprawne dane logowania.');
+      } else {
+        setError('Wystąpił błąd podczas logowania.');
+      }
     }
   };
 

@@ -1,6 +1,9 @@
 const Wallets = require('../db/models/wallets');
+const Goods = require('../db/models/goods');
 const History = require('../db/models/history');
 const mongoose = require('mongoose');
+const axios = require('axios');
+const config = require('../config');
 
 // Get all wallets
 exports.getAllWallets = async (req, res, next) => {
@@ -75,8 +78,11 @@ exports.updateManyWallets = async (req, res, next) => {
 
         const results = await Promise.all(updatePromises);
         
-        // Log to history
-        for (const walletItem of results) {
+        // Log to history and synchronize with goods
+        for (let i = 0; i < results.length; i++) {
+            const walletItem = results[i];
+            const requestItem = req.body[i];
+            
             if (walletItem) {
                 const historyEntry = new History({
                     collectionName: 'Portfele',
@@ -87,6 +93,73 @@ exports.updateManyWallets = async (req, res, next) => {
                     timestamp: new Date()
                 });
                 await historyEntry.save();
+
+                // Synchronize with goods table
+                try {
+                    const walletId = walletItem._id.toString();
+                    const relatedGoods = await Goods.find({ 
+                        category: 'Portfele',
+                        bagId: walletId 
+                    });
+                    
+                    if (relatedGoods.length > 0) {
+                        // Update bagProduct for all related goods
+                        await Goods.updateMany(
+                            { 
+                                category: 'Portfele',
+                                bagId: walletId 
+                            },
+                            { 
+                                $set: { 
+                                    bagProduct: walletItem.Portfele_Kod
+                                }
+                            }
+                        );
+                        
+                        // Update fullName for each item individually
+                        for (const good of relatedGoods) {
+                            // Find old wallet name from the request to know what to replace
+                            const oldWalletName = good.bagProduct; // Current bagProduct value
+                            const newWalletName = walletItem.Portfele_Kod;
+                            
+                            if (oldWalletName && newWalletName && oldWalletName !== newWalletName) {
+                                const oldFullName = good.fullName;
+                                const newFullName = oldFullName.replace(oldWalletName, newWalletName);
+                                
+                                if (newFullName !== oldFullName) {
+                                    await Goods.findByIdAndUpdate(good._id, { fullName: newFullName });
+                                    
+                                    // Log goods update to history
+                                    const goodsHistoryEntry = new History({
+                                        collectionName: 'Towary',
+                                        operation: 'Automatyczna aktualizacja',
+                                        product: newFullName,
+                                        details: `Nazwa portfela zaktualizowana automatycznie z "${oldFullName}" na "${newFullName}" po zmianie w tabeli portfeli`,
+                                        userloggedinId: req.user ? req.user._id : null,
+                                        timestamp: new Date()
+                                    });
+                                    await goodsHistoryEntry.save();
+                                }
+                            }
+                        }
+                    }
+                } catch (syncError) {
+                    console.error('❌ Error synchronizing wallet with goods:', syncError.message);
+                }
+            }
+        }
+
+        // Trigger price list synchronization for all changes
+        if (results.length > 0) {
+            try {
+                await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
+                    updateOutdated: true,
+                    addNew: false,
+                    removeDeleted: false,
+                    updatePrices: false // Don't update prices, just names
+                });
+            } catch (syncError) {
+                console.error('❌ Error synchronizing price lists:', syncError.message);
             }
         }
         
@@ -160,6 +233,74 @@ exports.updateWallets = async (req, res, next) => {
             timestamp: new Date()
         });
         await historyEntry.save();
+
+        // Synchronize with goods table if Portfele_Kod changed
+        if (req.body.Portfele_Kod !== undefined && oldWallet.Portfele_Kod !== req.body.Portfele_Kod) {
+            try {
+                // Find all goods that reference this wallet by bagId
+                const walletId = updatedWallet._id.toString();
+                const relatedGoods = await Goods.find({ 
+                    category: 'Portfele',
+                    bagId: walletId 
+                });
+                
+                
+                if (relatedGoods.length > 0) {
+                    // Update bagProduct and fullName for all related goods
+                    const updateResult = await Goods.updateMany(
+                        { 
+                            category: 'Portfele',
+                            bagId: walletId 
+                        },
+                        { 
+                            $set: { 
+                                bagProduct: req.body.Portfele_Kod,
+                                // Update fullName by replacing the old wallet name with new one
+                            }
+                        }
+                    );
+                    
+                    
+                    // Update fullName for each item individually (since it might contain additional info like color)
+                    for (const good of relatedGoods) {
+                        const oldFullName = good.fullName;
+                        const newFullName = oldFullName.replace(oldWallet.Portfele_Kod, req.body.Portfele_Kod);
+                        
+                        if (newFullName !== oldFullName) {
+                            await Goods.findByIdAndUpdate(good._id, { fullName: newFullName });
+                            
+                            // Log goods update to history
+                            const goodsHistoryEntry = new History({
+                                collectionName: 'Towary',
+                                operation: 'Automatyczna aktualizacja',
+                                product: newFullName,
+                                details: `Nazwa portfela zaktualizowana automatycznie z "${oldFullName}" na "${newFullName}" po zmianie w tabeli portfeli`,
+                                userloggedinId: req.user ? req.user._id : null,
+                                timestamp: new Date()
+                            });
+                            await goodsHistoryEntry.save();
+                            
+                                                        
+                        }
+                    }
+                    
+                    // Trigger price list synchronization
+                    try {
+                        await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
+                            updateOutdated: true,
+                            addNew: false,
+                            removeDeleted: false,
+                            updatePrices: false // Don't update prices, just names
+                        });
+                    } catch (syncError) {
+                        console.error('❌ Error synchronizing price lists:', syncError.message);
+                    }
+                }
+            } catch (syncError) {
+                console.error('❌ Error synchronizing wallet with goods:', syncError.message);
+                // Don't fail the wallet update if synchronization fails
+            }
+        }
 
         res.status(200).json({
             message: "Wallet updated successfully",

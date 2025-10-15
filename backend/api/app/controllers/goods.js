@@ -554,14 +554,14 @@ class GoodsController {
                     if (result.modifiedCount > 0 || result.nModified > 0) {
                         // Product was updated - sync all price lists with new data INCLUDING prices
                         try {
-                            // Synchronizuj cenniki po zmianie nazwy produktu
+                            // Synchronizuj cenniki po zmianie produktu (nazwy i ceny)
                             await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                                 updateOutdated: true,
                                 addNew: false,
                                 removeDeleted: false,
-                                updatePrices: false // TYLKO NAZWY, nie ceny
+                                updatePrices: true // WŁĄCZ aktualizację cen!
                             });
-                            console.log('All price lists synchronized with updated product names');
+                            console.log('All price lists synchronized with updated product data and prices');
                         } catch (syncError) {
                             console.error('Error synchronizing price lists after product name update:', syncError.message);
                         }
@@ -708,17 +708,17 @@ class GoodsController {
                             updateOutdated: true,
                             addNew: false,
                             removeDeleted: false,
-                            updatePrices: false // Don't update prices, just names
+                            updatePrices: true // WŁĄCZ aktualizację cen!
                         });
                     } else {
                         await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                             updateOutdated: true,
                             addNew: false,
                             removeDeleted: false,
-                            updatePrices: false // Don't update prices, just names
+                            updatePrices: true // WŁĄCZ aktualizację cen!
                         });
                     }
-                    console.log('✅ Price lists synchronized with updated product names');
+                    console.log('✅ Price lists synchronized with updated product data and prices');
                 } catch (syncError) {
                     console.error('❌ Error synchronizing price lists:', syncError.message);
                 }

@@ -4,6 +4,20 @@ import { FormGroup, Label, Input, Button, Table, Modal, ModalHeader, ModalBody, 
 import defaultPicture from '../../../assets/images/default_image_2.png';
 
 const Cennik = () => {
+    // Format price function - remove unnecessary decimal zeros
+    const formatPrice = (price) => {
+        if (!price && price !== 0) return '';
+        const num = parseFloat(price);
+        return num % 1 === 0 ? num.toString() : num.toFixed(2);
+    };
+
+    // Format discount price - show empty if 0
+    const formatDiscountPrice = (price) => {
+        if (!price || price === 0) return '';
+        const num = parseFloat(price);
+        return num % 1 === 0 ? num.toString() : num.toFixed(2);
+    };
+
     const [users, setUsers] = useState([]);
     const [selectedSellingPoint, setSelectedSellingPoint] = useState('');
     const [loading, setLoading] = useState(true);
@@ -610,13 +624,13 @@ const Cennik = () => {
                                                         }}
                                                     />
                                                 </td>
-                                                <td className={styles.tableCell} data-label="Cena">{item.price ? `${item.price.toFixed(2)}` : ''}</td>
-                                                <td className={styles.tableCell} data-label="Cena promocyjna">{item.discountPrice ? `${item.discountPrice.toFixed(2)}` : ''}</td>
+                                                <td className={styles.tableCell} data-label="Cena">{formatPrice(item.price)}</td>
+                                                <td className={styles.tableCell} data-label="Cena promocyjna">{formatDiscountPrice(item.discountPrice)}</td>
                                                 <td className={styles.tableCell} data-label="Wyjątki">
                                                     {item.priceExceptions && item.priceExceptions.length > 0 ? 
                                                         item.priceExceptions.map((exception, i) => (
                                                             <span key={i}>
-                                                                {exception.size?.Roz_Opis || 'BR'}={exception.value}
+                                                                {exception.size?.Roz_Opis || 'BR'}={formatPrice(exception.value)}
                                                                 {i < item.priceExceptions.length - 1 && ', '}
                                                             </span>
                                                         )) : ''

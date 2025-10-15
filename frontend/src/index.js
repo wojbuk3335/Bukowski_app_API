@@ -5,6 +5,16 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './context/AuthProvider';
 import { BrowserRouter } from 'react-router-dom';
+import axios from 'axios';
+
+// Wyłączenie automatycznego logowania błędów axios do konsoli
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Cicha obsługa błędów - nie loguj do konsoli
+    return Promise.reject(error);
+  }
+);
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

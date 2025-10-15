@@ -1384,9 +1384,11 @@ const Goods = () => {
             formData.append('bagsCategoryId', selectedBagsCategoryId); // ID kategorii torebki
         } else if (selectedCategory === 'Portfele') {
             // Dla portfeli - używamy danych z tabeli wallets i kategorii portfeli
+            const selectedWallet = walletsData.find(wallet => wallet.Portfele_Kod === selectedWalletCodePortfele);
+            
             formData.append('stock', ''); // Brak stock dla portfeli
             formData.append('bagProduct', selectedWalletCodePortfele); // Kod portfela zamiast stock
-            formData.append('bagId', ''); // Brak ID dla portfeli (może być dodane później)
+            formData.append('bagId', selectedWallet ? selectedWallet._id : ''); // ID portfela znalezione na podstawie kodu
             formData.append('bagsCategoryId', selectedWalletsCategoryId); // ID kategorii portfeli
         } else if (selectedCategory === 'Pozostały asortyment') {
             // Dla pozostałego asortymentu - używamy danych z tabeli remaining products i kategorii
@@ -3479,14 +3481,14 @@ const Goods = () => {
                                     {good.discount_price === 0 || good.discount_price === '' ? '' : good.discount_price}
                                 </td>
                                 <td className={styles.tableCell} data-label="Wyjątki">
-                                    {(good.category === 'Torebki' || good.category === 'Portfele' || good.category === 'Pozostały asortyment') ? '-' : (
+                                    {(good.priceExceptions && good.priceExceptions.length > 0) ? 
                                         good.priceExceptions.map((exception, i) => (
                                             <span key={i}>
                                                 {exception.size && exception.size.Roz_Opis ? exception.size.Roz_Opis : 'Brak rozmiaru'}={exception.value}
                                                 {i < good.priceExceptions.length - 1 && ', '}
                                             </span>
-                                        ))
-                                    )}
+                                        )) : ''
+                                    }
                                 </td>
                                 <td className={styles.tableCell} data-label="Rodzaj">
                                     {good.category === 'Torebki' ? 
