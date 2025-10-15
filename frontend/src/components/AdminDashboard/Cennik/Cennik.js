@@ -533,7 +533,7 @@ const Cennik = () => {
 
                     {!loadingPriceList && priceList.length === 0 && (
                         <div className="d-flex justify-content-center mb-3">
-                            <div className="btn-group">
+                            <div className={`btn-group ${styles.btnGroup}`}>
                                 <Button color="primary" className="btn btn-sm" onClick={createInitialPriceList}>
                                     Utwórz cennik z kart produktu
                                 </Button>
@@ -545,7 +545,7 @@ const Cennik = () => {
                         <>
                             {/* Action buttons like in Goods */}
                             <div className="d-flex justify-content-center mb-3">
-                                <div className="btn-group">
+                                <div className={`btn-group ${styles.btnGroup}`}>
                                     <Button color="info" className="btn btn-sm" onClick={() => setCloneModal(true)}>
                                         Sklonuj z innego punktu
                                     </Button>

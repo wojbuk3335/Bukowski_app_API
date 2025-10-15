@@ -17,6 +17,65 @@ const RemainingSubcategory = require('../db/models/remainingSubcategory');
 const Category = require('../db/models/category');
 const Belts = require('../models/belts');
 const Gloves = require('../models/gloves');
+const RemainingProducts = require('../db/models/remainingProducts');
+const Bags = require('../db/models/bags');
+const Wallets = require('../db/models/wallets');
+
+// Helper function to calculate control sum for barcode
+const calculateControlSum = (code) => {
+    let sum = 0;
+    for (let i = 0; i < code.length; i++) {
+        sum += parseInt(code[i]) * (i % 2 === 0 ? 1 : 3);
+    }
+    return (10 - (sum % 10)) % 10;
+};
+
+// Helper function to generate remaining product code
+const generateRemainingProductCode = async (remainingProductCode, colorData) => {
+    if (!remainingProductCode || !colorData) {
+        return '';
+    }
+
+    try {
+        // Find remaining product by Poz_Kod
+        const remainingProduct = await RemainingProducts.findOne({ Poz_Kod: remainingProductCode });
+        if (!remainingProduct) {
+            return '';
+        }
+
+        // Format: 000 + kolor(2) + 00 + Poz_Nr(2) + po_kropce(3) + suma(1)
+        let code = '000';
+        
+        // Pozycje 4-5: Kod koloru (Kol_Kod) - 2 cyfry
+        const colorCode = colorData.Kol_Kod || '00';
+        code += colorCode.padStart(2, '0').substring(0, 2);
+        
+        // Pozycje 6-7: zawsze 00
+        code += '00';
+        
+        // Pozycje 8-9: Poz_Nr z wybranego produktu - 2 cyfry
+        const productNumber = remainingProduct.Poz_Nr || 0;
+        code += productNumber.toString().padStart(2, '0').substring(0, 2);
+        
+        // Pozycje 10-12: Wartość po kropce z Poz_Kod - 3 cyfry
+        let afterDotValue = '000';
+        const afterDotMatch = remainingProductCode.match(/\.(\d+)/); // Znajdź cyfry po kropce
+        if (afterDotMatch) {
+            const digits = afterDotMatch[1];
+            afterDotValue = digits.padStart(3, '0').substring(0, 3);
+        }
+        code += afterDotValue;
+        
+        // Pozycja 13: Suma kontrolna
+        const controlSum = calculateControlSum(code);
+        code += controlSum;
+        
+        return code;
+    } catch (error) {
+        console.error('Error generating remaining product code:', error);
+        return '';
+    }
+};
 
 class GoodsController {
     async createGood(req, res, next) {
@@ -793,28 +852,37 @@ class GoodsController {
                 
                 console.log(`🔍 Found ${goods.length} products using remaining product code: ${oldValue.name}`);
                 
-                // Update each product's bagProduct and fullName
+                // Update each product's bagProduct, fullName and code
                 for (const good of goods) {
+                    // Populate color data for barcode generation
+                    await good.populate('color');
+                    
                     const oldFullName = good.fullName;
                     const oldBagProduct = good.bagProduct;
+                    const oldCode = good.code;
                     
                     // Replace old product code with new one in bagProduct and fullName
                     const newBagProduct = newValue.name;
                     const newFullName = good.fullName.replace(new RegExp(oldValue.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newValue.name);
                     
-                    if (oldFullName !== newFullName || oldBagProduct !== newBagProduct) {
+                    // Generate new barcode based on updated remaining product code
+                    const newCode = await generateRemainingProductCode(newValue.name, good.color);
+                    
+                    if (oldFullName !== newFullName || oldBagProduct !== newBagProduct || oldCode !== newCode) {
                         await Goods.updateOne(
                             { _id: good._id },
                             { 
                                 $set: { 
                                     fullName: newFullName,
-                                    bagProduct: newBagProduct
+                                    bagProduct: newBagProduct,
+                                    code: newCode // Update barcode
                                 }
                             }
                         );
                         
                         console.log(`✅ Updated remaining product: "${oldFullName}" → "${newFullName}"`);
                         console.log(`✅ Updated bagProduct: "${oldBagProduct}" → "${newBagProduct}"`);
+                        console.log(`✅ Updated code: "${oldCode}" → "${newCode}"`);
                     }
                 }
             }

@@ -5,6 +5,45 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 const config = require('../config');
 
+// Helper function to calculate control sum for barcode
+const calculateControlSum = (code) => {
+    let sum = 0;
+    for (let i = 0; i < code.length; i++) {
+        sum += parseInt(code[i]) * (i % 2 === 0 ? 1 : 3);
+    }
+    return (10 - (sum % 10)) % 10;
+};
+
+// Helper function to generate wallet product code
+const generateWalletProductCode = (walletData, colorData) => {
+    if (!walletData || !colorData) {
+        return '';
+    }
+
+    // Format: 000 + kolor(2) + wiersz(4) + po_kropce(3) + suma_kontrolna(1)
+    let code = '000';
+    
+    // Pozycje 4-5: Kod koloru (Kol_Kod)
+    const colorCode = colorData.Kol_Kod || '00';
+    code += colorCode.padStart(2, '0').substring(0, 2);
+    
+    // Pozycje 6-9: Numer wiersza (Portfele_Nr) - 4 cyfry
+    const rowNumber = walletData.Portfele_Nr || 0;
+    code += rowNumber.toString().padStart(4, '0').substring(0, 4);
+    
+    // Pozycje 10-12: Wartość po kropce z Portfele_Kod
+    const walletCode = walletData.Portfele_Kod || '';
+    const afterDotMatch = walletCode.match(/\.(\d{3})/); // Znajdź 3 cyfry po kropce
+    const afterDotValue = afterDotMatch ? afterDotMatch[1] : '000';
+    code += afterDotValue.padStart(3, '0').substring(0, 3);
+    
+    // Pozycja 13: Suma kontrolna
+    const controlSum = calculateControlSum(code);
+    code += controlSum;
+    
+    return code;
+};
+
 // Get all wallets
 exports.getAllWallets = async (req, res, next) => {
     try {
@@ -116,18 +155,28 @@ exports.updateManyWallets = async (req, res, next) => {
                             }
                         );
                         
-                        // Update fullName for each item individually
+                        // Update fullName and code for each item individually
                         for (const good of relatedGoods) {
                             // Find old wallet name from the request to know what to replace
                             const oldWalletName = good.bagProduct; // Current bagProduct value
                             const newWalletName = walletItem.Portfele_Kod;
                             
                             if (oldWalletName && newWalletName && oldWalletName !== newWalletName) {
+                                // Populate color data for barcode generation
+                                await good.populate('color');
+                                
                                 const oldFullName = good.fullName;
+                                const oldCode = good.code;
                                 const newFullName = oldFullName.replace(oldWalletName, newWalletName);
                                 
-                                if (newFullName !== oldFullName) {
-                                    await Goods.findByIdAndUpdate(good._id, { fullName: newFullName });
+                                // Generate new barcode based on updated wallet data
+                                const newCode = generateWalletProductCode(walletItem, good.color);
+                                
+                                if (newFullName !== oldFullName || newCode !== oldCode) {
+                                    await Goods.findByIdAndUpdate(good._id, { 
+                                        fullName: newFullName,
+                                        code: newCode
+                                    });
                                     
                                     // Log goods update to history
                                     const goodsHistoryEntry = new History({
@@ -261,20 +310,30 @@ exports.updateWallets = async (req, res, next) => {
                     );
                     
                     
-                    // Update fullName for each item individually (since it might contain additional info like color)
+                    // Update fullName and code for each item individually (since it might contain additional info like color)
                     for (const good of relatedGoods) {
+                        // Populate color data for barcode generation
+                        await good.populate('color');
+                        
                         const oldFullName = good.fullName;
+                        const oldCode = good.code;
                         const newFullName = oldFullName.replace(oldWallet.Portfele_Kod, req.body.Portfele_Kod);
                         
-                        if (newFullName !== oldFullName) {
-                            await Goods.findByIdAndUpdate(good._id, { fullName: newFullName });
+                        // Generate new barcode based on updated wallet data
+                        const newCode = generateWalletProductCode(updatedWallet, good.color);
+                        
+                        if (newFullName !== oldFullName || newCode !== oldCode) {
+                            await Goods.findByIdAndUpdate(good._id, { 
+                                fullName: newFullName,
+                                code: newCode
+                            });
                             
                             // Log goods update to history
                             const goodsHistoryEntry = new History({
                                 collectionName: 'Towary',
-                                operation: 'Automatyczna aktualizacja',
+                                operation: 'Automatyczna aktualizacja kodu kreskowego i nazwy',
                                 product: newFullName,
-                                details: `Nazwa portfela zaktualizowana automatycznie z "${oldFullName}" na "${newFullName}" po zmianie w tabeli portfeli`,
+                                details: `Portfel zaktualizowany automatycznie: nazwa z "${oldFullName}" na "${newFullName}", kod kreskowy z "${oldCode}" na "${newCode}"`,
                                 userloggedinId: req.user ? req.user._id : null,
                                 timestamp: new Date()
                             });
