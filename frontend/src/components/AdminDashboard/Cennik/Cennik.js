@@ -601,6 +601,8 @@ const Cennik = () => {
                                                         (item.subcategory ? item.subcategory.Kat_1_Opis_1 : '') :
                                                     item.category === 'Portfele' ?
                                                         (item.subcategory ? item.subcategory.Kat_1_Opis_1 : '') :
+                                                    item.category === 'Pozostały asortyment' ?
+                                                        (item.subcategory ? item.subcategory.Kat_1_Opis_1 : '') :
                                                         ''
                                                     }
                                                 </td>

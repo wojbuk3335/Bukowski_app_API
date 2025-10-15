@@ -721,6 +721,103 @@ class GoodsController {
                     }
                 }
             }
+            else if (type === 'belt' && fieldType === 'remainingsubsubcategory') {
+                // Find all goods that use this belt by checking remainingsubsubcategory field
+                goods = await Goods.find({ 
+                    subcategory: 'belts',
+                    remainingsubsubcategory: oldValue.name.trim()
+                });
+                
+                console.log(`🔍 Found ${goods.length} products using belt: ${oldValue.name}`);
+                
+                // Update each product's remainingsubsubcategory and fullName
+                for (const good of goods) {
+                    const oldFullName = good.fullName;
+                    
+                    // Replace belt name in fullName and update remainingsubsubcategory
+                    const newFullName = good.fullName.replace(new RegExp(oldValue.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newValue.name.trim());
+                    
+                    if (oldFullName !== newFullName) {
+                        await Goods.updateOne(
+                            { _id: good._id },
+                            { 
+                                $set: { 
+                                    fullName: newFullName,
+                                    remainingsubsubcategory: newValue.name.trim()
+                                }
+                            }
+                        );
+                        
+                        console.log(`✅ Updated belt product: "${oldFullName}" → "${newFullName}"`);
+                        console.log(`✅ Updated remainingsubsubcategory: "${oldValue.name.trim()}" → "${newValue.name.trim()}"`);
+                    }
+                }
+            }
+            else if (type === 'glove' && fieldType === 'remainingsubsubcategory') {
+                // Find all goods that use this glove by checking remainingsubsubcategory field
+                goods = await Goods.find({ 
+                    subcategory: 'gloves',
+                    remainingsubsubcategory: oldValue.name.trim()
+                });
+                
+                console.log(`🔍 Found ${goods.length} products using glove: ${oldValue.name}`);
+                
+                // Update each product's remainingsubsubcategory and fullName
+                for (const good of goods) {
+                    const oldFullName = good.fullName;
+                    
+                    // Replace glove name in fullName and update remainingsubsubcategory
+                    const newFullName = good.fullName.replace(new RegExp(oldValue.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newValue.name.trim());
+                    
+                    if (oldFullName !== newFullName) {
+                        await Goods.updateOne(
+                            { _id: good._id },
+                            { 
+                                $set: { 
+                                    fullName: newFullName,
+                                    remainingsubsubcategory: newValue.name.trim()
+                                }
+                            }
+                        );
+                        
+                        console.log(`✅ Updated glove product: "${oldFullName}" → "${newFullName}"`);
+                        console.log(`✅ Updated remainingsubsubcategory: "${oldValue.name.trim()}" → "${newValue.name.trim()}"`);
+                    }
+                }
+            }
+            else if (type === 'remainingProduct' && fieldType === 'bagProduct') {
+                // Find all goods that use this remaining product code in bagProduct field
+                goods = await Goods.find({ 
+                    bagProduct: oldValue.name
+                });
+                
+                console.log(`🔍 Found ${goods.length} products using remaining product code: ${oldValue.name}`);
+                
+                // Update each product's bagProduct and fullName
+                for (const good of goods) {
+                    const oldFullName = good.fullName;
+                    const oldBagProduct = good.bagProduct;
+                    
+                    // Replace old product code with new one in bagProduct and fullName
+                    const newBagProduct = newValue.name;
+                    const newFullName = good.fullName.replace(new RegExp(oldValue.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newValue.name);
+                    
+                    if (oldFullName !== newFullName || oldBagProduct !== newBagProduct) {
+                        await Goods.updateOne(
+                            { _id: good._id },
+                            { 
+                                $set: { 
+                                    fullName: newFullName,
+                                    bagProduct: newBagProduct
+                                }
+                            }
+                        );
+                        
+                        console.log(`✅ Updated remaining product: "${oldFullName}" → "${newFullName}"`);
+                        console.log(`✅ Updated bagProduct: "${oldBagProduct}" → "${newBagProduct}"`);
+                    }
+                }
+            }
 
             // Synchronize price lists after updating product names
             if (goods.length > 0) {

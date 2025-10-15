@@ -338,14 +338,24 @@ class PriceListController {
                     }
                 } else if (itemObj.category === 'Pozostały asortyment' && itemObj.subcategory) {
                     const RemainingCategory = require('../db/models/remainingCategory');
-                    if (itemObj.subcategory === 'belts') {
+                    
+                    // Check if subcategory is already an object (populated) or a string/ObjectId
+                    if (typeof itemObj.subcategory === 'object' && itemObj.subcategory._id) {
+                        // Already populated, keep as is
+                    } else if (itemObj.subcategory === 'belts') {
                         itemObj.subcategory = { _id: 'belts', Kat_1_Opis_1: 'Paski' };
                     } else if (itemObj.subcategory === 'gloves') {
                         itemObj.subcategory = { _id: 'gloves', Kat_1_Opis_1: 'Rękawiczki' };
                     } else {
-                        const remainingData = await RemainingCategory.findById(itemObj.subcategory).select('Rem_Kat_1_Opis_1');
-                        if (remainingData) {
-                            itemObj.subcategory = { _id: remainingData._id, Kat_1_Opis_1: remainingData.Rem_Kat_1_Opis_1 };
+                        // It's an ObjectId, populate it
+                        try {
+                            const remainingData = await RemainingCategory.findById(itemObj.subcategory).select('Rem_Kat_1_Opis_1');
+                            if (remainingData) {
+                                itemObj.subcategory = { _id: remainingData._id, Kat_1_Opis_1: remainingData.Rem_Kat_1_Opis_1 };
+                            }
+                        } catch (error) {
+                            console.error('Error populating subcategory:', error.message);
+                            // Keep original value if population fails
                         }
                     }
                 }

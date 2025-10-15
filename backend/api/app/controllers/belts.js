@@ -77,10 +77,37 @@ class BeltsController {
                 Rodzaj
             };
 
-            const updatedBelt = await Belts.findByIdAndUpdate(id, updateData, { new: true });
-            
-            if (!updatedBelt) {
+            // Get old belt data for comparison
+            const oldBelt = await Belts.findById(id);
+            if (!oldBelt) {
                 return res.status(404).json({ message: 'Pasek nie został znaleziony' });
+            }
+
+            const updatedBelt = await Belts.findByIdAndUpdate(id, updateData, { new: true });
+
+            // Check if Belt_Opis changed and sync product names
+            if (oldBelt.Belt_Opis !== updatedBelt.Belt_Opis) {
+                try {
+                    const axios = require('axios');
+                    const config = require('../config');
+                    
+                    await axios.post(`${config.domain || 'http://localhost:3000'}/api/goods/sync-product-names`, {
+                        type: 'belt',
+                        oldValue: {
+                            id: oldBelt._id.toString(),
+                            name: oldBelt.Belt_Opis.trim()
+                        },
+                        newValue: {
+                            id: updatedBelt._id.toString(), 
+                            name: updatedBelt.Belt_Opis.trim()
+                        },
+                        fieldType: 'remainingsubsubcategory'
+                    });
+                    
+                    console.log('Belt name change synchronized with products and price lists');
+                } catch (syncError) {
+                    console.error('Failed to sync belt name change:', syncError.message);
+                }
             }
 
             res.status(200).json({

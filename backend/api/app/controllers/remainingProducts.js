@@ -164,6 +164,31 @@ exports.updateRemainingProducts = async (req, res, next) => {
             return res.status(404).json({ message: "Product not found" });
         }
 
+        // Check if Poz_Kod changed and sync with goods
+        if (oldProduct.Poz_Kod !== req.body.Poz_Kod) {
+            try {
+                const axios = require('axios');
+                const config = require('../config');
+                
+                await axios.post(`${config.domain || 'http://localhost:3000'}/api/excel/goods/sync-product-names`, {
+                    type: 'remainingProduct',
+                    oldValue: {
+                        id: id,
+                        name: oldProduct.Poz_Kod
+                    },
+                    newValue: {
+                        id: id,
+                        name: req.body.Poz_Kod
+                    },
+                    fieldType: 'bagProduct'
+                });
+                
+                console.log('Remaining product code change synchronized with goods and price lists');
+            } catch (syncError) {
+                console.error('Failed to sync remaining product code change:', syncError.message);
+            }
+        }
+
         // Log to history with changes comparison
         let changes = [];
         

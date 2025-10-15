@@ -77,10 +77,37 @@ class GlovesController {
                 Rodzaj
             };
 
-            const updatedGlove = await Gloves.findByIdAndUpdate(id, updateData, { new: true });
-            
-            if (!updatedGlove) {
+            // Get old glove data for comparison
+            const oldGlove = await Gloves.findById(id);
+            if (!oldGlove) {
                 return res.status(404).json({ message: 'Rękawiczka nie została znaleziona' });
+            }
+
+            const updatedGlove = await Gloves.findByIdAndUpdate(id, updateData, { new: true });
+
+            // Check if Glove_Opis changed and sync product names
+            if (oldGlove.Glove_Opis !== updatedGlove.Glove_Opis) {
+                try {
+                    const axios = require('axios');
+                    const config = require('../config');
+                    
+                    await axios.post(`${config.domain || 'http://localhost:3000'}/api/goods/sync-product-names`, {
+                        type: 'glove',
+                        oldValue: {
+                            id: oldGlove._id.toString(),
+                            name: oldGlove.Glove_Opis.trim()
+                        },
+                        newValue: {
+                            id: updatedGlove._id.toString(), 
+                            name: updatedGlove.Glove_Opis.trim()
+                        },
+                        fieldType: 'remainingsubsubcategory'
+                    });
+                    
+                    console.log('Glove name change synchronized with products and price lists');
+                } catch (syncError) {
+                    console.error('Failed to sync glove name change:', syncError.message);
+                }
             }
 
             res.status(200).json({
