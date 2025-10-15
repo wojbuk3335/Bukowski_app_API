@@ -47,6 +47,7 @@ const Goods = () => {
     // States for remaining subcategories (podpodkategorie)
     const [remainingSubcategories, setRemainingSubcategories] = useState([]); // State for remaining subcategories
     const [selectedRemainingSubcategory, setSelectedRemainingSubcategory] = useState(''); // Selected remaining subcategory
+    const [isManuallyChangingSubcategory, setIsManuallyChangingSubcategory] = useState(false); // Flag to prevent useEffect override
     // States for manufacturers
     const [manufacturers, setManufacturers] = useState([]); // State for manufacturers
     const [selectedManufacturer, setSelectedManufacturer] = useState(''); // Selected manufacturer
@@ -458,6 +459,27 @@ const Goods = () => {
         };
     }, [isColorDropdownOpen, isProductDropdownOpen]);
 
+    // Effect to set correct subcategory selection when editing belts/gloves after options are loaded
+    useEffect(() => {
+        if (editingGood && remainingSubcategories.length > 0 && !isManuallyChangingSubcategory) {
+            // Use remainingSubcategory.Sub_Opis or remainingsubsubcategory
+            const beltDescription = editingGood.remainingSubcategory?.Sub_Opis || editingGood.remainingsubsubcategory;
+            
+            if (editingGood.subcategory && editingGood.subcategory._id === 'belts' && beltDescription) {
+                const belt = belts.find(belt => belt.Belt_Opis.trim() === beltDescription.trim());
+                
+                if (belt && selectedRemainingSubcategory !== belt._id) {
+                    setSelectedRemainingSubcategory(belt._id);
+                }
+            } else if (editingGood.subcategory && editingGood.subcategory._id === 'gloves' && beltDescription) {
+                const glove = gloves.find(glove => glove.Glove_Opis.trim() === beltDescription.trim());
+                if (glove && selectedRemainingSubcategory !== glove._id) {
+                    setSelectedRemainingSubcategory(glove._id);
+                }
+            }
+        }
+    }, [remainingSubcategories, editingGood, belts, gloves, selectedRemainingSubcategory]);
+
     const handleStockChange = (e) => {
         setSelectedStock(e.target.value);
         updateProductName(e.target.value, selectedColor);
@@ -705,6 +727,42 @@ const Goods = () => {
         } else {
             setRemainingSubcategories([]);
             setSelectedRemainingSubcategory('');
+        }
+    };
+
+    // Function to handle remaining subcategory change and update Rodzaj for editing
+    const handleRemainingSubcategoryChange = (subcategoryId) => {
+        setIsManuallyChangingSubcategory(true);
+        setSelectedRemainingSubcategory(subcategoryId);
+        
+        // Reset flag after a short delay to allow useEffect to run again
+        setTimeout(() => {
+            setIsManuallyChangingSubcategory(false);
+        }, 100);
+        
+        // If editing a belt or glove, update the Rodzaj field
+        if (editingGood && editingGood.subcategory) {
+            if (editingGood.subcategory._id === 'belts' && subcategoryId) {
+                // Find the selected belt and get its Rodzaj
+                const selectedBelt = belts.find(belt => belt._id === subcategoryId);
+                if (selectedBelt) {
+                    // Update the editingGood object with new Rodzaj
+                    setEditingGood(prev => ({
+                        ...prev,
+                        Rodzaj: selectedBelt.Rodzaj
+                    }));
+                }
+            } else if (editingGood.subcategory._id === 'gloves' && subcategoryId) {
+                // Find the selected glove and get its Rodzaj
+                const selectedGlove = gloves.find(glove => glove._id === subcategoryId);
+                if (selectedGlove) {
+                    // Update the editingGood object with new Rodzaj
+                    setEditingGood(prev => ({
+                        ...prev,
+                        Rodzaj: selectedGlove.Rodzaj
+                    }));
+                }
+            }
         }
     };
 
@@ -1427,6 +1485,11 @@ const Goods = () => {
         formData.append('sellingPoint', ''); // Default value for sellingPoint
         formData.append('barcode', ''); // Default value for barcode
         formData.append('Plec', finalPlec); // Płeć z kategorii torebek lub podkategorii
+        
+        // Add Rodzaj field for belts and gloves during editing
+        if (selectedCategory === 'Pozostały asortyment' && editingGood && editingGood.Rodzaj) {
+            formData.append('Rodzaj', editingGood.Rodzaj); // Send updated Rodzaj for belts/gloves
+        }
         if (selectedImage) {
             formData.append('Picture', selectedImage);
         }
@@ -1558,6 +1621,13 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+
+            // Load subcategory options first for belts/gloves
+            if (good.bagsCategoryId) {
+                handleRemainingCategoryChange(good.bagsCategoryId);
+            }
+
+            // The useEffect will handle setting selectedRemainingSubcategory after remainingSubcategories are loaded
             
         } else {
             // Obsługa edycji kurtek
@@ -1650,8 +1720,16 @@ const Goods = () => {
         setPriceExceptions([]); // Reset to an empty array
         setSelectedImage(null);
         setEditingGood(null);
-        setSelectedRemainingCategory(remainingCategories.length > 0 ? remainingCategories[0]._id : ''); // Reset remaining category
-        setSelectedRemainingSubcategory(''); // Reset remaining subcategory
+        
+        // Reset remaining category and populate subcategories
+        const firstRemainingCategoryId = remainingCategories.length > 0 ? remainingCategories[0]._id : '';
+        setSelectedRemainingCategory(firstRemainingCategoryId);
+        if (firstRemainingCategoryId) {
+            handleRemainingCategoryChange(firstRemainingCategoryId);
+        } else {
+            setSelectedRemainingSubcategory(''); // Reset remaining subcategory if no category
+        }
+        
         setSelectedManufacturer(manufacturers.length > 0 ? manufacturers[0]._id : ''); // Reset manufacturer
         setSelectedBelt(belts.length > 0 ? belts[0]._id : ''); // Reset belt
         setSelectedGlove(gloves.length > 0 ? gloves[0]._id : ''); // Reset glove
@@ -1863,7 +1941,7 @@ const Goods = () => {
                                     return walletsCategory ? walletsCategory.Plec : '-';
                                 })() : '-');
                         } else if (good.category === 'Pozostały asortyment') {
-                            return good.Plec || (good.bagsCategoryId ? 
+                            return good.Rodzaj || good.Plec || (good.bagsCategoryId ? 
                                 (() => {
                                     const remainingCategory = remainingCategories.find(cat => cat._id === good.bagsCategoryId);
                                     return remainingCategory ? remainingCategory.Plec : '-';
@@ -2061,7 +2139,7 @@ const Goods = () => {
                             })() : '-');
                         return plec === 'Damska' ? 'D' : plec === 'Meska' ? 'M' : plec === 'Dzieci' ? 'Dz' : plec;
                     } else if (good.category === 'Pozostaly asortyment') {
-                        const plec = good.Plec || (good.bagsCategoryId ? 
+                        const plec = good.Rodzaj || good.Plec || (good.bagsCategoryId ? 
                             (() => {
                                 const remainingCategory = remainingCategories.find(cat => cat._id === good.bagsCategoryId);
                                 return remainingCategory ? remainingCategory.Plec : '-';
@@ -3048,13 +3126,15 @@ const Goods = () => {
                                 <Input
                                     type="select"
                                     id="remainingSubcategorySelect"
-                                    className={styles.inputField}
+                                    className={`${styles.inputField} ${editingGood && editingGood.subcategory && (editingGood.subcategory._id === 'belts' || editingGood.subcategory._id === 'gloves') ? styles.disabledField : ''}`}
                                     value={selectedRemainingCategory}
                                     onChange={(e) => {
                                         const categoryId = e.target.value;
                                         setSelectedRemainingCategory(categoryId);
                                         handleRemainingCategoryChange(categoryId);
                                     }}
+                                    disabled={editingGood && editingGood.subcategory && (editingGood.subcategory._id === 'belts' || editingGood.subcategory._id === 'gloves')}
+                                    title={editingGood && editingGood.subcategory && (editingGood.subcategory._id === 'belts' || editingGood.subcategory._id === 'gloves') ? "Podkategoria nie może być zmieniona dla pasków i rękawiczek podczas edycji" : ""}
                                 >
                                     {remainingCategories.length === 0 ? (
                                         <option value="">Brak dostępnych kategorii</option>
@@ -3074,7 +3154,7 @@ const Goods = () => {
                                     id="remainingSubcategoryDetailSelect"
                                     className={styles.inputField}
                                     value={selectedRemainingSubcategory}
-                                    onChange={(e) => setSelectedRemainingSubcategory(e.target.value)}
+                                    onChange={(e) => handleRemainingSubcategoryChange(e.target.value)}
                                     disabled={!selectedRemainingCategory || remainingSubcategories.length === 0}
                                 >
                                     {remainingSubcategories.map(subcategory => (
@@ -3510,7 +3590,7 @@ const Goods = () => {
                                                 : '-'
                                             )
                                         ) : good.category === 'Pozostały asortyment' ?
-                                        (good.Plec || 
+                                        (good.Rodzaj || good.Plec || 
                                             (good.bagsCategoryId ? 
                                                 (() => {
                                                     const remainingCategory = remainingCategories.find(cat => cat._id === good.bagsCategoryId);

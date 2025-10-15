@@ -25,7 +25,6 @@ const goodsSchema = mongoose.Schema({
     category: { type: String, required: true }, // Changed to string
     subcategory: {
         type: mongoose.Schema.Types.Mixed, // Changed to Mixed to handle both ObjectId and String
-        ref: 'Category', // Reference to the subcategory model
         required: false // Not required for bags
     },
     remainingsubsubcategory: {
@@ -38,6 +37,7 @@ const goodsSchema = mongoose.Schema({
         required: false // Optional for all products
     },
     Plec: { type: String, required: false }, // Not required for bags
+    Rodzaj: { type: String, required: false }, // Gender field for belts and gloves (D/M)
     picture: { type: String, default: "" },
     priceExceptions: {
         type: [{

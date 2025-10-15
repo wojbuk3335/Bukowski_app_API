@@ -21,8 +21,8 @@ const priceListItemSchema = new mongoose.Schema({
     code: String,
     category: String,
     subcategory: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'SubcategoryCoats'
+        type: mongoose.Schema.Types.Mixed, // Changed to Mixed to handle ObjectId and strings (belts/gloves)
+        required: false
     },
     bagsCategoryId: {
         type: mongoose.Schema.Types.Mixed, // Changed to Mixed to handle both BagsCategory and WalletsCategory references

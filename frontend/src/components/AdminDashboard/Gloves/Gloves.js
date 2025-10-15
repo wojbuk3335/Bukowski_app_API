@@ -19,7 +19,7 @@ const Gloves = () => {
     const [loading, setLoading] = useState(false);
     const [rows, setRows] = useState([]);
     const [modal, setModal] = useState(false);
-    const [currentGlove, setCurrentGlove] = useState({ _id: '', Glove_Opis: '' });
+    const [currentGlove, setCurrentGlove] = useState({ _id: '', Glove_Opis: '', Rodzaj: 'D' });
 
     useEffect(() => {
         fetchData();
@@ -57,7 +57,8 @@ const Gloves = () => {
             // Create new glove
             const newGlove = {
                 Glove_Kod: nextCode.toString(),
-                Glove_Opis: ""
+                Glove_Opis: "",
+                Rodzaj: "D"
             };
 
             await axios.post('/api/excel/gloves', newGlove);
@@ -88,7 +89,8 @@ const Gloves = () => {
 
             await axios.put(`/api/excel/gloves/${currentGlove._id}`, { 
                 Glove_Kod: currentGlove.Glove_Kod,
-                Glove_Opis: currentGlove.Glove_Opis
+                Glove_Opis: currentGlove.Glove_Opis,
+                Rodzaj: currentGlove.Rodzaj
             });
             fetchData();
             toggleModal();
@@ -138,6 +140,7 @@ const Gloves = () => {
                 <tr>
                     <th>Glove_Kod</th>
                     <th>Glove_Opis</th>
+                    <th>Rodzaj</th>
                     <th>Akcje</th>
                 </tr>
             </thead>
@@ -146,6 +149,7 @@ const Gloves = () => {
                     <tr key={item._id}>
                         <td>{item.Glove_Kod}</td>
                         <td>{item.Glove_Opis}</td>
+                        <td>{item.Rodzaj}</td>
                         <td>
                             <Button color="primary" size="sm" className={styles.button} onClick={() => handleUpdateClick(item)}>
                                 Aktualizuj
@@ -186,7 +190,7 @@ const Gloves = () => {
             </Fragment>
 
             <Modal isOpen={modal} toggle={toggleModal}>
-                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Edytuj opis rękawiczki</ModalHeader>
+                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Edytuj rękawiczkę</ModalHeader>
                 <ModalBody className={styles.modalBody}>
                     <FormGroup>
                         <Label for="gloveOpis">Glove_Opis</Label>
@@ -197,6 +201,19 @@ const Gloves = () => {
                             value={currentGlove.Glove_Opis}
                             onChange={handleUpdateChange}
                         />
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="gloveRodzaj">Rodzaj (płeć)</Label>
+                        <Input
+                            id="gloveRodzaj"
+                            name="Rodzaj"
+                            type="select"
+                            value={currentGlove.Rodzaj}
+                            onChange={handleUpdateChange}
+                        >
+                            <option value="D">D</option>
+                            <option value="M">M</option>
+                        </Input>
                     </FormGroup>
                 </ModalBody>
                 <ModalFooter className={styles.modalFooter}>

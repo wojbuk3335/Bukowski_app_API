@@ -4,14 +4,15 @@ const mongoose = require('mongoose');
 class GlovesController {
     async getAllGloves(req, res, next) {
         try {
-            const gloves = await Gloves.find().select('_id Glove_Kod Glove_Opis');
+            const gloves = await Gloves.find().select('_id Glove_Kod Glove_Opis Rodzaj');
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.status(200).json({
                 count: gloves.length,
                 gloves: gloves.map(glove => ({
                     _id: glove._id,
                     Glove_Kod: glove.Glove_Kod,
-                    Glove_Opis: glove.Glove_Opis
+                    Glove_Opis: glove.Glove_Opis,
+                    Rodzaj: glove.Rodzaj
                 }))
             });
         } catch (err) {
@@ -25,7 +26,7 @@ class GlovesController {
 
     async createGlove(req, res, next) {
         try {
-            const { Glove_Kod, Glove_Opis } = req.body;
+            const { Glove_Kod, Glove_Opis, Rodzaj } = req.body;
 
             // Sprawdź czy rękawiczka już istnieje
             const existingGlove = await Gloves.findOne({ Glove_Kod });
@@ -36,7 +37,8 @@ class GlovesController {
             const glove = new Gloves({
                 _id: new mongoose.Types.ObjectId(),
                 Glove_Kod,
-                Glove_Opis
+                Glove_Opis,
+                Rodzaj: Rodzaj || 'D'
             });
 
             const savedGlove = await glove.save();
@@ -45,7 +47,8 @@ class GlovesController {
                 createdGlove: {
                     _id: savedGlove._id,
                     Glove_Kod: savedGlove.Glove_Kod,
-                    Glove_Opis: savedGlove.Glove_Opis
+                    Glove_Opis: savedGlove.Glove_Opis,
+                    Rodzaj: savedGlove.Rodzaj
                 }
             });
         } catch (err) {
@@ -60,7 +63,7 @@ class GlovesController {
     async updateGlove(req, res, next) {
         try {
             const id = req.params.gloveId;
-            const { Glove_Kod, Glove_Opis } = req.body;
+            const { Glove_Kod, Glove_Opis, Rodzaj } = req.body;
 
             // Sprawdź czy inna rękawiczka już ma ten kod
             const existingGlove = await Gloves.findOne({ Glove_Kod, _id: { $ne: id } });
@@ -70,7 +73,8 @@ class GlovesController {
 
             const updateData = {
                 Glove_Kod,
-                Glove_Opis
+                Glove_Opis,
+                Rodzaj
             };
 
             const updatedGlove = await Gloves.findByIdAndUpdate(id, updateData, { new: true });
@@ -84,7 +88,8 @@ class GlovesController {
                 updatedGlove: {
                     _id: updatedGlove._id,
                     Glove_Kod: updatedGlove.Glove_Kod,
-                    Glove_Opis: updatedGlove.Glove_Opis
+                    Glove_Opis: updatedGlove.Glove_Opis,
+                    Rodzaj: updatedGlove.Rodzaj
                 }
             });
         } catch (err) {

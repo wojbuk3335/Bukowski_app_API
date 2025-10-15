@@ -19,7 +19,7 @@ const Belts = () => {
     const [loading, setLoading] = useState(false);
     const [rows, setRows] = useState([]);
     const [modal, setModal] = useState(false);
-    const [currentBelt, setCurrentBelt] = useState({ _id: '', Belt_Opis: '' });
+    const [currentBelt, setCurrentBelt] = useState({ _id: '', Belt_Opis: '', Rodzaj: 'D' });
 
     useEffect(() => {
         fetchData();
@@ -57,7 +57,8 @@ const Belts = () => {
             // Create new belt
             const newBelt = {
                 Belt_Kod: nextCode.toString(),
-                Belt_Opis: ""
+                Belt_Opis: "",
+                Rodzaj: "D"
             };
 
             await axios.post('/api/excel/belts', newBelt);
@@ -88,7 +89,8 @@ const Belts = () => {
 
             await axios.put(`/api/excel/belts/${currentBelt._id}`, { 
                 Belt_Kod: currentBelt.Belt_Kod,
-                Belt_Opis: currentBelt.Belt_Opis
+                Belt_Opis: currentBelt.Belt_Opis,
+                Rodzaj: currentBelt.Rodzaj
             });
             fetchData();
             toggleModal();
@@ -138,6 +140,7 @@ const Belts = () => {
                 <tr>
                     <th>Belt_Kod</th>
                     <th>Belt_Opis</th>
+                    <th>Rodzaj</th>
                     <th>Akcje</th>
                 </tr>
             </thead>
@@ -146,6 +149,7 @@ const Belts = () => {
                     <tr key={item._id}>
                         <td>{item.Belt_Kod}</td>
                         <td>{item.Belt_Opis}</td>
+                        <td>{item.Rodzaj}</td>
                         <td>
                             <Button color="primary" size="sm" className={styles.button} onClick={() => handleUpdateClick(item)}>
                                 Aktualizuj
@@ -186,7 +190,7 @@ const Belts = () => {
             </Fragment>
 
             <Modal isOpen={modal} toggle={toggleModal}>
-                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Edytuj opis paska</ModalHeader>
+                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>Edytuj pasek</ModalHeader>
                 <ModalBody className={styles.modalBody}>
                     <FormGroup>
                         <Label for="beltOpis">Belt_Opis</Label>
@@ -197,6 +201,19 @@ const Belts = () => {
                             value={currentBelt.Belt_Opis}
                             onChange={handleUpdateChange}
                         />
+                    </FormGroup>
+                    <FormGroup>
+                        <Label for="beltRodzaj">Rodzaj (płeć)</Label>
+                        <Input
+                            id="beltRodzaj"
+                            name="Rodzaj"
+                            type="select"
+                            value={currentBelt.Rodzaj}
+                            onChange={handleUpdateChange}
+                        >
+                            <option value="D">D</option>
+                            <option value="M">M</option>
+                        </Input>
                     </FormGroup>
                 </ModalBody>
                 <ModalFooter className={styles.modalFooter}>

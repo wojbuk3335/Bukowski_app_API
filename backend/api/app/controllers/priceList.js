@@ -477,11 +477,10 @@ class PriceListController {
             
             await priceList.save();
             
-            // Populate the saved price list for response
+            // Populate the saved price list for response (excluding subcategory - already handled manually)
             const populatedPriceList = await PriceList.findById(priceList._id)
                 .populate('items.stock', 'Tow_Opis Tow_Kod')
                 .populate('items.color', 'Kol_Opis Kol_Kod')
-                .populate('items.subcategory', 'Kat_1_Opis_1')
                 .populate('items.manufacturer', 'Prod_Opis')
                 .populate('items.priceExceptions.size', 'Roz_Opis');
             

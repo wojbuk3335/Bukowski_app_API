@@ -21,12 +21,22 @@ const RemainingProducts = () => {
     const [currentProduct, setCurrentProduct] = useState({ _id: '', Poz_Kod: '' });
     const [startingNumber, setStartingNumber] = useState(10);
 
-    // Validation function for Poz_Kod - allows text and numbers
+    // Validation function for Poz_Kod - allows text and numbers with max 3 decimal places
     const validatePozKod = (value) => {
         if (!value || value === '') return true;
         
-        // Allow any text (letters, numbers, spaces, special characters)
-        // Just check for reasonable length
+        // Check if value contains decimal numbers with more than 3 decimal places
+        const decimalMatches = value.match(/\d+\.\d+/g);
+        if (decimalMatches) {
+            for (let match of decimalMatches) {
+                const decimalPart = match.split('.')[1];
+                if (decimalPart && decimalPart.length > 3) {
+                    return false; // Don't allow more than 3 decimal places
+                }
+            }
+        }
+        
+        // Check for reasonable length
         return value.length <= 100; // Max 100 characters
     };
 
@@ -45,6 +55,14 @@ const RemainingProducts = () => {
         const newValue = e.target.value;
         if (validatePozKod(newValue)) {
             setCurrentProduct({ ...currentProduct, Poz_Kod: newValue });
+        }
+    };
+
+    const handlePaste = (e) => {
+        const pastedText = e.clipboardData.getData('text');
+        if (!validatePozKod(pastedText)) {
+            e.preventDefault(); // Prevent paste if validation fails
+            alert('Poz_Kod nie może zawierać liczb z więcej niż 3 cyframi po kropce (np. 12.123 jest ok, ale 12.1234 nie)');
         }
     };
 
@@ -273,6 +291,9 @@ const RemainingProducts = () => {
                             type="text"
                             value={currentProduct.Poz_Kod}
                             onChange={handleUpdateChange}
+                            onPaste={handlePaste}
+                            placeholder="np. Kod12.123"
+                            title="Kod może zawierać liczby z maksymalnie 3 cyframi po kropce"
                         />
                     </FormGroup>
                 </ModalBody>

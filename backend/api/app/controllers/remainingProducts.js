@@ -17,6 +17,21 @@ exports.getAllRemainingProducts = async (req, res, next) => {
 // Insert many Remaining Products
 exports.insertManyRemainingProducts = async (req, res, next) => {
     try {
+        // Validate Poz_Kod format for all items
+        for (const productItem of req.body) {
+            if (productItem.Poz_Kod) {
+                const decimalMatches = productItem.Poz_Kod.match(/\d+\.\d+/g);
+                if (decimalMatches) {
+                    for (let match of decimalMatches) {
+                        const decimalPart = match.split('.')[1];
+                        if (decimalPart && decimalPart.length > 3) {
+                            return res.status(400).json({ message: `Poz_Kod "${productItem.Poz_Kod}" nie może zawierać liczb z więcej niż 3 cyframi po kropce!` });
+                        }
+                    }
+                }
+            }
+        }
+
         // Check for duplicates
         for (const productItem of req.body) {
             if (productItem.Poz_Nr) {
@@ -103,6 +118,19 @@ exports.updateManyRemainingProducts = async (req, res, next) => {
 exports.updateRemainingProducts = async (req, res, next) => {
     try {
         const id = req.params.id;
+        
+        // Validate Poz_Kod format - max 3 decimal places for any numbers
+        if (req.body.Poz_Kod) {
+            const decimalMatches = req.body.Poz_Kod.match(/\d+\.\d+/g);
+            if (decimalMatches) {
+                for (let match of decimalMatches) {
+                    const decimalPart = match.split('.')[1];
+                    if (decimalPart && decimalPart.length > 3) {
+                        return res.status(400).json({ message: 'Poz_Kod nie może zawierać liczb z więcej niż 3 cyframi po kropce!' });
+                    }
+                }
+            }
+        }
         
         // Get old product data before update
         const oldProduct = await RemainingProducts.findById(id);

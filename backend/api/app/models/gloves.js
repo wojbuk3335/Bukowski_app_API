@@ -9,6 +9,12 @@ const glovesSchema = new mongoose.Schema({
   Glove_Opis: {
     type: String,
     required: false
+  },
+  Rodzaj: {
+    type: String,
+    enum: ['D', 'M'],
+    required: false,
+    default: 'D'
   }
 }, {
   timestamps: true

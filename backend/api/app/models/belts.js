@@ -9,6 +9,12 @@ const beltsSchema = new mongoose.Schema({
   Belt_Opis: {
     type: String,
     required: false
+  },
+  Rodzaj: {
+    type: String,
+    enum: ['D', 'M'],
+    required: false,
+    default: 'D'
   }
 }, {
   timestamps: true

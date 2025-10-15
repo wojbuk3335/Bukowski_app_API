@@ -20,8 +20,6 @@ const Gloves = require('../models/gloves');
 
 class GoodsController {
     async createGood(req, res, next) {
-        console.log('Creating good with data:', req.body);
-        console.log('Karpacz prices received:', { priceKarpacz: req.body.priceKarpacz, discount_priceKarpacz: req.body.discount_priceKarpacz });
         const { stock, color, fullName, code, category, subcategory, remainingsubsubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId, priceKarpacz, discount_priceKarpacz } = req.body; // Add manufacturer and Karpacz fields
         // Handle picture field - in test environment, use picture from req.body directly if no file uploaded
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : (req.body.picture || '');
@@ -43,12 +41,6 @@ class GoodsController {
                 }
             } else if (category === 'Pozostały asortyment') {
                 // Validation for remaining assortment
-                console.log('Validating remaining assortment:', {
-                    bagProduct: bagProduct,
-                    subcategory: subcategory,
-                    remainingsubsubcategory: remainingsubsubcategory
-                });
-                
                 if (!bagProduct) {
                     return res.status(400).json({ message: 'Product code is required for remaining assortment category' });
                 }
@@ -145,8 +137,9 @@ class GoodsController {
             goodData.bagsCategoryId = bagsCategoryId; // ID kategorii pozostałego asortymentu
             goodData.subcategory = subcategory; // Podkategoria dla pozostałego asortymentu
             
-            // Convert remainingsubsubcategory ID to text description
+            // Convert remainingsubsubcategory ID to text description and get Rodzaj
             let remainingSubcategoryText = '';
+            let rodzajValue = '';
             if (remainingsubsubcategory && subcategory) {
                 if (subcategory === 'belts') {
                     const Belts = require('../models/belts');
@@ -155,8 +148,9 @@ class GoodsController {
                     if (typeof beltId === 'string') {
                         beltId = new mongoose.Types.ObjectId(beltId);
                     }
-                    const beltData = await Belts.findById(beltId).select('Belt_Opis');
-                    remainingSubcategoryText = beltData ? beltData.Belt_Opis : '';
+                    const beltData = await Belts.findById(beltId).select('Belt_Opis Rodzaj');
+                    remainingSubcategoryText = beltData ? beltData.Belt_Opis.trim() : '';
+                    rodzajValue = beltData ? beltData.Rodzaj : '';
                 } else if (subcategory === 'gloves') {
                     const Gloves = require('../models/gloves');
                     const mongoose = require('mongoose');
@@ -164,20 +158,16 @@ class GoodsController {
                     if (typeof gloveId === 'string') {
                         gloveId = new mongoose.Types.ObjectId(gloveId);
                     }
-                    const gloveData = await Gloves.findById(gloveId).select('Glove_Opis');
-                    remainingSubcategoryText = gloveData ? gloveData.Glove_Opis : '';
+                    const gloveData = await Gloves.findById(gloveId).select('Glove_Opis Rodzaj');
+                    remainingSubcategoryText = gloveData ? gloveData.Glove_Opis.trim() : '';
+                    rodzajValue = gloveData ? gloveData.Rodzaj : '';
                 } else {
                     remainingSubcategoryText = remainingsubsubcategory; // For regular subcategories
                 }
             }
             
             goodData.remainingsubsubcategory = remainingSubcategoryText; // Save text description instead of ObjectId
-            
-            console.log('Saving remaining assortment data:', {
-                subcategory: goodData.subcategory,
-                remainingsubsubcategory: goodData.remainingsubsubcategory,
-                bagsCategoryId: goodData.bagsCategoryId
-            });
+            goodData.Rodzaj = rodzajValue; // Save gender field for belts/gloves
         } else {
             // For other categories (Kurtki, etc.), add stock field only if provided
             if (stock && stock.trim() !== '') {
@@ -190,14 +180,6 @@ class GoodsController {
 
         newGood.save()
             .then(async result => {
-                console.log('Saved good to database:', {
-                    _id: result._id,
-                    category: result.category,
-                    subcategory: result.subcategory,
-                    remainingsubsubcategory: result.remainingsubsubcategory,
-                    bagsCategoryId: result.bagsCategoryId
-                });
-                
                 // New product created - sync all price lists to add new product INCLUDING prices
                 try {
                     await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
@@ -225,6 +207,7 @@ class GoodsController {
                         category: result.category,
                         subcategory: result.subcategory,
                         Plec: result.Plec,
+                        Rodzaj: result.Rodzaj,
                         price: result.price,
                         discount_price: result.discount_price,
                         picture: result.picture,
@@ -253,7 +236,7 @@ class GoodsController {
             // For test environment, use simpler approach without populate
             if (process.env.NODE_ENV === 'test') {
                 const goods = await Goods.find()
-                    .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz');
+                    .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec Rodzaj price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz');
                 
                 res.status(200).json({
                     count: goods.length,
@@ -271,6 +254,7 @@ class GoodsController {
                         remainingSubcategory: good.remainingSubcategory || good.remainingsubsubcategory,
                         manufacturer: good.manufacturer,
                         Plec: good.Plec,
+                        Rodzaj: good.Rodzaj,
                         price: good.price,
                         discount_price: good.discount_price,
                         priceKarpacz: good.priceKarpacz,
@@ -287,7 +271,7 @@ class GoodsController {
 
             // For production environment, use populate
             const goods = await Goods.find()
-                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz')
+                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec Rodzaj price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz')
                 .populate('stock', 'Tow_Opis Tow_Kod')
                 .populate('color', 'Kol_Opis Kol_Kod')
                 .populate('manufacturer', 'Prod_Opis Prod_Kod')
@@ -409,6 +393,7 @@ class GoodsController {
                     remainingSubcategory: good.remainingSubcategory,
                     manufacturer: good.manufacturer,
                     Plec: good.Plec, // Include Plec in the response
+                    Rodzaj: good.Rodzaj, // Include Rodzaj in the response
                     price: good.price,
                     discount_price: good.discount_price,
                     priceKarpacz: good.priceKarpacz,
@@ -491,6 +476,44 @@ class GoodsController {
             updateData.subcategory = req.body.subcategory;
             updateData.remainingSubcategory = req.body.remainingSubcategory; // Dodaj podpodkategorię
             updateData.Plec = req.body.Plec; // Płeć z kategorii pozostałego asortymentu
+
+            // Convert remainingsubsubcategory ID to text description and get Rodzaj for update
+            if (req.body.remainingsubsubcategory && req.body.subcategory) {
+                let remainingSubcategoryText = '';
+                let rodzajValue = '';
+                
+                if (req.body.subcategory === 'belts') {
+                    const Belts = require('../models/belts');
+                    const mongoose = require('mongoose');
+                    let beltId = req.body.remainingsubsubcategory;
+                    if (typeof beltId === 'string') {
+                        beltId = new mongoose.Types.ObjectId(beltId);
+                    }
+                    const beltData = await Belts.findById(beltId).select('Belt_Opis Rodzaj');
+                    remainingSubcategoryText = beltData ? beltData.Belt_Opis.trim() : '';
+                    rodzajValue = beltData ? beltData.Rodzaj : '';
+                } else if (req.body.subcategory === 'gloves') {
+                    const Gloves = require('../models/gloves');
+                    const mongoose = require('mongoose');
+                    let gloveId = req.body.remainingsubsubcategory;
+                    if (typeof gloveId === 'string') {
+                        gloveId = new mongoose.Types.ObjectId(gloveId);
+                    }
+                    const gloveData = await Gloves.findById(gloveId).select('Glove_Opis Rodzaj');
+                    remainingSubcategoryText = gloveData ? gloveData.Glove_Opis.trim() : '';
+                    rodzajValue = gloveData ? gloveData.Rodzaj : '';
+                } else {
+                    remainingSubcategoryText = req.body.remainingsubsubcategory; // For regular subcategories
+                }
+                
+                updateData.remainingsubsubcategory = remainingSubcategoryText; // Save text description
+                updateData.Rodzaj = rodzajValue; // Save gender field for belts/gloves
+            }
+            
+            // If Rodzaj is explicitly provided from frontend, use it (for edited belts/gloves)
+            if (req.body.Rodzaj) {
+                updateData.Rodzaj = req.body.Rodzaj;
+            }
         } else {
             // For other categories (Kurtki, etc.), update stock field only if provided
             if (req.body.stock && req.body.stock.trim() !== '') {

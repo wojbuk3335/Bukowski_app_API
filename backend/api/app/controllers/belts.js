@@ -4,14 +4,15 @@ const mongoose = require('mongoose');
 class BeltsController {
     async getAllBelts(req, res, next) {
         try {
-            const belts = await Belts.find().select('_id Belt_Kod Belt_Opis');
+            const belts = await Belts.find().select('_id Belt_Kod Belt_Opis Rodzaj');
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.status(200).json({
                 count: belts.length,
                 belts: belts.map(belt => ({
                     _id: belt._id,
                     Belt_Kod: belt.Belt_Kod,
-                    Belt_Opis: belt.Belt_Opis
+                    Belt_Opis: belt.Belt_Opis,
+                    Rodzaj: belt.Rodzaj
                 }))
             });
         } catch (err) {
@@ -25,7 +26,7 @@ class BeltsController {
 
     async createBelt(req, res, next) {
         try {
-            const { Belt_Kod, Belt_Opis } = req.body;
+            const { Belt_Kod, Belt_Opis, Rodzaj } = req.body;
 
             // Sprawdź czy pasek już istnieje
             const existingBelt = await Belts.findOne({ Belt_Kod });
@@ -36,7 +37,8 @@ class BeltsController {
             const belt = new Belts({
                 _id: new mongoose.Types.ObjectId(),
                 Belt_Kod,
-                Belt_Opis
+                Belt_Opis,
+                Rodzaj: Rodzaj || 'D'
             });
 
             const savedBelt = await belt.save();
@@ -45,7 +47,8 @@ class BeltsController {
                 createdBelt: {
                     _id: savedBelt._id,
                     Belt_Kod: savedBelt.Belt_Kod,
-                    Belt_Opis: savedBelt.Belt_Opis
+                    Belt_Opis: savedBelt.Belt_Opis,
+                    Rodzaj: savedBelt.Rodzaj
                 }
             });
         } catch (err) {
@@ -60,7 +63,7 @@ class BeltsController {
     async updateBelt(req, res, next) {
         try {
             const id = req.params.beltId;
-            const { Belt_Kod, Belt_Opis } = req.body;
+            const { Belt_Kod, Belt_Opis, Rodzaj } = req.body;
 
             // Sprawdź czy inny pasek już ma ten kod
             const existingBelt = await Belts.findOne({ Belt_Kod, _id: { $ne: id } });
@@ -70,7 +73,8 @@ class BeltsController {
 
             const updateData = {
                 Belt_Kod,
-                Belt_Opis
+                Belt_Opis,
+                Rodzaj
             };
 
             const updatedBelt = await Belts.findByIdAndUpdate(id, updateData, { new: true });
@@ -84,7 +88,8 @@ class BeltsController {
                 updatedBelt: {
                     _id: updatedBelt._id,
                     Belt_Kod: updatedBelt.Belt_Kod,
-                    Belt_Opis: updatedBelt.Belt_Opis
+                    Belt_Opis: updatedBelt.Belt_Opis,
+                    Rodzaj: updatedBelt.Rodzaj
                 }
             });
         } catch (err) {
