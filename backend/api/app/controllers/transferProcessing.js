@@ -764,7 +764,7 @@ class TransferProcessingController {
     // Process warehouse items - transfer from warehouse to user
     async processWarehouseItems(req, res) {
         try {
-            const { warehouseItems, transactionId, isIncomingTransfer } = req.body;
+            const { warehouseItems, transactionId, isIncomingTransfer, selectedUser, selectedDate } = req.body;
             
             if (!warehouseItems || !Array.isArray(warehouseItems) || warehouseItems.length === 0) {
                 return res.status(400).json({
@@ -794,7 +794,13 @@ class TransferProcessingController {
                     let goods;
                     
                     // Check if fullName is ObjectId (reference to Goods) or string (goods name)
-                    if (mongoose.Types.ObjectId.isValid(item.fullName)) {
+                    // FIXED: Check if it's really an ObjectId (24 hex characters) not just "valid"
+                    const isRealObjectId = mongoose.Types.ObjectId.isValid(item.fullName) && 
+                                          typeof item.fullName === 'string' && 
+                                          item.fullName.length === 24 &&
+                                          /^[0-9a-fA-F]{24}$/.test(item.fullName);
+                    
+                    if (isRealObjectId) {
                         // fullName is ObjectId - find by ID
                         goods = await Goods.findById(item.fullName);
                     } else {

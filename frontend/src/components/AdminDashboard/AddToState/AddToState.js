@@ -1563,13 +1563,20 @@ const AddToState = ({ onAdd }) => {
       // 🟡 KROK 2: ŻÓŁTE PRODUKTY - Transfery przychodzące (dopisanie do stanu)
       if (warehouseItems.length > 0) {
 
+        // NAPRAW: Dodaj transfer_to dla warehouse items przed wysłaniem do backend
+        const selectedUserObject = users.find(user => user._id === selectedUser);
+        const warehouseItemsWithTransferTo = warehouseItems.map(item => ({
+          ...item,
+          transfer_to: selectedUserObject?.symbol || selectedUserObject?.sellingPoint // Dodaj docelowego użytkownika
+        }));
+
         const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            warehouseItems: warehouseItems,
+            warehouseItems: warehouseItemsWithTransferTo,
             selectedDate: selectedDate,
             selectedUser: selectedUser,
             transactionId: sharedTransactionId // Przekaż wspólny transactionId
@@ -1707,13 +1714,20 @@ const AddToState = ({ onAdd }) => {
             
             // Wykonaj operację pomarańczową (przeniesienie z magazynu)
 
+            // NAPRAW: Dodaj transfer_to dla warehouse product przed wysłaniem do backend
+            const selectedUserObject = users.find(user => user._id === selectedUser);
+            const warehouseProductWithTransferTo = {
+              ...matchedPair.warehouseProduct,
+              transfer_to: selectedUserObject?.symbol || selectedUserObject?.sellingPoint
+            };
+
             const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                warehouseItems: [matchedPair.warehouseProduct],
+                warehouseItems: [warehouseProductWithTransferTo],
                 selectedDate: selectedDate,
                 selectedUser: selectedUser,
                 transactionId: sharedTransactionId
@@ -1746,13 +1760,20 @@ const AddToState = ({ onAdd }) => {
 
       if (warehouseItems.length > 0) {
 
+        // NAPRAW: Dodaj transfer_to dla warehouse items przed wysłaniem do backend
+        const selectedUserObject = users.find(user => user._id === selectedUser);
+        const warehouseItemsWithTransferTo = warehouseItems.map(item => ({
+          ...item,
+          transfer_to: selectedUserObject?.symbol || selectedUserObject?.sellingPoint // Dodaj docelowego użytkownika
+        }));
+
         const warehouseResponse = await fetch(`${API_BASE_URL}/api/transfer/process-warehouse`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            warehouseItems: warehouseItems,
+            warehouseItems: warehouseItemsWithTransferTo,
             selectedDate: selectedDate,
             selectedUser: selectedUser,
             transactionId: sharedTransactionId
