@@ -3,7 +3,13 @@ import React, { useState, useEffect } from 'react';
 const AddToState = ({ onAdd }) => {
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
   
-  const [selectedDate, setSelectedDate] = useState('');
+  // Ustawienie dzisiejszej daty jako domyślnej
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0]; // Format YYYY-MM-DD
+  };
+  
+  const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [selectedUser, setSelectedUser] = useState('');
   const [users, setUsers] = useState([]);
   const [transfers, setTransfers] = useState([]);
@@ -314,7 +320,6 @@ const AddToState = ({ onAdd }) => {
         };
         setPriceList(priceListData);
       } else if (response.status === 404) {
-        console.log('No price list found for selling point:', sellingPointId);
         setPriceList(null);
       } else {
         console.error('Failed to fetch price list');
@@ -338,7 +343,6 @@ const AddToState = ({ onAdd }) => {
     const priceListItem = priceList.items.find(priceItem => {
       // Match by barcode if available
       if (item.barcode && priceItem.code === item.barcode) {
-        console.log('MATCH BY BARCODE:', item.barcode, '=', priceItem.code);
         return true;
       }
       
@@ -347,11 +351,8 @@ const AddToState = ({ onAdd }) => {
         ? item.fullName?.fullName 
         : item.fullName;
       
-      console.log('TRYING NAME MATCH:', itemFullName, 'vs', priceItem.fullName);
-      
       // If names match exactly, don't require category match (in case category is missing)
       if (priceItem.fullName === itemFullName) {
-        console.log('EXACT NAME MATCH FOUND!');
         return true;
       }
       
@@ -361,20 +362,8 @@ const AddToState = ({ onAdd }) => {
     });
 
     if (!priceListItem) {
-      console.log('NO MATCH FOUND for item:', {
-        fullName: typeof item.fullName === 'object' ? item.fullName?.fullName : item.fullName,
-        category: item.category,
-        barcode: item.barcode
-      });
-      console.log('Available price list items:', priceList.items.map(p => ({
-        fullName: p.fullName, 
-        category: p.category, 
-        code: p.code
-      })));
       return null;
     }
-
-    console.log('Found price list item:', priceListItem);
 
     const result = {
       regularPrice: priceListItem.price || 0,
@@ -392,7 +381,6 @@ const AddToState = ({ onAdd }) => {
       
       if (sizeException) {
         result.sizeExceptionPrice = sizeException.value;
-        console.log(`Found size exception price for ${itemSize}:`, sizeException.value);
       }
     }
 
@@ -1158,8 +1146,6 @@ const AddToState = ({ onAdd }) => {
       }
     }
     
-    console.log(`Price for ${itemName} (${itemSize}):`, finalPrice);
-    
     // Mapowanie punktów na numery
     const pointMapping = {
       'P': '01',
@@ -1304,19 +1290,9 @@ const AddToState = ({ onAdd }) => {
       const shouldPrintTwoLabels = priceInfo && priceInfo.hasDiscount && !priceInfo.sizeExceptionPrice;
       
       // DEBUG LOG
-      console.log(`DEBUG for ${item.fullName} (${itemSize}):`, {
-        hasPriceInfo: !!priceInfo,
-        hasDiscount: priceInfo?.hasDiscount,
-        sizeExceptionPrice: priceInfo?.sizeExceptionPrice,
-        shouldPrintTwoLabels: shouldPrintTwoLabels,
-        regularPrice: priceInfo?.regularPrice,
-        discountPrice: priceInfo?.discountPrice
-      });
-      
       try {
         if (shouldPrintTwoLabels) {
           // Generate two labels: regular price and discount price
-          console.log(`Preparing two labels for ${item.fullName} - Regular: ${priceInfo.regularPrice}, Discount: ${priceInfo.discountPrice}`);
           
           // Label 1: Regular price
           const regularZPL = generateZPLCode(item, priceInfo.regularPrice);
@@ -1344,16 +1320,13 @@ const AddToState = ({ onAdd }) => {
       try {
         // Połącz wszystkie kody ZPL w jeden ciąg
         const combinedZPL = allZPLCodes.join('');
-        console.log(`Wysyłanie ${totalLabelsCount} etykiet w jednym ZPL...`);
         
         const success = await sendToZebraPrinter(combinedZPL);
         
         if (success) {
           successCount = totalLabelsCount;
-          console.log(`✅ Wysłano wszystkie ${totalLabelsCount} etykiet jednocześnie`);
         } else {
           errorCount = totalLabelsCount;
-          console.log(`❌ Błąd wysyłania ${totalLabelsCount} etykiet`);
         }
       } catch (error) {
         console.error('Błąd wysyłania połączonego ZPL:', error);
@@ -1410,8 +1383,6 @@ const AddToState = ({ onAdd }) => {
         transferPrice = transfer.price || transfer.cena || transfer.Cena || 'N/A';
       }
       
-      console.log(`Transfer price for ${transferName} (${transferSize}):`, transferPrice);
-      
       // Pobierz transfer_to (punkt docelowy)
       const transferTo = transfer.transfer_to || 'N/A';
 
@@ -1435,7 +1406,6 @@ const AddToState = ({ onAdd }) => {
 
       if (shouldPrintTwoLabels) {
         // Print two labels: regular price and discount price
-        console.log(`Printing two labels for single transfer ${transferName} - Regular: ${priceInfo.regularPrice}, Discount: ${priceInfo.discountPrice}`);
         
         // Label 1: Regular price
         const regularZPL = generateZPLCode(labelData, priceInfo.regularPrice);
@@ -2272,13 +2242,13 @@ const AddToState = ({ onAdd }) => {
         overflowY: 'auto'
       }}>
         <h2 style={{ textAlign: 'center', marginBottom: '20px', color: 'white' }}>
-          📦 Magazyn
+          Magazyn
         </h2>
         
         {/* Wyszukiwarka magazynu */}
         <div style={{ marginBottom: '20px' }}>
           <label htmlFor="warehouseSearch" style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: 'white' }}>
-            🔍 Wyszukaj w magazynie:
+            Wyszukaj w magazynie:
           </label>
           <input
             id="warehouseSearch"
@@ -2305,7 +2275,7 @@ const AddToState = ({ onAdd }) => {
         {/* Tabela produktów magazynowych */}
         <div style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd', fontSize: '12px' }}>
-            <thead style={{ position: 'sticky', top: 0, backgroundColor: '#28a745', color: 'white' }}>
+            <thead style={{ position: 'sticky', top: 0, backgroundColor: '#495057', color: 'white' }}>
               <tr>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Nazwa</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Rozmiar</th>
@@ -2319,39 +2289,41 @@ const AddToState = ({ onAdd }) => {
                 const isGreyed = isWarehouseItemGreyed(item._id);
                 return (
                 <tr key={item._id} style={{ 
-                  backgroundColor: isGreyed ? '#d6d6d6' : '#e8f5e8', // Wyszarzony jeśli sparowany
+                  backgroundColor: isGreyed ? '#d6d6d6' : '#000000', // Czarne tło dla nie-sparowanych
+                  color: isGreyed ? '#333333' : '#ffffff', // Biały tekst dla nie-sparowanych
                   opacity: isGreyed ? 0.6 : 1.0,
-                  '&:hover': { backgroundColor: isGreyed ? '#c0c0c0' : '#d4edda' }
+                  '&:hover': { backgroundColor: isGreyed ? '#c0c0c0' : '#333333' }
                 }}>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.fullName?.fullName || 'Nieznana nazwa'}
                   </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.size?.Roz_Opis || 'Nieznany rozmiar'}
                   </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.barcode || 'Brak kodu'}
                   </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {item.price ? `${item.price} PLN` : 'Brak ceny'}
                   </td>
-                  <td style={{ border: '1px solid #28a745', padding: '6px', textAlign: 'center' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px', textAlign: 'center' }}>
                     <button
                       onClick={() => !isGreyed && handleMoveFromWarehouse(item)}
                       disabled={isGreyed}
                       style={{
-                        backgroundColor: isGreyed ? '#6c757d' : '#17a2b8',
+                        backgroundColor: isGreyed ? '#6c757d' : '#0d6efd',
                         color: 'white',
                         border: 'none',
-                        padding: '4px 8px',
+                        padding: '2px 6px',
                         borderRadius: '3px',
                         cursor: isGreyed ? 'not-allowed' : 'pointer',
                         fontSize: '11px',
-                        opacity: isGreyed ? 0.6 : 1.0
+                        opacity: isGreyed ? 0.6 : 1.0,
+                        height: '24px'
                       }}
                       title={isGreyed ? "Produkt sparowany - niedostępny" : "Przenieś produkt do obszaru transferów"}
                     >
-                      {isGreyed ? '🔒 Sparowany' : '➤ Przenieś'}
+                      {isGreyed ? '🔒 Sparowany' : 'Przenieś'}
                     </button>
                   </td>
                 </tr>
@@ -2494,7 +2466,10 @@ const AddToState = ({ onAdd }) => {
               cursor: 'pointer',
               fontSize: '16px',
               fontWeight: 'bold',
-              marginRight: '10px'
+              marginRight: '10px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
             disabled={!Array.isArray(filteredItems) || filteredItems.length === 0}
           >
@@ -2504,7 +2479,7 @@ const AddToState = ({ onAdd }) => {
           <button 
             onClick={handlePrintAllColoredLabels}
             style={{
-              backgroundColor: '#ff8c00',
+              backgroundColor: '#0d6efd',
               color: 'white',
               border: 'none',
               padding: '10px 20px',
@@ -2512,11 +2487,14 @@ const AddToState = ({ onAdd }) => {
               cursor: 'pointer',
               fontSize: '16px',
               fontWeight: 'bold',
-              margin: '5px'
+              marginLeft: '10px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
             disabled={getColoredItemsCount() === 0}
           >
-            🖨️ Drukuj etykiety pomarańczowych i żółtych ({getColoredItemsCount()})
+            Drukuj wszystkie etykietki ({getColoredItemsCount()})
           </button>
 
           {canUndoTransaction && lastTransaction && showUndoButton &&
@@ -2543,7 +2521,7 @@ const AddToState = ({ onAdd }) => {
         <div style={{ marginTop: '20px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
             <thead>
-              <tr style={{ backgroundColor: '#28a745', color: 'white' }}>
+              <tr style={{ backgroundColor: '#495057', color: 'white' }}>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Nazwa</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Rozmiar</th>
                 <th style={{ border: '1px solid #ddd', padding: '8px' }}>Data</th>
@@ -2568,7 +2546,7 @@ const AddToState = ({ onAdd }) => {
                   color: 'white',
                   opacity: isProcessed ? 0.7 : 1.0 // Przezroczystość dla przetworzonych
                 }}>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {isProcessed && '✓ '}
                     {transfer.isFromSale 
                       ? (transfer.fullName || 'N/A')
@@ -2576,56 +2554,58 @@ const AddToState = ({ onAdd }) => {
                           ? (transfer.fullName?.fullName || 'N/A')
                           : (transfer.fullName || 'N/A'))}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {transfer.isFromSale 
                       ? (transfer.size || 'N/A')
                       : (typeof transfer.size === 'object' 
                           ? (transfer.size?.Roz_Opis || 'N/A')
                           : (transfer.size || 'N/A'))}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {new Date(transfer.date).toLocaleDateString()}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>{transfer.transfer_from}</td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>{transfer.transfer_from}</td>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px' }}>
                     {transfer.isFromSale ? `SPRZEDANO w ${transfer.transfer_to}` : transfer.transfer_to}
                   </td>
-                  <td style={{ border: '1px solid #ffffff', padding: '8px' }}>
+                  <td style={{ border: '1px solid #ffffff', padding: '6px', textAlign: 'center' }}>
                     {transfer.isFromSale ? (
                       // Dla sprzedaży - brak przycisków akcji (nie można cofnąć sprzedaży tutaj)
                       <span style={{ fontStyle: 'italic' }}>Sprzedano</span>
                     ) : transfer.fromWarehouse ? (
                       // Przyciski dla produktów z magazynu (pomarańczowe) - przycisk Cofnij + Drukuj
-                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'center' }}>
                         <button 
                           onClick={() => handleReturnToWarehouse(transfer)}
                           style={{
-                            backgroundColor: '#28a745',
+                            backgroundColor: '#dc3545',
                             color: 'white',
                             border: 'none',
-                            padding: '4px 6px',
+                            padding: '2px 6px',
                             borderRadius: '3px',
                             cursor: 'pointer',
-                            fontSize: '11px'
+                            fontSize: '11px',
+                            height: '24px'
                           }}
                           title="Cofnij do magazynu"
                         >
-                          ↩️ Cofnij
+                          Cofnij
                         </button>
                         <button 
                           onClick={() => handlePrintSingleLabel(transfer)}
                           style={{
-                            backgroundColor: '#fd7e14',
+                            backgroundColor: '#0d6efd',
                             color: 'white',
                             border: 'none',
-                            padding: '4px 6px',
+                            padding: '2px 6px',
                             borderRadius: '3px',
                             cursor: 'pointer',
-                            fontSize: '11px'
+                            fontSize: '11px',
+                            height: '24px'
                           }}
                           title="Drukuj etykietę pomarańczowego produktu"
                         >
-                          🖨️
+                          Drukuj
                         </button>
                       </div>
                     ) : (() => {
@@ -2662,17 +2642,18 @@ const AddToState = ({ onAdd }) => {
                               }
                             }}
                             style={{
-                              backgroundColor: '#28a745',
+                              backgroundColor: '#0d6efd',
                               color: 'white',
                               border: 'none',
-                              padding: '5px 8px',
+                              padding: '2px 6px',
                               borderRadius: '3px',
                               cursor: 'pointer',
-                              fontSize: '12px'
+                              fontSize: '11px',
+                              height: '24px'
                             }}
                             title="Sparowany: usuń ze stanu i dodaj z magazynu"
                           >
-                            🔄 Sparowany
+                            Sparowany
                           </button>
                         );
                       } else {
@@ -2684,18 +2665,18 @@ const AddToState = ({ onAdd }) => {
                             <button 
                               onClick={() => handlePrintSingleLabel(transfer)}
                               style={{
-                                backgroundColor: '#ffc107',
-                                color: 'black',
+                                backgroundColor: '#0d6efd',
+                                color: 'white',
                                 border: 'none',
-                                padding: '4px 6px',
+                                padding: '2px 6px',
                                 borderRadius: '3px',
                                 cursor: 'pointer',
                                 fontSize: '11px',
-                                fontWeight: 'bold'
+                                height: '24px'
                               }}
                               title="Drukuj etykietę żółtego produktu (przychodzący transfer)"
                             >
-                              🖨️
+                              Drukuj
                             </button>
                           );
                         } else {
