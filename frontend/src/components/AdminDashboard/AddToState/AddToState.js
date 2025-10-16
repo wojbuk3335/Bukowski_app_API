@@ -43,6 +43,10 @@ const AddToState = ({ onAdd }) => {
   // Stan do śledzenia już przeniesionych produktów z magazynu (żeby nie przenosić duplikatów)
   const [autoMovedProducts, setAutoMovedProducts] = useState(new Set());
 
+  // Stan dla cenników punktów sprzedaży
+  const [priceList, setPriceList] = useState(null);
+  const [priceListLoading, setPriceListLoading] = useState(false);
+
   // Stan dla spinnera podczas automatycznego przenoszenia
   const [isAutoMoving, setIsAutoMoving] = useState(false);
 
@@ -291,6 +295,110 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  // Fetch price list for selected user's selling point
+  const fetchPriceList = async (sellingPointId) => {
+    if (!sellingPointId) {
+      setPriceList(null);
+      return;
+    }
+
+    setPriceListLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/pricelists/${sellingPointId}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Struktura: { priceList: [items] } -> przekształć na { items: [items] }
+        const priceListData = {
+          items: data.priceList || [],
+          sellingPointId: sellingPointId
+        };
+        setPriceList(priceListData);
+      } else if (response.status === 404) {
+        console.log('No price list found for selling point:', sellingPointId);
+        setPriceList(null);
+      } else {
+        console.error('Failed to fetch price list');
+        setPriceList(null);
+      }
+    } catch (error) {
+      console.error('Error fetching price list:', error);
+      setPriceList(null);
+    } finally {
+      setPriceListLoading(false);
+    }
+  };
+
+  // Get price info from price list with all available prices
+  const getPriceFromPriceList = (item, itemSize) => {
+    if (!priceList || !priceList.items) {
+      return null;
+    }
+
+    // Find matching item in price list by barcode or name/category combination
+    const priceListItem = priceList.items.find(priceItem => {
+      // Match by barcode if available
+      if (item.barcode && priceItem.code === item.barcode) {
+        console.log('MATCH BY BARCODE:', item.barcode, '=', priceItem.code);
+        return true;
+      }
+      
+      // Match by name and category if no barcode match
+      const itemFullName = typeof item.fullName === 'object' 
+        ? item.fullName?.fullName 
+        : item.fullName;
+      
+      console.log('TRYING NAME MATCH:', itemFullName, 'vs', priceItem.fullName);
+      
+      // If names match exactly, don't require category match (in case category is missing)
+      if (priceItem.fullName === itemFullName) {
+        console.log('EXACT NAME MATCH FOUND!');
+        return true;
+      }
+      
+      // Otherwise require both name and category match
+      return priceItem.fullName === itemFullName && 
+             priceItem.category === item.category;
+    });
+
+    if (!priceListItem) {
+      console.log('NO MATCH FOUND for item:', {
+        fullName: typeof item.fullName === 'object' ? item.fullName?.fullName : item.fullName,
+        category: item.category,
+        barcode: item.barcode
+      });
+      console.log('Available price list items:', priceList.items.map(p => ({
+        fullName: p.fullName, 
+        category: p.category, 
+        code: p.code
+      })));
+      return null;
+    }
+
+    console.log('Found price list item:', priceListItem);
+
+    const result = {
+      regularPrice: priceListItem.price || 0,
+      discountPrice: priceListItem.discountPrice || 0,
+      sizeExceptionPrice: null,
+      hasDiscount: priceListItem.discountPrice && priceListItem.discountPrice > 0
+    };
+
+    // Check for size-specific exceptions
+    if (itemSize && priceListItem.priceExceptions && priceListItem.priceExceptions.length > 0) {
+      const sizeException = priceListItem.priceExceptions.find(exception => {
+        const exceptionSizeName = exception.size?.Roz_Opis || exception.size;
+        return exceptionSizeName === itemSize;
+      });
+      
+      if (sizeException) {
+        result.sizeExceptionPrice = sizeException.value;
+        console.log(`Found size exception price for ${itemSize}:`, sizeException.value);
+      }
+    }
+
+    return result;
+  };
+
   // Fetch sales from API
   const fetchSales = async () => {
     try {
@@ -338,8 +446,17 @@ const AddToState = ({ onAdd }) => {
       fetchSales(); // Dodaj odświeżanie sprzedaży
       fetchAllStates(); // Dodaj odświeżanie wszystkich stanów
       checkLastTransaction();
+
+      // Pobierz cennik dla wybranego punktu sprzedaży
+      const selectedUserData = users.find(user => user._id === selectedUser);
+      if (selectedUserData && selectedUserData.sellingPoint) {
+        // Użyj _id użytkownika jako sellingPointId dla API cenników
+        fetchPriceList(selectedUserData._id);
+      } else {
+        setPriceList(null);
+      }
     }
-  }, [selectedUser]);
+  }, [selectedUser, users]);
 
   // Refresh data when date selection changes
   useEffect(() => {
@@ -992,8 +1109,18 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  // Convert Polish characters to Latin equivalents for printing
+  const convertPolishChars = (text) => {
+    const polishToLatin = {
+      'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+      'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+    };
+    
+    return text.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, (match) => polishToLatin[match] || match);
+  };
+
   // Funkcja do generowania ZPL kodu dla drukarki Zebra
-  const generateZPLCode = (item) => {
+  const generateZPLCode = (item, customPrice = null) => {
     const itemName = item.isFromSale 
       ? item.fullName 
       : (typeof item.fullName === 'object' ? item.fullName?.fullName : item.fullName);
@@ -1002,7 +1129,36 @@ const AddToState = ({ onAdd }) => {
       : (typeof item.size === 'object' ? item.size?.Roz_Opis : item.size);
     const barcode = item.barcode || '';
     const transferTo = item.transfer_to || '';
-    const price = item.price || item.cena || item.Cena || '';
+    
+    // Use custom price if provided, otherwise get from price list
+    let finalPrice;
+    
+    if (customPrice !== null) {
+      finalPrice = customPrice;
+    } else {
+      // Get price info from price list
+      const priceInfo = getPriceFromPriceList(item, itemSize);
+      
+      if (priceInfo) {
+        // Priority 1: Size exceptions override everything
+        if (priceInfo.sizeExceptionPrice) {
+          finalPrice = priceInfo.sizeExceptionPrice;
+        } 
+        // Priority 2: Discount price
+        else if (priceInfo.hasDiscount) {
+          finalPrice = priceInfo.discountPrice;
+        }
+        // Priority 3: Regular price
+        else {
+          finalPrice = priceInfo.regularPrice;
+        }
+      } else {
+        // Fallback to original price
+        finalPrice = item.price || item.cena || item.Cena || '';
+      }
+    }
+    
+    console.log(`Price for ${itemName} (${itemSize}):`, finalPrice);
     
     // Mapowanie punktów na numery
     const pointMapping = {
@@ -1028,10 +1184,10 @@ const AddToState = ({ onAdd }) => {
       processedName += ' ' + barcodeDigits;
     }
     
-    const safeName = processedName.replace(/[^\x00-\x7F]/g, "?");
-    const safeSize = (itemSize || 'N/A').replace(/[^\x00-\x7F]/g, "?");
-    const safeTransfer = (mappedPoint || 'N/A').replace(/[^\x00-\x7F]/g, "?");
-    const safePrice = (price || 'N/A').toString().replace(/[^\x00-\x7F]/g, "?");
+    const safeName = convertPolishChars(processedName);
+    const safeSize = convertPolishChars(itemSize || 'N/A');
+    const safeTransfer = convertPolishChars(mappedPoint || 'N/A');
+    const safePrice = (finalPrice || 'N/A').toString().replace(/[^\x00-\x7F]/g, "?");
     
     // Prosty ZPL test - jesli to zadziala, problem jest w zlozonym formacie
     const simpleZPL = `^XA^FO50,50^A0N,50,50^FD${safeName}^FS^FO50,150^A0N,30,30^FD${safeSize}^FS^XZ`;
@@ -1043,7 +1199,7 @@ const AddToState = ({ onAdd }) => {
 ^LL0400
 ^LS0
 ^FT3,50^A0N,40,40^FD${safeName}^FS
-^FT280,55^A0N,45,45^FDCena:^FS
+^FT320,55^A0N,45,45^FDCena:^FS
 ^FT280,125^A0N,70,70^FD${safePrice} zl^FS
 
 ^FT3,120^A0N,38,38^FDRozmiar: ${safeSize}^FS
@@ -1132,24 +1288,76 @@ const AddToState = ({ onAdd }) => {
     let successCount = 0;
     let errorCount = 0;
     
-    // Drukuj każdą etykietę
+    // Zbierz wszystkie ZPL kody
+    let allZPLCodes = [];
+    let totalLabelsCount = 0;
+    
     for (let i = 0; i < coloredItems.length; i++) {
       const item = coloredItems[i];
       
+      // Check if item has promotional pricing that requires two labels
+      const itemSize = item.isFromSale 
+        ? item.size 
+        : (typeof item.size === 'object' ? item.size?.Roz_Opis : item.size);
+      const priceInfo = getPriceFromPriceList(item, itemSize);
+      
+      const shouldPrintTwoLabels = priceInfo && priceInfo.hasDiscount && !priceInfo.sizeExceptionPrice;
+      
+      // DEBUG LOG
+      console.log(`DEBUG for ${item.fullName} (${itemSize}):`, {
+        hasPriceInfo: !!priceInfo,
+        hasDiscount: priceInfo?.hasDiscount,
+        sizeExceptionPrice: priceInfo?.sizeExceptionPrice,
+        shouldPrintTwoLabels: shouldPrintTwoLabels,
+        regularPrice: priceInfo?.regularPrice,
+        discountPrice: priceInfo?.discountPrice
+      });
+      
       try {
-        const zplCode = generateZPLCode(item);
-        const success = await sendToZebraPrinter(zplCode);
-        
-        if (success) {
-          successCount++;
-          // Krótka pauza między etykietami
-          await new Promise(resolve => setTimeout(resolve, 500));
+        if (shouldPrintTwoLabels) {
+          // Generate two labels: regular price and discount price
+          console.log(`Preparing two labels for ${item.fullName} - Regular: ${priceInfo.regularPrice}, Discount: ${priceInfo.discountPrice}`);
+          
+          // Label 1: Regular price
+          const regularZPL = generateZPLCode(item, priceInfo.regularPrice);
+          allZPLCodes.push(regularZPL);
+          totalLabelsCount++;
+          
+          // Label 2: Discount price
+          const discountZPL = generateZPLCode(item, priceInfo.discountPrice);
+          allZPLCodes.push(discountZPL);
+          totalLabelsCount++;
         } else {
-          errorCount++;
+          // Generate single label with best price
+          const zplCode = generateZPLCode(item);
+          allZPLCodes.push(zplCode);
+          totalLabelsCount++;
         }
       } catch (error) {
-        console.error(`Błąd drukowania etykiety ${i + 1}:`, error);
+        console.error(`Błąd generowania ZPL dla etykiety ${i + 1}:`, error);
         errorCount++;
+      }
+    }
+    
+    // Wyślij wszystkie etykiety w jednym ZPL
+    if (allZPLCodes.length > 0) {
+      try {
+        // Połącz wszystkie kody ZPL w jeden ciąg
+        const combinedZPL = allZPLCodes.join('');
+        console.log(`Wysyłanie ${totalLabelsCount} etykiet w jednym ZPL...`);
+        
+        const success = await sendToZebraPrinter(combinedZPL);
+        
+        if (success) {
+          successCount = totalLabelsCount;
+          console.log(`✅ Wysłano wszystkie ${totalLabelsCount} etykiet jednocześnie`);
+        } else {
+          errorCount = totalLabelsCount;
+          console.log(`❌ Błąd wysyłania ${totalLabelsCount} etykiet`);
+        }
+      } catch (error) {
+        console.error('Błąd wysyłania połączonego ZPL:', error);
+        errorCount = totalLabelsCount;
       }
     }
     
@@ -1196,13 +1404,22 @@ const AddToState = ({ onAdd }) => {
         transfer.barcode : 
         transfer.productId;
 
-      // Pobierz cenę z różnych możliwych źródeł
-      const transferPrice = transfer.price || transfer.cena || transfer.Cena || 'N/A';
+      // Get price with priority: price list → original price → fallback
+      let transferPrice = getPriceFromPriceList(transfer, transferSize);
+      if (!transferPrice) {
+        transferPrice = transfer.price || transfer.cena || transfer.Cena || 'N/A';
+      }
+      
+      console.log(`Transfer price for ${transferName} (${transferSize}):`, transferPrice);
       
       // Pobierz transfer_to (punkt docelowy)
       const transferTo = transfer.transfer_to || 'N/A';
 
-      // Stwórz obiekt w formacie oczekiwanym przez generateZPLCode (identyczny jak w drukowa isak wszystkich)
+      // Check if item has promotional pricing that requires two labels
+      const priceInfo = getPriceFromPriceList(transfer, transferSize);
+      const shouldPrintTwoLabels = priceInfo && priceInfo.hasDiscount && !priceInfo.sizeExceptionPrice;
+
+      // Stwórz obiekt w formacie oczekiwanym przez generateZPLCode
       const labelData = {
         fullName: transferName,
         size: transferSize,
@@ -1216,11 +1433,22 @@ const AddToState = ({ onAdd }) => {
         isFromSale: transfer.isFromSale
       };
 
-      // Generuj kod ZPL dla pojedynczej etykiety (przekaż obiekt, nie tablicę!)
-      const zplCode = generateZPLCode(labelData);
-      
-      // Wyślij do drukarki
-      await sendToZebraPrinter(zplCode);
+      if (shouldPrintTwoLabels) {
+        // Print two labels: regular price and discount price
+        console.log(`Printing two labels for single transfer ${transferName} - Regular: ${priceInfo.regularPrice}, Discount: ${priceInfo.discountPrice}`);
+        
+        // Label 1: Regular price
+        const regularZPL = generateZPLCode(labelData, priceInfo.regularPrice);
+        await sendToZebraPrinter(regularZPL);
+        
+        // Label 2: Discount price
+        const discountZPL = generateZPLCode(labelData, priceInfo.discountPrice);
+        await sendToZebraPrinter(discountZPL);
+      } else {
+        // Print single label with best price
+        const zplCode = generateZPLCode(labelData);
+        await sendToZebraPrinter(zplCode);
+      }
       
     } catch (error) {
       console.error('❌ Błąd podczas drukowania pojedynczej etykiety:', error);
@@ -2230,6 +2458,27 @@ const AddToState = ({ onAdd }) => {
                 </option>
               ))}
             </select>
+            
+            {/* Price list status */}
+            {selectedUser && (
+              <div style={{ marginTop: '10px', fontSize: '12px' }}>
+                {priceListLoading && (
+                  <span style={{ color: 'yellow' }}>
+                    🔄 Ładowanie cennika...
+                  </span>
+                )}
+                {!priceListLoading && priceList && (
+                  <span style={{ color: 'lightgreen' }}>
+                    ✅ Cennik: {priceList.items?.length || 0} produktów
+                  </span>
+                )}
+                {!priceListLoading && !priceList && (
+                  <span style={{ color: 'orange' }}>
+                    ⚠️ Brak cennika - używane ceny standardowe
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </form>
 

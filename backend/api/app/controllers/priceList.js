@@ -273,11 +273,11 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
         }
     }
 
-    console.log('Comparison completed:', {
-        outdatedCount: changes.outdatedItems.length,
-        newCount: changes.newItems.length,
-        removedCount: changes.removedItems.length
-    });
+    // console.log('Comparison completed:', {
+    //     outdatedCount: changes.outdatedItems.length,
+    //     newCount: changes.newItems.length,
+    //     removedCount: changes.removedItems.length
+    // });
 
     return { changes };
 }

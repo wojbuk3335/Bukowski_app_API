@@ -356,7 +356,7 @@ class GoodsController {
                     };
                 } else if (good.category === 'Pozostały asortyment' && good.subcategory) {
                     // For remaining products, populate subcategory from RemainingCategory
-                    console.log('Processing remaining product:', good._id, 'subcategory:', good.subcategory);
+                    // console.log('Processing remaining product:', good._id, 'subcategory:', good.subcategory); // DEBUG - DISABLED
                     
                     // Check if subcategory is "belts" or "gloves" (static categories)
                     let subcategoryData = null;

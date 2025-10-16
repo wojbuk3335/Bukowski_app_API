@@ -1025,7 +1025,7 @@ class TransferProcessingController {
                 transactionId: { $exists: true, $ne: null }
             }).sort({ timestamp: -1 });
 
-            console.log('Last transaction found:', lastTransaction ? lastTransaction.transactionId : 'NONE'); // Debug log
+            // console.log('Last transaction found:', lastTransaction ? lastTransaction.transactionId : 'NONE'); // Debug log - DISABLED
 
             if (!lastTransaction) {
                 console.log('No transaction found - returning 404'); // Debug log
@@ -1039,7 +1039,7 @@ class TransferProcessingController {
                 transactionId: lastTransaction.transactionId
             });
 
-            console.log('Transaction count:', transactionCount); // Debug log
+            // console.log('Transaction count:', transactionCount); // Debug log - DISABLED
 
             // Determine transaction type for UI
             const hasWarehouseItems = await History.findOne({

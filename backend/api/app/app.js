@@ -9,11 +9,11 @@ const { domain } = require('./config'); // Import domain configuration
 app.use(express.json({ limit: '50mb' })); // Increase JSON payload limit
 app.use(cors());
 
-// Log wszystkich requestów
-app.use((req, res, next) => {
-    console.log(`📨 ${req.method} ${req.url} from ${req.get('host')} - Origin: ${req.get('origin')}`);
-    next();
-});
+// Log wszystkich requestów - DISABLED
+// app.use((req, res, next) => {
+//     console.log(`📨 ${req.method} ${req.url} from ${req.get('host')} - Origin: ${req.get('origin')}`);
+//     next();
+// });
 
 // Set UTF-8 headers only for API routes
 app.use('/api', (req, res, next) => {
@@ -23,7 +23,7 @@ app.use('/api', (req, res, next) => {
 
 const mongoose = require('./db/mongoose');
 
-app.use(morgan('dev'));
+// app.use(morgan('dev')); // HTTP request logging - DISABLED
 app.use(bodyParser.urlencoded({ extended: false, limit: '50mb' })); // Increase URL encoded limit
 app.use(bodyParser.json({ limit: '50mb' })); // Increase JSON limit
 
