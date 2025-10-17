@@ -1509,19 +1509,31 @@ class StatesController {
                 }
 
                 // Determine if this is addition or subtraction based on operation
+                // For "All States" report, we need to consider global inventory impact
                 let add = 0, subtract = 0;
                 const operation = entry.operation || '';
                 
-                if (operation.includes('Dodano') || 
-                    operation.includes('Transfer przychodzący') ||
-                    operation.includes('Transfer międzypunktowy') ||
-                    operation.includes('Zwrot')) {
+                // Operations that TRULY ADD to global inventory (new items enter system)
+                if (operation === 'Dodano do stanu' || // From production
+                    operation === 'Dodano do magazynu' || // Direct warehouse addition
+                    operation.includes('Zwrot')) { // Returns add back
                     add = 1;
-                } else if (operation.includes('Odpisano') || 
-                           operation.includes('Usunięto') ||
-                           operation.includes('Transfer wychodzący') ||
-                           operation.includes('Sprzedaż')) {
+                }
+                // Operations that TRULY REMOVE from global inventory (items leave system)
+                else if (operation.includes('Odpisano ze stanu (sprzedaż)') ||
+                         operation.includes('Usunięto') ||
+                         operation.includes('Sprzedaż')) {
                     subtract = 1;
+                }
+                // Internal transfers (show both add and subtract to indicate movement)
+                else if (operation === 'Dodano do stanu (z magazynu)' ||
+                         operation.includes('Transfer międzypunktowy') ||
+                         operation.includes('Przeniesienie') ||
+                         operation.includes('Transfer przychodzący') ||
+                         operation.includes('Transfer wychodzący')) {
+                    add = 1;      // Show that item was added to destination
+                    subtract = 1; // Show that item was removed from source
+                    // Net effect: +1 - 1 = 0 (globally neutral)
                 }
 
                 return {
