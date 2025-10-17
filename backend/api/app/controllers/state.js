@@ -298,7 +298,8 @@ class StatesController {
 
             // Create manual history entries
             const History = require('../db/models/history');
-            const product = `${stateToDelete.fullName?.fullName || 'Nieznany produkt'} ${stateToDelete.size?.Roz_Opis || 'Nieznany rozmiar'}`;
+            const productName = stateToDelete.fullName?.fullName || 'Nieznany produkt';
+            const productSize = stateToDelete.size?.Roz_Opis || 'Nieznany rozmiar';
             const currentSymbol = stateToDelete.sellingPoint?.symbol || 'MAGAZYN';
 
             // For green items (transfer-same), create TWO history entries
@@ -307,8 +308,9 @@ class StatesController {
                 const transferHistoryEntry = new History({
                     collectionName: 'Stan',
                     operation: 'Przesunięto ze stanu',
-                    product: product,
-                    details: `Przesunięto produkt ze stanu ${product} z MAGAZYN do ${targetSymbol}`,
+                    product: productName,
+                    size: productSize,
+                    details: `Przesunięto produkt ze stanu ${productName} ${productSize} z MAGAZYN do ${targetSymbol}`,
                     userloggedinId: userloggedinId,
                     from: 'MAGAZYN',
                     to: targetSymbol
@@ -318,8 +320,9 @@ class StatesController {
                 const saleHistoryEntry = new History({
                     collectionName: 'Stan',
                     operation: 'Sprzedano ze stanu',
-                    product: product,
-                    details: `Sprzedano produkt ze stanu ${product}`,
+                    product: productName,
+                    size: productSize,
+                    details: `Sprzedano produkt ze stanu ${productName} ${productSize}`,
                     userloggedinId: userloggedinId,
                     from: targetSymbol,
                     to: 'Sprzedano'
@@ -331,15 +334,16 @@ class StatesController {
                     saleHistoryEntry.save()
                 ]);
 
-                console.log(`Created 2 history entries for green item (transfer-same): ${product}`);
+                console.log(`Created 2 history entries for green item (transfer-same): ${productName} ${productSize}`);
 
             } else if (operationType === 'transfer-from-magazyn') {
                 // For orange items, create one transfer entry
                 const historyEntry = new History({
                     collectionName: 'Stan',
                     operation: 'Przesunięto ze stanu',
-                    product: product,
-                    details: `Przesunięto produkt ze stanu ${product}`,
+                    product: productName,
+                    size: productSize,
+                    details: `Przesunięto produkt ze stanu ${productName} ${productSize}`,
                     userloggedinId: userloggedinId,
                     from: currentSymbol,
                     to: targetSymbol
@@ -530,26 +534,28 @@ class StatesController {
             
             if (!shouldSkipNewHistoryEntry) {
                 historyPromises = statesToActuallyDelete.map(async (state) => {
-                    const product = `${state.fullName?.fullName || 'Nieznany produkt'} ${state.size?.Roz_Opis || 'Nieznany rozmiar'}`;
+                    const productName = state.fullName?.fullName || 'Nieznany produkt';
+                    const productSize = state.size?.Roz_Opis || 'Nieznany rozmiar';
                     const from = state.sellingPoint?.symbol || 'MAGAZYN';
                     
                     let operation, details;
                     if (operationType === 'correction-undo-single' || operationType === 'correction-undo-transaction') {
                         // This is a correction/undo operation - product is being moved back to warehouse
                         operation = 'Przesunięto do magazynu (korekta)';
-                        details = `Przesunięto produkt ${product} z ${from} do ${targetSymbol} (korekta transakcji)`;
+                        details = `Przesunięto produkt ${productName} ${productSize} z ${from} do ${targetSymbol} (korekta transakcji)`;
                     } else if (operationType === 'delete') {
                         operation = 'Sprzedano ze stanu';
-                        details = `Sprzedano produkt ze stanu ${product}`;
+                        details = `Sprzedano produkt ze stanu ${productName} ${productSize}`;
                     } else {
                         operation = 'Przesunięto ze stanu';
-                        details = `Przesunięto produkt ze stanu ${product}`;
+                        details = `Przesunięto produkt ze stanu ${productName} ${productSize}`;
                     }
 
                     const historyEntry = new History({
                         collectionName: 'Stan',
                         operation: operation,
-                        product: product,
+                        product: productName,
+                        size: productSize,
                         details: details,
                         userloggedinId: userloggedinId,
                         from: from,
@@ -757,13 +763,13 @@ class StatesController {
             // Create history entry for restoration
             const History = require('../db/models/history');
             const userloggedinId = req.user ? req.user._id : null;
-            const product = `${fullName} ${size}`;
             
             const historyEntry = new History({
                 collectionName: 'Stan',
                 operation: 'Przywrócono do stanu',
-                product: product,
-                details: `Przywrócono produkt do stanu ${product} (anulowanie transakcji)`,
+                product: fullName,
+                size: size,
+                details: `Przywrócono produkt do stanu ${fullName} ${size} (anulowanie transakcji)`,
                 userloggedinId: userloggedinId,
                 from: 'SYSTEM_RESTORE',
                 to: symbol
@@ -1001,7 +1007,8 @@ class StatesController {
                         'Zaktualizowano',
                         'DELETE',
                         'CREATE',
-                        'UPDATE'
+                        'UPDATE',
+                        'Przeniesiono do korekt'
                     ] 
                 }
             });
@@ -1081,9 +1088,18 @@ class StatesController {
                 }
                 processedOperations.add(operationKey);
                 // Extract product name and size from history
-                const productParts = history.product.split(' ');
-                const productName = productParts.slice(0, -1).join(' '); // Everything except last part
-                const sizeInfo = productParts[productParts.length - 1]; // Last part as size
+                let productName, sizeInfo;
+                
+                // Check if we have separate size field (new format)
+                if (history.size && history.size !== '-') {
+                    productName = history.product;
+                    sizeInfo = history.size;
+                } else {
+                    // Fallback to old format - split product string
+                    const productParts = history.product.split(' ');
+                    productName = productParts.slice(0, -1).join(' '); // Everything except last part
+                    sizeInfo = productParts[productParts.length - 1]; // Last part as size
+                }
 
                 let operationType = 'Nieznana operacja';
                 let fromLocation = history.from || 'Nieznane';
@@ -1342,7 +1358,8 @@ class StatesController {
                         'Zaktualizowano',
                         'DELETE',
                         'CREATE',
-                        'UPDATE'
+                        'UPDATE',
+                        'Przeniesiono do korekt'
                     ] 
                 }
             };
@@ -1447,9 +1464,10 @@ class StatesController {
                     };
                     processedTransfers.push(combinedEntry);
                 } else {
-                    // Single entry - keep as is (but skip if it's part of incomplete transfer)
+                    // Single entry - keep as is 
                     const entry = entries[0];
-                    if (!entry.operation.includes('przychodzacy') && !entry.operation.includes('Odpisano ze stanu (transfer)')) {
+                    // Include single transfer operations (like corrections) and other non-incoming operations
+                    if (!entry.operation.includes('przychodzacy')) {
                         processedTransfers.push(entry);
                     }
                 }
@@ -1467,23 +1485,52 @@ class StatesController {
                     details = {};
                 }
 
-                // Extract size from product name if details.size is ObjectId or empty
-                let sizeDisplay = details.size || '-';
+                // Extract size - check new size field first, then details.size, then product name
+                let sizeDisplay = '-';
                 
-                // Always try to extract size from product name if details.size is not a readable size
-                if (!details.size || details.size === '-' || (details.size && details.size.length === 24 && /^[0-9a-fA-F]{24}$/.test(details.size))) {
+                // First check if we have the new separate size field
+                if (entry.size && entry.size !== '-') {
+                    sizeDisplay = entry.size;
+                } else if (details.size && details.size !== '-' && 
+                    !(details.size.length === 24 && /^[0-9a-fA-F]{24}$/.test(details.size))) {
+                    // Use details.size if it's not an ObjectId
+                    sizeDisplay = details.size;
+                } else {
+                    // Fallback to extracting size from product name
                     const sizeMatch = entry.product?.match(/\b(XXS|XS|S|M|L|XL|XXL|3XL|4XL|5XL)\b/);
                     sizeDisplay = sizeMatch ? sizeMatch[1] : '-';
-                } else {
-                    // If details.size exists and looks like a readable size, use it
-                    sizeDisplay = details.size;
+                }
+
+                // Clean product name if we have separate size field
+                let productName = entry.product;
+                if (entry.size && entry.size !== '-') {
+                    // Remove size from product name if it exists at the end
+                    productName = entry.product.replace(new RegExp(`\\s+${entry.size}$`), '');
+                }
+
+                // Determine if this is addition or subtraction based on operation
+                let add = 0, subtract = 0;
+                const operation = entry.operation || '';
+                
+                if (operation.includes('Dodano') || 
+                    operation.includes('Transfer przychodzący') ||
+                    operation.includes('Transfer międzypunktowy') ||
+                    operation.includes('Zwrot')) {
+                    add = 1;
+                } else if (operation.includes('Odpisano') || 
+                           operation.includes('Usunięto') ||
+                           operation.includes('Transfer wychodzący') ||
+                           operation.includes('Sprzedaż')) {
+                    subtract = 1;
                 }
 
                 return {
                     date: entry.timestamp,
                     operation: entry.operation,
-                    product: entry.product,
+                    product: productName,
                     size: sizeDisplay,
+                    add: add,
+                    subtract: subtract,
                     barcode: details.barcode || '-',
                     source: details.source || entry.from || '-',
                     destination: details.destination || details.targetUser || entry.to || '-',
@@ -1502,10 +1549,17 @@ class StatesController {
                 }
             }
 
+            // Calculate totals for summary
+            const totalAdded = movements.reduce((sum, movement) => sum + movement.add, 0);
+            const totalSubtracted = movements.reduce((sum, movement) => sum + movement.subtract, 0);
+
             res.status(200).json({
                 movements: movements,
                 summary: {
                     totalMovements: movements.length,
+                    totalAdded: totalAdded,
+                    totalSubtracted: totalSubtracted,
+                    finalState: totalAdded - totalSubtracted,
                     dateRange: { startDate, endDate },
                     reportType: 'All States Movement Report'
                 }

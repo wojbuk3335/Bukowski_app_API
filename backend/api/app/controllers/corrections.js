@@ -102,7 +102,8 @@ class CorrectionsController {
                         from: correction.symbol,
                         to: destinationTo, // ZMIANA: użyj faktycznego miejsca docelowego
                         timestamp: new Date(),
-                        product: `${correction.fullName} ${correction.size}`,
+                        product: correction.fullName, // Tylko nazwa produktu bez rozmiaru
+                        size: correction.size, // Rozmiar w osobnym polu
                         details: `Brak pokrycia w stanie - ${correction.description}`,
                         transactionId: transactionId,
                         // NOWE: Zapisz oryginalne dane do przywrócenia

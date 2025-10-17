@@ -25,6 +25,10 @@ const historySchema = new mongoose.Schema({
         type: String, // Store product as a String
         default: 'Nieznany produkt' // Ensure default value is "Nieznany produkt"
     },
+    size: {
+        type: String, // Store size as a String
+        default: '-' // Ensure default value is "-"
+    },
     details: {
         type: String // Store details as a String
     },

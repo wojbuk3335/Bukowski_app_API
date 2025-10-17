@@ -72,7 +72,6 @@ const State = () => {
     const [reportData, setReportData] = useState([]);
     const [reportLoading, setReportLoading] = useState(false);
     const [summaryData, setSummaryData] = useState(null); // For "All States" summary below table
-    const [processingStatus, setProcessingStatus] = useState(null); // For processing status alert
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -198,12 +197,6 @@ const State = () => {
                     }
                     
                     setUsers(usersToShow);
-                    // Check processing status after users are loaded
-                    console.log('🚀 About to call checkProcessingStatus');
-                    setTimeout(() => {
-                        console.log('⏰ Timeout executed, calling checkProcessingStatus');
-                        checkProcessingStatus();
-                    }, 100);
                 } else {
                     console.error('Unexpected API response format:', response.data);
                     setUsers([]);
@@ -457,26 +450,10 @@ const State = () => {
         }
     };
 
-    // Check processing status for today
-    const checkProcessingStatus = useCallback(async () => {
-        try {
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-            console.log('🔍 Checking processing status for date:', today);
-            const response = await axios.get(`/api/state/processing-status?date=${today}`);
-            console.log('📊 Processing status response:', response.data);
-            setProcessingStatus(response.data);
-        } catch (error) {
-            console.error('❌ Error checking processing status:', error);
-            setProcessingStatus(null);
-        }
-    }, []);
-
     useEffect(() => {
         if (users.length > 0) {
             fetchTableData(); // Fetch table data when users are loaded or selectedSellingPoint changes
         }
-        // Always check processing status when component loads or selling point changes
-        checkProcessingStatus();
     }, [selectedSellingPoint, users]);
 
     // Load manufacturers and sizes for report filters
@@ -1881,27 +1858,6 @@ const State = () => {
                     )}
                 </div>
             </div>
-
-            {/* Processing Status Alert */}
-            {processingStatus && (
-                <div 
-                    className="alert mb-3"
-                    style={{
-                        backgroundColor: processingStatus.allProcessed ? '#28a745' : '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        fontWeight: 'bold',
-                        textAlign: 'center'
-                    }}
-                >
-                    {processingStatus.message}
-                    {!processingStatus.allProcessed && processingStatus.unprocessedCount > 0 && (
-                        <div style={{ fontSize: '0.9em', marginTop: '5px' }}>
-                            Nieprzetworzonych pozycji: {processingStatus.unprocessedCount}
-                        </div>
-                    )}
-                </div>
-            )}
 
             <Table className={`table ${styles.responsiveTable}`} styles={styles.table}>
                 <thead style={{ backgroundColor: 'black', color: 'white' }}>

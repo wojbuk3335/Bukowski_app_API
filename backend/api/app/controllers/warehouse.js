@@ -42,7 +42,8 @@ class WarehouseController {
             const historyEntry = new History({
                 collectionName: 'Stan',
                 operation: 'Przeniesienie magazynowe',
-                product: `${productDetails?.fullName || 'Nieznany produkt'} ${productDetails?.size || 'Nieznany rozmiar'}`,
+                product: productDetails?.fullName || 'Nieznany produkt',
+                size: productDetails?.size || 'Nieznany rozmiar',
                 details: `Przeniesiono produkt z magazynu do ${targetUserSymbol}`,
                 userloggedinId: req.user ? req.user._id : null,
                 from: 'Magazyn',
@@ -666,7 +667,8 @@ class WarehouseController {
                     type: '',
                     add: 0,
                     subtract: 0,
-                    product: operation.product
+                    product: operation.product,
+                    size: operation.size || '-'
                 };
 
                 switch (operation.operation) {

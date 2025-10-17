@@ -83,7 +83,8 @@ class TransferProcessingController {
                         const historyEntry = new History({
                             collectionName: 'Stan',
                             operation: 'Odpisano ze stanu (transfer)',
-                            product: `${itemData.fullNameText} ${itemData.sizeText}`,
+                            product: itemData.fullNameText,
+                            size: itemData.sizeText,
                             details: JSON.stringify(itemData), // Store complete item data as JSON
                             userloggedinId: req.user ? req.user._id : null,
                             from: transfer.transfer_from,
@@ -239,11 +240,10 @@ class TransferProcessingController {
             const historyEntry = new History({
                 collectionName: 'Stan',
                 operation: 'Odpisano ze stanu (transfer)',
-                product: `${itemToRemove.fullName?.fullName || 'Nieznany produkt'} ${
-                    (itemToRemove.fullName?.category === 'Torebki' || itemToRemove.fullName?.category === 'Portfele') 
+                product: itemToRemove.fullName?.fullName || 'Nieznany produkt',
+                size: (itemToRemove.fullName?.category === 'Torebki' || itemToRemove.fullName?.category === 'Portfele') 
                     ? '-' 
-                    : (itemToRemove.size?.Roz_Opis || 'Nieznany rozmiar')
-                }`,
+                    : (itemToRemove.size?.Roz_Opis || 'Nieznany rozmiar'),
                 details: `Odpisano produkt ze stanu na podstawie transferu z ${transfer.transfer_from} do ${transfer.transfer_to}`,
                 userloggedinId: req.user ? req.user._id : null,
                 from: transfer.transfer_from,
@@ -403,7 +403,8 @@ class TransferProcessingController {
                             transactionId: finalTransactionId,
                             from: stateItem.sellingPoint.symbol,
                             to: 'SPRZEDANE',
-                            product: `${stateItem.fullName.fullName} ${stateItem.size ? stateItem.size.Roz_Opis : '-'}`
+                            product: stateItem.fullName.fullName,
+                            size: stateItem.size ? stateItem.size.Roz_Opis : '-'
                         });
                         await historyEntry.save();
                         console.log('📝 History entry saved for sale:', sale.barcode);
@@ -955,7 +956,8 @@ class TransferProcessingController {
                         const historyEntry = new History({
                             collectionName: 'Stan',
                             operation: 'Dodano do stanu (transfer przychodzący)',
-                            product: `${item.fullName} ${item.size}`,
+                            product: item.fullName,
+                            size: item.size,
                             details: JSON.stringify({
                                 stateId: newStateItem._id,
                                 transferId: item._id, // DODANO: ID transferu dla cofania
@@ -1018,7 +1020,8 @@ class TransferProcessingController {
                     const historyEntry = new History({
                         collectionName: 'Stan',
                         operation: 'Dodano do stanu (z magazynu)',
-                        product: `${item.fullName} ${item.size || '-'}`, // Dla torebek, portfeli i pozostałego asortymentu użyj '-'
+                        product: item.fullName,
+                        size: item.size || '-', // Dla torebek, portfeli i pozostałego asortymentu użyj '-'
                         details: JSON.stringify({
                             originalId: item._id,
                             stateId: newStateItem._id,

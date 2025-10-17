@@ -5,7 +5,7 @@ class HistoryController {
         try {
             const history = await History.find()
                 .populate('userloggedinId', 'username') // Ensure username is populated correctly
-                .select('collectionName operation from to timestamp userloggedinId product details transactionId'); // Include transactionId in the response
+                .select('collectionName operation from to timestamp userloggedinId product size details transactionId'); // Include transactionId in the response
             res.status(200).json(history);
         } catch (err) {
             console.log(err);

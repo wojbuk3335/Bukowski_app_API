@@ -402,6 +402,7 @@ const historyLogger = (collectionName) => {
         if (collectionName === 'states') {
             let details = '';
             let product = ''; // Add product field
+            let size = '-'; // Add size field
             let from = '-'; // Default "Skąd" value
             let to = '-'; // Default "Dokąd" value
 
@@ -420,10 +421,16 @@ const historyLogger = (collectionName) => {
             }
 
             if (operation === 'Dodano do stanu') {
+                console.log('DEBUG: req.body in historyLogger:', {
+                    fullName: req.body.fullName,
+                    size: req.body.size,
+                    sellingPoint: req.body.sellingPoint
+                });
                 from = 'Produkcja'; // Set "Skąd" to "Produkcja" for this operation
                 to = req.body.sellingPoint || '-'; // Set "Dokąd" to sellingPoint or "-" if not provided
-                product = req.body.fullName + " " + req.body.size || 'Nieznany produkt'; // Ensure product is set to fullName
-                details = 'Dodano produkt do stanu: ' + (req.body.fullName + " " + req.body.size || 'Nieznany rozmiar'); // Set details to size
+                product = req.body.fullName || 'Nieznany produkt'; // Set product to fullName only
+                size = req.body.size || '-'; // Set size separately
+                details = 'Dodano produkt do stanu: ' + (req.body.fullName || 'Nieznany produkt') + ' ' + (req.body.size || '-'); // Set details with both values
             }
 
             if (operation === 'Aktualizacja') {
@@ -435,8 +442,9 @@ const historyLogger = (collectionName) => {
                     if (!oldState) {
                         details = `Nie znaleziono produktu o ID: ${stateId}`;
                     } else {
-                        // Include both fullName and size in product
-                        product = `${oldState.fullName?.fullName || 'Nieznany produkt'} ${oldState.size?.Roz_Opis || 'Nieznany rozmiar'}`;
+                        // Set product and size separately
+                        product = oldState.fullName?.fullName || 'Nieznany produkt';
+                        size = oldState.size?.Roz_Opis || '-';
                         let changes = [];
 
                         // Handle sellingPoint changes
@@ -472,8 +480,9 @@ const historyLogger = (collectionName) => {
                 try {
                     const state = await State.findById(req.params.id).populate('fullName').populate('size').populate('sellingPoint');
                     if (state) {
-                        product = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`; // Set product
-                        details = `Usunięto produkt ze stanu ${product}`;
+                        product = state.fullName.fullName || 'Nieznany produkt'; // Set product
+                        size = state.size?.Roz_Opis || '-'; // Set size separately
+                        details = `Usunięto produkt ze stanu ${product} ${size}`;
                         from = state.sellingPoint?.symbol || 'MAGAZYN'; // Set "Skąd" to the current symbol or MAGAZYN
                         to = '-'; // Set "Dokąd" to "-" for deletion
                     } else {
@@ -489,7 +498,8 @@ const historyLogger = (collectionName) => {
                 try {
                     const state = await State.findById(req.params.id).populate('fullName').populate('size').populate('sellingPoint');
                     if (state) {
-                        product = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`; // Set product
+                        product = state.fullName.fullName || 'Nieznany produkt'; // Set product
+                        size = state.size?.Roz_Opis || '-'; // Set size separately
                         const currentSymbol = state.sellingPoint?.symbol || 'MAGAZYN';
                         let targetSymbol = req.headers['target-symbol'] || currentSymbol;
                         
@@ -521,8 +531,9 @@ const historyLogger = (collectionName) => {
                 try {
                     const state = await State.findById(req.params.id).populate('fullName').populate('size').populate('sellingPoint');
                     if (state) {
-                        product = `${state.fullName.fullName || 'Nieznany produkt'} ${state.size.Roz_Opis || 'Nieznany rozmiar'}`; // Set product
-                        details = `Przesunięto produkt ze stanu ${product}`;
+                        product = state.fullName.fullName || 'Nieznany produkt'; // Set product
+                        size = state.size?.Roz_Opis || '-'; // Set size separately
+                        details = `Przesunięto produkt ze stanu ${product} ${size}`;
                         from = state.sellingPoint?.symbol || 'MAGAZYN'; // Set "Skąd" to the current symbol or MAGAZYN
                         
                         // Try to determine the target selling point from sales data
@@ -551,6 +562,7 @@ const historyLogger = (collectionName) => {
                 collectionName: collectionNamePolish,
                 operation: operation,
                 product: product, // Include product field
+                size: size, // Include size field
                 details: details || 'Brak szczegółów', // Fallback to "Brak szczegółów" if details are empty
                 userloggedinId: userloggedinId, // Include user ID
                 from: from, // Ensure "Skąd" field stores correct value

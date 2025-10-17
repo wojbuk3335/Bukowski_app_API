@@ -20,6 +20,8 @@ const History = () => {
         from: '',
         to: '',
         userloggedinId: '',
+        product: '',
+        size: '',
         details: '',
     });
     const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]); // State for date range
@@ -240,7 +242,7 @@ const History = () => {
         
         const data = getSortedAndFilteredData();
         autoTable(doc, {
-            head: [['Lp.', 'Kolekcja', 'Operacja', 'Skąd', 'Dokąd', 'Użytkownik', 'Produkt', 'Szczegóły', 'Czas']],
+            head: [['Lp.', 'Kolekcja', 'Operacja', 'Skąd', 'Dokąd', 'Użytkownik', 'Produkt', 'Rozmiar', 'Szczegóły', 'Czas']],
             body: data.map((item, index) => [
                 index + 1,
                 item.collectionName || '',
@@ -249,6 +251,7 @@ const History = () => {
                 item.to || '-',
                 item.userloggedinId ? item.userloggedinId.username : localStorage.getItem('AdminEmail'),
                 item.product || '-',
+                item.size || '-',
                 item.details || '-',
                 new Date(item.timestamp).toLocaleString()
             ]),
@@ -272,6 +275,7 @@ const History = () => {
                 'Dokąd': item.to || '-',
                 'Użytkownik': item.userloggedinId ? item.userloggedinId.username : localStorage.getItem('AdminEmail'),
                 'Produkt': item.product || '-',
+                'Rozmiar': item.size || '-',
                 'Szczegóły': item.details || '-',
                 'Czas': new Date(item.timestamp).toLocaleString()
             }))
@@ -882,6 +886,22 @@ const History = () => {
                                         onChange={(e) => handleTextFilterChange('product', e.target.value)}
                                     />
                                 </th>
+                                <th className={tableStyles.tableHeader} style={{ maxWidth: '100px', width: '100px', textAlign: 'center' }}>
+                                    <button 
+                                        onClick={() => handleSort('size')}
+                                        style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+                                        title="Sortuj według rozmiaru"
+                                    >
+                                        Rozmiar {sortConfig.key === 'size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                                    </button>
+                                    <input
+                                        type="text"
+                                        className="form-control form-control-sm mt-1"
+                                        placeholder="Filtruj"
+                                        value={filters.size}
+                                        onChange={(e) => handleTextFilterChange('size', e.target.value)}
+                                    />
+                                </th>
                                 <th className={tableStyles.tableHeader} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
                                     <button 
                                         onClick={() => handleSort('details')}
@@ -1010,6 +1030,15 @@ const History = () => {
                                         </td>
                                         <td
                                             className={tableStyles.tableCell}
+                                            style={{ maxWidth: '100px', width: '100px', textAlign: 'center', position: 'relative', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                            data-label="Rozmiar"
+                                            onMouseEnter={(e) => showHover(item.size || '-', e)}
+                                            onMouseLeave={hideHover}
+                                        >
+                                            {item.size || '-'}
+                                        </td>
+                                        <td
+                                            className={tableStyles.tableCell}
                                             style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}
                                             data-label="Szczegóły"
                                         >
@@ -1047,7 +1076,7 @@ const History = () => {
                                 Object.entries(getGroupedData()).map(([groupName, groupItems]) => (
                                     <React.Fragment key={groupName}>
                                         <tr style={{ backgroundColor: '#333' }}>
-                                            <td colSpan="10" style={{ 
+                                            <td colSpan="11" style={{ 
                                                 textAlign: 'center', 
                                                 fontWeight: 'bold', 
                                                 color: 'white', 
@@ -1078,6 +1107,7 @@ const History = () => {
                                                     {item.userloggedinId ? item.userloggedinId.username : localStorage.getItem('AdminEmail')}
                                                 </td>
                                                 <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>{item.product || '-'}</td>
+                                                <td className={tableStyles.tableCell} style={{ maxWidth: '100px', width: '100px', textAlign: 'center' }}>{item.size || '-'}</td>
                                                 <td className={tableStyles.tableCell} style={{ maxWidth: '200px', width: '200px', textAlign: 'center' }}>
                                                     {item.details && item.details !== '-' ? (
                                                         <button
