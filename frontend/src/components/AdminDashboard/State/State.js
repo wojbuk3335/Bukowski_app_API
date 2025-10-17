@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import DatePicker, { registerLocale } from 'react-datepicker';
@@ -56,7 +56,11 @@ const State = () => {
     // State report states
     const [isStateReportModalOpen, setIsStateReportModalOpen] = useState(false);
     const [reportType, setReportType] = useState('movements'); // 'movements' or 'inventory'
-    const [reportDateRange, setReportDateRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }]);
+    const [reportDateRange, setReportDateRange] = useState([{ 
+        startDate: new Date(new Date().setHours(0, 0, 0, 0)), 
+        endDate: new Date(new Date().setHours(23, 59, 59, 999)), 
+        key: 'selection' 
+    }]);
     const [inventoryDate, setInventoryDate] = useState(new Date()); // For inventory reports
     const [selectedFiltersForReport, setSelectedFiltersForReport] = useState([]); // Multi-select filters
     const [selectedProductForReport, setSelectedProductForReport] = useState(null);
@@ -67,6 +71,7 @@ const State = () => {
     const [availableSizes, setAvailableSizes] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [reportLoading, setReportLoading] = useState(false);
+    const [summaryData, setSummaryData] = useState(null); // For "All States" summary below table
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -182,9 +187,8 @@ const State = () => {
                         usersToShow = response.data.users.filter(user => 
                             user.role?.toLowerCase() !== 'admin'
                         );
-                        if (usersToShow.length > 0) {
-                            setSelectedSellingPoint(usersToShow[0].symbol);
-                        }
+                        // Set default to "all" to show all states at once
+                        setSelectedSellingPoint('all');
                     }
                     
                     setUsers(usersToShow);
@@ -201,9 +205,90 @@ const State = () => {
         fetchUsers();
     }, [userId]); // Re-run when userId changes
 
-    const fetchTableData = async () => {
+    const fetchTableData = useCallback(async () => {
         setLoading(true);
+        
         try {
+            // Special handling for "All States" - show detailed data + fetch summary for later use
+            if (selectedSellingPoint === 'all') {
+
+                // Get detailed data from regular state endpoint (shows all individual items)
+                const detailResponse = await axios.get('/api/state');
+                
+                // Also fetch grouped summary for display below table
+                const summaryResponse = await axios.get('/api/state/all/inventory', {
+                    params: { 
+                        date: new Date().toISOString().split('T')[0] // Use current date
+                    }
+                });
+                
+                // Store summary data for later use in component
+                setSummaryData(summaryResponse.data);
+                
+                // Use detailed data for table (shows each individual product)
+                let filteredData = detailResponse.data;
+                
+                // Apply column filters for All States
+                if (columnFilters.fullName) {
+                    filteredData = filteredData.filter((row) =>
+                        (row.fullName || '').toLowerCase().includes(columnFilters.fullName.toLowerCase())
+                    );
+                }
+                
+                if (columnFilters.size) {
+                    filteredData = filteredData.filter((row) =>
+                        (row.size || '').toLowerCase().includes(columnFilters.size.toLowerCase())
+                    );
+                }
+                
+                if (columnFilters.symbol) {
+                    filteredData = filteredData.filter((row) =>
+                        (row.symbol || '').toLowerCase().includes(columnFilters.symbol.toLowerCase())
+                    );
+                }
+                
+                // Apply date range filter for All States
+                if (dateRange && dateRange[0].startDate && dateRange[0].endDate) {
+                    filteredData = filteredData.filter((row) => {
+                        const rowDate = new Date(row.date);
+                        return rowDate >= dateRange[0].startDate && rowDate <= dateRange[0].endDate;
+                    });
+                }
+                
+                const formattedData = filteredData.map((row) => {
+                    // Find user name for selling point using symbol from backend
+                    let sellingPointName = row.symbol || "Brak danych";
+                    if (users.length > 0 && row.symbol) {
+                        const userForSymbol = users.find(u => u.symbol === row.symbol);
+                        if (userForSymbol) {
+                            const userName = userForSymbol.name || userForSymbol.symbol || 'Nieznany';
+                            if (userName.toUpperCase() === userForSymbol.symbol.toUpperCase()) {
+                                sellingPointName = userName;
+                            } else {
+                                sellingPointName = userName + ' (' + userForSymbol.symbol + ')';
+                            }
+                        }
+                    }
+                    
+                    return {
+                        id: row.id,
+                        fullName: row.fullName || "Brak danych",
+                        plec: row.plec || "Brak danych", 
+                        date: row.date,
+                        size: row.size || "Brak danych",
+                        barcode: row.barcode || "Brak danych",
+                        symbol: row.symbol || "Brak danych",
+                        sellingPointName: sellingPointName,
+                        price: row.price || 0,
+                        quantity: 1 // Each individual item has quantity 1
+                    };
+                });
+                
+                setTableData(formattedData.reverse());
+                setLoading(false);
+                return;
+            }
+            
             const response = await axios.get('/api/state');
             
             let filteredData = response.data;
@@ -224,14 +309,22 @@ const State = () => {
                     filteredData = []; // No data if user not found
                 }
             } else if (selectedSellingPoint && selectedSellingPoint !== '') {
-                // Otherwise filter by selected selling point
-                const selectedUser = users.find(u => u.symbol === selectedSellingPoint);
-                let targetSymbol = selectedSellingPoint;
-                // Special handling for warehouse users
-                if (selectedUser && selectedUser.role?.toLowerCase() === 'magazyn') {
-                    targetSymbol = 'MAGAZYN'; // Products in warehouse have symbol 'MAGAZYN'
+                if (selectedSellingPoint === 'all') {
+                    // Show all states - no filtering by selling point
+                    filteredData = response.data;
+                } else {
+                    // Otherwise filter by selected selling point
+                    const selectedUser = users.find(u => u.symbol === selectedSellingPoint);
+                    let targetSymbol = selectedSellingPoint;
+                    // Special handling for warehouse users
+                    if (selectedUser && selectedUser.role?.toLowerCase() === 'magazyn') {
+                        targetSymbol = 'MAGAZYN'; // Products in warehouse have symbol 'MAGAZYN'
+                    }
+                    filteredData = response.data.filter(row => row.symbol === targetSymbol);
                 }
-                filteredData = response.data.filter(row => row.symbol === targetSymbol);
+            } else {
+                // If no selling point selected, show all data as fallback
+                filteredData = response.data;
             }
 
             const formattedData = filteredData.map((row) => {
@@ -243,14 +336,30 @@ const State = () => {
                     combinedPrice = row.price;
                 }
                 
+                // Find user name for selling point using symbol from backend
+                let sellingPointName = row.symbol || "Brak danych";
+                if (users.length > 0 && row.symbol) {
+                    const userForSymbol = users.find(u => u.symbol === row.symbol);
+                    if (userForSymbol) {
+                        const userName = userForSymbol.name || userForSymbol.symbol || 'Nieznany';
+                        // Don't duplicate if name and symbol are the same (e.g., MAGAZYN)
+                        if (userName.toUpperCase() === userForSymbol.symbol.toUpperCase()) {
+                            sellingPointName = userName;
+                        } else {
+                            sellingPointName = userName + ' (' + userForSymbol.symbol + ')';
+                        }
+                    }
+                }
+                
                 const formattedRow = {
-                    id: row.id,
-                    fullName: row.fullName?.fullName || row.fullName || "Brak danych",
-                    plec: row.Plec || "Brak danych",
+                    id: row.id, // Backend already provides id field
+                    fullName: row.fullName || "Brak danych", // Backend already formats this
+                    plec: row.plec || "Brak danych", 
                     date: row.date,
-                    size: row.size?.Roz_Opis || row.size || "Brak danych",
+                    size: row.size || "Brak danych", // Backend already formats this
                     barcode: row.barcode || "Brak danych",
-                    symbol: row.symbol || "Brak danych",
+                    symbol: row.symbol || "Brak danych", // Backend already provides this
+                    sellingPointName: sellingPointName,
                     price: combinedPrice, // Set combined price with semicolon
                 };
                 
@@ -263,7 +372,7 @@ const State = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedSellingPoint, users, columnFilters, dateRange]);
 
     const sendDataToBackend = async (selectedSize, selectedPlec) => {
         if (!input1Value.trim() || !selectedSize || !selectedDate || !selectedSellingPoint) {
@@ -335,15 +444,17 @@ const State = () => {
             setLoading(false);
         }
     };    useEffect(() => {
-        fetchTableData(); // Fetch table data on component mount
-    }, []);
+        if (users.length > 0) {
+            fetchTableData(); // Fetch table data when users are loaded or selectedSellingPoint changes
+        }
+    }, [selectedSellingPoint, users]);
 
     // Load manufacturers and sizes for report filters
     useEffect(() => {
         const fetchManufacturers = async () => {
             try {
                 const response = await axios.get('/api/manufacturers');
-                setManufacturers(response.data);
+                setManufacturers(response.data.manufacturers || []);
             } catch (error) {
                 console.error('Error fetching manufacturers:', error);
             }
@@ -352,7 +463,7 @@ const State = () => {
         const fetchSizes = async () => {
             try {
                 const response = await axios.get('/api/sizes');
-                setAvailableSizes(response.data);
+                setAvailableSizes(response.data.sizes || []);
             } catch (error) {
                 console.error('Error fetching sizes:', error);
             }
@@ -363,8 +474,20 @@ const State = () => {
     }, []);
 
     useEffect(() => {
+        // Clear summary data when changing selling points
+        if (selectedSellingPoint !== 'all') {
+            setSummaryData(null);
+        }
         fetchTableData(); // Refetch data when selling point changes or userId changes
-    }, [selectedSellingPoint, userId, users]);
+    }, [selectedSellingPoint, userId, users]); // Removed filters to avoid infinite loop
+
+    // Separate useEffect for handling filters in "All States" mode
+    useEffect(() => {
+        if (selectedSellingPoint === 'all' && users.length > 0) {
+
+            fetchTableData();
+        }
+    }, [columnFilters, dateRange]);
 
     // Function to handle selling point selection
     const handleSellingPointChange = (value) => {
@@ -376,9 +499,7 @@ const State = () => {
         let filteredData = [...tableData];
 
         // Filter by selected selling point (most important filter)
-        if (selectedSellingPoint) {
-            const beforeFilter = filteredData.length;
-            
+        if (selectedSellingPoint && selectedSellingPoint !== 'all') {
             // Find the selected user to check their role
             const selectedUser = users.find(u => u.symbol === selectedSellingPoint);
             
@@ -606,7 +727,12 @@ const State = () => {
                 sizeId: selectedSizeForReport?.value || null
             };
 
-            const response = await axios.get(`/api/state/${userId}/report`, { params });
+            // Use different endpoint for "all states" vs specific user
+            const reportUrl = (!userId || selectedSellingPoint === 'all') 
+                ? '/api/state/all/report'  // New endpoint for all states
+                : `/api/state/${userId}/report`;
+            
+            const response = await axios.get(reportUrl, { params });
             setReportData(response.data);
             
             // Generate PDF report
@@ -654,7 +780,12 @@ const State = () => {
                 sizeId: selectedSizeForReport?.value || null
             };
 
-            const response = await axios.get(`/api/state/${userId}/inventory`, { params });
+            // Use different endpoint for "all states" vs specific user
+            const inventoryUrl = (!userId || selectedSellingPoint === 'all') 
+                ? '/api/state/all/inventory'  // New endpoint for all states
+                : `/api/state/${userId}/inventory`;
+            
+            const response = await axios.get(inventoryUrl, { params });
             setReportData(response.data);
             
             // Generate PDF report
@@ -1034,12 +1165,59 @@ const State = () => {
         if (data.summary) {
             let finalY = doc.lastAutoTable.finalY + 20;
             
+            // Check if this is "All States" report (has reportType)
+            const isAllStatesReport = data.summary.reportType && data.summary.reportType.includes('All States');
+            
+            if (isAllStatesReport && data.inventory && data.inventory.length > 0) {
+                // Add detailed summary section for All States
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                const summaryTitle = convertPolishChars('Podsumowanie produktow (zgrupowane)');
+                const titleWidth = doc.getTextWidth(summaryTitle);
+                doc.text(summaryTitle, (pageWidth - titleWidth) / 2, finalY);
+                
+                finalY += 15;
+                
+                // Add each product summary
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                
+                data.inventory.forEach((item, index) => {
+                    if (finalY > 270) { // Check if we need a new page
+                        doc.addPage();
+                        finalY = 30;
+                    }
+                    
+                    const summaryLine = convertPolishChars(
+                        `${index + 1}. ${item.product || 'Nieznany produkt'} ${item.size || '-'} - ${item.quantity || 0} sztuk`
+                    );
+                    doc.text(summaryLine, 20, finalY);
+                    finalY += 6;
+                    
+                    // Add selling points info if available
+                    if (item.sellingPoints && item.sellingPoints !== 'Wszystkie stany') {
+                        const pointsLine = convertPolishChars(`   Punkty: ${item.sellingPoints}`);
+                        doc.setFont('helvetica', 'italic');
+                        doc.setFontSize(8);
+                        doc.text(pointsLine, 25, finalY);
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(10);
+                        finalY += 5;
+                    }
+                });
+                
+                finalY += 10;
+            }
+            
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
             
-            const summaryText = convertPolishChars(`Liczba unikalnych produktow: ${data.summary.uniqueProducts}`);
-            const summaryWidth = doc.getTextWidth(summaryText);
-            doc.text(summaryText, (pageWidth - summaryWidth) / 2, finalY);
+            // Only show unique products count if it exists and is not undefined
+            if (data.summary.uniqueProducts !== undefined && data.summary.uniqueProducts !== null) {
+                const summaryText = convertPolishChars(`Liczba unikalnych produktow: ${data.summary.uniqueProducts}`);
+                const summaryWidth = doc.getTextWidth(summaryText);
+                doc.text(summaryText, (pageWidth - summaryWidth) / 2, finalY);
+            }
         }
         
         // Open print dialog
@@ -1416,16 +1594,11 @@ const State = () => {
 
     const handleFullNameFilterChange = (e) => {
         const input = e.target.value.toLowerCase();
-        const nextValidChar = tableData
-            .map((row) => row.fullName.toLowerCase())
-            .find((name) => name.startsWith(input));
-
-        if (nextValidChar || input === '') {
-            setColumnFilters((prevFilters) => ({
-                ...prevFilters,
-                fullName: input,
-            }));
-        }
+        // Simplified - just set the filter without validation
+        setColumnFilters((prevFilters) => ({
+            ...prevFilters,
+            fullName: input,
+        }));
     };    const toggleDateRangePicker = () => {
         setIsDateRangePickerVisible((prev) => !prev); // Toggle visibility
     };    useEffect(() => {
@@ -1472,6 +1645,16 @@ const State = () => {
                 return user.role === 'magazyn' ? 'Magazyn' :
                        user.role === 'dom' ? 'Dom' :
                        user.sellingPoint || user.symbol || user.name;
+            }
+        } else if (selectedSellingPoint === 'all') {
+            return 'Wszystkie stany';
+        } else if (selectedSellingPoint && users.length > 0) {
+            // Find selected user to show their name
+            const selectedUser = users.find(u => u.symbol === selectedSellingPoint);
+            if (selectedUser) {
+                return selectedUser.role === 'magazyn' ? 'Magazyn' :
+                       selectedUser.role === 'dom' ? 'Dom' :
+                       selectedUser.sellingPoint || selectedUser.symbol || selectedUser.name;
             }
         }
         return 'Wszystkie stany';
@@ -1609,11 +1792,17 @@ const State = () => {
                     onChange={(e) => handleSellingPointChange(e.target.value)} // Update selectedSellingPoint and count
                     disabled={userId ? true : false} // Disable when viewing specific user
                 >
-                    {users.map((user) => (
-                        <option key={user._id} value={user.symbol}>
-                            {user.name} {user.symbol}
+                    {!userId ? (
+                        <option key="all" value="all">
+                            🌟 Wszystkie stany
                         </option>
-                    ))}
+                    ) : (
+                        users.map((user) => (
+                            <option key={user._id} value={user.symbol}>
+                                {user.name} {user.symbol}
+                            </option>
+                        ))
+                    )}
                 </select>
                 <div className="d-flex align-items-center gap-2">
                     <input
@@ -1747,6 +1936,14 @@ const State = () => {
                                 onChange={e => setColumnFilters({ ...columnFilters, symbol: e.target.value })}
                             />
                         </th>
+                        {selectedSellingPoint === 'all' && (
+                            <th
+                                style={{ ...tableCellStyle }}
+                                onClick={() => handleSort('sellingPointName')}
+                            >
+                                Punkt sprzedaży {getSortIcon('sellingPointName')}
+                            </th>
+                        )}
                         <th style={tableCellStyle} onClick={() => handleSort('price')}>
                             Cena (PLN) {getSortIcon('price')}
                         </th>
@@ -1785,6 +1982,11 @@ const State = () => {
                             </td>
                             <td style={tableCellStyle} data-label="Rozmiar">{row.size}</td>
                             <td style={tableCellStyle} data-label="Symbol">{row.symbol}</td>
+                            {selectedSellingPoint === 'all' && (
+                                <td style={tableCellStyle} data-label="Punkt sprzedaży">
+                                    {row.sellingPointName || row.symbol || 'Brak danych'}
+                                </td>
+                            )}
                             <td style={tableCellStyle} data-label="Cena (PLN)">
                                 {row.price}
                             </td>
@@ -1815,6 +2017,7 @@ const State = () => {
                     ))}
                 </tbody>
             </Table>
+
 
 
             <Modal isOpen={isEditModalOpen} toggle={toggleEditModal} innerRef={modalRef}>
@@ -2044,7 +2247,23 @@ const State = () => {
                         <Select
                             isMulti
                             value={selectedFiltersForReport}
-                            onChange={setSelectedFiltersForReport}
+                            onChange={(newFilters) => {
+                                setSelectedFiltersForReport(newFilters);
+                                
+                                // Reset specific filter values when filter types change
+                                const newFilterValues = (newFilters || []).map(f => f.value);
+                                
+                                // If single filter is selected, clear others
+                                if (newFilterValues.length === 1) {
+                                    const singleFilter = newFilterValues[0];
+                                    
+                                    // Clear all specific selections
+                                    if (singleFilter !== 'specific') setSelectedProductForReport(null);
+                                    if (singleFilter !== 'category') setSelectedCategoryForReport(null);
+                                    if (singleFilter !== 'manufacturer') setSelectedManufacturerForReport(null);
+                                    if (singleFilter !== 'size') setSelectedSizeForReport(null);
+                                }
+                            }}
                             options={[
                                 { value: 'all', label: 'Wszystkie produkty' },
                                 { value: 'specific', label: 'Konkretny produkt' },
@@ -2172,9 +2391,12 @@ const State = () => {
                                 value={selectedCategoryForReport}
                                 onChange={setSelectedCategoryForReport}
                                 options={[
-                                    { value: 'torebki', label: 'Torebki' },
-                                    { value: 'portfele', label: 'Portfele' },
-                                    { value: 'pozostałe', label: 'Pozostałe' }
+                                    { value: 'Kurtki kożuchy futra', label: 'Kurtki kożuchy futra' },
+                                    { value: 'Torebki', label: 'Torebki' },
+                                    { value: 'Portfele', label: 'Portfele' },
+                                    { value: 'Pozostały asortyment', label: 'Pozostały asortyment' },
+                                    { value: 'Paski', label: 'Paski' },
+                                    { value: 'Rękawiczki', label: 'Rękawiczki' }
                                 ]}
                                 placeholder="Wybierz kategorię..."
                                 isClearable
@@ -2229,7 +2451,7 @@ const State = () => {
                             <Select
                                 value={selectedManufacturerForReport}
                                 onChange={setSelectedManufacturerForReport}
-                                options={manufacturers.map(m => ({ value: m._id, label: m.name }))}
+                                options={Array.isArray(manufacturers) ? manufacturers.map(m => ({ value: m._id, label: m.Prod_Opis })) : []}
                                 placeholder="Wybierz grupę..."
                                 isClearable
                                 menuPortalTarget={document.body}
@@ -2283,7 +2505,7 @@ const State = () => {
                             <Select
                                 value={selectedSizeForReport}
                                 onChange={setSelectedSizeForReport}
-                                options={availableSizes.map(s => ({ value: s._id, label: s.name }))}
+                                options={Array.isArray(availableSizes) ? availableSizes.map(s => ({ value: s._id, label: s.Roz_Opis })) : []}
                                 placeholder="Wybierz rozmiar..."
                                 isClearable
                                 menuPortalTarget={document.body}

@@ -4,6 +4,7 @@ const config = require('../config');
 const Goods = require('../db/models/goods'); // Import Goods model
 const Size = require('../db/models/size');   // Import Size model
 const User = require('../db/models/user');   // Import User model
+const History = require('../db/models/history'); // Import History model
 
 // Corrected checksum calculation function
 const calculateChecksum = (barcode) => {
@@ -1169,6 +1170,223 @@ class StatesController {
             console.error('Error generating state inventory:', error);
             res.status(500).json({ 
                 message: 'Failed to generate state inventory', 
+                error: error.message 
+            });
+        }
+    }
+
+    // Generate report for ALL STATES (aggregated data)
+    async getAllStatesReport(req, res, next) {
+        try {
+            const { startDate, endDate, productFilter, productId, category, manufacturerId, sizeId } = req.query;
+            
+            
+            // Get history for all users (not just one)
+            let historyQuery = {
+                timestamp: {
+                    $gte: new Date(startDate + 'T00:00:00.000Z'),
+                    $lte: new Date(endDate + 'T23:59:59.999Z')
+                }
+            };
+
+            // Apply filters like in regular report
+            if (productFilter && productFilter !== 'none') {
+                // Same filtering logic as getStateReport but for all users
+                if (productFilter === 'product' && productId) {
+                    const product = await Goods.findById(productId);
+                    if (product) {
+                        historyQuery.$or = [
+                            { product: { $regex: product.fullName, $options: 'i' } },
+                            { 'details': { $regex: product.fullName, $options: 'i' } }
+                        ];
+                    }
+                } else if (productFilter === 'category' && category) {
+                    // Filter by category - find all goods in this category OR subcategory
+                    const goodsInCategory = await Goods.find({ 
+                        $or: [
+                            { category: category },
+                            { subcategory: category }
+                        ]
+                    });
+                    if (goodsInCategory.length > 0) {
+                        const categoryProductNames = goodsInCategory.map(good => good.fullName);
+                        historyQuery.$or = categoryProductNames.map(name => ({
+                            product: { $regex: name, $options: 'i' }
+                        }));
+                    }
+                } else if (productFilter === 'manufacturer' && manufacturerId) {
+                    // Filter by manufacturer
+                    const goodsByManufacturer = await Goods.find({ manufacturer: manufacturerId });
+                    if (goodsByManufacturer.length > 0) {
+                        const manufacturerProductNames = goodsByManufacturer.map(good => good.fullName);
+                        historyQuery.$or = manufacturerProductNames.map(name => ({
+                            product: { $regex: name, $options: 'i' }
+                        }));
+                    }
+                } else if (productFilter === 'size' && sizeId) {
+                    // Filter by size - this is more complex since we need to check details
+                    const size = await Size.findById(sizeId);
+                    if (size) {
+                        historyQuery.$or = [
+                            { product: { $regex: size.Roz_Opis, $options: 'i' } },
+                            { 'details': { $regex: size.Roz_Opis, $options: 'i' } }
+                        ];
+                    }
+                }
+                // Add other filter types as needed
+            }
+
+            const historyEntries = await History.find(historyQuery)
+                .sort({ timestamp: -1 })
+                .limit(1000); // Limit for performance
+
+            // Format the data similarly to single user report
+            const movements = historyEntries.map(entry => {
+                let details = {};
+                try {
+                    details = JSON.parse(entry.details || '{}');
+                } catch (e) {
+                    details = {};
+                }
+
+                return {
+                    date: entry.timestamp,
+                    operation: entry.operation,
+                    product: entry.product,
+                    size: details.size || '-',
+                    barcode: details.barcode || '-',
+                    source: details.source || '-',
+                    destination: details.destination || details.targetUser || '-',
+                    notes: details.notes || '-',
+                    sellingPoint: details.targetUser || details.sourceUser || 'System'
+                };
+            });
+
+            res.status(200).json({
+                movements: movements,
+                summary: {
+                    totalMovements: movements.length,
+                    dateRange: { startDate, endDate },
+                    reportType: 'All States Movement Report'
+                }
+            });
+
+        } catch (error) {
+            console.error('Error generating all states report:', error);
+            res.status(500).json({ 
+                message: 'Failed to generate all states report', 
+                error: error.message 
+            });
+        }
+    }
+
+    // Generate inventory for ALL STATES (current state across all points)
+    async getAllStatesInventory(req, res, next) {
+        try {
+            const { date, productFilter, productId, category, manufacturerId, sizeId } = req.query;
+            
+            
+            // Get all current states (this gives us current inventory across all points)
+            let stateQuery = {};
+            
+            // Apply multiple filters - build MongoDB query with all active filters
+            let goodsFilter = {}; // Filter for Goods collection
+            
+            // 1. Filter by specific product
+            if ((productFilter === 'product' || productFilter === 'specific') && productId) {
+                stateQuery.fullName = productId;
+            } else {
+                // 2. Filter by category
+                if (category) {
+                    if (['Rękawiczki', 'Paski'].includes(category)) {
+                        // For subcategories, filter by subcategory within Pozostały asortyment
+                        const subcategoryMapping = {
+                            'Rękawiczki': 'gloves',
+                            'Paski': 'belts'
+                        };
+                        goodsFilter.category = 'Pozostały asortyment';
+                        goodsFilter.subcategory = subcategoryMapping[category];
+                    } else {
+                        // For main categories
+                        goodsFilter.category = category;
+                    }
+                }
+                
+                // 3. Filter by manufacturer (can be combined with category)
+                if (manufacturerId) {
+                    goodsFilter.manufacturer = manufacturerId;
+                }
+                
+                // Apply goods filters to find matching products
+                if (Object.keys(goodsFilter).length > 0) {
+                    const filteredGoods = await Goods.find(goodsFilter);
+                    stateQuery.fullName = { $in: filteredGoods.map(g => g._id) };
+                }
+            }
+            
+            // 4. Filter by size (can be combined with any other filter)
+            if (sizeId) {
+                stateQuery.size = sizeId;
+            }
+
+            const states = await State.find(stateQuery)
+                .populate('fullName', 'fullName category')
+                .populate('size', 'Roz_Opis')
+                .populate('sellingPoint', 'name symbol');
+
+            // Group by product+size combination and count quantities
+            const inventory = {};
+            
+            states.forEach(state => {
+                const product = state.fullName?.fullName || 'Unknown Product';
+                const size = state.size?.Roz_Opis || '-';
+                const sellingPoint = state.sellingPoint?.name || state.sellingPoint?.symbol || 'Unknown';
+                
+                // Create unique key for product+size combination
+                const key = `${product}_${size}`;
+                
+                if (!inventory[key]) {
+                    inventory[key] = {
+                        product: product,
+                        size: size,
+                        quantity: 0,
+                        price: state.price,
+                        sellingPoints: new Set(),
+                        barcodes: new Set()
+                    };
+                }
+                
+                inventory[key].quantity += 1;
+                inventory[key].sellingPoints.add(sellingPoint);
+                inventory[key].barcodes.add(state.barcode);
+            });
+
+            // Convert to array and format for response
+            const inventoryList = Object.values(inventory).map(item => ({
+                product: item.product,
+                size: item.size,
+                quantity: item.quantity,
+                price: item.price,
+                sellingPoints: Array.from(item.sellingPoints).join(', '),
+                barcodes: Array.from(item.barcodes).join(', ')
+            }));
+
+            const totalItems = inventoryList.reduce((sum, item) => sum + item.quantity, 0);
+
+            res.status(200).json({
+                inventory: inventoryList,
+                summary: {
+                    totalItems: totalItems,
+                    uniqueProducts: inventoryList.length,
+                    date: date,
+                    reportType: 'All States Inventory Report'
+                }
+            });
+
+        } catch (error) {
+            console.error('Error generating all states inventory:', error);
+            res.status(500).json({ 
+                message: 'Failed to generate all states inventory', 
                 error: error.message 
             });
         }
