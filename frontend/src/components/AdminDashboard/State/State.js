@@ -52,6 +52,21 @@ const State = () => {
     const calendarRef = useRef(null); // Ref for the calendar container
     const [loading, setLoading] = useState(false); // Loading state
     const [magazynCount, setMagazynCount] = useState(0); // State to store the count of "MAGAZYN"
+    
+    // State report states
+    const [isStateReportModalOpen, setIsStateReportModalOpen] = useState(false);
+    const [reportType, setReportType] = useState('movements'); // 'movements' or 'inventory'
+    const [reportDateRange, setReportDateRange] = useState([{ startDate: new Date(), endDate: new Date(), key: 'selection' }]);
+    const [inventoryDate, setInventoryDate] = useState(new Date()); // For inventory reports
+    const [selectedFiltersForReport, setSelectedFiltersForReport] = useState([]); // Multi-select filters
+    const [selectedProductForReport, setSelectedProductForReport] = useState(null);
+    const [selectedCategoryForReport, setSelectedCategoryForReport] = useState(null);
+    const [selectedManufacturerForReport, setSelectedManufacturerForReport] = useState(null);
+    const [selectedSizeForReport, setSelectedSizeForReport] = useState(null);
+    const [manufacturers, setManufacturers] = useState([]);
+    const [availableSizes, setAvailableSizes] = useState([]);
+    const [reportData, setReportData] = useState([]);
+    const [reportLoading, setReportLoading] = useState(false);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -323,6 +338,30 @@ const State = () => {
         fetchTableData(); // Fetch table data on component mount
     }, []);
 
+    // Load manufacturers and sizes for report filters
+    useEffect(() => {
+        const fetchManufacturers = async () => {
+            try {
+                const response = await axios.get('/api/manufacturers');
+                setManufacturers(response.data);
+            } catch (error) {
+                console.error('Error fetching manufacturers:', error);
+            }
+        };
+        
+        const fetchSizes = async () => {
+            try {
+                const response = await axios.get('/api/sizes');
+                setAvailableSizes(response.data);
+            } catch (error) {
+                console.error('Error fetching sizes:', error);
+            }
+        };
+        
+        fetchManufacturers();
+        fetchSizes();
+    }, []);
+
     useEffect(() => {
         fetchTableData(); // Refetch data when selling point changes or userId changes
     }, [selectedSellingPoint, userId, users]);
@@ -489,6 +528,536 @@ const State = () => {
             default:
                 console.error('Unsupported export format:', format);
         }
+    };
+
+    // State report functions
+    const handleStateReport = () => {
+        setIsStateReportModalOpen(true);
+    };
+
+    const toggleStateReportModal = () => setIsStateReportModalOpen(!isStateReportModalOpen);
+
+    // Generate state report
+    const generateStateReport = async () => {
+        setReportLoading(true);
+        try {
+            if (reportType === 'movements') {
+                const startDate = reportDateRange[0].startDate;
+                const endDate = reportDateRange[0].endDate;
+                
+                if (!startDate || !endDate) {
+                    alert('Proszę wybrać zakres dat');
+                    setReportLoading(false);
+                    return;
+                }
+                
+                await generateMovementsReport(startDate, endDate);
+            } else if (reportType === 'inventory') {
+                if (!inventoryDate) {
+                    alert('Proszę wybrać datę inwentarza');
+                    setReportLoading(false);
+                    return;
+                }
+                
+                await generateInventoryReport(inventoryDate);
+            }
+        } catch (error) {
+            console.error('Error generating state report:', error);
+            alert('Błąd podczas generowania raportu: ' + (error.response?.data?.message || error.message));
+        } finally {
+            setReportLoading(false);
+        }
+    };
+
+    // Generate movements report for state
+    const generateMovementsReport = async (startDate, endDate) => {
+        try {
+            // Determine filter type based on selected options
+            let filterType = 'all';
+            const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
+            
+            if (selectedFiltersValues.includes('all') || selectedFiltersValues.length === 0) {
+                filterType = 'all';
+            } else if (selectedFiltersValues.includes('specific')) {
+                filterType = 'specific';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer') && selectedFiltersValues.includes('size')) {
+                filterType = 'combined_all';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer')) {
+                filterType = 'combined';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('size')) {
+                filterType = 'category_size';
+            } else if (selectedFiltersValues.includes('manufacturer') && selectedFiltersValues.includes('size')) {
+                filterType = 'manufacturer_size';
+            } else if (selectedFiltersValues.includes('category')) {
+                filterType = 'category';  
+            } else if (selectedFiltersValues.includes('manufacturer')) {
+                filterType = 'manufacturer';
+            } else if (selectedFiltersValues.includes('size')) {
+                filterType = 'size';
+            }
+
+            const params = {
+                startDate: startDate.toISOString().split('T')[0],
+                endDate: endDate.toISOString().split('T')[0],
+                productFilter: filterType,
+                productId: selectedProductForReport?.value || null,
+                category: selectedCategoryForReport?.value || null,
+                manufacturerId: selectedManufacturerForReport?.value || null,
+                sizeId: selectedSizeForReport?.value || null
+            };
+
+            const response = await axios.get(`/api/state/${userId}/report`, { params });
+            setReportData(response.data);
+            
+            // Generate PDF report
+            generateReportPDF(response.data, startDate, endDate);
+            
+        } catch (error) {
+            console.error('Error generating state movements report:', error);
+            alert('Błąd podczas generowania raportu: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
+    // Generate inventory report for state
+    const generateInventoryReport = async (date) => {
+        try {
+            // Similar logic for inventory report
+            let filterType = 'all';
+            const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
+            
+            if (selectedFiltersValues.includes('all') || selectedFiltersValues.length === 0) {
+                filterType = 'all';
+            } else if (selectedFiltersValues.includes('specific')) {
+                filterType = 'specific';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer') && selectedFiltersValues.includes('size')) {
+                filterType = 'combined_all';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('manufacturer')) {
+                filterType = 'combined';
+            } else if (selectedFiltersValues.includes('category') && selectedFiltersValues.includes('size')) {
+                filterType = 'category_size';
+            } else if (selectedFiltersValues.includes('manufacturer') && selectedFiltersValues.includes('size')) {
+                filterType = 'manufacturer_size';
+            } else if (selectedFiltersValues.includes('category')) {
+                filterType = 'category';  
+            } else if (selectedFiltersValues.includes('manufacturer')) {
+                filterType = 'manufacturer';
+            } else if (selectedFiltersValues.includes('size')) {
+                filterType = 'size';
+            }
+
+            const params = {
+                date: date.toISOString().split('T')[0],
+                productFilter: filterType,
+                productId: selectedProductForReport?.value || null,
+                category: selectedCategoryForReport?.value || null,
+                manufacturerId: selectedManufacturerForReport?.value || null,
+                sizeId: selectedSizeForReport?.value || null
+            };
+
+            const response = await axios.get(`/api/state/${userId}/inventory`, { params });
+            setReportData(response.data);
+            
+            // Generate PDF report
+            generateInventoryReportPDF(response.data, date);
+            
+        } catch (error) {
+            console.error('Error generating state inventory report:', error);
+            alert('Błąd podczas generowania raportu inwentarza: ' + (error.response?.data?.message || error.message));
+        }
+    };
+
+    // Generate PDF for state movements report
+    const generateReportPDF = (data, startDate, endDate) => {
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+            putOnlyUsedFonts: true,
+            compress: true
+        });
+        
+        // Function to convert Polish characters for PDF
+        const convertPolishChars = (text) => {
+            if (!text) return text;
+            return text
+                .replace(/ą/g, 'a')
+                .replace(/ć/g, 'c')
+                .replace(/ę/g, 'e')
+                .replace(/ł/g, 'l')
+                .replace(/ń/g, 'n')
+                .replace(/ó/g, 'o')
+                .replace(/ś/g, 's')
+                .replace(/ź/g, 'z')
+                .replace(/ż/g, 'z')
+                .replace(/Ą/g, 'A')
+                .replace(/Ć/g, 'C')
+                .replace(/Ę/g, 'E')
+                .replace(/Ł/g, 'L')
+                .replace(/Ń/g, 'N')
+                .replace(/Ó/g, 'O')
+                .replace(/Ś/g, 'S')
+                .replace(/Ź/g, 'Z')
+                .replace(/Ż/g, 'Z');
+        };
+        
+        // Set professional font
+        doc.setFont('helvetica', 'normal');
+        
+        // Get page width for centering
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Title - centered
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        const titleText = convertPolishChars(`Raport Punktu Sprzedazy: ${getCurrentStateName()}`);
+        const titleWidth = doc.getTextWidth(titleText);
+        doc.text(titleText, (pageWidth - titleWidth) / 2, 20);
+        
+        // Date range - centered
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        const periodText = convertPolishChars(`Okres: ${startDate.toLocaleDateString('pl-PL')} - ${endDate.toLocaleDateString('pl-PL')}`);
+        const periodWidth = doc.getTextWidth(periodText);
+        doc.text(periodText, (pageWidth - periodWidth) / 2, 35);
+        
+        // Product filter info - centered
+        let productText = '';
+        const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
+        
+        if (selectedFiltersValues.includes('specific') && selectedProductForReport) {
+            productText = convertPolishChars(`Produkt: ${selectedProductForReport.label}`);
+        } else {
+            let filters = [];
+            if (selectedFiltersValues.includes('category') && selectedCategoryForReport) {
+                filters.push(`Kategoria: ${selectedCategoryForReport.label}`);
+            }
+            if (selectedFiltersValues.includes('manufacturer') && selectedManufacturerForReport) {
+                filters.push(`Grupa: ${selectedManufacturerForReport.label}`);
+            }
+            
+            if (filters.length > 0) {
+                productText = convertPolishChars(filters.join(', '));
+            } else {
+                productText = convertPolishChars('Wszystkie produkty');
+            }
+        }
+        const productWidth = doc.getTextWidth(productText);
+        doc.text(productText, (pageWidth - productWidth) / 2, 45);
+        
+        // Initial state info
+        let yPosition = 55;
+        if (data.initialState) {
+            doc.setFont('helvetica', 'bold');
+            const initialText = convertPolishChars(`Stan poczatkowy (${startDate.toLocaleDateString('pl-PL')}): ${data.initialState.quantity || 0}`);
+            const initialWidth = doc.getTextWidth(initialText);
+            doc.text(initialText, (pageWidth - initialWidth) / 2, yPosition);
+            doc.setFont('helvetica', 'normal');
+            yPosition += 15;
+        }
+        
+        // Table headers
+        const tableColumn = ['Lp.', 'Data', 'Nazwa produktu', 'Rozmiar', 'Rodzaj', 'Skad', 'Dokad', 'Odj.', 'Dod.'];
+        const tableRows = [];
+        
+        // Add operations
+        data.operations?.forEach((operation, index) => {
+            const row = [
+                (index + 1).toString(),
+                new Date(operation.date).toLocaleDateString('pl-PL'),
+                convertPolishChars(operation.product || 'Nieznany produkt'),
+                convertPolishChars(operation.size || '-'),
+                convertPolishChars(operation.type || 'Nieznana operacja'),
+                convertPolishChars(operation.from || 'Nieznane'),
+                convertPolishChars(operation.to || 'Nieznane'),
+                operation.subtract && operation.subtract > 0 ? -operation.subtract : '',
+                operation.add && operation.add > 0 ? operation.add : ''
+            ];
+            tableRows.push(row);
+        });
+        
+        // Add summary row
+        if (data.summary) {
+            tableRows.push([
+                {
+                    content: 'Suma',
+                    colSpan: 7,
+                    styles: { 
+                        halign: 'left',
+                        fontStyle: 'bold',
+                        fillColor: [230, 230, 230]
+                    }
+                },
+                {
+                    content: data.summary.totalSubtracted && data.summary.totalSubtracted > 0 ? -data.summary.totalSubtracted : '',
+                    styles: { 
+                        halign: 'center',
+                        fontStyle: 'bold',
+                        fillColor: [230, 230, 230]
+                    }
+                },
+                {
+                    content: data.summary.totalAdded && data.summary.totalAdded > 0 ? data.summary.totalAdded : '',
+                    styles: { 
+                        halign: 'center',
+                        fontStyle: 'bold',
+                        fillColor: [230, 230, 230]
+                    }
+                }
+            ]);
+        }
+        
+        // Calculate table position
+        const tableWidth = 12 + 18 + 35 + 25 + 20 + 20 + 15 + 15; // = 160mm
+        const tableStartX = (pageWidth - tableWidth) / 2;
+        
+        // Add table to PDF
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: yPosition,
+            theme: 'grid',
+            margin: { left: tableStartX },
+            tableWidth: tableWidth,
+            styles: {
+                fontSize: 8,
+                halign: 'center',
+                cellPadding: 2,
+                font: 'helvetica',
+                fontStyle: 'normal'
+            },
+            headStyles: {
+                fillColor: [41, 128, 185],
+                textColor: 255,
+                fontSize: 9,
+                fontStyle: 'bold',
+                font: 'helvetica'
+            },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 10 }, // Lp
+                1: { halign: 'center', cellWidth: 16 }, // Data
+                2: { halign: 'left', cellWidth: 28 },   // Nazwa produktu
+                3: { halign: 'center', cellWidth: 12 }, // Rozmiar
+                4: { halign: 'center', cellWidth: 22 }, // Rodzaj
+                5: { halign: 'center', cellWidth: 18 }, // Skad
+                6: { halign: 'center', cellWidth: 18 }, // Dokad
+                7: { halign: 'center', cellWidth: 12 }, // Odj.
+                8: { halign: 'center', cellWidth: 12 }  // Dod.
+            }
+        });
+        
+        // Add final calculation
+        if (data.summary) {
+            let finalY = doc.lastAutoTable.finalY + 20;
+            
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            
+            const initialState = data.initialState?.quantity || 0;
+            const totalAdded = data.summary.totalAdded || 0;
+            const totalSubtracted = data.summary.totalSubtracted || 0;
+            const finalState = data.summary.finalState || 0;
+            
+            const formulaText = convertPolishChars(`Stan koncowy (${endDate.toLocaleDateString('pl-PL')}): ${initialState} + ${totalAdded} - ${totalSubtracted} = ${finalState}`);
+            const formulaWidth = doc.getTextWidth(formulaText);
+            doc.text(formulaText, (pageWidth - formulaWidth) / 2, finalY);
+        }
+        
+        // Open print dialog
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        const printWindow = window.open(pdfUrl, '_blank');
+        if (printWindow) {
+            printWindow.onload = function() {
+                printWindow.print();
+                printWindow.onafterprint = function() {
+                    printWindow.close();
+                    URL.revokeObjectURL(pdfUrl);
+                };
+            };
+        }
+        
+        setIsStateReportModalOpen(false);
+    };
+
+    // Generate inventory PDF report
+    const generateInventoryReportPDF = (data, date) => {
+        const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+            putOnlyUsedFonts: true,
+            compress: true
+        });
+        
+        // Function to convert Polish characters for PDF
+        const convertPolishChars = (text) => {
+            if (!text) return text;
+            return text
+                .replace(/ą/g, 'a')
+                .replace(/ć/g, 'c')
+                .replace(/ę/g, 'e')
+                .replace(/ł/g, 'l')
+                .replace(/ń/g, 'n')
+                .replace(/ó/g, 'o')
+                .replace(/ś/g, 's')
+                .replace(/ź/g, 'z')
+                .replace(/ż/g, 'z')
+                .replace(/Ą/g, 'A')
+                .replace(/Ć/g, 'C')
+                .replace(/Ę/g, 'E')
+                .replace(/Ł/g, 'L')
+                .replace(/Ń/g, 'N')
+                .replace(/Ó/g, 'O')
+                .replace(/Ś/g, 'S')
+                .replace(/Ź/g, 'Z')
+                .replace(/Ż/g, 'Z');
+        };
+        
+        // Set professional font
+        doc.setFont('helvetica', 'normal');
+        
+        // Get page width for centering
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Title - centered
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        const titleText = convertPolishChars(`Stan Magazynowy Punktu: ${getCurrentStateName()}`);
+        const titleWidth = doc.getTextWidth(titleText);
+        doc.text(titleText, (pageWidth - titleWidth) / 2, 20);
+        
+        // Date - centered
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        const dateText = convertPolishChars(`Na dzien: ${date.toLocaleDateString('pl-PL')}`);
+        const dateWidth = doc.getTextWidth(dateText);
+        doc.text(dateText, (pageWidth - dateWidth) / 2, 35);
+        
+        // Product filter info - centered
+        let productText = '';
+        const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
+        
+        if (selectedFiltersValues.includes('specific') && selectedProductForReport) {
+            productText = convertPolishChars(`Produkt: ${selectedProductForReport.label}`);
+        } else {
+            let filters = [];
+            if (selectedFiltersValues.includes('category') && selectedCategoryForReport) {
+                filters.push(`Kategoria: ${selectedCategoryForReport.label}`);
+            }
+            if (selectedFiltersValues.includes('manufacturer') && selectedManufacturerForReport) {
+                filters.push(`Grupa: ${selectedManufacturerForReport.label}`);
+            }
+            
+            if (filters.length > 0) {
+                productText = convertPolishChars(filters.join(', '));
+            } else {
+                productText = convertPolishChars('Wszystkie produkty');
+            }
+        }
+        const productWidth = doc.getTextWidth(productText);
+        doc.text(productText, (pageWidth - productWidth) / 2, 45);
+        
+        // Table headers
+        const tableColumn = ['Lp.', 'Nazwa produktu', 'Rozmiar', 'Ilosc'];
+        const tableRows = [];
+        
+        // Add inventory items
+        data.inventory?.forEach((item, index) => {
+            const row = [
+                (index + 1).toString(),
+                convertPolishChars(item.product || 'Nieznany produkt'),
+                convertPolishChars(item.size || 'Brak'),
+                (item.quantity || 0).toString()
+            ];
+            tableRows.push(row);
+        });
+        
+        // Add summary row
+        if (data.summary) {
+            tableRows.push([
+                {
+                    content: 'RAZEM',
+                    colSpan: 3,
+                    styles: { 
+                        halign: 'left',
+                        fontStyle: 'bold',
+                        fillColor: [230, 230, 230]
+                    }
+                },
+                {
+                    content: data.summary.totalItems.toString(),
+                    styles: { 
+                        halign: 'center',
+                        fontStyle: 'bold',
+                        fillColor: [230, 230, 230]
+                    }
+                }
+            ]);
+        }
+        
+        // Calculate table position
+        const tableWidth = 12 + 80 + 25 + 20; // = 137mm
+        const tableStartX = (pageWidth - tableWidth) / 2;
+        
+        // Add table to PDF
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 60,
+            theme: 'grid',
+            margin: { left: tableStartX },
+            tableWidth: tableWidth,
+            styles: {
+                fontSize: 8,
+                halign: 'center',
+                cellPadding: 2,
+                font: 'helvetica',
+                fontStyle: 'normal'
+            },
+            headStyles: {
+                fillColor: [41, 128, 185],
+                textColor: 255,
+                fontSize: 9,
+                fontStyle: 'bold',
+                font: 'helvetica'
+            },
+            columnStyles: {
+                0: { halign: 'center', cellWidth: 12 }, // Lp
+                1: { halign: 'left', cellWidth: 80 },   // Nazwa produktu (powiększona)
+                2: { halign: 'center', cellWidth: 25 }, // Rozmiar (powiększony)
+                3: { halign: 'center', cellWidth: 20 }  // Ilosc (powiększona)
+            }
+        });
+        
+        // Add summary info
+        if (data.summary) {
+            let finalY = doc.lastAutoTable.finalY + 20;
+            
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            
+            const summaryText = convertPolishChars(`Liczba unikalnych produktow: ${data.summary.uniqueProducts}`);
+            const summaryWidth = doc.getTextWidth(summaryText);
+            doc.text(summaryText, (pageWidth - summaryWidth) / 2, finalY);
+        }
+        
+        // Open print dialog
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        const printWindow = window.open(pdfUrl, '_blank');
+        if (printWindow) {
+            printWindow.onload = function() {
+                printWindow.print();
+                printWindow.onafterprint = function() {
+                    printWindow.close();
+                    URL.revokeObjectURL(pdfUrl);
+                };
+            };
+        }
+        
+        setIsStateReportModalOpen(false);
     };
 
     const handleSort = (key) => {
@@ -922,6 +1491,7 @@ const State = () => {
                     <Button color="primary" className="me-2 btn btn-sm" onClick={() => handleExport('json')}>Export to JSON</Button>
                     <Button color="info" className="me-2 btn btn-sm" onClick={() => handleExport('csv')}>Export to CSV</Button>
                     <Button color="danger" className="me-2 btn btn-sm" onClick={() => handleExport('pdf')}>Export to PDF</Button>
+                    <Button color="warning" className="me-2 btn btn-sm" onClick={handleStateReport}>Drukuj raport punktu</Button>
                     <Button color="primary" className="btn btn-sm" onClick={handlePrint}>Drukuj zaznaczone kody</Button>
                 </div>            </div>
 
@@ -1398,6 +1968,376 @@ const State = () => {
                 <ModalFooter className="d-flex justify-content-end" style={{ gap: '10px' }}>
                     <Button color="primary" onClick={handleSaveEdit} className="btn-sm">Zapisz zmiany</Button>
                     <Button color="secondary" onClick={toggleEditModal} className="btn-sm">Anuluj</Button>
+                </ModalFooter>
+            </Modal>
+
+            {/* State Report Modal */}
+            <Modal isOpen={isStateReportModalOpen} toggle={toggleStateReportModal} size="lg">
+                <ModalHeader toggle={toggleStateReportModal}>
+                    Raport Punktu Sprzedaży
+                </ModalHeader>
+                <ModalBody>
+                    <FormGroup>
+                        <Label>Typ raportu:</Label>
+                        <div>
+                            <div className="form-check">
+                                <input
+                                    className="form-check-input"
+                                    type="radio"
+                                    name="reportType"
+                                    id="movementsReport"
+                                    value="movements"
+                                    checked={reportType === 'movements'}
+                                    onChange={(e) => setReportType(e.target.value)}
+                                />
+                                <label className="form-check-label" htmlFor="movementsReport">
+                                    Przepływy punktu (okres)
+                                </label>
+                            </div>
+                            <div className="form-check">
+                                <input
+                                    className="form-check-input"
+                                    type="radio"
+                                    name="reportType"
+                                    id="inventoryReport"
+                                    value="inventory"
+                                    checked={reportType === 'inventory'}
+                                    onChange={(e) => setReportType(e.target.value)}
+                                />
+                                <label className="form-check-label" htmlFor="inventoryReport">
+                                    Stan punktu (na datę)
+                                </label>
+                            </div>
+                        </div>
+                    </FormGroup>
+
+                    {reportType === 'movements' && (
+                        <FormGroup>
+                            <Label for="reportDateRange">Zakres dat:</Label>
+                            <DateRangePicker
+                                ranges={reportDateRange}
+                                onChange={(ranges) => setReportDateRange([ranges.selection])}
+                                locale={pl}
+                                rangeColors={['#3d91ff']}
+                                staticRanges={customStaticRanges}
+                                inputRanges={customInputRanges}
+                            />
+                        </FormGroup>
+                    )}
+
+                    {reportType === 'inventory' && (
+                        <FormGroup>
+                            <Label for="inventoryDate">Data inwentarza:</Label>
+                            <DatePicker
+                                selected={inventoryDate}
+                                onChange={(date) => setInventoryDate(date)}
+                                dateFormat="dd/MM/yyyy"
+                                locale="pl"
+                                className="form-control"
+                                placeholderText="Wybierz datę"
+                            />
+                        </FormGroup>
+                    )}
+
+                    <FormGroup>
+                        <Label>Filtry produktów:</Label>
+                        <Select
+                            isMulti
+                            value={selectedFiltersForReport}
+                            onChange={setSelectedFiltersForReport}
+                            options={[
+                                { value: 'all', label: 'Wszystkie produkty' },
+                                { value: 'specific', label: 'Konkretny produkt' },
+                                { value: 'category', label: 'Kategoria' },
+                                { value: 'manufacturer', label: 'Grupa' },
+                                { value: 'size', label: 'Rozmiar' }
+                            ]}
+                            placeholder="Wybierz opcje filtrowania..."
+                            isClearable
+                            menuPortalTarget={document.body}
+                            menuPosition="fixed"
+                            maxMenuHeight={200}
+                            styles={{
+                                control: (provided) => ({
+                                    ...provided,
+                                    backgroundColor: 'black',
+                                    borderColor: 'white',
+                                    color: 'white'
+                                }),
+                                menu: (provided) => ({
+                                    ...provided,
+                                    backgroundColor: 'black',
+                                    border: '1px solid white',
+                                    zIndex: 9999
+                                }),
+                                menuPortal: (provided) => ({
+                                    ...provided,
+                                    zIndex: 9999
+                                }),
+                                option: (provided, state) => ({
+                                    ...provided,
+                                    backgroundColor: state.isSelected ? '#333' : 'black',
+                                    color: 'white',
+                                    '&:hover': {
+                                        backgroundColor: '#555'
+                                    }
+                                }),
+                                multiValue: (provided) => ({
+                                    ...provided,
+                                    backgroundColor: '#333',
+                                    color: 'white'
+                                }),
+                                multiValueLabel: (provided) => ({
+                                    ...provided,
+                                    color: 'white'
+                                }),
+                                multiValueRemove: (provided) => ({
+                                    ...provided,
+                                    color: 'white',
+                                    '&:hover': {
+                                        backgroundColor: '#555',
+                                        color: 'white'
+                                    }
+                                }),
+                                placeholder: (provided) => ({
+                                    ...provided,
+                                    color: '#ccc'
+                                }),
+                                input: (provided) => ({
+                                    ...provided,
+                                    color: 'white'
+                                })
+                            }}
+                        />
+                    </FormGroup>
+
+                    {selectedFiltersForReport.some(f => f.value === 'specific') && (
+                        <FormGroup>
+                            <Label>Konkretny produkt:</Label>
+                            <Select
+                                value={selectedProductForReport}
+                                onChange={setSelectedProductForReport}
+                                options={goods.map(good => ({ value: good._id, label: good.fullName }))}
+                                placeholder="Wybierz produkt..."
+                                isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        borderColor: 'white',
+                                        color: 'white'
+                                    }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        border: '1px solid white',
+                                        zIndex: 9999
+                                    }),
+                                    menuPortal: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999
+                                    }),
+                                    option: (provided, state) => ({
+                                        ...provided,
+                                        backgroundColor: state.isSelected ? '#333' : 'black',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#555'
+                                        }
+                                    }),
+                                    singleValue: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    }),
+                                    placeholder: (provided) => ({
+                                        ...provided,
+                                        color: '#ccc'
+                                    }),
+                                    input: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    })
+                                }}
+                            />
+                        </FormGroup>
+                    )}
+
+                    {selectedFiltersForReport.some(f => f.value === 'category') && (
+                        <FormGroup>
+                            <Label>Kategoria:</Label>
+                            <Select
+                                value={selectedCategoryForReport}
+                                onChange={setSelectedCategoryForReport}
+                                options={[
+                                    { value: 'torebki', label: 'Torebki' },
+                                    { value: 'portfele', label: 'Portfele' },
+                                    { value: 'pozostałe', label: 'Pozostałe' }
+                                ]}
+                                placeholder="Wybierz kategorię..."
+                                isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        borderColor: 'white',
+                                        color: 'white'
+                                    }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        border: '1px solid white',
+                                        zIndex: 9999
+                                    }),
+                                    menuPortal: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999
+                                    }),
+                                    option: (provided, state) => ({
+                                        ...provided,
+                                        backgroundColor: state.isSelected ? '#333' : 'black',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#555'
+                                        }
+                                    }),
+                                    singleValue: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    }),
+                                    placeholder: (provided) => ({
+                                        ...provided,
+                                        color: '#ccc'
+                                    }),
+                                    input: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    })
+                                }}
+                            />
+                        </FormGroup>
+                    )}
+
+                    {selectedFiltersForReport.some(f => f.value === 'manufacturer') && (
+                        <FormGroup>
+                            <Label>Grupa:</Label>
+                            <Select
+                                value={selectedManufacturerForReport}
+                                onChange={setSelectedManufacturerForReport}
+                                options={manufacturers.map(m => ({ value: m._id, label: m.name }))}
+                                placeholder="Wybierz grupę..."
+                                isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        borderColor: 'white',
+                                        color: 'white'
+                                    }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        border: '1px solid white',
+                                        zIndex: 9999
+                                    }),
+                                    menuPortal: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999
+                                    }),
+                                    option: (provided, state) => ({
+                                        ...provided,
+                                        backgroundColor: state.isSelected ? '#333' : 'black',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#555'
+                                        }
+                                    }),
+                                    singleValue: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    }),
+                                    placeholder: (provided) => ({
+                                        ...provided,
+                                        color: '#ccc'
+                                    }),
+                                    input: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    })
+                                }}
+                            />
+                        </FormGroup>
+                    )}
+
+                    {selectedFiltersForReport.some(f => f.value === 'size') && (
+                        <FormGroup>
+                            <Label>Rozmiar:</Label>
+                            <Select
+                                value={selectedSizeForReport}
+                                onChange={setSelectedSizeForReport}
+                                options={availableSizes.map(s => ({ value: s._id, label: s.name }))}
+                                placeholder="Wybierz rozmiar..."
+                                isClearable
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                maxMenuHeight={200}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        borderColor: 'white',
+                                        color: 'white'
+                                    }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        backgroundColor: 'black',
+                                        border: '1px solid white',
+                                        zIndex: 9999
+                                    }),
+                                    menuPortal: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999
+                                    }),
+                                    option: (provided, state) => ({
+                                        ...provided,
+                                        backgroundColor: state.isSelected ? '#333' : 'black',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: '#555'
+                                        }
+                                    }),
+                                    singleValue: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    }),
+                                    placeholder: (provided) => ({
+                                        ...provided,
+                                        color: '#ccc'
+                                    }),
+                                    input: (provided) => ({
+                                        ...provided,
+                                        color: 'white'
+                                    })
+                                }}
+                            />
+                        </FormGroup>
+                    )}
+                </ModalBody>
+                <ModalFooter>
+                    <Button color="primary" onClick={generateStateReport} disabled={reportLoading}>
+                        {reportLoading ? <Spinner size="sm" /> : 'Drukuj raport'}
+                    </Button>
+                    <Button color="secondary" onClick={toggleStateReportModal}>
+                        Anuluj
+                    </Button>
                 </ModalFooter>
             </Modal>
 

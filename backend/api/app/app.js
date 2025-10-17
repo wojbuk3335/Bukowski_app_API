@@ -84,6 +84,8 @@ app.use('/api/excel/wallets-category', walletsCategoryRoutes);
 app.use('/api/excel/remaining-category', remainingCategoryRoutes);
 app.use('/api/excel/remaining-subcategory', remainingSubcategoryRoutes);
 app.use('/api/excel/manufacturers', manufacturerRoutes);
+app.use('/api/manufacturers', manufacturerRoutes); // Add direct API access
+app.use('/api/sizes', sizeRoutes); // Add direct API access
 app.use('/api/excel/belts', beltsRoutes);
 app.use('/api/excel/gloves', glovesRoutes);
 app.use('/api/excel/localization', localizationRoutes); // Use localization routes

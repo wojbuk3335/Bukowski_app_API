@@ -918,6 +918,261 @@ class StatesController {
             });
         }
     }
+
+    // Get state movements report for specific user/selling point
+    async getStateReport(req, res, next) {
+        try {
+            const { userId } = req.params;
+            const { 
+                startDate, 
+                endDate, 
+                productFilter = 'all',
+                productId = null,
+                category = null,
+                manufacturerId = null,
+                sizeId = null 
+            } = req.query;
+
+            if (!startDate || !endDate) {
+                return res.status(400).json({ message: 'Start date and end date are required' });
+            }
+
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999); // Include the entire end date
+
+            // Get user to determine selling point symbol
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            let targetSymbol = user.symbol;
+            if (user.role?.toLowerCase() === 'magazyn') {
+                targetSymbol = 'MAGAZYN';
+            }
+
+            // Build product filter query
+            let productQuery = {};
+            if (productFilter === 'specific' && productId) {
+                productQuery._id = new mongoose.Types.ObjectId(productId);
+            } else if (productFilter === 'category' && category) {
+                productQuery.category = category;
+            }
+            // Add more filter logic as needed...
+
+            // Get initial state (count at start date)
+            const initialStateCount = await State.countDocuments({
+                date: { $lt: start },
+                'sellingPoint': await User.findOne({ symbol: targetSymbol }, '_id')
+            });
+
+            // Find all movements for this selling point in date range
+            const movements = await State.find({
+                date: { $gte: start, $lte: end }
+            })
+            .populate('fullName', 'fullName category')
+            .populate('size', 'Roz_Opis')
+            .populate('sellingPoint', 'symbol')
+            .sort({ date: 1 });
+
+            // Filter movements for this selling point
+            const relevantMovements = movements.filter(state => {
+                const symbol = state.sellingPoint ? state.sellingPoint.symbol : '';
+                return symbol === targetSymbol;
+            });
+
+            // Get history records for this period to understand movement sources
+            const History = require('../db/models/history');
+            const historyRecords = await History.find({
+                timestamp: { $gte: start, $lte: end },
+                collectionName: 'Stan'
+            });
+
+
+
+
+
+            // Process history records into operations (not State records!)
+            // This ensures all movements are captured even if item no longer exists in State
+            const operations = [];
+            let totalAdded = 0;
+            let totalSubtracted = 0;
+            const processedOperations = new Set(); // Avoid duplicates
+
+            // Get all history records for this point
+            const targetHistory = historyRecords.filter(h => h.to === targetSymbol || h.from === targetSymbol);
+
+            targetHistory.forEach(history => {
+                // Create unique key to avoid processing same operation twice
+                const operationKey = `${history.product}_${new Date(history.timestamp).getTime()}_${history.operation}`;
+                if (processedOperations.has(operationKey)) {
+                    return;
+                }
+                processedOperations.add(operationKey);
+                // Extract product name and size from history
+                const productParts = history.product.split(' ');
+                const productName = productParts.slice(0, -1).join(' '); // Everything except last part
+                const sizeInfo = productParts[productParts.length - 1]; // Last part as size
+
+                let operationType = 'Nieznana operacja';
+                let fromLocation = history.from || 'Nieznane';
+                let toLocation = history.to || 'Nieznane';
+                let isAddition = history.to === targetSymbol;
+
+                // Determine operation type based on history operation and locations
+                if (history.operation === 'Dodano do stanu (z magazynu)' && history.from === 'MAGAZYN' && history.to === targetSymbol) {
+                    operationType = 'Zatowarowanie';
+                    fromLocation = 'MAGAZYN';
+                    toLocation = targetSymbol;
+                    isAddition = true;
+                } else if (history.operation === 'Odpisano ze stanu (transfer)' && history.from === targetSymbol) {
+                    operationType = 'Transfer do punktu';
+                    fromLocation = targetSymbol;
+                    toLocation = history.to;
+                    isAddition = false;
+                } else if (history.operation === 'Dodano do stanu (transfer przychodzący)' && history.to === targetSymbol) {
+                    operationType = 'Transfer z punktu';
+                    fromLocation = history.from;
+                    toLocation = targetSymbol;
+                    isAddition = true;
+                } else if (history.operation === 'Odpisano ze stanu (sprzedaż)' && history.from === targetSymbol) {
+                    operationType = 'Sprzedaż';
+                    fromLocation = targetSymbol;
+                    toLocation = 'Sprzedane';
+                    isAddition = false;
+                }
+
+                const operation = {
+                    date: new Date(history.timestamp),
+                    product: productName,
+                    size: sizeInfo && sizeInfo !== '-' ? sizeInfo : '-',
+                    type: operationType,
+                    from: fromLocation,
+                    to: toLocation,
+                    add: isAddition ? 1 : 0,
+                    subtract: isAddition ? 0 : 1
+                };
+
+                operations.push(operation);
+                
+                if (isAddition) {
+                    totalAdded += 1;
+                } else {
+                    totalSubtracted += 1;
+                }
+            });
+
+            // Calculate final state
+            const finalState = initialStateCount + totalAdded - totalSubtracted;
+
+            const reportData = {
+                initialState: { quantity: initialStateCount },
+                operations: operations,
+                summary: {
+                    totalAdded: totalAdded,
+                    totalSubtracted: totalSubtracted,
+                    finalState: finalState
+                }
+            };
+
+            res.status(200).json(reportData);
+
+        } catch (error) {
+            console.error('Error generating state report:', error);
+            res.status(500).json({ 
+                message: 'Failed to generate state report', 
+                error: error.message 
+            });
+        }
+    }
+
+    // Get state inventory report for specific date
+    async getStateInventory(req, res, next) {
+        try {
+            const { userId } = req.params;
+            const { 
+                date,
+                productFilter = 'all',
+                productId = null,
+                category = null,
+                manufacturerId = null,
+                sizeId = null 
+            } = req.query;
+
+            if (!date) {
+                return res.status(400).json({ message: 'Date is required' });
+            }
+
+            const inventoryDate = new Date(date);
+            inventoryDate.setHours(23, 59, 59, 999);
+
+            // Get user to determine selling point
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+
+            let targetSymbol = user.symbol;
+            if (user.role?.toLowerCase() === 'magazyn') {
+                targetSymbol = 'MAGAZYN';
+            }
+
+            // Get all items in this selling point up to the specified date
+            const inventoryItems = await State.find({
+                date: { $lte: inventoryDate }
+            })
+            .populate('fullName', 'fullName category price')
+            .populate('sellingPoint', 'symbol')
+            .populate('size', 'Roz_Opis');
+
+            // Filter for this selling point
+            const relevantItems = inventoryItems.filter(state => {
+                const symbol = state.sellingPoint ? state.sellingPoint.symbol : '';
+                return symbol === targetSymbol;
+            });
+
+            // Group by product and size
+            const inventory = {};
+            relevantItems.forEach(item => {
+                const productName = item.fullName ? item.fullName.fullName : 'Unknown Product';
+                const sizeName = item.size ? item.size.Roz_Opis : 'No Size';
+                const key = `${productName}_${sizeName}`;
+                
+                if (!inventory[key]) {
+                    inventory[key] = {
+                        product: productName,
+                        size: sizeName,
+                        quantity: 0,
+                        price: item.fullName ? item.fullName.price : 0
+                    };
+                }
+                inventory[key].quantity += 1;
+            });
+
+            const inventoryList = Object.values(inventory);
+            const totalItems = inventoryList.reduce((sum, item) => sum + item.quantity, 0);
+
+            const reportData = {
+                date: inventoryDate,
+                sellingPoint: user.sellingPoint || user.symbol,
+                inventory: inventoryList,
+                summary: {
+                    totalItems: totalItems,
+                    uniqueProducts: inventoryList.length
+                }
+            };
+
+            res.status(200).json(reportData);
+
+        } catch (error) {
+            console.error('Error generating state inventory:', error);
+            res.status(500).json({ 
+                message: 'Failed to generate state inventory', 
+                error: error.message 
+            });
+        }
+    }
 }
 
 module.exports = new StatesController();

@@ -16,6 +16,8 @@ router.delete("/barcode/:barcode/symbol/:symbol", historyLogger('states'), State
 router.delete("/barcode/:barcode", StatesController.deleteStateByBarcode); // Keep old endpoint for compatibility
 router.delete("/admin/clear-all", StatesController.clearAllStates); // ADMIN: Clear all states
 router.delete("/:id", StatesController.deleteState); // Remove from state by ID
+router.get("/:userId/report", StatesController.getStateReport); // State movement report
+router.get("/:userId/inventory", StatesController.getStateInventory); // State inventory report
 
 
 module.exports = router;

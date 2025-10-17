@@ -527,9 +527,18 @@ const AddToState = ({ onAdd }) => {
 
         // WAŻNE: Filtruj przetworzonych transfery - pokazuj tylko nieprzetworzone
         filtered = filtered.filter(transfer => {
-          const isProcessed = transfer.processed || processedTransfers.has(transfer._id);
-
-          return !isProcessed; // Pokazuj tylko nieprzetworzone (jak sprzedaże)
+          // Sprawdź czy to niebieski transfer (użytkownik usuwa ze swojego stanu)
+          const isBlueTransfer = transfer.transfer_from === selectedUserData.symbol;
+          
+          if (isBlueTransfer) {
+            // Dla niebieskich transferów sprawdź blueProcessed
+            const isBlueProcessed = transfer.blueProcessed || processedTransfers.has(transfer._id);
+            return !isBlueProcessed; // Pokazuj tylko te które nie miały niebieskego przetworzenia
+          } else {
+            // Dla żółtych transferów sprawdź yellowProcessed
+            const isYellowProcessed = transfer.yellowProcessed || processedTransfers.has(transfer._id);
+            return !isYellowProcessed; // Pokazuj tylko te które nie miały żółtego przetworzenia
+          }
         });
 
         let filteredSales = Array.isArray(sales) ? sales : [];
@@ -602,11 +611,12 @@ const AddToState = ({ onAdd }) => {
           return isIncomingTransfer;
         });
 
-        // Filtruj nieprzetworzone transfery przychodzące
+        // Filtruj transfery przychodzące które są gotowe do przetworzenia  
         incomingTransfers = incomingTransfers.filter(transfer => {
-          const isProcessed = transfer.processed || processedTransfers.has(transfer._id);
-
-          return !isProcessed; // Pokazuj tylko nieprzetworzone
+          // Dla żółtych transferów: pokaż tylko te które nie miały żółtego przetworzenia
+          const isReadyForYellow = !transfer.yellowProcessed && !processedTransfers.has(transfer._id);
+          
+          return isReadyForYellow;
         });
 
         // Oznacz transfery przychodzące jako żółte
@@ -709,12 +719,38 @@ const AddToState = ({ onAdd }) => {
       return;
     }
     
-    // Sprawdź dostępność dla wszystkich elementów
-    const currentStatuses = checkAvailability(itemsToProcess);
+    // Znajdź dane wybranego użytkownika
+    const selectedUserData = users.find(user => user._id === selectedUser);
+    if (!selectedUserData) {
+      return;
+    }
+    
+    // FILTRUJ: Uwzględnij tylko niebieski transfery i sprzedaże, NIE żółte transfery
+    const itemsForAutoMove = itemsToProcess.filter(item => {
+      // Sprzedaże - zawsze uwzględnij
+      if (item.isFromSale) {
+        return true;
+      }
+      
+      // Transfery - uwzględnij tylko niebieski (wychodzące z punktu)
+      if (item.transfer_from && item.transfer_to) {
+        const isBlueTransfer = item.transfer_from === selectedUserData.symbol;
+        const isYellowTransfer = item.transfer_to === selectedUserData.symbol;
+        
+        // Uwzględnij tylko niebieski transfery (użytkownik jest źródłem transferu)
+        return isBlueTransfer && !isYellowTransfer;
+      }
+      
+      // Inne elementy - uwzględnij
+      return true;
+    });
+    
+    // Sprawdź dostępność tylko dla odfiltrowanych elementów
+    const currentStatuses = checkAvailability(itemsForAutoMove);
     
     // Zbierz wszystkie elementy które mają status OK
     const itemsWithOKStatus = [];
-    itemsToProcess.forEach((item, index) => {
+    itemsForAutoMove.forEach((item, index) => {
       const status = currentStatuses[index];
       if (status === 'OK') {
         itemsWithOKStatus.push(item);
@@ -1008,7 +1044,8 @@ const AddToState = ({ onAdd }) => {
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
-                    processed: true
+                    blueProcessed: true,
+                    blueProcessedAt: new Date()
                   })
                 });
                 
@@ -1069,7 +1106,8 @@ const AddToState = ({ onAdd }) => {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                processed: true
+                blueProcessed: true,
+                blueProcessedAt: new Date()
               })
             });
             
@@ -2530,7 +2568,8 @@ const AddToState = ({ onAdd }) => {
                 borderRadius: '5px',
                 cursor: 'pointer',
                 fontSize: '16px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                margin: '10px 0'
               }}
               title={`Cofnij transakcję z ${new Date(lastTransaction.timestamp).toLocaleString()}`}
             >

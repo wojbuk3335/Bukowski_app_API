@@ -2,6 +2,7 @@ const Transfer = require('../db/models/transfer');
 const State = require('../db/models/state');
 const History = require('../db/models/history');
 const Size = require('../db/models/size'); // Add Size model import
+const User = require('../db/models/user'); // Add User model import (dla sellingPoint)
 const mongoose = require('mongoose');
 
 // Helper function to generate transaction ID
@@ -12,6 +13,7 @@ const generateTransactionId = () => {
 class TransferProcessingController {
     // Process all transfers - remove items from state based on transfers
     async processAllTransfers(req, res) {
+        console.log(`🚀 STARTING processAllTransfers method`);
         try {
             const { transfers, selectedDate, selectedUser, transactionId } = req.body;
             
@@ -27,13 +29,23 @@ class TransferProcessingController {
             console.log('Using transactionId:', finalTransactionId);
             const removedItems = []; // Store removed items for response
 
+            console.log(`\n🔍 DEBUGGING: Processing ${transfers.length} transfers:`);
+            transfers.forEach((t, idx) => {
+                console.log(`  ${idx+1}. ID: ${t._id}, ${t.transfer_from}→${t.transfer_to}, productId: ${t.productId}, processed: ${t.processed}`);
+            });
+
             // Process each transfer
             for (const transfer of transfers) {
                 try {
+                    console.log(`\n🔄 Processing transfer ${transfer._id} (${transfer.transfer_from} → ${transfer.transfer_to})`);
+                    
+                    // Get full transfer data - Transfer model doesn't have 'goods' field, only fullName and size
+                    const fullTransfer = await Transfer.findById(transfer._id);
+                    
                     // Find items in state that match this transfer by ID
                     const stateItems = await State.find({
                         _id: transfer.productId // Match by MongoDB _id
-                    }).populate('fullName', 'fullName')
+                    }).populate('fullName', 'fullName barcode price discount_price')
                       .populate('size', 'Roz_Opis')
                       .populate('sellingPoint', 'symbol');
 
@@ -42,7 +54,11 @@ class TransferProcessingController {
                         item.sellingPoint && item.sellingPoint.symbol === transfer.transfer_from
                     );
 
+                    console.log(`   State items found: ${stateItems.length}`);
+                    console.log(`   Matching items in ${transfer.transfer_from}: ${matchingItems.length}`);
+
                     if (matchingItems.length > 0) {
+                        console.log(`   ✅ BLUE TRANSFER - Processing removal from ${transfer.transfer_from}`);
                         // Remove the first matching item (you can modify logic to remove multiple)
                         const itemToRemove = matchingItems[0];
                         
@@ -82,13 +98,78 @@ class TransferProcessingController {
                         
                         removedItems.push(itemData);
                         processedCount++;
-                    }
 
-                    // Mark transfer as processed instead of deleting
-                    await Transfer.findByIdAndUpdate(transfer._id, {
-                        processed: true,
-                        processedAt: new Date()
-                    });
+                        // NIE oznaczaj transferu jako processed - musi być jeszcze przetworzony w punkcie docelowym!
+                        // Dodaj flagę że został przetworzony niebieski transfer (usunięcie z punktu źródłowego)
+                        console.log(`🔵 BLUE TRANSFER UPDATE: Setting blueProcessed=true for ${transfer._id}, NOT setting processed=true`);
+                        await Transfer.findByIdAndUpdate(transfer._id, {
+                            blueProcessed: true,
+                            blueProcessedAt: new Date()
+                        });
+                        
+                        console.log(`✅ BLUE processing complete for transfer ${transfer._id} - removed from ${transfer.transfer_from}, awaiting yellow processing in ${transfer.transfer_to}`);
+                    } else {
+                        // To jest ŻÓŁTY transfer - nie ma produktów w State do odpisania
+                        // Dodaj produkt do punktu docelowego (niezależnie od blueProcessed)
+                        console.log(`✅ YELLOW processing - transfer ${transfer._id} ready to be added to ${transfer.transfer_to}`);
+                        
+                        // Znajdź originalny State item żeby skopiować jego pełne dane (jeśli istnieje)
+                        let originalStateItem = await State.findById(transfer.productId)
+                            .populate('fullName', 'fullName barcode price discount_price')
+                            .populate('size', 'Roz_Opis');
+                            
+                        // Jeśli nie ma originalnego State item, utwórz na podstawie transferu
+                        if (!originalStateItem) {
+                            console.log(`⚠️ Original state item not found for ${transfer.productId}, creating from transfer data`);
+                            
+                            // Znajdź goods na podstawie fullName z transferu
+                            const Goods = require('../db/models/goods');
+                            const goods = await Goods.findOne({ fullName: fullTransfer.fullName });
+                            
+                            if (!goods) {
+                                console.log(`❌ Cannot find goods for ${fullTransfer.fullName}`);
+                                continue;
+                            }
+                            
+                            // Znajdź size jeśli jest
+                            let size = null;
+                            if (fullTransfer.size && fullTransfer.size !== 'null') {
+                                size = await Size.findOne({ Roz_Opis: fullTransfer.size });
+                            }
+                            
+                            originalStateItem = {
+                                fullName: { _id: goods._id },
+                                barcode: `TRANSFER_${Date.now()}`,
+                                size: size,
+                                price: goods.price || 0,
+                                discount_price: goods.discount_price || null
+                            };
+                        }
+                        
+                        // Dodaj produkt do stanu punktu docelowego
+                        const targetUser = await User.findOne({ symbol: transfer.transfer_to });
+                        
+                        const newStateItem = new State({
+                            _id: new mongoose.Types.ObjectId(),
+                            fullName: originalStateItem.fullName._id,
+                            date: new Date(),
+                            barcode: originalStateItem.barcode,
+                            size: originalStateItem.size ? originalStateItem.size._id : null,
+                            sellingPoint: targetUser._id,
+                            price: originalStateItem.price,
+                            discount_price: originalStateItem.discount_price
+                        });
+                        
+                        await newStateItem.save();
+                        
+                        // Oznacz żółty transfer jako przetworzony
+                        await Transfer.findByIdAndUpdate(transfer._id, {
+                            yellowProcessed: true,
+                            yellowProcessedAt: new Date()
+                        });
+                        
+                        console.log(`✅ YELLOW TRANSFER COMPLETE ${transfer._id}: added to ${transfer.transfer_to}`);
+                    }
 
                 } catch (transferError) {
                     console.error(`Error processing transfer ${transfer._id}:`, transferError);
@@ -859,11 +940,11 @@ class TransferProcessingController {
                             date: new Date()
                         });
                         
-                        // OZNACZ TRANSFER JAKO PRZETWORZONY
+                        // OZNACZ TYLKO ŻÓŁTY TRANSFER JAKO PRZETWORZONY (dodanie do stanu)
                         const Transfer = require('../db/models/transfer');
                         await Transfer.findByIdAndUpdate(item._id, {
-                            processed: true,
-                            processedAt: new Date()
+                            yellowProcessed: true,
+                            yellowProcessedAt: new Date()
                         });
                         
                         // Create history entry for incoming transfer

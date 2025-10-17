@@ -44,13 +44,21 @@ const transferSchema = new mongoose.Schema({
         required: false, // Optional field for Dom transfers
         default: 'PLN',
     },
-    processed: {
+    blueProcessed: {
         type: Boolean,
-        default: false, // Track if transfer has been processed
+        default: false, // Track if blue transfer (removal from source) has been processed
     },
-    processedAt: {
+    blueProcessedAt: {
         type: Date,
-        required: false, // When the transfer was processed
+        required: false, // When the blue transfer was processed (removal from source)
+    },
+    yellowProcessed: {
+        type: Boolean,
+        default: false, // Track if yellow transfer (addition to destination) has been processed
+    },
+    yellowProcessedAt: {
+        type: Date,
+        required: false, // When the yellow transfer was processed (addition to destination)
     },
 }, {
     timestamps: true,
