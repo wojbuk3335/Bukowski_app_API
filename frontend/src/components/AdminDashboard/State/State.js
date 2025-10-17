@@ -1228,13 +1228,6 @@ const State = () => {
             
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
-            
-            // Only show unique products count if it exists and is not undefined
-            if (data.summary.uniqueProducts !== undefined && data.summary.uniqueProducts !== null) {
-                const summaryText = convertPolishChars(`Liczba unikalnych produktow: ${data.summary.uniqueProducts}`);
-                const summaryWidth = doc.getTextWidth(summaryText);
-                doc.text(summaryText, (pageWidth - summaryWidth) / 2, finalY);
-            }
         }
         
         // Open print dialog

@@ -1319,8 +1319,7 @@ class StatesController {
                 sellingPoint: user.sellingPoint || user.symbol,
                 inventory: inventoryList,
                 summary: {
-                    totalItems: totalItems,
-                    uniqueProducts: inventoryList.length
+                    totalItems: totalItems
                 }
             };
 
@@ -1683,7 +1682,6 @@ class StatesController {
                 inventory: inventoryList,
                 summary: {
                     totalItems: totalItems,
-                    uniqueProducts: inventoryList.length,
                     date: date,
                     reportType: 'All States Inventory Report'
                 }

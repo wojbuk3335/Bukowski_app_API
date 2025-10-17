@@ -938,7 +938,6 @@ class WarehouseController {
                 items: formattedItems,
                 summary: summaryArray,
                 totalItems: formattedItems.length,
-                totalUniqueProducts: summaryArray.length,
                 date: targetDate
             };
 
