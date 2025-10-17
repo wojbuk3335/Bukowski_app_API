@@ -36,13 +36,8 @@ class SalesController {
 
     static async getAllSales(req, res) {
         try {
-            // WAŻNE: Pokazuj tylko nieprzetworzone sales (podobnie jak transfery)
-            const sales = await Sales.find({ 
-                $or: [
-                    { processed: { $ne: true } }, // Nieprzetworzone
-                    { processed: { $exists: false } } // Bez pola processed (stare dane)
-                ]
-            });
+            // Pokaż wszystkie sprzedaże (przetworzone i nieprzetworzone)
+            const sales = await Sales.find({});
             res.status(200).json(sales);
         } catch (error) {
             console.log('Error fetching all sales:', error.message);

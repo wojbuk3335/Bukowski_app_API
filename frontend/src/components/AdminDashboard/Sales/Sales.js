@@ -89,7 +89,15 @@ const Sales = () => {
                 setFilteredSales([]);
             }
         };
+        
         fetchSales();
+        
+        // Auto refresh sales data every 30 seconds
+        const salesInterval = setInterval(fetchSales, 30000);
+        
+        return () => {
+            clearInterval(salesInterval);
+        };
     }, []);
 
     // Fetch data for report dropdowns

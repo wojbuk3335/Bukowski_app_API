@@ -985,9 +985,25 @@ class StatesController {
 
             // Get history records for this period to understand movement sources
             const History = require('../db/models/history');
+            const Goods = require('../db/models/goods');
+            const Size = require('../db/models/size');
             const historyRecords = await History.find({
                 timestamp: { $gte: start, $lte: end },
-                collectionName: 'Stan'
+                collectionName: 'Stan',
+                operation: { 
+                    $nin: [
+                        'Dodano produkt', 
+                        'Usuniecie', 
+                        'Usunięcie',
+                        'Aktualizacja',
+                        'Dodano', 
+                        'Usunięto',
+                        'Zaktualizowano',
+                        'DELETE',
+                        'CREATE',
+                        'UPDATE'
+                    ] 
+                }
             });
 
 
@@ -1002,7 +1018,60 @@ class StatesController {
             const processedOperations = new Set(); // Avoid duplicates
 
             // Get all history records for this point
-            const targetHistory = historyRecords.filter(h => h.to === targetSymbol || h.from === targetSymbol);
+            let targetHistory = historyRecords.filter(h => h.to === targetSymbol || h.from === targetSymbol);
+
+            // Apply filters to history records
+            if ((productFilter === 'product' || productFilter === 'specific') && productId) {
+                const product = await Goods.findById(productId);
+                if (product) {
+                    targetHistory = targetHistory.filter(h => 
+                        h.product && h.product.includes(product.fullName)
+                    );
+                }
+            } else {
+                // Filter by category
+                if (category) {
+                    if (['Rękawiczki', 'Paski'].includes(category)) {
+                        // For subcategories, filter by product name patterns
+                        const productPatterns = {
+                            'Rękawiczki': /rękawic|glove|rekawic/i,
+                            'Paski': /pasek|belt|paski/i
+                        };
+                        const pattern = productPatterns[category];
+                        if (pattern) {
+                            targetHistory = targetHistory.filter(h => 
+                                h.product && pattern.test(h.product)
+                            );
+                        }
+                    } else {
+                        // For main categories, we need to get products from that category
+                        const categoryProducts = await Goods.find({ category: category });
+                        const productNames = categoryProducts.map(p => p.fullName);
+                        targetHistory = targetHistory.filter(h => 
+                            h.product && productNames.some(name => h.product.includes(name))
+                        );
+                    }
+                }
+
+                // Filter by manufacturer
+                if (manufacturerId) {
+                    const manufacturerProducts = await Goods.find({ manufacturer: manufacturerId });
+                    const productNames = manufacturerProducts.map(p => p.fullName);
+                    targetHistory = targetHistory.filter(h => 
+                        h.product && productNames.some(name => h.product.includes(name))
+                    );
+                }
+
+                // Filter by size
+                if (sizeId) {
+                    const size = await Size.findById(sizeId);
+                    if (size) {
+                        targetHistory = targetHistory.filter(h => 
+                            h.product && h.product.includes(size.Roz_Opis)
+                        );
+                    }
+                }
+            }
 
             targetHistory.forEach(history => {
                 // Create unique key to avoid processing same operation twice
@@ -1023,17 +1092,27 @@ class StatesController {
 
                 // Determine operation type based on history operation and locations
                 if (history.operation === 'Dodano do stanu (z magazynu)' && history.from === 'MAGAZYN' && history.to === targetSymbol) {
-                    operationType = 'Zatowarowanie';
+                    operationType = 'Dostawa';
                     fromLocation = 'MAGAZYN';
                     toLocation = targetSymbol;
                     isAddition = true;
+                } else if (history.operation === 'Dodano do stanu' && history.from === 'Produkcja' && history.to === targetSymbol) {
+                    operationType = 'Produkcja';
+                    fromLocation = 'Produkcja';
+                    toLocation = targetSymbol;
+                    isAddition = true;
                 } else if (history.operation === 'Odpisano ze stanu (transfer)' && history.from === targetSymbol) {
-                    operationType = 'Transfer do punktu';
+                    operationType = 'Transfer wych.';
                     fromLocation = targetSymbol;
                     toLocation = history.to;
                     isAddition = false;
+                } else if (history.operation === 'Odpisano ze stanu (transfer)' && history.to === targetSymbol) {
+                    operationType = 'Transfer przych.';
+                    fromLocation = history.from;
+                    toLocation = targetSymbol;
+                    isAddition = true;
                 } else if (history.operation === 'Dodano do stanu (transfer przychodzący)' && history.to === targetSymbol) {
-                    operationType = 'Transfer z punktu';
+                    operationType = 'Transfer przych.';
                     fromLocation = history.from;
                     toLocation = targetSymbol;
                     isAddition = true;
@@ -1042,6 +1121,24 @@ class StatesController {
                     fromLocation = targetSymbol;
                     toLocation = 'Sprzedane';
                     isAddition = false;
+                } else {
+                    // Fallback - try to guess from operation name
+                    if (history.operation.includes('Dodano') && history.to === targetSymbol) {
+                        operationType = history.operation;
+                        isAddition = true;
+                    } else if (history.operation.includes('Odpisano') && history.from === targetSymbol) {
+                        operationType = history.operation;
+                        isAddition = false;
+                    } else {
+                        // Keep as unknown but log for debugging
+                        console.log('Unknown operation:', {
+                            operation: history.operation,
+                            from: history.from,
+                            to: history.to,
+                            targetSymbol: targetSymbol,
+                            product: history.product
+                        });
+                    }
                 }
 
                 const operation = {
@@ -1123,7 +1220,7 @@ class StatesController {
             const inventoryItems = await State.find({
                 date: { $lte: inventoryDate }
             })
-            .populate('fullName', 'fullName category price')
+            .populate('fullName', 'fullName category subcategory price manufacturer')
             .populate('sellingPoint', 'symbol')
             .populate('size', 'Roz_Opis');
 
@@ -1133,9 +1230,56 @@ class StatesController {
                 return symbol === targetSymbol;
             });
 
+            // Apply filters similar to getAllStatesInventory
+            let filteredItems = relevantItems;
+
+            // Filter by specific product
+            if ((productFilter === 'product' || productFilter === 'specific') && productId) {
+                const product = await Goods.findById(productId);
+                if (product) {
+                    filteredItems = filteredItems.filter(item => 
+                        item.fullName?.fullName === product.fullName
+                    );
+                }
+            } else {
+                // Filter by category
+                if (category) {
+                    if (['Rękawiczki', 'Paski'].includes(category)) {
+                        // For subcategories, filter within Pozostały asortyment
+                        const subcategoryMapping = {
+                            'Rękawiczki': 'gloves',
+                            'Paski': 'belts'
+                        };
+                        filteredItems = filteredItems.filter(item => 
+                            item.fullName?.category === 'Pozostały asortyment' && 
+                            item.fullName?.subcategory === subcategoryMapping[category]
+                        );
+                    } else {
+                        // For main categories
+                        filteredItems = filteredItems.filter(item => 
+                            item.fullName?.category === category
+                        );
+                    }
+                }
+
+                // Filter by manufacturer
+                if (manufacturerId) {
+                    filteredItems = filteredItems.filter(item => 
+                        item.fullName?.manufacturer?.toString() === manufacturerId
+                    );
+                }
+
+                // Filter by size
+                if (sizeId) {
+                    filteredItems = filteredItems.filter(item => 
+                        item.size?._id?.toString() === sizeId
+                    );
+                }
+            }
+
             // Group by product and size
             const inventory = {};
-            relevantItems.forEach(item => {
+            filteredItems.forEach(item => {
                 const productName = item.fullName ? item.fullName.fullName : 'Unknown Product';
                 const sizeName = item.size ? item.size.Roz_Opis : 'No Size';
                 const key = `${productName}_${sizeName}`;
@@ -1186,6 +1330,20 @@ class StatesController {
                 timestamp: {
                     $gte: new Date(startDate + 'T00:00:00.000Z'),
                     $lte: new Date(endDate + 'T23:59:59.999Z')
+                },
+                operation: { 
+                    $nin: [
+                        'Dodano produkt', 
+                        'Usuniecie', 
+                        'Usunięcie',
+                        'Aktualizacja',
+                        'Dodano', 
+                        'Usunięto',
+                        'Zaktualizowano',
+                        'DELETE',
+                        'CREATE',
+                        'UPDATE'
+                    ] 
                 }
             };
 
@@ -1469,6 +1627,151 @@ class StatesController {
             console.error('Error generating all states inventory:', error);
             res.status(500).json({ 
                 message: 'Failed to generate all states inventory', 
+                error: error.message 
+            });
+        }
+    }
+
+    // Check processing status for all states
+    async checkProcessingStatus(req, res, next) {
+        try {
+            const { date } = req.query;
+            console.log('🔍 Processing status check requested for date:', date);
+            
+            if (!date) {
+                return res.status(400).json({ message: 'Date is required' });
+            }
+
+            const checkDate = new Date(date);
+            checkDate.setHours(0, 0, 0, 0);
+            const nextDay = new Date(checkDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+
+            console.log('📅 Checking date range:', checkDate, 'to', nextDay);
+
+            // Import Transfer and Sales models
+            const Transfer = require('../db/models/transfer');
+            const Sales = require('../db/models/sales');
+
+            // Get all Transfers for this date
+            const transfers = await Transfer.find({
+                date: {
+                    $gte: checkDate,
+                    $lt: nextDay
+                }
+            });
+
+            console.log(`📊 Found ${transfers.length} transfers for date ${date}`);
+
+            // Get all Sales for this date
+            const sales = await Sales.find({
+                date: {
+                    $gte: checkDate,
+                    $lt: nextDay
+                }
+            });
+
+            console.log(`📊 Found ${sales.length} sales for date ${date}`);
+
+            let unprocessedItems = [];
+
+            // Check each transfer
+            for (const transfer of transfers) {
+                console.log(`🔍 Checking transfer:`, {
+                    id: transfer._id,
+                    fullName: transfer.fullName,
+                    from: transfer.transfer_from,
+                    to: transfer.transfer_to,
+                    blueProcessed: transfer.blueProcessed,
+                    yellowProcessed: transfer.yellowProcessed,
+                    date: transfer.date
+                });
+
+                let needsProcessing = false;
+                let missingProcessing = [];
+
+                // Check if blue processing is needed (outgoing from source)
+                if (!transfer.blueProcessed) {
+                    needsProcessing = true;
+                    missingProcessing.push('blue (wychodzący)');
+                    console.log('❌ Transfer not blue processed');
+                } else {
+                    console.log('✅ Transfer already blue processed');
+                }
+
+                // Check if yellow processing is needed (incoming to destination)
+                if (!transfer.yellowProcessed) {
+                    needsProcessing = true;
+                    missingProcessing.push('yellow (przychodzący)');
+                    console.log('❌ Transfer not yellow processed');
+                } else {
+                    console.log('✅ Transfer already yellow processed');
+                }
+
+                if (needsProcessing) {
+                    unprocessedItems.push({
+                        type: 'transfer',
+                        transferId: transfer._id,
+                        product: transfer.fullName,
+                        from: transfer.transfer_from,
+                        to: transfer.transfer_to,
+                        date: transfer.date,
+                        missingProcessing: missingProcessing,
+                        blueProcessed: transfer.blueProcessed,
+                        yellowProcessed: transfer.yellowProcessed
+                    });
+                }
+            }
+
+            // Check each sale
+            for (const sale of sales) {
+                console.log(`🔍 Checking sale:`, {
+                    id: sale._id,
+                    product: sale.fullName,
+                    sellingPoint: sale.sellingPoint,
+                    from: sale.from,
+                    processed: sale.processed,
+                    date: sale.date
+                });
+
+                if (!sale.processed) {
+                    unprocessedItems.push({
+                        type: 'sale',
+                        saleId: sale._id,
+                        product: sale.fullName,
+                        sellingPoint: sale.sellingPoint,
+                        from: sale.from,
+                        date: sale.date,
+                        missingProcessing: ['blue (sprzedaż)'],
+                        processed: sale.processed
+                    });
+                    console.log('❌ Sale not processed');
+                } else {
+                    console.log('✅ Sale already processed');
+                }
+            }
+
+            const totalOperations = transfers.length + sales.length;
+            const allProcessed = unprocessedItems.length === 0;
+            console.log(`✅ Processing status: ${allProcessed ? 'ALL PROCESSED' : 'SOME UNPROCESSED'} (${unprocessedItems.length} unprocessed out of ${totalOperations} total)`);
+
+            res.status(200).json({
+                date: date,
+                allProcessed: allProcessed,
+                totalEntries: totalOperations,
+                unprocessedCount: unprocessedItems.length,
+                unprocessedItems: unprocessedItems,
+                transfersFound: transfers.length,
+                salesFound: sales.length,
+                message: allProcessed 
+                    ? 'Wszystkie produkty z dnia zostały przetworzone' 
+                    : 'UWAGA! Nie wszystkie produkty z dnia zostały przetworzone'
+            });
+
+        } catch (error) {
+            console.error('❌ Error checking processing status:', error);
+            res.status(500).json({ 
+                message: 'Failed to check processing status', 
                 error: error.message 
             });
         }

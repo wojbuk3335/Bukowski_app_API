@@ -48,6 +48,22 @@ const AddToState = ({ onAdd }) => {
   
   // Stan do śledzenia już przeniesionych produktów z magazynu (żeby nie przenosić duplikatów)
   const [autoMovedProducts, setAutoMovedProducts] = useState(new Set());
+  
+  // Stan dla statusu przetwarzania
+  const [processingStatus, setProcessingStatus] = useState(null);
+
+  // Funkcja sprawdzania statusu przetwarzania
+  const checkProcessingStatus = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const response = await fetch(`${API_BASE_URL}/api/state/processing-status?date=${today}`);
+      const data = await response.json();
+      setProcessingStatus(data);
+    } catch (error) {
+      console.error('❌ [AddToState] Error checking processing status:', error);
+      setProcessingStatus(null);
+    }
+  };
 
   // Stan dla cenników punktów sprzedaży
   const [priceList, setPriceList] = useState(null);
@@ -73,6 +89,12 @@ const AddToState = ({ onAdd }) => {
 
   // Event listener dla korekt z innych komponentów + localStorage check
   useEffect(() => {
+    // Check processing status on mount
+    checkProcessingStatus();
+    
+    // Auto refresh processing status every 30 seconds
+    const processingInterval = setInterval(checkProcessingStatus, 30000);
+    
     // Check localStorage for corrected transactions on mount
     const checkCorrectedTransactions = () => {
       try {
@@ -118,6 +140,7 @@ const AddToState = ({ onAdd }) => {
     
     return () => {
       window.removeEventListener('transactionCorrected', handleTransactionCorrected);
+      clearInterval(processingInterval); // Cleanup interval
     };
   }, []); // Empty dependency array to avoid re-creating listener
 
@@ -1859,11 +1882,11 @@ const AddToState = ({ onAdd }) => {
       alert(alertMessage);
       
       // Odśwież wszystkie dane po przetworzeniu
-
       await fetchAllStates(); // Najpierw odśwież stany
       await fetchTransfers();
       await fetchWarehouseItems();
       await fetchSales(); // Dodaj odświeżanie sprzedaży
+      await checkProcessingStatus(); // Odśwież status przetwarzania
 
       setMatchedPairs([]);
       setGreyedWarehouseItems(new Set());
@@ -2000,6 +2023,9 @@ const AddToState = ({ onAdd }) => {
         
         // Sprawdź ostatnią transakcję
         await checkLastTransaction();
+        
+        // Odśwież status przetwarzania
+        await checkProcessingStatus();
       } else {
         // Pokazuj szczegółowy błąd z serwera
         const errorData = await response.json();
@@ -2347,7 +2373,7 @@ const AddToState = ({ onAdd }) => {
               {filteredWarehouseItems.map((item) => {
                 const isGreyed = isWarehouseItemGreyed(item._id);
                 return (
-                <tr key={item._id} style={{ 
+                <tr key={`warehouse-${item._id}`} style={{ 
                   backgroundColor: isGreyed ? '#d6d6d6' : '#000000', // Czarne tło dla nie-sparowanych
                   color: isGreyed ? '#333333' : '#ffffff', // Biały tekst dla nie-sparowanych
                   opacity: isGreyed ? 0.6 : 1.0,
@@ -2578,6 +2604,27 @@ const AddToState = ({ onAdd }) => {
           )}
         </div>
 
+        {/* Processing Status Alert */}
+        {processingStatus && (
+          <div 
+            style={{
+              color: processingStatus.allProcessed ? '#28a745' : '#dc3545',
+              padding: '5px 0',
+              marginBottom: '5px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '16px'
+            }}
+          >
+            {processingStatus.message}
+            {!processingStatus.allProcessed && processingStatus.unprocessedCount > 0 && (
+              <div style={{ fontSize: '14px', marginTop: '3px' }}>
+                Nieprzetworzonych pozycji: {processingStatus.unprocessedCount}
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ marginTop: '20px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
             <thead>
@@ -2601,7 +2648,7 @@ const AddToState = ({ onAdd }) => {
                 const availabilityStatus = availabilityStatuses[index] || 'Sprawdzanie...';
                 
                 return (
-                <tr key={transfer._id} style={{ 
+                <tr key={`transfer-${transfer._id}`} style={{ 
                   backgroundColor: getBackgroundColor(transfer, transfer.fromWarehouse, transfer.isFromSale, transfer.isIncomingTransfer),
                   color: 'white',
                   opacity: isProcessed ? 0.7 : 1.0 // Przezroczystość dla przetworzonych
