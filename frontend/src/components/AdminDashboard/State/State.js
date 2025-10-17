@@ -840,7 +840,9 @@ const State = () => {
         // Title - centered
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        const titleText = convertPolishChars(`Raport Punktu Sprzedazy: ${getCurrentStateName()}`);
+        const currentStateName = getCurrentStateName();
+        const titlePrefix = currentStateName === 'Wszystkie stany' ? 'Raport Przeplywow' : 'Raport Punktu Sprzedazy';
+        const titleText = convertPolishChars(`${titlePrefix}: ${currentStateName}`);
         const titleWidth = doc.getTextWidth(titleText);
         doc.text(titleText, (pageWidth - titleWidth) / 2, 20);
         
@@ -890,16 +892,22 @@ const State = () => {
         const tableColumn = ['Lp.', 'Data', 'Nazwa produktu', 'Rozmiar', 'Rodzaj', 'Skad', 'Dokad', 'Odj.', 'Dod.'];
         const tableRows = [];
         
-        // Add operations
-        data.operations?.forEach((operation, index) => {
+        // Add operations (handle both single user 'operations' and all states 'movements')
+        const operationsData = data.operations || data.movements || [];
+        operationsData.forEach((operation, index) => {
+            // Map fields for different response formats
+            const type = operation.type || operation.operation || 'Nieznana operacja';
+            const from = operation.from || operation.source || 'Nieznane';
+            const to = operation.to || operation.destination || 'Nieznane';
+            
             const row = [
                 (index + 1).toString(),
                 new Date(operation.date).toLocaleDateString('pl-PL'),
                 convertPolishChars(operation.product || 'Nieznany produkt'),
                 convertPolishChars(operation.size || '-'),
-                convertPolishChars(operation.type || 'Nieznana operacja'),
-                convertPolishChars(operation.from || 'Nieznane'),
-                convertPolishChars(operation.to || 'Nieznane'),
+                convertPolishChars(type),
+                convertPolishChars(from),
+                convertPolishChars(to),
                 operation.subtract && operation.subtract > 0 ? -operation.subtract : '',
                 operation.add && operation.add > 0 ? operation.add : ''
             ];
@@ -1054,7 +1062,9 @@ const State = () => {
         // Title - centered
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        const titleText = convertPolishChars(`Stan Magazynowy Punktu: ${getCurrentStateName()}`);
+        const currentStateName = getCurrentStateName();
+        const titlePrefix = currentStateName === 'Wszystkie stany' ? 'Raport Stanow' : 'Stan Magazynowy Punktu';
+        const titleText = convertPolishChars(`${titlePrefix}: ${currentStateName}`);
         const titleWidth = doc.getTextWidth(titleText);
         doc.text(titleText, (pageWidth - titleWidth) / 2, 20);
         

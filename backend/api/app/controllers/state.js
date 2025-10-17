@@ -1189,59 +1189,119 @@ class StatesController {
                 }
             };
 
-            // Apply filters like in regular report
-            if (productFilter && productFilter !== 'none') {
-                // Same filtering logic as getStateReport but for all users
-                if (productFilter === 'product' && productId) {
-                    const product = await Goods.findById(productId);
-                    if (product) {
-                        historyQuery.$or = [
-                            { product: { $regex: product.fullName, $options: 'i' } },
-                            { 'details': { $regex: product.fullName, $options: 'i' } }
-                        ];
-                    }
-                } else if (productFilter === 'category' && category) {
-                    // Filter by category - find all goods in this category OR subcategory
-                    const goodsInCategory = await Goods.find({ 
-                        $or: [
-                            { category: category },
-                            { subcategory: category }
-                        ]
-                    });
-                    if (goodsInCategory.length > 0) {
-                        const categoryProductNames = goodsInCategory.map(good => good.fullName);
-                        historyQuery.$or = categoryProductNames.map(name => ({
-                            product: { $regex: name, $options: 'i' }
-                        }));
-                    }
-                } else if (productFilter === 'manufacturer' && manufacturerId) {
-                    // Filter by manufacturer
-                    const goodsByManufacturer = await Goods.find({ manufacturer: manufacturerId });
-                    if (goodsByManufacturer.length > 0) {
-                        const manufacturerProductNames = goodsByManufacturer.map(good => good.fullName);
-                        historyQuery.$or = manufacturerProductNames.map(name => ({
-                            product: { $regex: name, $options: 'i' }
-                        }));
-                    }
-                } else if (productFilter === 'size' && sizeId) {
-                    // Filter by size - this is more complex since we need to check details
-                    const size = await Size.findById(sizeId);
-                    if (size) {
-                        historyQuery.$or = [
-                            { product: { $regex: size.Roz_Opis, $options: 'i' } },
-                            { 'details': { $regex: size.Roz_Opis, $options: 'i' } }
-                        ];
+            // Apply multiple filters - build MongoDB query with all active filters
+            let goodsFilter = {}; // Filter for Goods collection
+            let productNames = []; // Names of products to search in history
+            
+            // 1. Filter by specific product
+            if ((productFilter === 'product' || productFilter === 'specific') && productId) {
+                const product = await Goods.findById(productId);
+                if (product) {
+                    productNames = [product.fullName];
+                }
+            } else {
+                // 2. Filter by category
+                if (category) {
+                    if (['Rękawiczki', 'Paski'].includes(category)) {
+                        // For subcategories, filter by subcategory within Pozostały asortyment
+                        const subcategoryMapping = {
+                            'Rękawiczki': 'gloves',
+                            'Paski': 'belts'
+                        };
+                        goodsFilter.category = 'Pozostały asortyment';
+                        goodsFilter.subcategory = subcategoryMapping[category];
+                    } else {
+                        // For main categories
+                        goodsFilter.category = category;
                     }
                 }
-                // Add other filter types as needed
+                
+                // 3. Filter by manufacturer (can be combined with category)
+                if (manufacturerId) {
+                    goodsFilter.manufacturer = manufacturerId;
+                }
+                
+                // Apply goods filters to find matching products
+                if (Object.keys(goodsFilter).length > 0) {
+                    const filteredGoods = await Goods.find(goodsFilter);
+                    productNames = filteredGoods.map(g => g.fullName);
+                }
             }
+            
+            // 4. Apply product name filters to history query
+            if (productNames.length > 0) {
+                historyQuery.$or = productNames.map(name => ({
+                    product: { $regex: name, $options: 'i' }
+                }));
+            }
+            
+            // Note: Size filtering is done after processing, not in the database query
+            // This is because we extract sizes from product names, not from details.size field
 
             const historyEntries = await History.find(historyQuery)
                 .sort({ timestamp: -1 })
                 .limit(1000); // Limit for performance
 
+            // Group transfers to avoid duplicates (blue/yellow processing creates 2 entries for 1 transfer)
+            const transferGroups = new Map();
+            const nonTransferEntries = [];
+
+            historyEntries.forEach(entry => {
+                if (entry.operation && entry.operation.includes('transfer')) {
+                    // Create unique key for transfer grouping - use product and approximate time (same minute)
+                    const timeKey = new Date(entry.timestamp).toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+                    const transferKey = `${entry.product}_${timeKey}`;
+                    
+                    if (!transferGroups.has(transferKey)) {
+                        transferGroups.set(transferKey, []);
+                    }
+                    transferGroups.get(transferKey).push(entry);
+                } else {
+                    nonTransferEntries.push(entry);
+                }
+            });
+
+            // Process grouped transfers
+            const processedTransfers = [];
+            transferGroups.forEach((entries) => {
+                if (entries.length >= 2) {
+                    // Multiple entries - combine them into one
+                    const sourceEntry = entries.find(e => e.operation.includes('Odpisano')) || entries[0];
+                    const targetEntry = entries.find(e => e.operation.includes('Dodano') && e.operation.includes('przychodzacy')) || entries[1];
+                    
+                    let sourceDetails = {}, targetDetails = {};
+                    try {
+                        sourceDetails = JSON.parse(sourceEntry?.details || '{}');
+                        targetDetails = JSON.parse(targetEntry?.details || '{}');
+                    } catch (e) {}
+
+                    // Create combined transfer entry using the more recent timestamp
+                    const combinedEntry = {
+                        timestamp: targetEntry?.timestamp || sourceEntry?.timestamp,
+                        product: targetEntry?.product || sourceEntry?.product,
+                        operation: 'Transfer międzypunktowy',
+                        details: JSON.stringify({
+                            source: sourceDetails.source || sourceEntry?.from || 'M',
+                            destination: targetDetails.destination || targetEntry?.to || targetDetails.targetUser || 'T',
+                            barcode: sourceDetails.barcode || targetDetails.barcode,
+                            size: sourceDetails.size || targetDetails.size
+                        })
+                    };
+                    processedTransfers.push(combinedEntry);
+                } else {
+                    // Single entry - keep as is (but skip if it's part of incomplete transfer)
+                    const entry = entries[0];
+                    if (!entry.operation.includes('przychodzacy') && !entry.operation.includes('Odpisano ze stanu (transfer)')) {
+                        processedTransfers.push(entry);
+                    }
+                }
+            });
+
+            // Combine processed transfers with non-transfer entries
+            const allProcessedEntries = [...processedTransfers, ...nonTransferEntries];
+
             // Format the data similarly to single user report
-            const movements = historyEntries.map(entry => {
+            let movements = allProcessedEntries.map(entry => {
                 let details = {};
                 try {
                     details = JSON.parse(entry.details || '{}');
@@ -1249,18 +1309,40 @@ class StatesController {
                     details = {};
                 }
 
+                // Extract size from product name if details.size is ObjectId or empty
+                let sizeDisplay = details.size || '-';
+                
+                // Always try to extract size from product name if details.size is not a readable size
+                if (!details.size || details.size === '-' || (details.size && details.size.length === 24 && /^[0-9a-fA-F]{24}$/.test(details.size))) {
+                    const sizeMatch = entry.product?.match(/\b(XXS|XS|S|M|L|XL|XXL|3XL|4XL|5XL)\b/);
+                    sizeDisplay = sizeMatch ? sizeMatch[1] : '-';
+                } else {
+                    // If details.size exists and looks like a readable size, use it
+                    sizeDisplay = details.size;
+                }
+
                 return {
                     date: entry.timestamp,
                     operation: entry.operation,
                     product: entry.product,
-                    size: details.size || '-',
+                    size: sizeDisplay,
                     barcode: details.barcode || '-',
-                    source: details.source || '-',
-                    destination: details.destination || details.targetUser || '-',
+                    source: details.source || entry.from || '-',
+                    destination: details.destination || details.targetUser || entry.to || '-',
                     notes: details.notes || '-',
-                    sellingPoint: details.targetUser || details.sourceUser || 'System'
+                    sellingPoint: details.targetUser || details.sourceUser || entry.to || 'System'
                 };
             });
+
+            // Filter by size after processing (since we extract sizes from product names)
+            if (sizeId) {
+                const size = await Size.findById(sizeId);
+                if (size) {
+                    movements = movements.filter(movement => 
+                        movement.size === size.Roz_Opis
+                    );
+                }
+            }
 
             res.status(200).json({
                 movements: movements,

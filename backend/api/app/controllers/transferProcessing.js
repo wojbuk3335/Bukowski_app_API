@@ -909,15 +909,17 @@ class TransferProcessingController {
                     if (isIncomingTransfer) {
                         // 🟡 ŻÓŁTE PRODUKTY - Transfer przychodzący (nie usuwamy z magazynu, tylko dodajemy do stanu)
                         
-                        // Wygeneruj barcode dla transferu przychodzącego
+                        // POPRAWKA: Użyj oryginalnego kodu produktu dla incoming transferów
                         let finalBarcode;
                         if (goods.category === 'Torebki' || goods.category === 'Portfele' || goods.category === 'Pozostały asortyment') {
-                            // Dla torebek, portfeli i pozostałego asortymentu w transferze przychodzącym też generujemy nowy kod
-                            finalBarcode = `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                            // Dla torebek, portfeli i pozostałego asortymentu użyj oryginalnego kodu z goods
+                            finalBarcode = goods.code;
                         } else {
-                            // Dla innych produktów generujemy jak wcześniej
-                            finalBarcode = item.barcode || `INCOMING_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                            // Dla innych produktów użyj oryginalnego kodu z goods lub z item
+                            finalBarcode = goods.code || item.barcode;
                         }
+                        
+
                         
                         // Handle special size for bags, wallets and remaining products
                         let transferSize = size;
@@ -929,14 +931,16 @@ class TransferProcessingController {
                         // Create new State document for user
                         const newStateId = new mongoose.Types.ObjectId();
                         
+
+                        
                         const newStateItem = await State.create({
                             _id: newStateId,
                             fullName: goods._id,
                             size: transferSize ? transferSize._id : null, // Dla torebek, portfeli i pozostałego asortymentu size będzie null
                             barcode: finalBarcode,
                             sellingPoint: user._id,
-                            price: item.price || 0,
-                            discount_price: item.discount_price || 0,
+                            price: goods.price || 0, // POPRAWKA: użyj ceny z produktu, nie z transferu
+                            discount_price: goods.discountPrice || 0, // POPRAWKA: użyj ceny promocyjnej z produktu
                             date: new Date()
                         });
                         
