@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const AddToState = ({ onAdd }) => {
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
   
   // Ustawienie dzisiejszej daty jako domyślnej
   const getTodayDate = () => {
@@ -68,6 +68,9 @@ const AddToState = ({ onAdd }) => {
   // Stan dla cenników punktów sprzedaży
   const [priceList, setPriceList] = useState(null);
   const [priceListLoading, setPriceListLoading] = useState(false);
+
+  // Stan dla kolorów do mapowania nazw na kody
+  const [colors, setColors] = useState([]);
 
   // Stan dla spinnera podczas automatycznego przenoszenia
   const [isAutoMoving, setIsAutoMoving] = useState(false);
@@ -137,6 +140,20 @@ const AddToState = ({ onAdd }) => {
 
     checkCorrectedTransactions(); // Check on mount
     window.addEventListener('transactionCorrected', handleTransactionCorrected);
+    
+    // Fetch colors for label printing mapping
+    const fetchColors = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/excel/color/get-all-colors`);
+        const data = await response.json();
+        setColors(data.colors || []);
+      } catch (error) {
+        console.error('Error fetching colors:', error);
+        setColors([]); // Fallback to an empty array
+      }
+    };
+    
+    fetchColors();
     
     return () => {
       window.removeEventListener('transactionCorrected', handleTransactionCorrected);
@@ -1158,6 +1175,20 @@ const AddToState = ({ onAdd }) => {
     }
   };
 
+  // Function to get color code from color name using colors mapping
+  const getColorCodeFromName = (itemName) => {
+    if (!itemName || !colors.length) return null;
+    
+    // Find color by matching the color name in the item name
+    const foundColor = colors.find(color => {
+      const colorName = color.Kol_Opis.toLowerCase();
+      const itemNameLower = itemName.toLowerCase();
+      return itemNameLower.includes(colorName);
+    });
+    
+    return foundColor ? foundColor.Kol_Kod : null;
+  };
+
   // Convert Polish characters to Latin equivalents for printing
   const convertPolishChars = (text) => {
     const polishToLatin = {
@@ -1222,17 +1253,19 @@ const AddToState = ({ onAdd }) => {
     
     // Usuń polskie znaki które mogą powodować problemy i przetwórz nazwę
     let processedName = (itemName || 'N/A');
-    // Usuń kolor z nazwy - znajdź tylko model (rozszerzona lista kolorów)
-    processedName = processedName.replace(/\s*(czarny|czarna|czarne|biały|biała|białe|niebieski|niebieska|niebieskie|czerwony|czerwona|czerwone|zielony|zielona|zielone|żółty|żółta|żółte|szary|szara|szare|brązowy|brązowa|brązowe|różowy|różowa|różowe|fioletowy|fioletowa|fioletowe|pomarańczowy|pomarańczowa|pomarańczowe|kakao|beżowy|beżowa|beżowe|kremowy|kremowa|kremowe|granatowy|granatowa|granatowe|bordowy|bordowa|bordowe|khaki|oliwkowy|oliwkowa|oliwkowe|złoty|złota|złote|srebrny|srebrna|srebrne|miętowy|miętowa|miętowe)\s*/gi, '').trim();
+    // Usuń kolor z nazwy - znajdź tylko model (bez NIEOKREŚLONY bo to rozmiar)
+    processedName = processedName.replace(/\s*(czarny|czarna|czarne|biały|biała|białe|niebieski|niebieska|niebieskie|czerwony|czerwona|czerwone|zielony|zielona|zielone|żółty|żółta|żółte|szary|szara|szare|brązowy|brązowa|brązowe|różowy|różowa|różowe|fioletowy|fioletowa|fioletowe|pomarańczowy|pomarańczowa|pomarańczowe|kakao|beżowy|beżowa|beżowe|beż|kremowy|kremowa|kremowe|granatowy|granatowa|granatowe|bordowy|bordowa|bordowe|khaki|oliwkowy|oliwkowa|oliwkowe|złoty|złota|złote|srebrny|srebrna|srebrne|miętowy|miętowa|miętowe)\s*/gi, '').trim();
     
-    // Dodaj pozycje 4 i 5 z kodu kreskowego do nazwy
-    const barcodeDigits = (barcode && barcode.length >= 5) ? barcode.substring(3, 5) : '';
-    if (barcodeDigits) {
-      processedName += ' ' + barcodeDigits;
+    // Get color code from colors mapping instead of barcode digits
+    const colorCode = getColorCodeFromName(itemName);
+    if (colorCode) {
+      processedName += ' ' + colorCode;
     }
     
     const safeName = convertPolishChars(processedName);
-    const safeSize = convertPolishChars(itemSize || 'N/A');
+    // Sprawdź czy rozmiar to NIEOKREŚLONY - jeśli tak, zostaw puste miejsce
+    const displaySize = (itemSize === '!NIEOKREŚLONY' || itemSize === 'NIEOKREŚLONY') ? '' : (itemSize || 'N/A');
+    const safeSize = convertPolishChars(displaySize);
     const safeTransfer = convertPolishChars(mappedPoint || 'N/A');
     const safePrice = (finalPrice || 'N/A').toString().replace(/[^\x00-\x7F]/g, "?");
     

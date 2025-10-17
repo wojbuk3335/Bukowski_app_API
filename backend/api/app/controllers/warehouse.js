@@ -862,7 +862,7 @@ class WarehouseController {
 
 
 
-            console.log(`📦 Inventory query for ${date}:`, stateQuery);
+
 
             // Get all items in warehouse on target date
             const inventoryItems = await State.find(stateQuery)
@@ -885,7 +885,7 @@ class WarehouseController {
             }));
 
             // Create summary grouped by product name and size
-            console.log(`📊 SUMMARY DEBUG: Processing ${formattedItems.length} items for summary`);
+
             console.log(`📊 First 5 items:`, formattedItems.slice(0, 5).map(item => ({ 
                 productName: item.productName, 
                 size: item.size, 
@@ -932,7 +932,7 @@ class WarehouseController {
                 averagePrice: data.count > 0 ? (data.totalValue / data.count).toFixed(2) : 0
             })).sort((a, b) => a.productName.localeCompare(b.productName));
 
-            console.log(`📊 Generated summary for ${summaryArray.length} unique product variants`);
+
 
             const inventoryData = {
                 items: formattedItems,

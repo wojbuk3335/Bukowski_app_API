@@ -4,7 +4,7 @@ module.exports = function(app) {
   app.use(
     '/api',
     createProxyMiddleware({
-      target: 'http://localhost:3000',
+      target: 'http://localhost:3001',
       changeOrigin: true,
     })
   );
@@ -12,7 +12,7 @@ module.exports = function(app) {
   app.use(
     '/images',
     createProxyMiddleware({
-      target: 'http://localhost:3000',
+      target: 'http://localhost:3001',
       changeOrigin: true,
     })
   );

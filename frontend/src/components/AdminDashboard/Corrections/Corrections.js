@@ -25,11 +25,11 @@ function Corrections() {
       setLoading(true);
       
       // Pobierz wszystkie korekty
-      const correctionsResponse = await fetch('http://localhost:3000/api/corrections');
+      const correctionsResponse = await fetch('http://localhost:3001/api/corrections');
       const correctionsData = await correctionsResponse.json();
       
       // Pobierz statystyki
-      const statsResponse = await fetch('http://localhost:3000/api/corrections/stats');
+      const statsResponse = await fetch('http://localhost:3001/api/corrections/stats');
       const statsData = await statsResponse.json();
       
       setCorrections(correctionsData || []);
@@ -61,7 +61,7 @@ function Corrections() {
 
   const handleStatusUpdate = async (correctionId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/corrections/${correctionId}`, {
+      const response = await fetch(`http://localhost:3001/api/corrections/${correctionId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +92,7 @@ function Corrections() {
       setSelectedCorrection(correction);
       
       // Pobierz wszystkie stany z API
-      const stateResponse = await fetch('http://localhost:3000/api/state');
+      const stateResponse = await fetch('http://localhost:3001/api/state');
       const allStates = await stateResponse.json();
       
       console.log('🔍 Searching for correction:', {
@@ -178,7 +178,7 @@ function Corrections() {
       console.log(`Writing off from ${fromSymbol}:`, itemToWriteOff);
       
       // Wywołanie API do odpisania produktu używając istniejącego endpointu
-      const writeOffResponse = await fetch(`http://localhost:3000/api/state/barcode/${itemToWriteOff.barcode}/symbol/${fromSymbol}`, {
+      const writeOffResponse = await fetch(`http://localhost:3001/api/state/barcode/${itemToWriteOff.barcode}/symbol/${fromSymbol}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

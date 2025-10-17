@@ -48,6 +48,11 @@ const State = () => {
     const [selectedIds, setSelectedIds] = useState([]); // State for selected row IDs
     const [columnFilters, setColumnFilters] = useState({}); // State for column filters
     const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]); // State for date range
+    
+    // States for label printing functionality
+    const [priceList, setPriceList] = useState(null); // State for user's price list
+    const [isPrintingLabel, setIsPrintingLabel] = useState(false); // State for printing status
+    const [colors, setColors] = useState([]); // State for colors mapping
     const [isDateRangePickerVisible, setIsDateRangePickerVisible] = useState(false); // State to toggle date range picker visibility
     const calendarRef = useRef(null); // Ref for the calendar container
     const [loading, setLoading] = useState(false); // Loading state
@@ -167,7 +172,19 @@ const State = () => {
             }
         };
 
+        // Fetch colors for label printing mapping
+        const fetchColors = async () => {
+            try {
+                const response = await axios.get('/api/excel/color/get-all-colors');
+                setColors(response.data.colors || []);
+            } catch (error) {
+                console.error('Error fetching colors:', error);
+                setColors([]); // Fallback to an empty array
+            }
+        };
+
         fetchSizes();
+        fetchColors();
     }, []);    useEffect(() => {
         // Fetch user data from the API
         const fetchUsers = async () => {
@@ -208,6 +225,33 @@ const State = () => {
         };
 
         fetchUsers();
+    }, [userId]); // Re-run when userId changes
+
+    // Fetch price list for the current user (for label printing)
+    useEffect(() => {
+        const fetchPriceList = async () => {
+            if (!userId) return;
+            
+            try {
+                const response = await axios.get(`/api/pricelists/${userId}`);
+                if (response.data) {
+                    // Transform structure to match AddToState: { items: [items] }
+                    const priceListData = {
+                        items: response.data.priceList || [],
+                        sellingPointId: userId
+                    };
+                    setPriceList(priceListData);
+                } else {
+                    setPriceList(null);
+                }
+            } catch (error) {
+                // If user doesn't have a dedicated price list, that's OK - we'll use fallback
+                console.log('No dedicated price list found for user, will use fallback pricing');
+                setPriceList(null);
+            }
+        };
+
+        fetchPriceList();
     }, [userId]); // Re-run when userId changes
 
     const fetchTableData = useCallback(async () => {
@@ -953,7 +997,7 @@ const State = () => {
         }
         
         // Calculate table position
-        const tableWidth = 12 + 18 + 35 + 25 + 20 + 20 + 15 + 15; // = 160mm
+        const tableWidth = 8 + 14 + 25 + 10 + 18 + 15 + 15 + 10 + 10; // = 125mm
         const tableStartX = (pageWidth - tableWidth) / 2;
         
         // Add table to PDF
@@ -979,15 +1023,15 @@ const State = () => {
                 font: 'helvetica'
             },
             columnStyles: {
-                0: { halign: 'center', cellWidth: 10 }, // Lp
-                1: { halign: 'center', cellWidth: 16 }, // Data
-                2: { halign: 'left', cellWidth: 28 },   // Nazwa produktu
-                3: { halign: 'center', cellWidth: 12 }, // Rozmiar
-                4: { halign: 'center', cellWidth: 22 }, // Rodzaj
-                5: { halign: 'center', cellWidth: 18 }, // Skad
-                6: { halign: 'center', cellWidth: 18 }, // Dokad
-                7: { halign: 'center', cellWidth: 12 }, // Odj.
-                8: { halign: 'center', cellWidth: 12 }  // Dod.
+                0: { halign: 'center', cellWidth: 8 },  // Lp
+                1: { halign: 'center', cellWidth: 14 }, // Data
+                2: { halign: 'left', cellWidth: 25 },   // Nazwa produktu
+                3: { halign: 'center', cellWidth: 10 }, // Rozmiar
+                4: { halign: 'center', cellWidth: 18 }, // Rodzaj
+                5: { halign: 'center', cellWidth: 15 }, // Skad
+                6: { halign: 'center', cellWidth: 15 }, // Dokad
+                7: { halign: 'center', cellWidth: 10 }, // Odj.
+                8: { halign: 'center', cellWidth: 10 }  // Dod.
             }
         });
         
@@ -1420,6 +1464,60 @@ const State = () => {
         });
     };
 
+    // Get price info from price list with priority system (same as AddToState)
+    const getPriceFromPriceList = (item, itemSize) => {
+        if (!priceList || !priceList.items) {
+            return null;
+        }
+
+        // Find matching item in price list by barcode or name/category combination
+        const priceListItem = priceList.items.find(priceItem => {
+            // Match by barcode if available
+            if (item.barcode && priceItem.code === item.barcode) {
+                return true;
+            }
+            
+            // Match by name and category if no barcode match
+            const itemFullName = typeof item.fullName === 'object' 
+                ? item.fullName?.fullName 
+                : item.fullName;
+            
+            // If names match exactly, don't require category match (in case category is missing)
+            if (priceItem.fullName === itemFullName) {
+                return true;
+            }
+            
+            // Otherwise require both name and category match
+            return priceItem.fullName === itemFullName && 
+                   priceItem.category === item.category;
+        });
+
+        if (!priceListItem) {
+            return null;
+        }
+
+        const result = {
+            regularPrice: priceListItem.price || 0,
+            discountPrice: priceListItem.discountPrice || 0,
+            sizeExceptionPrice: null,
+            hasDiscount: priceListItem.discountPrice && priceListItem.discountPrice > 0
+        };
+
+        // Check for size-specific exceptions
+        if (itemSize && priceListItem.priceExceptions && priceListItem.priceExceptions.length > 0) {
+            const sizeException = priceListItem.priceExceptions.find(exception => {
+                const exceptionSizeName = exception.size?.Roz_Opis || exception.size;
+                return exceptionSizeName === itemSize;
+            });
+            
+            if (sizeException) {
+                result.sizeExceptionPrice = sizeException.value;
+            }
+        }
+
+        return result;
+    };
+
     const handlePrint = async () => {
         if (!printer) {
             alert("Brak drukarki");
@@ -1433,135 +1531,45 @@ const State = () => {
 
         // Generate ZPL labels for each selected row
         const allLabels = [];
+        
         selectedIds.forEach((id) => {
             const row = tableData.find((item) => item.id === id);
-            const jacketName = row?.fullName || "Brak nazwy";
-            const size = row?.size || "Brak rozmiaru";
-            const barcode = row?.barcode || "Brak kodu";
-            const symbol = row?.symbol || "Brak symbolu";
-            const rawPrice = row?.price || null;
-
-            // Convert Polish characters for ZPL printer compatibility
-            const convertPolishChars = (text) => {
-                if (!text || typeof text !== 'string') {
-                    return text || '';
-                }
-                return text
-                    .replace(/ą/g, 'a')
-                    .replace(/ć/g, 'c')
-                    .replace(/ę/g, 'e')
-                    .replace(/ł/g, 'l')
-                    .replace(/ń/g, 'n')
-                    .replace(/ó/g, 'o')
-                    .replace(/ś/g, 's')
-                    .replace(/ź/g, 'z')
-                    .replace(/ż/g, 'z')
-                    .replace(/Ą/g, 'A')
-                    .replace(/Ć/g, 'C')
-                    .replace(/Ę/g, 'E')
-                    .replace(/Ł/g, 'L')
-                    .replace(/Ń/g, 'N')
-                    .replace(/Ó/g, 'O')
-                    .replace(/Ś/g, 'S')
-                    .replace(/Ź/g, 'Z')
-                    .replace(/Ż/g, 'Z');
-            };
-
-            const printableJacketName = convertPolishChars(String(jacketName));
-            const printableSize = convertPolishChars(String(size));
-            const printableSymbol = convertPolishChars(String(symbol));
             
-            // Handle double prices (separated by semicolon) - create two separate labels
-            if (rawPrice && rawPrice.toString().includes(';')) {
-                // Split prices by semicolon and create two separate labels
-                const prices = rawPrice.toString().split(';');
-                if (prices.length === 2) {
-                    const price1 = convertPolishChars(prices[0].trim() + ' PLN');
-                    const price2 = convertPolishChars(prices[1].trim() + ' PLN');
-                    
-                    // Add two separate labels to the array
-                    allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${price1}^FS
-^XZ`);
-                    
-                    allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${price2}^FS
-^XZ`);
-                } else {
-                    // Single price - single label
-                    const price = rawPrice ? `${rawPrice} PLN` : "Brak ceny";
-                    const printablePrice = convertPolishChars(String(price));
-                    allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${printablePrice}^FS
-^XZ`);
+            // Use price list priority system (same as AddToState)
+            const priceInfo = getPriceFromPriceList(row, row?.size);
+            
+            let finalPrice;
+            if (priceInfo) {
+                // Priority 1: Size exceptions override everything
+                if (priceInfo.sizeExceptionPrice) {
+                    finalPrice = priceInfo.sizeExceptionPrice;
+                } 
+                // Priority 2: Discount price
+                else if (priceInfo.hasDiscount) {
+                    finalPrice = priceInfo.discountPrice;
+                }
+                // Priority 3: Regular price
+                else {
+                    finalPrice = priceInfo.regularPrice;
                 }
             } else {
-                // Single price - single label
-                const price = rawPrice ? `${rawPrice} PLN` : "Brak ceny";
-                const printablePrice = convertPolishChars(String(price));
-                allLabels.push(`^CI28
-^XA
-^PW700
-^LL1000
-^FO70,30
-^A0N,35,35
-^FD${printableJacketName}  ${printableSize}^FS
-^FO600,30
-^A0N,30,30
-^FD${printableSymbol}^FS
-^FO70,80
-^BY3,3,120
-^BCN,120,Y,N,N
-^FD${barcode}^FS
-^FO230,250
-^A0N,60,60
-^FD${printablePrice}^FS
-^XZ`);
+                // Fallback to original price from database
+                finalPrice = row?.price || "Brak ceny";
+            }
+
+            // Check if item has promotional pricing that requires two labels
+            const shouldPrintTwoLabels = priceInfo && priceInfo.hasDiscount && !priceInfo.sizeExceptionPrice;
+            
+            if (shouldPrintTwoLabels) {
+                // Print both regular and discount price labels
+                const regularZPL = generateZPLCode(row, priceInfo.regularPrice);
+                const discountZPL = generateZPLCode(row, priceInfo.discountPrice);
+                allLabels.push(regularZPL);
+                allLabels.push(discountZPL);
+            } else {
+                // Single label with priority-based price
+                const zplCode = generateZPLCode(row, finalPrice);
+                allLabels.push(zplCode);
             }
         });
 
@@ -1570,7 +1578,6 @@ const State = () => {
         const sendNextLabel = () => {
             if (labelIndex >= allLabels.length) {
                 setSelectedIds([]); // Clear selected IDs after all labels are printed
-                alert(`Wysłano ${allLabels.length} etykiet do drukarki!`);
                 return;
             }
             
@@ -1586,6 +1593,165 @@ const State = () => {
         };
         
         sendNextLabel();
+    };
+
+    // Function to print single label (like AddToState)
+    const handlePrintSingleLabel = async (item) => {
+        if (!printer) {
+            alert("Brak drukarki");
+            return;
+        }
+
+        try {
+            // Check if item has promotional pricing that requires two labels
+            const priceInfo = getPriceFromPriceList(item, item?.size);
+            
+            const shouldPrintTwoLabels = priceInfo && priceInfo.hasDiscount && !priceInfo.sizeExceptionPrice;
+
+            if (shouldPrintTwoLabels) {
+                // Print two labels: regular price and discount price
+                const regularZPL = generateZPLCode(item, priceInfo.regularPrice);
+                const discountZPL = generateZPLCode(item, priceInfo.discountPrice);
+                
+                // Send first label
+                printer.send(
+                    regularZPL,
+                    () => {
+                        // Send second label after short delay
+                        setTimeout(() => {
+                            printer.send(
+                                discountZPL,
+                                () => {}, // Success callback for second label
+                                (err) => alert(`Błąd drukowania drugiej etykiety: ${err}`)
+                            );
+                        }, 100);
+                    },
+                    (err) => alert(`Błąd drukowania pierwszej etykiety: ${err}`)
+                );
+            } else {
+                // Print single label with priority-based price
+                const zplCode = generateZPLCode(item);
+                printer.send(
+                    zplCode,
+                    () => {}, // Success callback
+                    (err) => alert(`Błąd drukowania etykiety: ${err}`)
+                );
+            }
+        } catch (error) {
+            console.error('❌ Błąd podczas drukowania pojedynczej etykiety:', error);
+            alert('Błąd podczas drukowania etykiety');
+        }
+    };
+
+    // Function to get color code from color name using colors mapping
+    const getColorCodeFromName = (itemName) => {
+        if (!itemName || !colors.length) return null;
+        
+        // Find color by matching the color name in the item name
+        const foundColor = colors.find(color => {
+            const colorName = color.Kol_Opis.toLowerCase();
+            const itemNameLower = itemName.toLowerCase();
+            return itemNameLower.includes(colorName);
+        });
+        
+        return foundColor ? foundColor.Kol_Kod : null;
+    };
+
+    // Convert Polish characters to Latin equivalents for printing (from AddToState)
+    const convertPolishChars = (text) => {
+        const polishToLatin = {
+            'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+            'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+        };
+        
+        return text.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, (match) => polishToLatin[match] || match);
+    };
+
+    // Generate ZPL code for State printing (identical to AddToState)
+    const generateZPLCode = (item, customPrice = null) => {
+        // Adapt State item data to AddToState format
+        const itemName = item?.fullName || '';
+        const itemSize = item?.size || '';
+        const barcode = item?.barcode || '';
+        const transferTo = item?.symbol || ''; // Use symbol as transfer point
+        
+        // Use custom price if provided, otherwise get from price list
+        let finalPrice;
+        
+        if (customPrice !== null) {
+            finalPrice = customPrice;
+        } else {
+            // Get price info from price list
+            const priceInfo = getPriceFromPriceList(item, itemSize);
+            
+            if (priceInfo) {
+                // Priority 1: Size exceptions override everything
+                if (priceInfo.sizeExceptionPrice) {
+                    finalPrice = priceInfo.sizeExceptionPrice;
+                } 
+                // Priority 2: Discount price
+                else if (priceInfo.hasDiscount) {
+                    finalPrice = priceInfo.discountPrice;
+                }
+                // Priority 3: Regular price
+                else {
+                    finalPrice = priceInfo.regularPrice;
+                }
+            } else {
+                // Fallback to original price
+                finalPrice = item.price || '';
+            }
+        }
+        
+        // Mapowanie punktów na numery (same as AddToState)
+        const pointMapping = {
+            'P': '01',
+            'M': '02', 
+            'K': '03',
+            'T': '04',
+            'S': '05',
+            'Kar': '06'
+        };
+        const mappedPoint = pointMapping[transferTo] || transferTo;
+        
+        // ZPL kod dla etykiety 50mm x 30mm
+        
+        // Usuń polskie znaki które mogą powodować problemy i przetwórz nazwę
+        let processedName = (itemName || 'N/A');
+        // Usuń kolor z nazwy - znajdź tylko model (bez NIEOKREŚLONY bo to rozmiar)
+        processedName = processedName.replace(/\s*(czarny|czarna|czarne|biały|biała|białe|niebieski|niebieska|niebieskie|czerwony|czerwona|czerwone|zielony|zielona|zielone|żółty|żółta|żółte|szary|szara|szare|brązowy|brązowa|brązowe|różowy|różowa|różowe|fioletowy|fioletowa|fioletowe|pomarańczowy|pomarańczowa|pomarańczowe|kakao|beżowy|beżowa|beżowe|beż|kremowy|kremowa|kremowe|granatowy|granatowa|granatowe|bordowy|bordowa|bordowe|khaki|oliwkowy|oliwkowa|oliwkowe|złoty|złota|złote|srebrny|srebrna|srebrne|miętowy|miętowa|miętowe)\s*/gi, '').trim();
+        
+        // Get color code from colors mapping instead of barcode digits
+        const colorCode = getColorCodeFromName(itemName);
+        if (colorCode) {
+            processedName += ' ' + colorCode;
+        }
+        
+        const safeName = convertPolishChars(processedName);
+        // Sprawdź czy rozmiar to NIEOKREŚLONY - jeśli tak, zostaw puste miejsce
+        const displaySize = (itemSize === '!NIEOKREŚLONY' || itemSize === 'NIEOKREŚLONY') ? '' : (itemSize || 'N/A');
+        const safeSize = convertPolishChars(displaySize);
+        const safeTransfer = convertPolishChars(mappedPoint || 'N/A');
+        const safePrice = (finalPrice || 'N/A').toString().replace(/[^\x00-\x7F]/g, "?");
+        
+        // Format z większą szerokością - nazwa bez koloru, większy rozmiar, cena z marginesem (identical to AddToState)
+        const zplCode = `^XA
+^MMT
+^PW450
+^LL0400
+^LS0
+^FT3,50^A0N,40,40^FD${safeName}^FS
+^FT320,55^A0N,45,45^FDCena:^FS
+^FT280,125^A0N,70,70^FD${safePrice} zl^FS
+
+^FT3,120^A0N,38,38^FDRozmiar: ${safeSize}^FS
+^FT3,150^A0N,25,25^FDPunkt: ${safeTransfer}^FS
+^BY3,3,70^FT15,250^BCN,,N,N
+^FD${barcode || 'NO-BARCODE'}^FS
+^FT125,280^A0N,28,28^FB200,1,0,C,0^FD${barcode || 'NO-BARCODE'}^FS
+^XZ`;
+        
+        return zplCode;
     };
 
     const handleLpFilterChange = (e) => {
@@ -2014,6 +2180,15 @@ const State = () => {
                             <td style={{ ...tableCellStyle, textAlign: 'center' }} data-label="Akcje"> 
                                 <div className="d-flex justify-content-center gap-1">
                                     <Button color="warning" size="sm" onClick={() => handleEditClick(row)}>Edytuj</Button>
+                                    <Button 
+                                        color="info" 
+                                        size="sm" 
+                                        onClick={() => handlePrintSingleLabel(row)}
+                                        disabled={!printer}
+                                        title={!printer ? "Brak drukarki" : "Drukuj etykietę"}
+                                    >
+                                        Drukuj
+                                    </Button>
                                     <Button color="danger" size="sm" onClick={() => {
                                         if (window.confirm('Czy na pewno chcesz usunąć ten wiersz?')) { // Confirm before deleting
                                             deleteRow(row.id);

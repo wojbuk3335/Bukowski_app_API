@@ -1700,7 +1700,6 @@ class StatesController {
     async checkProcessingStatus(req, res, next) {
         try {
             const { date } = req.query;
-            console.log('🔍 Processing status check requested for date:', date);
             
             if (!date) {
                 return res.status(400).json({ message: 'Date is required' });
@@ -1710,8 +1709,6 @@ class StatesController {
             checkDate.setHours(0, 0, 0, 0);
             const nextDay = new Date(checkDate);
             nextDay.setDate(nextDay.getDate() + 1);
-
-            console.log('📅 Checking date range:', checkDate, 'to', nextDay);
 
             // Import Transfer and Sales models
             const Transfer = require('../db/models/transfer');
@@ -1725,8 +1722,6 @@ class StatesController {
                 }
             });
 
-            console.log(`📊 Found ${transfers.length} transfers for date ${date}`);
-
             // Get all Sales for this date
             const sales = await Sales.find({
                 date: {
@@ -1735,21 +1730,10 @@ class StatesController {
                 }
             });
 
-            console.log(`📊 Found ${sales.length} sales for date ${date}`);
-
             let unprocessedItems = [];
 
             // Check each transfer
             for (const transfer of transfers) {
-                console.log(`🔍 Checking transfer:`, {
-                    id: transfer._id,
-                    fullName: transfer.fullName,
-                    from: transfer.transfer_from,
-                    to: transfer.transfer_to,
-                    blueProcessed: transfer.blueProcessed,
-                    yellowProcessed: transfer.yellowProcessed,
-                    date: transfer.date
-                });
 
                 let needsProcessing = false;
                 let missingProcessing = [];
@@ -1767,9 +1751,6 @@ class StatesController {
                 if (!transfer.yellowProcessed) {
                     needsProcessing = true;
                     missingProcessing.push('yellow (przychodzący)');
-                    console.log('❌ Transfer not yellow processed');
-                } else {
-                    console.log('✅ Transfer already yellow processed');
                 }
 
                 if (needsProcessing) {
@@ -1789,15 +1770,6 @@ class StatesController {
 
             // Check each sale
             for (const sale of sales) {
-                console.log(`🔍 Checking sale:`, {
-                    id: sale._id,
-                    product: sale.fullName,
-                    sellingPoint: sale.sellingPoint,
-                    from: sale.from,
-                    processed: sale.processed,
-                    date: sale.date
-                });
-
                 if (!sale.processed) {
                     unprocessedItems.push({
                         type: 'sale',
@@ -1809,15 +1781,11 @@ class StatesController {
                         missingProcessing: ['blue (sprzedaż)'],
                         processed: sale.processed
                     });
-                    console.log('❌ Sale not processed');
-                } else {
-                    console.log('✅ Sale already processed');
                 }
             }
 
             const totalOperations = transfers.length + sales.length;
             const allProcessed = unprocessedItems.length === 0;
-            console.log(`✅ Processing status: ${allProcessed ? 'ALL PROCESSED' : 'SOME UNPROCESSED'} (${unprocessedItems.length} unprocessed out of ${totalOperations} total)`);
 
             res.status(200).json({
                 date: date,
@@ -1833,7 +1801,6 @@ class StatesController {
             });
 
         } catch (error) {
-            console.error('❌ Error checking processing status:', error);
             res.status(500).json({ 
                 message: 'Failed to check processing status', 
                 error: error.message 
