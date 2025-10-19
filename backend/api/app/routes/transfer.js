@@ -1,22 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const transferController = require('../controllers/transfer');
+const checkAuth = require('../middleware/check-auth'); // 🔒 TRANSFERY - KRYTYCZNE ZABEZPIECZENIE
 
-// Test API route
+// ========== PUBLICZNE ENDPOINTY ==========
 router.get('/test', (req, res) => {
     res.status(200).json({ message: 'API is working!' });
-});
+}); // Test endpoint może być publiczny
 
-// Transfer API routes
-router.post('/', transferController.createTransfer);
-router.get('/', transferController.getTransfers);
-router.get('/debug/all', transferController.getAllTransfersDebug); // DEBUG endpoint
-router.get('/:id', transferController.getTransferById);
-router.put('/:id', transferController.updateTransfer);
-router.delete('/all', transferController.deleteAllTransfers); // Define this route first
-router.delete('/by-id/:id', transferController.deleteTransferById); // TEMPORARY: Delete by _id
-router.delete('/:productId', transferController.deleteTransferByProductId); // Use productId for deletion
-router.patch('/:id/cancel', transferController.cancelTransfer);
-router.post('/manage-indexes', transferController.manageIndexes); // New endpoint for index management
+// ========== WSZYSTKIE TRANSFERY WYMAGAJĄ AUTORYZACJI ==========
+router.post('/', checkAuth, transferController.createTransfer); // 🔒 Tworzenie transferu
+router.get('/', checkAuth, transferController.getTransfers); // 🔒 Lista transferów
+router.get('/debug/all', checkAuth, transferController.getAllTransfersDebug); // 🔒 DEBUG - wrażliwe dane
+router.get('/:id', checkAuth, transferController.getTransferById); // 🔒 Konkretny transfer
+router.put('/:id', checkAuth, transferController.updateTransfer); // 🔒 Aktualizacja transferu
+router.delete('/all', checkAuth, transferController.deleteAllTransfers); // 🔒 BARDZO NIEBEZPIECZNE - usuń wszystkie
+router.delete('/by-id/:id', checkAuth, transferController.deleteTransferById); // 🔒 Usuń po ID
+router.delete('/:productId', checkAuth, transferController.deleteTransferByProductId); // 🔒 Usuń po productId
+router.patch('/:id/cancel', checkAuth, transferController.cancelTransfer); // 🔒 Anulowanie transferu
+router.post('/manage-indexes', checkAuth, transferController.manageIndexes); // 🔒 Zarządzanie indeksami
 
 module.exports = router;

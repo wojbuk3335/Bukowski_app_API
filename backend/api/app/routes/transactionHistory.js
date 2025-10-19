@@ -8,23 +8,14 @@ const {
     getTransactionById,
     clearOldTransactions
 } = require('../controllers/transactionHistory');
+const checkAuth = require('../middleware/check-auth'); // 🔒 HISTORIA TRANSAKCJI - NAJWYŻSZY POZIOM ZABEZPIECZEŃ
 
-// Get all active transaction history
-router.get('/', getTransactionHistory);
-
-// Save a new transaction to history
-router.post('/', saveTransaction);
-
-// Get a specific transaction by ID
-router.get('/:transactionId', getTransactionById);
-
-// Update a transaction
-router.put('/:transactionId', updateTransaction);
-
-// Deactivate a transaction (soft delete)
-router.delete('/:transactionId', deactivateTransaction);
-
-// Clear old transactions
-router.post('/clear-old', clearOldTransactions);
+// ========== WSZYSTKO WYMAGAJĄCE AUTORYZACJI - DANE FINANSOWE ==========
+router.get('/', checkAuth, getTransactionHistory); // 🔒 Historia transakcji - WRAŻLIWE DANE
+router.post('/', checkAuth, saveTransaction); // 🔒 Zapisywanie transakcji
+router.get('/:transactionId', checkAuth, getTransactionById); // 🔒 Konkretna transakcja
+router.put('/:transactionId', checkAuth, updateTransaction); // 🔒 Aktualizacja transakcji
+router.delete('/:transactionId', checkAuth, deactivateTransaction); // 🔒 Dezaktywacja transakcji
+router.post('/clear-old', checkAuth, clearOldTransactions); // 🔒 Czyszczenie starych transakcji
 
 module.exports = router;

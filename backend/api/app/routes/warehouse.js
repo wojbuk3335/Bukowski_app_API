@@ -1,14 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const warehouseController = require('../controllers/warehouse');
+const checkAuth = require('../middleware/check-auth'); // 🔒 MAGAZYN - KLUCZOWE ZABEZPIECZENIE
 
-// POST /api/warehouse/move-to-user - Move item from warehouse to user
-router.post('/move-to-user', warehouseController.moveItemToUser);
-
-// GET /api/warehouse/report - Generate warehouse report (movements)
-router.get('/report', warehouseController.generateReport);
-
-// GET /api/warehouse/inventory - Generate inventory report (state on specific date)
-router.get('/inventory', warehouseController.generateInventoryReport);
+// ========== WSZYSTKIE OPERACJE MAGAZYNOWE WYMAGAJĄ AUTORYZACJI ==========
+router.post('/move-to-user', checkAuth, warehouseController.moveItemToUser); // 🔒 Przenoszenie z magazynu do użytkownika
+router.get('/report', checkAuth, warehouseController.generateReport); // 🔒 Raport magazynowy
+router.get('/inventory', checkAuth, warehouseController.generateInventoryReport); // 🔒 Raport inwentarza
 
 module.exports = router;

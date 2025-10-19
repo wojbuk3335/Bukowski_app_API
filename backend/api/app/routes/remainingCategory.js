@@ -2,23 +2,14 @@ const express = require('express');
 const router = express.Router();
 const RemainingCategoryController = require('../controllers/remainingCategory');
 const historyLogger = require('../middleware/historyLogger');
+const checkAuth = require('../middleware/check-auth'); // 🔒 POZOSTAŁE KATEGORIE
 
-// Get all remaining categories
-router.get('/get-all-remaining-categories', RemainingCategoryController.getAllRemainingCategories);
-
-// Insert many remaining categories
-router.post('/insert-many-remaining-categories', historyLogger('remainingCategory'), RemainingCategoryController.insertManyRemainingCategories);
-
-// Update many remaining categories
-router.post('/update-many-remaining-categories', historyLogger('remainingCategory'), RemainingCategoryController.updateManyRemainingCategories);
-
-// Update single remaining category
-router.patch('/update-remaining-category/:id', historyLogger('remainingCategory'), RemainingCategoryController.updateRemainingCategory);
-
-// Delete single remaining category
-router.delete('/delete-remaining-category/:id', historyLogger('remainingCategory'), RemainingCategoryController.deleteRemainingCategory);
-
-// Delete all remaining categories
-router.delete('/delete-all-remaining-categories', historyLogger('remainingCategory'), RemainingCategoryController.deleteAllRemainingCategories);
+// ========== WSZYSTKIE OPERACJE NA POZOSTAŁYCH KATEGORIACH WYMAGAJĄ AUTORYZACJI ==========
+router.get('/get-all-remaining-categories', checkAuth, RemainingCategoryController.getAllRemainingCategories); // 🔒 Lista pozostałych kategorii
+router.post('/insert-many-remaining-categories', checkAuth, historyLogger('remainingCategory'), RemainingCategoryController.insertManyRemainingCategories); // 🔒 Masowe dodawanie kategorii
+router.post('/update-many-remaining-categories', checkAuth, historyLogger('remainingCategory'), RemainingCategoryController.updateManyRemainingCategories); // 🔒 Masowa aktualizacja kategorii
+router.patch('/update-remaining-category/:id', checkAuth, historyLogger('remainingCategory'), RemainingCategoryController.updateRemainingCategory); // 🔒 Aktualizacja kategorii
+router.delete('/delete-remaining-category/:id', checkAuth, historyLogger('remainingCategory'), RemainingCategoryController.deleteRemainingCategory); // 🔒 Usuwanie kategorii
+router.delete('/delete-all-remaining-categories', checkAuth, historyLogger('remainingCategory'), RemainingCategoryController.deleteAllRemainingCategories); // 🔒 Usuń wszystkie kategorie
 
 module.exports = router;

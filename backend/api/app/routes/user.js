@@ -10,18 +10,21 @@ const User = require('../db/models/user'); // Ensure this path is correct
 const jwt = require('jsonwebtoken');
 const { route } = require('./jackets');
 const jsonwebtoken = require('../config').jsonwebtoken;
+const checkAuth = require('../middleware/check-auth'); // Dodaj middleware autoryzacji
 
 
-//signup a user
-router.post('/signup', historyLogger('users'), UsersController.signup);
-router.post('/login', UsersController.login);
-router.get('/validate-token', UsersController.verifyToken); // Added route for token validation
-router.get('/', UsersController.getAllUsers);
-router.get('/verifyToken', UsersController.verifyToken); // Changed to GET method
-router.delete('/:userId', historyLogger('users'), UsersController.deleteUser);
-router.get('/:userId/references', UsersController.getUserReferencesReport); // Get user references report
-router.get('/:userId', UsersController.getOneUser);
-router.put('/:userId', historyLogger('users'), UsersController.updateUser); // Ensure historyLogger is called before updateUser
-router.post('/logout', UsersController.logout); // Add route for logout
+// ========== PUBLICZNE ENDPOINTY (bez autoryzacji) ==========
+router.post('/signup', historyLogger('users'), UsersController.signup); // Rejestracja - publiczna
+router.post('/login', UsersController.login); // Logowanie - publiczne
+
+// ========== ZABEZPIECZONE ENDPOINTY (wymagają autoryzacji) ==========
+router.get('/validate-token', checkAuth, UsersController.verifyToken); // Walidacja tokenu
+router.get('/verifyToken', checkAuth, UsersController.verifyToken); // Duplikat - też zabezpieczony
+router.get('/', checkAuth, UsersController.getAllUsers); // 🔒 Lista użytkowników - tylko dla zalogowanych
+router.delete('/:userId', checkAuth, historyLogger('users'), UsersController.deleteUser); // 🔒 Usuwanie użytkowników
+router.get('/:userId/references', checkAuth, UsersController.getUserReferencesReport); // 🔒 Raport referencji
+router.get('/:userId', checkAuth, UsersController.getOneUser); // 🔒 Dane konkretnego użytkownika
+router.put('/:userId', checkAuth, historyLogger('users'), UsersController.updateUser); // 🔒 Aktualizacja użytkownika
+router.post('/logout', checkAuth, UsersController.logout); // 🔒 Wylogowanie (z tokenem)
 
 module.exports = router;

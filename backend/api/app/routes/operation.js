@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const OperationController = require('../controllers/operation');
+const checkAuth = require('../middleware/check-auth'); // 🔒 OPERACJE SYSTEMU
 
 // Helper function to get location name from symbol  
 const getLocationFromSymbol = async (symbol, isDestination = false) => {
@@ -29,8 +30,9 @@ const getLocationFromSymbol = async (symbol, isDestination = false) => {
   }
 };
 
-router.get('/check-lock', OperationController.checkSalesLock);
-router.post('/cancel/:operationId', OperationController.cancelOperation);
-router.get('/', OperationController.getOperations);
+// ========== WSZYSTKIE OPERACJE SYSTEMU WYMAGAJĄ AUTORYZACJI ==========
+router.get('/check-lock', checkAuth, OperationController.checkSalesLock); // 🔒 Sprawdzenie blokady sprzedaży
+router.post('/cancel/:operationId', checkAuth, OperationController.cancelOperation); // 🔒 Anulowanie operacji
+router.get('/', checkAuth, OperationController.getOperations); // 🔒 Lista operacji
 
 module.exports = router;

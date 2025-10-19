@@ -2,17 +2,12 @@ const express = require('express');
 const router = express.Router();
 const manufacturerController = require('../controllers/manufacturer');
 const historyLogger = require('../middleware/historyLogger');
+const checkAuth = require('../middleware/check-auth'); // 🔒 PRODUCENCI - DANE BIZNESOWE
 
-// GET /api/manufacturers - pobierz wszystkich producentów
-router.get('/', manufacturerController.getAllManufacturers);
-
-// POST /api/manufacturers - dodaj nowego producenta
-router.post('/', historyLogger('manufacturers'), manufacturerController.createManufacturer);
-
-// PUT /api/manufacturers/:manufacturerId - zaktualizuj producenta
-router.put('/:manufacturerId', historyLogger('manufacturers'), manufacturerController.updateManufacturer);
-
-// DELETE /api/manufacturers/:manufacturerId - usuń producenta
-router.delete('/:manufacturerId', historyLogger('manufacturers'), manufacturerController.deleteManufacturer);
+// ========== WSZYSTKIE OPERACJE NA PRODUCENTACH WYMAGAJĄ AUTORYZACJI ==========
+router.get('/', checkAuth, manufacturerController.getAllManufacturers); // 🔒 Lista producentów
+router.post('/', checkAuth, historyLogger('manufacturers'), manufacturerController.createManufacturer); // 🔒 Dodawanie producenta
+router.put('/:manufacturerId', checkAuth, historyLogger('manufacturers'), manufacturerController.updateManufacturer); // 🔒 Aktualizacja producenta
+router.delete('/:manufacturerId', checkAuth, historyLogger('manufacturers'), manufacturerController.deleteManufacturer); // 🔒 Usuwanie producenta
 
 module.exports = router;

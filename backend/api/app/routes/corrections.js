@@ -1,37 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const CorrectionsController = require('../controllers/corrections');
+const checkAuth = require('../middleware/check-auth'); // 🔒 KOREKTY - KONTROLA BŁĘDÓW SYSTEMU
 
-// Pobierz wszystkie korekty
-// GET /api/corrections
-router.get('/', CorrectionsController.getAllCorrections);
-
-// Pobierz korekty według statusu
-// GET /api/corrections/status/PENDING
-router.get('/status/:status', CorrectionsController.getCorrectionsByStatus);
-
-// Pobierz korekty dla konkretnego punktu sprzedaży
-// GET /api/corrections/selling-point/Parzygnat
-router.get('/selling-point/:sellingPoint', CorrectionsController.getCorrectionsBySellingPoint);
-
-// Pobierz statystyki korekt
-// GET /api/corrections/stats
-router.get('/stats', CorrectionsController.getCorrectionsStats);
-
-// Dodaj pojedynczą korektę
-// POST /api/corrections
-router.post('/', CorrectionsController.saveCorrection);
-
-// Dodaj wiele korekt jednocześnie (z systemu wykrywania braków)
-// POST /api/corrections/multiple
-router.post('/multiple', CorrectionsController.saveMultipleCorrections);
-
-// Zaktualizuj status korekty
-// PUT /api/corrections/:id
-router.put('/:id', CorrectionsController.updateCorrectionStatus);
-
-// Usuń korektę
-// DELETE /api/corrections/:id
-router.delete('/:id', CorrectionsController.deleteCorrection);
+// ========== WSZYSTKIE OPERACJE KOREKT WYMAGAJĄ AUTORYZACJI ==========
+router.get('/', checkAuth, CorrectionsController.getAllCorrections); // 🔒 Wszystkie korekty
+router.get('/status/:status', checkAuth, CorrectionsController.getCorrectionsByStatus); // 🔒 Korekty według statusu
+router.get('/selling-point/:sellingPoint', checkAuth, CorrectionsController.getCorrectionsBySellingPoint); // 🔒 Korekty dla punktu sprzedaży
+router.get('/stats', checkAuth, CorrectionsController.getCorrectionsStats); // 🔒 Statystyki korekt
+router.post('/', checkAuth, CorrectionsController.saveCorrection); // 🔒 Dodawanie korekty
+router.post('/multiple', checkAuth, CorrectionsController.saveMultipleCorrections); // 🔒 Masowe dodawanie korekt
+router.put('/:id', checkAuth, CorrectionsController.updateCorrectionStatus); // 🔒 Aktualizacja statusu korekty
+router.delete('/:id', checkAuth, CorrectionsController.deleteCorrection); // 🔒 Usuwanie korekty
 
 module.exports = router;

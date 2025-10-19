@@ -2,25 +2,27 @@ const express = require("express");
 const router = express.Router();
 const StatesController = require('../controllers/state');
 const historyLogger = require('../middleware/historyLogger');
+const checkAuth = require('../middleware/check-auth'); // Zabezpieczenia
 
 
-router.get("/", StatesController.getAllStates);
-router.get("/warehouse", StatesController.getWarehouseItems); // New endpoint for warehouse items
-router.get("/barcode/:barcode", StatesController.getStatesByBarcode); // New endpoint to find states by barcode
-router.get("/processing-status", StatesController.checkProcessingStatus); // Check processing status
-router.get("/all/report", StatesController.getAllStatesReport); // Report for all states
-router.get("/all/inventory", StatesController.getAllStatesInventory); // Inventory for all states
-router.post("/",historyLogger('states'), StatesController.createState);
-router.post("/restore", StatesController.restoreState); // Restore endpoint with history logging
-router.post("/restore-silent", StatesController.restoreStateSilent); // Silent restore without history logging
-router.get("/:id", StatesController.getStateById);
-router.put("/:id",historyLogger('states'), StatesController.updateStateById);
-router.delete("/barcode/:barcode/symbol/:symbol", historyLogger('states'), StatesController.deleteStateByBarcodeAndSymbol); // New specific endpoint
-router.delete("/barcode/:barcode", StatesController.deleteStateByBarcode); // Keep old endpoint for compatibility
-router.delete("/admin/clear-all", StatesController.clearAllStates); // ADMIN: Clear all states
-router.delete("/:id", StatesController.deleteState); // Remove from state by ID
-router.get("/:userId/report", StatesController.getStateReport); // State movement report
-router.get("/:userId/inventory", StatesController.getStateInventory); // State inventory report
+// ========== WSZYSTKIE ENDPOINTY WYMAGAJĄ AUTORYZACJI ==========
+router.get("/", checkAuth, StatesController.getAllStates); // 🔒 Lista stanów
+router.get("/warehouse", checkAuth, StatesController.getWarehouseItems); // 🔒 Elementy magazynu
+router.get("/barcode/:barcode", checkAuth, StatesController.getStatesByBarcode); // 🔒 Stany po kodzie kreskowym
+router.get("/processing-status", checkAuth, StatesController.checkProcessingStatus); // 🔒 Status przetwarzania
+router.get("/all/report", checkAuth, StatesController.getAllStatesReport); // 🔒 Raport wszystkich stanów
+router.get("/all/inventory", checkAuth, StatesController.getAllStatesInventory); // 🔒 Inwentarz
+router.post("/", checkAuth, historyLogger('states'), StatesController.createState); // 🔒 Tworzenie stanu
+router.post("/restore", checkAuth, StatesController.restoreState); // 🔒 Przywracanie stanu
+router.post("/restore-silent", checkAuth, StatesController.restoreStateSilent); // 🔒 Ciche przywracanie
+router.get("/:id", checkAuth, StatesController.getStateById); // 🔒 Stan po ID
+router.put("/:id", checkAuth, historyLogger('states'), StatesController.updateStateById); // 🔒 Aktualizacja
+router.delete("/barcode/:barcode/symbol/:symbol", checkAuth, historyLogger('states'), StatesController.deleteStateByBarcodeAndSymbol); // 🔒 Usuwanie specyficzne
+router.delete("/barcode/:barcode", checkAuth, StatesController.deleteStateByBarcode); // 🔒 Usuwanie po kodzie
+router.delete("/admin/clear-all", checkAuth, StatesController.clearAllStates); // 🔒 ADMIN: Wyczyść wszystko
+router.delete("/:id", checkAuth, StatesController.deleteState); // 🔒 Usuwanie po ID
+router.get("/:userId/report", checkAuth, StatesController.getStateReport); // 🔒 Raport ruchu
+router.get("/:userId/inventory", checkAuth, StatesController.getStateInventory); // 🔒 Raport inwentarza
 
 
 module.exports = router;

@@ -1,19 +1,20 @@
 ﻿const express = require('express');
 const router = express.Router();
 const deductionController = require('../controllers/deductions');
+const checkAuth = require('../middleware/check-auth'); // 🔒🔒🔒 POTRĄCENIA - DANE FINANSOWE!
 
-// Test API route
+// ========== PUBLICZNE ENDPOINTY ==========
 router.get('/test', (req, res) => {
     res.status(200).json({ message: 'Deductions API is working!' });
-});
+}); // Test endpoint może być publiczny
 
-// Deduction API routes
-router.post('/', deductionController.createDeduction);
-router.get('/', deductionController.getDeductions);
-router.get('/:id', deductionController.getDeductionById);
-router.put('/:id', deductionController.updateDeduction);
-router.delete('/all', deductionController.deleteAllDeductions); // Define this route first
-router.delete('/:id', deductionController.deleteDeduction);
-router.get('/user/:userSymbol', deductionController.getDeductionsByUser); // Get deductions by user
+// ========== WSZYSTKIE OPERACJE FINANSOWE WYMAGAJĄ AUTORYZACJI ==========
+router.post('/', checkAuth, deductionController.createDeduction); // 🔒🔒🔒 Tworzenie potrąceń
+router.get('/', checkAuth, deductionController.getDeductions); // 🔒🔒🔒 Lista potrąceń
+router.get('/:id', checkAuth, deductionController.getDeductionById); // 🔒🔒🔒 Konkretne potrącenie
+router.put('/:id', checkAuth, deductionController.updateDeduction); // 🔒🔒🔒 Aktualizacja potrącenia
+router.delete('/all', checkAuth, deductionController.deleteAllDeductions); // 🔒🔒🔒 BARDZO NIEBEZPIECZNE - usuń wszystkie
+router.delete('/:id', checkAuth, deductionController.deleteDeduction); // 🔒🔒🔒 Usuwanie potrącenia
+router.get('/user/:userSymbol', checkAuth, deductionController.getDeductionsByUser); // 🔒🔒🔒 Potrącenia użytkownika
 
 module.exports = router;

@@ -1,48 +1,25 @@
 const express = require("express");
 const router = express.Router();
 const PriceListController = require('../controllers/priceList');
+const checkAuth = require('../middleware/check-auth'); // 🔒🔒🔒 CENNIK - NAJKRYTYCZNIEJSZE ZABEZPIECZENIE!
+
+// ========== WSZYSTKIE OPERACJE CENNIKOWE - NAJWYŻSZY POZIOM ZABEZPIECZEŃ ==========
 
 // SPECIFIC ROUTES FIRST (before parametric routes)
-
-// Get all price lists
-router.get("/get-all-priceLists", PriceListController.getAllPriceLists);
-
-// Add new products to ALL existing price lists
-router.post("/add-new-to-all", PriceListController.addNewProductsToAll);
-
-// Sync ALL price lists with goods (global synchronization)
-router.post("/sync-all", PriceListController.syncAllPriceListsWithGoods);
-
-// Create individual price list item (for testing)
-router.post("/create-priceList", PriceListController.createPriceListItem);
+router.get("/get-all-priceLists", checkAuth, PriceListController.getAllPriceLists); // 🔒🔒🔒 WSZYSTKIE CENNIKI
+router.post("/add-new-to-all", checkAuth, PriceListController.addNewProductsToAll); // 🔒🔒🔒 Dodaj produkty do wszystkich cenników
+router.post("/sync-all", checkAuth, PriceListController.syncAllPriceListsWithGoods); // 🔒🔒🔒 Globalna synchronizacja cenników
+router.post("/create-priceList", checkAuth, PriceListController.createPriceListItem); // 🔒🔒🔒 Tworzenie pozycji cennika
 
 // PARAMETRIC ROUTES LAST (they catch everything)
-
-// Get price list for a selling point
-router.get("/:sellingPointId", PriceListController.getPriceList);
-
-// Compare price list with current goods to detect changes
-router.get("/:sellingPointId/compare", PriceListController.comparePriceListWithGoods);
-
-// Create initial price list from current goods
-router.post("/:sellingPointId/create", PriceListController.createPriceList);
-
-// Clone price list from another selling point
-router.post("/:sellingPointId/clone", PriceListController.clonePriceList);
-
-// Add new products to existing price list
-router.post("/:sellingPointId/add-new", PriceListController.addNewProducts);
-
-// Sync price list with goods (update outdated items, add new items)
-router.post("/:sellingPointId/sync", PriceListController.syncPriceListWithGoods);
-
-// Update price for a specific item
-router.put("/:sellingPointId/update", PriceListController.updatePrice);
-
-// Update price list (for testing)
-router.put("/:priceListId", PriceListController.updatePriceList);
-
-// Delete price list
-router.delete("/:sellingPointId", PriceListController.deletePriceList);
+router.get("/:sellingPointId", checkAuth, PriceListController.getPriceList); // 🔒🔒🔒 Cennik dla punktu sprzedaży
+router.get("/:sellingPointId/compare", checkAuth, PriceListController.comparePriceListWithGoods); // 🔒🔒🔒 Porównanie cennika
+router.post("/:sellingPointId/create", checkAuth, PriceListController.createPriceList); // 🔒🔒🔒 Tworzenie cennika
+router.post("/:sellingPointId/clone", checkAuth, PriceListController.clonePriceList); // 🔒🔒🔒 Klonowanie cennika
+router.post("/:sellingPointId/add-new", checkAuth, PriceListController.addNewProducts); // 🔒🔒🔒 Dodawanie nowych produktów
+router.post("/:sellingPointId/sync", checkAuth, PriceListController.syncPriceListWithGoods); // 🔒🔒🔒 Synchronizacja cennika
+router.put("/:sellingPointId/update", checkAuth, PriceListController.updatePrice); // 🔒🔒🔒 AKTUALIZACJA CEN - KRYTYCZNE!
+router.put("/:priceListId", checkAuth, PriceListController.updatePriceList); // 🔒🔒🔒 Aktualizacja cennika
+router.delete("/:sellingPointId", checkAuth, PriceListController.deletePriceList); // 🔒🔒🔒 Usuwanie cennika
 
 module.exports = router;

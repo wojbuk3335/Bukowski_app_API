@@ -35,12 +35,12 @@ const upload = multer({storage: storage,
 });
 
 
-//Routes
-router.get('/', JacketsController.getAllJackets);
-router.post('/', checkAuth , upload.single('jacketImage'), JacketsController.createJacket);
-router.get('/:jacketId', JacketsController.getOneJacket);
-router.patch('/:jacketId', checkAuth , JacketsController.updateJacket);
-router.delete('/:jacketId', checkAuth ,JacketsController.deleteJacket);
+// ========== KURTKI - WSZYSTKIE OPERACJE ZABEZPIECZONE ==========
+router.get('/', checkAuth, JacketsController.getAllJackets); // 🔒 Lista kurtek - teraz zabezpieczona!
+router.post('/', checkAuth, upload.single('jacketImage'), JacketsController.createJacket); // 🔒 Tworzenie kurtki
+router.get('/:jacketId', checkAuth, JacketsController.getOneJacket); // 🔒 Konkretna kurtka - teraz zabezpieczono!
+router.patch('/:jacketId', checkAuth, JacketsController.updateJacket); // 🔒 Aktualizacja kurtki
+router.delete('/:jacketId', checkAuth, JacketsController.deleteJacket); // 🔒 Usuwanie kurtki
 
 //Export
 module.exports = router;
