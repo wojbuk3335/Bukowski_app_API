@@ -120,7 +120,11 @@ const transferProcessingRoutes = require('./routes/transferProcessing'); // Impo
 const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
 const correctionsRoutes = require('./routes/corrections'); // Import corrections routes
 const priceListRoutes = require('./routes/priceList'); // Import price list routes
+const debugUsersRoutes = require('./routes/debug-users'); // 🔧 TYMCZASOWY DEBUG
+const emergencyResetRoutes = require('./routes/emergency-reset'); // 🚨 EMERGENCY RESET
 
+app.use('/api/emergency', emergencyResetRoutes); // 🚨 EMERGENCY - USUŃ NATYCHMIAST PO UŻYCIU!
+app.use('/api/debug', debugUsersRoutes); // 🔧 TYMCZASOWY ENDPOINT - USUŃ PO DEBUGOWANIU!
 app.use('/api/corrections', correctionsRoutes); // Use corrections routes
 app.use('/api/pricelists', priceListRoutes); // Use price list routes
 app.use('/api/excel/priceList', priceListRoutes); // Use price list routes for excel namespace
