@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
 const AddToState = ({ onAdd }) => {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
+  // Użyj relatywnej ścieżki która automatycznie wykorzysta proxy
+  const API_BASE_URL = '';
+  console.log('🔧 [AddToState] Using relative paths for API calls');
   
   // Ustawienie dzisiejszej daty jako domyślnej
   const getTodayDate = () => {
