@@ -21,12 +21,38 @@ class HistoryController {
                 .populate('userloggedinId', 'username') // Ensure username is populated correctly
                 .select('collectionName operation from to timestamp userloggedinId product size details transactionId') // Include transactionId in the response
                 .sort({ timestamp: -1 }); // Sort by timestamp descending (newest first)
+
+            // Dla transferów między punktami, pobierz informacje o statusie przetwarzania
+            const Transfer = require('../db/models/transfer');
+            const enrichedHistory = await Promise.all(history.map(async (item) => {
+                if (item.operation === 'Transfer między punktami' && item.details) {
+                    try {
+                        const details = JSON.parse(item.details);
+                        if (details.transferId) {
+                            const transfer = await Transfer.findById(details.transferId);
+                            if (transfer) {
+                                return {
+                                    ...item.toObject(),
+                                    transferStatus: {
+                                        blueProcessed: transfer.blueProcessed || false,
+                                        yellowProcessed: transfer.yellowProcessed || false,
+                                        transferId: transfer._id
+                                    }
+                                };
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error parsing transfer details:', error);
+                    }
+                }
+                return item.toObject();
+            }));
             
             // Zachowaj kompatybilność wsteczną - zwróć tablicę bezpośrednio jeśli nie ma filtrowania po dacie
             if (req.query.date) {
-                res.status(200).json({ history });
+                res.status(200).json({ history: enrichedHistory });
             } else {
-                res.status(200).json(history);
+                res.status(200).json(enrichedHistory);
             }
         } catch (err) {
             console.log(err);

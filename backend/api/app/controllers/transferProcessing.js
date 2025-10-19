@@ -85,7 +85,7 @@ class TransferProcessingController {
                             operation: 'Transfer między punktami',
                             product: itemData.fullNameText,
                             size: itemData.sizeText,
-                            details: JSON.stringify(itemData), // Store complete item data as JSON
+                            details: JSON.stringify({...itemData, transferId: transfer._id}), // Store complete item data with transfer ID
                             userloggedinId: req.user ? req.user._id : null,
                             from: transfer.transfer_from,
                             to: transfer.transfer_to,
@@ -444,7 +444,7 @@ class TransferProcessingController {
             const lastTransaction = await History.findOne({
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
-                    { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Automatyczne uzupełnienie z magazynu' },
                     { operation: 'Dodano do stanu (transfer przychodzący)' }, // DODANO: obsługa żółtych produktów
                     { operation: 'Odpisano ze stanu (sprzedaż)' },
                     { operation: 'Przeniesiono do korekt' }
@@ -477,7 +477,7 @@ class TransferProcessingController {
             for (const entry of transactionEntries) {
                 try {
                     // Determine type of undo based on operation
-                    const isWarehouseEntry = entry.operation === 'Dodano do stanu (z magazynu)';
+                    const isWarehouseEntry = entry.operation === 'Automatyczne uzupełnienie z magazynu';
                     const isIncomingTransferEntry = entry.operation === 'Dodano do stanu (transfer przychodzący)'; // DODANO: żółte produkty
                     const isSalesEntry = entry.operation === 'Odpisano ze stanu (sprzedaż)';
                     const isCorrectionsEntry = entry.operation === 'Przeniesiono do korekt';
@@ -1002,7 +1002,7 @@ class TransferProcessingController {
                     // Create history entry
                     const historyEntry = new History({
                         collectionName: 'Stan',
-                        operation: 'Dodano do stanu (z magazynu)',
+                        operation: 'Automatyczne uzupełnienie z magazynu',
                         product: item.fullName,
                         size: item.size || '-', // Dla torebek, portfeli i pozostałego asortymentu użyj '-'
                         details: JSON.stringify({
@@ -1094,7 +1094,7 @@ class TransferProcessingController {
             const lastTransaction = await History.findOne({
                 $or: [
                     { operation: 'Odpisano ze stanu (transfer)' },
-                    { operation: 'Dodano do stanu (z magazynu)' },
+                    { operation: 'Automatyczne uzupełnienie z magazynu' },
                     { operation: 'Dodano do stanu (transfer przychodzący)' }, // DODANO: żółte produkty
                     { operation: 'Przeniesiono do korekt' },
                     { operation: 'Odpisano ze stanu (sprzedaż)' }
@@ -1121,7 +1121,7 @@ class TransferProcessingController {
             // Determine transaction type for UI
             const hasWarehouseItems = await History.findOne({
                 transactionId: lastTransaction.transactionId,
-                operation: 'Dodano do stanu (z magazynu)'
+                operation: 'Automatyczne uzupełnienie z magazynu'
             });
 
             const hasIncomingTransfers = await History.findOne({

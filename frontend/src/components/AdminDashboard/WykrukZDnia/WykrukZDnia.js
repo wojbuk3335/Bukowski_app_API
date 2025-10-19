@@ -91,8 +91,12 @@ const WykrukZDnia = () => {
             font-family: Arial, sans-serif; 
             margin: 0; 
             padding: 0;
-            font-size: 10px;
-            line-height: 1.2;
+            font-size: 9px;
+            line-height: 1.0;
+            font-weight: 600;
+            color: #000000;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
           
           .header { 
@@ -101,20 +105,23 @@ const WykrukZDnia = () => {
           }
           .header h1 { 
             margin: 0; 
-            font-size: 18px; 
-            margin-bottom: 5px;
+            font-size: 14px; 
+            margin-bottom: 3px;
+            font-weight: 700;
           }
           .header p { 
-            margin: 2px 0; 
-            color: #666; 
-            font-size: 11px;
+            margin: 1px 0; 
+            color: #000; 
+            font-size: 10px;
+            font-weight: 600;
           }
           
           .print-info { 
             text-align: right; 
-            font-size: 9px; 
-            color: #888; 
-            margin-bottom: 10px; 
+            font-size: 8px; 
+            color: #000; 
+            margin-bottom: 5px; 
+            font-weight: 500;
           }
           
           .zakopane-container { 
@@ -133,13 +140,13 @@ const WykrukZDnia = () => {
           table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin-bottom: 15px;
-            font-size: 9px;
+            margin-bottom: 8px;
+            font-size: 7px;
           }
           
           th, td { 
             border: 1px solid #333; 
-            padding: 3px 2px; 
+            padding: 1px 1px; 
             text-align: left; 
             vertical-align: top;
             word-wrap: break-word;
@@ -150,8 +157,8 @@ const WykrukZDnia = () => {
             background-color: #f0f0f0; 
             font-weight: bold; 
             text-align: center; 
-            font-size: 8px;
-            padding: 2px 1px;
+            font-size: 7px;
+            padding: 1px 1px;
           }
           
           td:nth-child(2), td:nth-child(3) { 
@@ -169,50 +176,21 @@ const WykrukZDnia = () => {
             color: white; 
             text-align: center; 
             font-weight: bold;
-            font-size: 9px;
+            font-size: 12px;
           }
           
           .green-row { background-color: #f8f9fa; border-left: 4px solid #28a745; }
           .red-row { background-color: #f8f9fa; border-left: 4px solid #dc3545; }
           .yellow-row { background-color: #f8f9fa; border-left: 4px solid #ffc107; }
           .orange-row { background-color: #f8f9fa; border-left: 4px solid #fd7e14; }
+          .purple-row { background-color: #f8f9fa; border-left: 4px solid #6f42c1; }
           
           .transfer-info { 
-            font-size: 7px; 
-            color: #666; 
+            font-size: 10px; 
+            color: #000; 
             line-height: 1;
             margin-top: 1px;
           }
-          
-          .legend {
-            margin-top: 15px;
-            font-size: 8px;
-            color: #666;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 5px;
-          }
-          
-          .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            white-space: nowrap;
-          }
-          
-          .legend-marker {
-            width: 12px;
-            height: 10px;
-            border: 1px solid #333;
-            flex-shrink: 0;
-          }
-          
-          .legend-green { border-left: 4px solid #28a745; background: #f8f9fa; }
-          .legend-red { border-left: 4px solid #dc3545; background: #f8f9fa; }
-          .legend-yellow { border-left: 4px solid #ffc107; background: #f8f9fa; }
-          .legend-orange { border-left: 4px solid #fd7e14; background: #f8f9fa; }
           
           /* Dla pojedynczego punktu */
           .single-point-table {
@@ -222,8 +200,8 @@ const WykrukZDnia = () => {
           
           .single-point-table th,
           .single-point-table td {
-            font-size: 10px;
-            padding: 4px 6px;
+            font-size: 7px;
+            padding: 1px 2px;
           }
           
           .single-point-table td:nth-child(1) {
@@ -257,72 +235,105 @@ const WykrukZDnia = () => {
           .column-headers th {
             background-color: #666;
             color: white;
-            font-size: 7px;
+            font-size: 9px;
             font-weight: bold;
-            padding: 3px 2px;
+            padding: 2px 2px;
             border: 1px solid #333;
             text-align: center;
             vertical-align: middle;
             line-height: 1;
           }
           
-          .product-header {
-            text-align: center !important;
-            width: 15%;
-            min-width: 60px;
-          }
-          
           .lp-header {
             text-align: center !important;
-            width: 5%;
-            min-width: 20px;
+            width: 20px !important;
+            max-width: 20px !important;
+            min-width: 20px !important;
+          }
+          
+          .product-header {
+            text-align: center !important;
+            width: auto !important;
+            min-width: 200px !important;
+            font-size: 9px !important;
+            font-weight: 700 !important;
+          }
+          
+          .size-header {
+            text-align: center !important;
+            width: 25px !important;
+            max-width: 25px !important;
+            min-width: 25px !important;
           }
           
           .number-header {
             text-align: center !important;
-            width: 6%;
-            min-width: 25px;
+            width: 30px !important;
+            max-width: 30px !important;
+            min-width: 30px !important;
           }
           
           .zakopane-unified-table td {
-            font-size: 6px;
-            padding: 1px 2px;
+            font-size: 7px;
+            padding: 1px 1px;
             border: 1px solid #ccc;
             word-wrap: break-word;
             overflow-wrap: break-word;
             vertical-align: middle;
-            height: 12px;
-            line-height: 1;
-          }
-          
-          .product-cell {
-            text-align: left;
-            font-weight: 500;
-            width: 15%;
-            padding-left: 3px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            height: auto;
+            line-height: 1.0;
           }
           
           .lp-cell {
             text-align: center;
-            font-weight: bold;
-            width: 5%;
-            font-size: 6px;
+            font-weight: 600;
+            width: 20px !important;
+            max-width: 20px !important;
+            min-width: 20px !important;
+            font-size: 7px;
+            padding: 1px;
+            color: #000000 !important;
+          }
+          
+          .product-cell {
+            text-align: left;
+            font-weight: 700;
+            width: auto !important;
+            min-width: 200px !important;
+            padding: 2px 3px;
+            font-size: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #000000 !important;
+          }
+          
+          .size-cell {
+            text-align: center;
+            font-weight: 600;
+            width: 25px !important;
+            max-width: 25px !important;
+            min-width: 25px !important;
+            font-size: 7px;
+            padding: 1px;
+            color: #000000 !important;
           }
           
           .number-cell {
             text-align: center;
-            font-weight: bold;
-            width: 6%;
+            font-weight: 600;
+            width: 30px !important;
+            max-width: 30px !important;
+            min-width: 30px !important;
             font-size: 7px;
+            padding: 1px;
+            color: #000000 !important;
           }
           
           .transfer-info {
-            font-size: 5px;
-            color: #666;
-            line-height: 1;
+            font-size: 10px;
+            color: #000;
+            line-height: 1.2;
           }
           
           /* Kolorowanie z grubszymi borderami dla lepszej widoczności */
@@ -368,26 +379,41 @@ const WykrukZDnia = () => {
           .summary-cell {
             font-weight: bold !important;
             border-top: 2px solid #333 !important;
-            padding: 4px 3px !important;
+            padding: 2px 2px !important;
           }
           
           .summary-label {
             text-align: center !important;
             font-size: 7px !important;
-            color: #333 !important;
+            color: #000 !important;
+            font-weight: bold !important;
           }
           
           .summary-number {
             text-align: center !important;
-            font-size: 8px !important;
+            font-size: 7px !important;
             color: #000 !important;
             font-weight: bold !important;
           }
 
           @media print {
+            @page {
+              size: A4 landscape;
+              margin: 0.2cm;
+            }
+            
+            * {
+              -webkit-print-color-adjust: exact !important;
+              color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            
             body { 
               margin: 0 !important; 
-              padding: 0 !important;
+              padding: 1mm !important;
+              font-weight: 600 !important;
+              background: white !important;
+              font-family: Arial, sans-serif !important;
             }
             
             .zakopane-container {
@@ -396,6 +422,115 @@ const WykrukZDnia = () => {
             
             table {
               page-break-inside: avoid;
+              table-layout: auto !important;
+              width: 98% !important;
+              border-collapse: collapse !important;
+              border: 2px solid #000 !important;
+              background: white !important;
+              box-shadow: none !important;
+              font-family: Arial, sans-serif !important;
+              margin: 0 auto !important;
+            }
+            
+            td, th {
+              border: 1px solid #000 !important;
+              font-weight: 600 !important;
+              background: white !important;
+              vertical-align: middle !important;
+              text-align: center !important;
+              font-size: 6px !important;
+              padding: 0.5px 1px !important;
+              line-height: 1.1 !important;
+            }
+            
+            th {
+              background: #f0f0f0 !important;
+              font-weight: 700 !important;
+              border: 1px solid #000 !important;
+              color: #000 !important;
+            }
+            
+            .product-cell {
+              text-align: left !important;
+              max-width: 100px !important;
+              overflow: hidden !important;
+              text-overflow: ellipsis !important;
+              white-space: nowrap !important;
+              font-size: 12px !important;
+            }
+            
+            .size-cell {
+              font-size: 12px !important;
+            }
+            
+            .number-cell {
+              font-size: 12px !important;
+            }
+            
+            .location-cell {
+              font-size: 12px !important;
+            }
+            
+            .summary-cell {
+              font-size: 12px !important;
+              font-weight: 700 !important;
+            }
+            
+            .summary-label {
+              font-size: 12px !important;
+              font-weight: 700 !important;
+            }
+            
+            .selling-point-name {
+              font-size: 12px !important;
+              font-weight: 700 !important;
+            }
+            
+            th.selling-point-name {
+              font-size: 12px !important;
+              font-weight: 700 !important;
+            }
+            
+            .yellow-cell {
+              background: #ffeb3b !important;
+              border: 1px solid #000 !important;
+            }
+            
+            tr.yellow-cell td {
+              background: #ffeb3b !important;
+              border: 1px solid #000 !important;
+            }
+            
+            .lp-header {
+              width: 3% !important;
+            }
+            
+            .lp-cell {
+              width: 3% !important;
+            }
+            
+            .size-header {
+              width: 5% !important;
+            }
+            
+            .size-cell {
+              width: 5% !important;
+            }
+            
+            .number-header {
+              width: 7% !important;
+            }
+            
+            .number-cell {
+              width: 7% !important;
+            }
+            
+            .product-header {
+              width: 50% !important;
+            }
+            
+            .product-cell {
+              width: 50% !important;
             }
           }
         </style>
@@ -432,7 +567,7 @@ const WykrukZDnia = () => {
                 const pointData = zakopianeData[pointCode];
                 const pointName = pointData.name || pointCode;
                 const isLast = index === pointCodes.length - 1;
-                return `<th colspan="4" class="point-header ${isLast ? '' : 'point-group'}">${pointName}</th>`;
+                return `<th colspan="5" class="point-header selling-point-name ${isLast ? '' : 'point-group'}">${pointName}</th>`;
               }).join('')}
             </tr>
             <tr class="column-headers">
@@ -441,8 +576,9 @@ const WykrukZDnia = () => {
                 return `
                 <th class="lp-header">Lp</th>
                 <th class="product-header">Nazwa towaru</th>
-                <th class="number-header">Odpisano</th>
-                <th class="number-header ${isLast ? '' : 'point-group'}">Dopisano</th>
+                <th class="size-header">Rozmiar</th>
+                <th class="number-header">Odp.</th>
+                <th class="number-header ${isLast ? '' : 'point-group'}">Dop.</th>
                 `;
               }).join('')}
             </tr>
@@ -459,26 +595,17 @@ const WykrukZDnia = () => {
           const item = pointData.data && pointData.data[rowIndex] ? pointData.data[rowIndex] : null;
           const isLast = pointIndex === pointCodes.length - 1;
           
-          let rowClass = '';
-          if (item) {
-            if (item.sprzedaz < 0 && item.magazyn > 0) {
-              rowClass = 'green-cell';
-            } else if (item.sprzedaz < 0 && item.magazyn === 0) {
-              rowClass = 'red-cell';
-            } else if (item.type === 'transfer' && item.magazyn > 0) {
-              rowClass = 'yellow-cell';
-            } else if (item.type === 'magazyn' && item.magazyn > 0) {
-              rowClass = 'orange-cell';
-            }
-          }
+          // Określ klasę dla tego punktu sprzedaży
+          const cellClass = (item && item.type === 'transfer' && item.magazyn > 0) ? 'yellow-cell' : '';
           
           printContent += `
-            <td class="lp-cell">${item ? rowIndex + 1 : ''}</td>
-            <td class="product-cell">
-              ${item ? `${item.product} ${item.size}${item.type === 'transfer' && item.from ? ` (z ${item.from})` : ''}` : ''}
+            <td class="lp-cell ${cellClass}">${item ? rowIndex + 1 : ''}</td>
+            <td class="product-cell ${cellClass}">
+              ${item ? `${item.product}${item.type === 'transfer' && item.from ? ` (z ${item.from})` : ''}` : ''}
             </td>
-            <td class="number-cell ${item && item.sprzedaz < 0 && item.magazyn === 0 ? 'red-cell' : ''}">${item && item.sprzedaz < 0 ? item.sprzedaz : ''}</td>
-            <td class="number-cell ${rowClass} ${isLast ? '' : 'point-group'}">${item && item.magazyn > 0 ? item.magazyn : ''}</td>
+            <td class="size-cell ${cellClass}">${item ? item.size : ''}</td>
+            <td class="number-cell ${cellClass}">${item && item.sprzedaz < 0 ? item.sprzedaz : ''}</td>
+            <td class="number-cell ${cellClass} ${isLast ? '' : 'point-group'}">${item && item.magazyn > 0 ? item.magazyn : ''}</td>
           `;
         });
         
@@ -505,6 +632,7 @@ const WykrukZDnia = () => {
         printContent += `
           <td class="summary-cell"></td>
           <td class="summary-cell summary-label">SUMA</td>
+          <td class="summary-cell"></td>
           <td class="summary-cell summary-number">${sumSprzedaz !== 0 ? sumSprzedaz : ''}</td>
           <td class="summary-cell summary-number ${isLast ? '' : 'point-group'}">${sumMagazyn !== 0 ? sumMagazyn : ''}</td>
         `;
@@ -519,8 +647,9 @@ const WykrukZDnia = () => {
           <thead>
             <tr>
               <th>Produkt</th>
-              <th>Odpisano (-1)</th>
-              <th>Dopisano (+1)</th>
+              <th>Rozmiar</th>
+              <th>Odp. (-1)</th>
+              <th>Dop. (+1)</th>
             </tr>
           </thead>
           <tbody>
@@ -528,22 +657,15 @@ const WykrukZDnia = () => {
       
       wykrukData.forEach(item => {
         let rowClass = '';
-        if (item.sprzedaz < 0 && item.magazyn > 0) {
-          rowClass = 'green-row';
-        } else if (item.sprzedaz < 0 && item.magazyn === 0) {
-          rowClass = 'red-row';
-        } else if (item.type === 'transfer' && item.magazyn > 0) {
-          rowClass = 'yellow-row';
-        } else if (item.type === 'magazyn' && item.magazyn > 0) {
-          rowClass = 'orange-row';
-        }
-        
-        printContent += `
+        if (item.type === 'transfer' && item.magazyn > 0) {
+          rowClass = 'yellow-row';  // Transfer przychodzący z innego punktu
+        }        printContent += `
           <tr class="${rowClass}">
             <td>
-              ${item.product} ${item.size}
+              ${item.product}
               ${item.type === 'transfer' && item.from ? `<div class="transfer-info">(z punktu ${item.from})</div>` : ''}
             </td>
+            <td>${item.size}</td>
             <td>${item.sprzedaz < 0 ? item.sprzedaz : ''}</td>
             <td>${item.magazyn > 0 ? item.magazyn : ''}</td>
           </tr>
@@ -556,24 +678,6 @@ const WykrukZDnia = () => {
     }
 
     printContent += `
-        <div class="legend">
-          <div class="legend-item">
-            <div class="legend-marker legend-green"></div>
-            <span>Para: sprzedaż + uzupełnienie</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-marker legend-red"></div>
-            <span>Tylko sprzedaż</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-marker legend-yellow"></div>
-            <span>Transfer z innego punktu</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-marker legend-orange"></div>
-            <span>Uzupełnienie z magazynu</span>
-          </div>
-        </div>
       </body>
       </html>
     `;
@@ -608,12 +712,20 @@ const WykrukZDnia = () => {
             // Używamy dokładnie tej samej logiki filtrowania co dla pojedynczego punktu
             const filteredHistory = (data.history || []).filter(item => {
               const itemDate = new Date(item.timestamp).toISOString().split('T')[0];
-              return itemDate === selectedDate && 
-                     (item.from === point || 
-                      item.to === point ||
-                      // Transfer między punktami (nowa operacja)
-                      (item.operation === 'Transfer między punktami' && 
-                       (item.from === point || item.to === point)));
+              if (itemDate !== selectedDate) return false;
+              
+              // Transfer między punktami - pokazuj tylko w przetworzonych punktach
+              if (item.operation === 'Transfer między punktami' && item.transferStatus) {
+                const { blueProcessed, yellowProcessed } = item.transferStatus;
+                // Punkt źródłowy: pokazuj tylko jeśli blueProcessed = true
+                if (item.from === point && blueProcessed) return true;
+                // Punkt docelowy: pokazuj tylko jeśli yellowProcessed = true
+                if (item.to === point && yellowProcessed) return true;
+                return false;
+              }
+              
+              // Inne operacje (sprzedaż, uzupełnienie z magazynu)
+              return item.from === point || item.to === point;
             });
             
             // Przetwórz dane dla tego punktu używając tej samej funkcji
@@ -629,12 +741,20 @@ const WykrukZDnia = () => {
           // Filtruj operacje dla wybranego punktu sprzedaży i daty
           const filteredHistory = (data.history || []).filter(item => {
             const itemDate = new Date(item.timestamp).toISOString().split('T')[0];
-            return itemDate === selectedDate && 
-                   (item.from === selectedSellingPoint || 
-                    item.to === selectedSellingPoint ||
-                    // Transfer między punktami (nowa operacja)
-                    (item.operation === 'Transfer między punktami' && 
-                     (item.from === selectedSellingPoint || item.to === selectedSellingPoint)));
+            if (itemDate !== selectedDate) return false;
+            
+            // Transfer między punktami - pokazuj tylko w przetworzonych punktach
+            if (item.operation === 'Transfer między punktami' && item.transferStatus) {
+              const { blueProcessed, yellowProcessed } = item.transferStatus;
+              // Punkt źródłowy: pokazuj tylko jeśli blueProcessed = true
+              if (item.from === selectedSellingPoint && blueProcessed) return true;
+              // Punkt docelowy: pokazuj tylko jeśli yellowProcessed = true
+              if (item.to === selectedSellingPoint && yellowProcessed) return true;
+              return false;
+            }
+            
+            // Inne operacje (sprzedaż, uzupełnienie z magazynu)
+            return item.from === selectedSellingPoint || item.to === selectedSellingPoint;
           });
 
           // Grupuj operacje według produktu i rozmiaru
@@ -664,14 +784,18 @@ const WykrukZDnia = () => {
     const transfersOut = [];
     const supplementsIn = [];
 
+    // console.log('=== DEBUG: Historia dla punktu', sellingPoint, '===');
+
     historyData.forEach(item => {
 
       // Transfer WYCHODZĄCY z punktu sprzedaży (sprzedaż/transfer)
       if (((item.operation === 'Odpisano ze stanu (transfer)' || 
            item.operation === 'Odpisano ze stanu (sprzedaż)') && 
           item.from === sellingPoint) ||
-          // Nowa operacja - transfer między punktami gdzie ten punkt jest źródłem
-          (item.operation === 'Transfer między punktami' && item.from === sellingPoint)) {
+          // Nowa operacja - transfer między punktami gdzie ten punkt jest źródłem i został przetworzony
+          (item.operation === 'Transfer między punktami' && 
+           item.from === sellingPoint && 
+           item.transferStatus && item.transferStatus.blueProcessed)) {
         transfersOut.push({
           product: item.product || 'Nieznany produkt',
           size: item.size || '-',
@@ -680,14 +804,17 @@ const WykrukZDnia = () => {
       }
       
       // Uzupełnienie Z MAGAZYNU GŁÓWNEGO do punktu sprzedaży
-      if (item.operation === 'Dodano do stanu (z magazynu)' && 
+      if ((item.operation === 'Dodano do stanu (z magazynu)' || 
+           item.operation === 'Automatyczne uzupełnienie z magazynu') && 
           item.to === sellingPoint && 
           (item.from === 'MAGAZYN' || item.from === 'magazyn')) {
+        const suppType = item.operation === 'Automatyczne uzupełnienie z magazynu' ? 'auto-magazyn' : 'manual-magazyn';
         supplementsIn.push({
           product: item.product || 'Nieznany produkt',
           size: item.size || '-',
           timestamp: item.timestamp,
-          type: 'magazyn'  // z magazynu głównego
+          // Wszystkie stare operacje 'Dodano do stanu (z magazynu)' traktuj jako manualne
+          type: suppType
         });
       }
       
@@ -698,8 +825,10 @@ const WykrukZDnia = () => {
            item.from !== 'MAGAZYN' && item.from !== 'magazyn' && 
            item.from !== 'SPRZEDANE') ||
           (item.operation === 'Dodano do stanu (transfer przychodzący)')) ||
-          // Nowa operacja - transfer między punktami gdzie ten punkt jest celem
-          (item.operation === 'Transfer między punktami' && item.to === sellingPoint)) {
+          // Nowa operacja - transfer między punktami gdzie ten punkt jest celem i został przetworzony
+          (item.operation === 'Transfer między punktami' && 
+           item.to === sellingPoint && 
+           item.transferStatus && item.transferStatus.yellowProcessed)) {
         
         supplementsIn.push({
           product: item.product || 'Nieznany produkt',
@@ -711,56 +840,33 @@ const WykrukZDnia = () => {
       }
     });
 
-    // Najpierw sparuj transfery z uzupełnieniami
-    const used = new Set();
+    // NIE GRUPUJ - każda operacja osobno
     const result = [];
 
+    // Dodaj wszystkie transfery wychodzące (sprzedaż/transfer)
     transfersOut.forEach(transfer => {
-      const key = `${transfer.product}_${transfer.size}`;
-      
-      // Znajdź pasujące uzupełnienie
-      const supplementIndex = supplementsIn.findIndex((supp, index) => 
-        !used.has(index) && 
-        supp.product === transfer.product && 
-        supp.size === transfer.size
-      );
-
-      if (supplementIndex !== -1) {
-        const supplement = supplementsIn[supplementIndex];
-        // Para: sprzedaż + uzupełnienie
-        result.push({
-          product: transfer.product,
-          size: transfer.size,
-          sprzedaz: -1,
-          magazyn: 1,
-          type: supplement.type,  // 'magazyn' lub 'transfer'
-          from: supplement.from   // skąd przyszło
-        });
-        used.add(supplementIndex);
-      } else {
-        // Tylko sprzedaż bez uzupełnienia
-        result.push({
-          product: transfer.product,
-          size: transfer.size,
-          sprzedaz: -1,
-          magazyn: 0,
-          type: null
-        });
-      }
+      // console.log('DODAJE TRANSFER WYCHODZĄCY:', transfer.product);
+      result.push({
+        product: transfer.product,
+        size: transfer.size,
+        sprzedaz: -1,
+        magazyn: 0,
+        type: 'outgoing',  // transfer wychodzący
+        from: null
+      });
     });
 
-    // Dodaj pozostałe uzupełnienia (bez sprzedaży)
-    supplementsIn.forEach((supp, index) => {
-      if (!used.has(index)) {
-        result.push({
-          product: supp.product,
-          size: supp.size,
-          sprzedaz: 0,
-          magazyn: 1,
-          type: supp.type,  // 'magazyn' lub 'transfer'
-          from: supp.from   // skąd przyszło
-        });
-      }
+    // Dodaj wszystkie uzupełnienia (z magazynu/transfery przychodzące)
+    supplementsIn.forEach(supp => {
+      // console.log('DODAJE UZUPEŁNIENIE:', supp.product, 'typu:', supp.type);
+      result.push({
+        product: supp.product,
+        size: supp.size,
+        sprzedaz: 0,
+        magazyn: 1,
+        type: supp.type,  // 'auto-magazyn', 'manual-magazyn' lub 'transfer'
+        from: supp.from   // skąd przyszło
+      });
     });
 
     return result;
@@ -892,6 +998,7 @@ const WykrukZDnia = () => {
                 border: '1px solid #dee2e6',
                 overflow: 'auto'
               }}>
+
                 <table style={{ 
                   width: '100%', 
                   borderCollapse: 'collapse',
@@ -905,14 +1012,14 @@ const WykrukZDnia = () => {
                         const pointName = pointData.name || pointCode;
                         const isLast = index === pointCodes.length - 1;
                         return (
-                          <th key={pointCode} style={{ 
-                            padding: '12px', 
+                          <th key={pointCode} className="selling-point-name" style={{ 
+                            padding: '8px', 
                             textAlign: 'center',
                             borderRight: isLast ? 'none' : '3px solid #000',
-                            fontSize: '14px',
+                            fontSize: '13px',
                             fontWeight: 'bold',
-                            minWidth: '360px'
-                          }} colSpan={4}>
+                            minWidth: '200px'
+                          }} colSpan={5}>
                             {pointName}
                           </th>
                         );
@@ -925,44 +1032,54 @@ const WykrukZDnia = () => {
                         return (
                           <React.Fragment key={pointCode}>
                             <th style={{ 
-                              padding: '8px', 
+                              padding: '4px', 
                               textAlign: 'center',
                               borderRight: '1px solid #6c757d',
-                              fontSize: '12px',
+                              fontSize: '10px',
                               fontWeight: 'bold',
-                              minWidth: '40px'
+                              minWidth: '25px'
                             }}>
                               Lp
                             </th>
                             <th style={{ 
-                              padding: '8px', 
+                              padding: '6px', 
                               textAlign: 'left',
                               borderRight: '1px solid #6c757d',
-                              fontSize: '12px',
+                              fontSize: '11px',
                               fontWeight: 'bold',
-                              minWidth: '160px'
+                              minWidth: '85px'
                             }}>
                               Nazwa towaru
                             </th>
                             <th style={{ 
-                              padding: '8px', 
+                              padding: '6px', 
                               textAlign: 'center',
                               borderRight: '1px solid #6c757d',
-                              fontSize: '12px',
+                              fontSize: '11px',
                               fontWeight: 'bold',
-                              minWidth: '60px'
+                              minWidth: '35px'
                             }}>
-                              Odpisano
+                              Rozmiar
                             </th>
                             <th style={{ 
-                              padding: '8px', 
+                              padding: '6px', 
+                              textAlign: 'center',
+                              borderRight: '1px solid #6c757d',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              minWidth: '40px'
+                            }}>
+                              Odp.
+                            </th>
+                            <th style={{ 
+                              padding: '6px', 
                               textAlign: 'center',
                               borderRight: isLast ? 'none' : '3px solid #000',
-                              fontSize: '12px',
+                              fontSize: '11px',
                               fontWeight: 'bold',
-                              minWidth: '60px'
+                              minWidth: '40px'
                             }}>
-                              Dopisano
+                              Dop.
                             </th>
                           </React.Fragment>
                         );
@@ -980,22 +1097,10 @@ const WykrukZDnia = () => {
                             const item = pointData.data && pointData.data[rowIndex] ? pointData.data[rowIndex] : null;
                             const isLast = index === pointCodes.length - 1;
                             
-                            // Określ kolor tła dla sprzedaży
-                            let sprzedazBgColor = rowBgColor;
-                            if (item && item.sprzedaz < 0 && item.magazyn === 0) {
-                              sprzedazBgColor = '#f8d7da'; // czerwone
-                            }
-                            
-                            // Określ kolor tła dla magazynu
-                            let magazynBgColor = rowBgColor;
-                            if (item) {
-                              if (item.sprzedaz < 0 && item.magazyn > 0) {
-                                magazynBgColor = '#d4edda'; // zielone
-                              } else if (item.type === 'transfer' && item.magazyn > 0) {
-                                magazynBgColor = '#ffeb3b'; // żółte
-                              } else if (item.type === 'magazyn' && item.magazyn > 0) {
-                                magazynBgColor = '#ffd59a'; // pomarańczowe
-                              }
+                            // Określ kolor tła dla tego punktu - żółty jeśli to transfer
+                            let cellBgColor = rowBgColor;
+                            if (item && item.type === 'transfer' && item.magazyn > 0) {
+                              cellBgColor = '#ffeb3b'; // żółte dla wszystkich komórek tego punktu
                             }
                             
                             return (
@@ -1006,7 +1111,8 @@ const WykrukZDnia = () => {
                                   borderBottom: '1px solid #dee2e6',
                                   borderRight: '1px solid #dee2e6',
                                   fontSize: '11px',
-                                  fontWeight: 'bold'
+                                  fontWeight: 'bold',
+                                  backgroundColor: cellBgColor
                                 }}>
                                   {item ? rowIndex + 1 : ''}
                                 </td>
@@ -1015,9 +1121,21 @@ const WykrukZDnia = () => {
                                   borderBottom: '1px solid #dee2e6',
                                   borderRight: '1px solid #dee2e6',
                                   fontSize: '12px',
-                                  fontWeight: '500'
+                                  fontWeight: '500',
+                                  backgroundColor: cellBgColor
                                 }}>
-                                  {item ? `${item.product} ${item.size}` : ''}
+                                  {item ? item.product : ''}
+                                </td>
+                                <td style={{ 
+                                  padding: '8px', 
+                                  textAlign: 'center',
+                                  borderBottom: '1px solid #dee2e6',
+                                  borderRight: '1px solid #dee2e6',
+                                  fontSize: '11px',
+                                  fontWeight: '500',
+                                  backgroundColor: cellBgColor
+                                }}>
+                                  {item ? item.size : ''}
                                 </td>
                                 <td style={{ 
                                   padding: '8px', 
@@ -1027,7 +1145,7 @@ const WykrukZDnia = () => {
                                   color: item && item.sprzedaz < 0 ? '#dc3545' : '#6c757d',
                                   fontWeight: item && item.sprzedaz !== 0 ? 'bold' : 'normal',
                                   fontSize: '11px',
-                                  backgroundColor: sprzedazBgColor
+                                  backgroundColor: cellBgColor
                                 }}>
                                   {item && item.sprzedaz < 0 ? item.sprzedaz : ''}
                                 </td>
@@ -1039,7 +1157,7 @@ const WykrukZDnia = () => {
                                   color: item && item.magazyn > 0 ? '#28a745' : '#6c757d',
                                   fontWeight: item && item.magazyn > 0 ? 'bold' : 'normal',
                                   fontSize: '11px',
-                                  backgroundColor: magazynBgColor
+                                  backgroundColor: cellBgColor
                                 }}>
                                   {item && item.magazyn > 0 ? item.magazyn : ''}
                                 </td>
@@ -1078,7 +1196,7 @@ const WykrukZDnia = () => {
                               fontWeight: 'bold'
                             }}>
                             </td>
-                            <td style={{ 
+                            <td className="summary-label" style={{ 
                               padding: '8px 12px', 
                               textAlign: 'center',
                               borderTop: '2px solid #333',
@@ -1096,13 +1214,23 @@ const WykrukZDnia = () => {
                               borderTop: '2px solid #333',
                               borderBottom: '1px solid #dee2e6',
                               borderRight: '1px solid #dee2e6',
+                              fontSize: '11px',
+                              fontWeight: 'bold'
+                            }}>
+                            </td>
+                            <td className="summary-cell" style={{ 
+                              padding: '8px', 
+                              textAlign: 'center',
+                              borderTop: '2px solid #333',
+                              borderBottom: '1px solid #dee2e6',
+                              borderRight: '1px solid #dee2e6',
                               color: '#dc3545',
                               fontWeight: 'bold',
                               fontSize: '12px'
                             }}>
                               {sumSprzedaz !== 0 ? sumSprzedaz : ''}
                             </td>
-                            <td style={{ 
+                            <td className="summary-cell" style={{ 
                               padding: '8px', 
                               textAlign: 'center',
                               borderTop: '2px solid #333',
@@ -1139,6 +1267,7 @@ const WykrukZDnia = () => {
               border: '1px solid #dee2e6',
               overflow: 'hidden'
             }}>
+
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead style={{ backgroundColor: '#343a40', color: 'white' }}>
                   <tr>
@@ -1146,7 +1275,7 @@ const WykrukZDnia = () => {
                       padding: '15px', 
                       textAlign: 'left', 
                       borderBottom: '2px solid #dee2e6',
-                      width: '60%'
+                      width: '45%'
                     }}>
                       Produkt
                     </th>
@@ -1154,10 +1283,10 @@ const WykrukZDnia = () => {
                       padding: '15px', 
                       textAlign: 'center', 
                       borderBottom: '2px solid #dee2e6',
-                      width: '20%',
+                      width: '15%',
                       borderLeft: '1px solid #495057'
                     }}>
-                      Odpisano (-1)
+                      Rozmiar
                     </th>
                     <th style={{ 
                       padding: '15px', 
@@ -1166,27 +1295,27 @@ const WykrukZDnia = () => {
                       width: '20%',
                       borderLeft: '1px solid #495057'
                     }}>
-                      Dopisano (+1)
+                      Odp. (-1)
+                    </th>
+                    <th style={{ 
+                      padding: '15px', 
+                      textAlign: 'center', 
+                      borderBottom: '2px solid #dee2e6',
+                      width: '20%',
+                      borderLeft: '1px solid #495057'
+                    }}>
+                      Dop. (+1)
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {wykrukData.map((item, index) => {
-                    // Określ kolor tła na podstawie typu operacji
+                    // Określ kolor tła na podstawie typu operacji - tylko żółte dla transferów
                     let rowBgColor = index % 2 === 0 ? '#f8f9fa' : 'white';
                     
-                    if (item.sprzedaz < 0 && item.magazyn > 0) {
-                      // Para: sprzedaż + uzupełnienie = zielone tło
-                      rowBgColor = '#d4edda'; // zielone tło dla par -1 | 1
-                    } else if (item.sprzedaz < 0 && item.magazyn === 0) {
-                      // Tylko sprzedaż bez uzupełnienia = czerwone tło
-                      rowBgColor = '#f8d7da'; // czerwonawe tło dla -1 |
-                    } else if (item.type === 'transfer' && item.magazyn > 0) {
+                    if (item.type === 'transfer' && item.magazyn > 0) {
                       // Transfer z innego punktu = żółte tło
                       rowBgColor = '#ffeb3b'; // intensywnie żółte tło dla transferów z innych punktów
-                    } else if (item.type === 'magazyn' && item.magazyn > 0) {
-                      // Manualne dobranie z magazynu = pomarańczowe tło
-                      rowBgColor = '#ffd59a'; // pomarańczowe tło dla manualnych uzupełnień z magazynu
                     }
                     
                     return (
@@ -1199,12 +1328,21 @@ const WykrukZDnia = () => {
                           borderBottom: '1px solid #dee2e6',
                           fontWeight: '500'
                         }}>
-                          {item.product} {item.size}
+                          {item.product}
                           {item.type === 'transfer' && item.from && (
                             <small style={{ display: 'block', color: '#856404', fontWeight: 'normal' }}>
                               (z punktu {item.from})
                             </small>
                           )}
+                        </td>
+                        <td style={{ 
+                          padding: '12px 15px', 
+                          textAlign: 'center',
+                          borderBottom: '1px solid #dee2e6',
+                          fontWeight: '500',
+                          borderLeft: '1px solid #dee2e6'
+                        }}>
+                          {item.size}
                         </td>
                         <td style={{ 
                           padding: '12px 15px', 
