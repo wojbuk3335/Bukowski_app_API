@@ -441,8 +441,8 @@ const WykrukZDnia = () => {
                 return `
                 <th class="lp-header">Lp</th>
                 <th class="product-header">Nazwa towaru</th>
-                <th class="number-header">Sprzedaż</th>
-                <th class="number-header ${isLast ? '' : 'point-group'}">Magazyn</th>
+                <th class="number-header">Odpisano</th>
+                <th class="number-header ${isLast ? '' : 'point-group'}">Dopisano</th>
                 `;
               }).join('')}
             </tr>
@@ -519,8 +519,8 @@ const WykrukZDnia = () => {
           <thead>
             <tr>
               <th>Produkt</th>
-              <th>Sprzedaż (-1)</th>
-              <th>Magazyn (+1)</th>
+              <th>Odpisano (-1)</th>
+              <th>Dopisano (+1)</th>
             </tr>
           </thead>
           <tbody>
@@ -611,9 +611,9 @@ const WykrukZDnia = () => {
               return itemDate === selectedDate && 
                      (item.from === point || 
                       item.to === point ||
-                      // Dla transferów przychodzących bez informacji o punktach
-                      (item.operation === 'Dodano do stanu (transfer przychodzący)' && 
-                       (item.from === '-' || item.to === '-')));
+                      // Transfer między punktami (nowa operacja)
+                      (item.operation === 'Transfer między punktami' && 
+                       (item.from === point || item.to === point)));
             });
             
             // Przetwórz dane dla tego punktu używając tej samej funkcji
@@ -632,9 +632,9 @@ const WykrukZDnia = () => {
             return itemDate === selectedDate && 
                    (item.from === selectedSellingPoint || 
                     item.to === selectedSellingPoint ||
-                    // Dla transferów przychodzących bez informacji o punktach
-                    (item.operation === 'Dodano do stanu (transfer przychodzący)' && 
-                     (item.from === '-' || item.to === '-')));
+                    // Transfer między punktami (nowa operacja)
+                    (item.operation === 'Transfer między punktami' && 
+                     (item.from === selectedSellingPoint || item.to === selectedSellingPoint)));
           });
 
           // Grupuj operacje według produktu i rozmiaru
@@ -667,9 +667,11 @@ const WykrukZDnia = () => {
     historyData.forEach(item => {
 
       // Transfer WYCHODZĄCY z punktu sprzedaży (sprzedaż/transfer)
-      if ((item.operation === 'Odpisano ze stanu (transfer)' || 
+      if (((item.operation === 'Odpisano ze stanu (transfer)' || 
            item.operation === 'Odpisano ze stanu (sprzedaż)') && 
-          item.from === sellingPoint) {
+          item.from === sellingPoint) ||
+          // Nowa operacja - transfer między punktami gdzie ten punkt jest źródłem
+          (item.operation === 'Transfer między punktami' && item.from === sellingPoint)) {
         transfersOut.push({
           product: item.product || 'Nieznany produkt',
           size: item.size || '-',
@@ -690,12 +692,14 @@ const WykrukZDnia = () => {
       }
       
       // Transfer PRZYCHODZĄCY z innego punktu sprzedaży
-      if ((item.operation === 'Odpisano ze stanu (transfer)' && 
+      if (((item.operation === 'Odpisano ze stanu (transfer)' && 
            item.to === sellingPoint &&
            item.from !== sellingPoint &&  // nie z tego samego punktu
            item.from !== 'MAGAZYN' && item.from !== 'magazyn' && 
            item.from !== 'SPRZEDANE') ||
-          (item.operation === 'Dodano do stanu (transfer przychodzący)')) {
+          (item.operation === 'Dodano do stanu (transfer przychodzący)')) ||
+          // Nowa operacja - transfer między punktami gdzie ten punkt jest celem
+          (item.operation === 'Transfer między punktami' && item.to === sellingPoint)) {
         
         supplementsIn.push({
           product: item.product || 'Nieznany produkt',
@@ -948,7 +952,7 @@ const WykrukZDnia = () => {
                               fontWeight: 'bold',
                               minWidth: '60px'
                             }}>
-                              Sprzedaż
+                              Odpisano
                             </th>
                             <th style={{ 
                               padding: '8px', 
@@ -958,7 +962,7 @@ const WykrukZDnia = () => {
                               fontWeight: 'bold',
                               minWidth: '60px'
                             }}>
-                              Magazyn
+                              Dopisano
                             </th>
                           </React.Fragment>
                         );
@@ -1153,7 +1157,7 @@ const WykrukZDnia = () => {
                       width: '20%',
                       borderLeft: '1px solid #495057'
                     }}>
-                      Sprzedaż (-1)
+                      Odpisano (-1)
                     </th>
                     <th style={{ 
                       padding: '15px', 
@@ -1162,7 +1166,7 @@ const WykrukZDnia = () => {
                       width: '20%',
                       borderLeft: '1px solid #495057'
                     }}>
-                      Magazyn (+1)
+                      Dopisano (+1)
                     </th>
                   </tr>
                 </thead>

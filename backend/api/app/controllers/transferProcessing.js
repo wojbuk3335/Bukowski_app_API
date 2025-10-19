@@ -79,10 +79,10 @@ class TransferProcessingController {
                             transferId: transfer._id // Store transfer ID for undo
                         };
 
-                        // Create history entry with complete restoration data
+                        // Create single history entry for transfer between points
                         const historyEntry = new History({
                             collectionName: 'Stan',
-                            operation: 'Odpisano ze stanu (transfer)',
+                            operation: 'Transfer między punktami',
                             product: itemData.fullNameText,
                             size: itemData.sizeText,
                             details: JSON.stringify(itemData), // Store complete item data as JSON
@@ -239,7 +239,7 @@ class TransferProcessingController {
             // Create history entry
             const historyEntry = new History({
                 collectionName: 'Stan',
-                operation: 'Odpisano ze stanu (transfer)',
+                operation: 'Transfer między punktami',
                 product: itemToRemove.fullName?.fullName || 'Nieznany produkt',
                 size: (itemToRemove.fullName?.category === 'Torebki' || itemToRemove.fullName?.category === 'Portfele') 
                     ? '-' 
@@ -952,27 +952,8 @@ class TransferProcessingController {
                             yellowProcessedAt: new Date()
                         });
                         
-                        // Create history entry for incoming transfer
-                        const historyEntry = new History({
-                            collectionName: 'Stan',
-                            operation: 'Dodano do stanu (transfer przychodzący)',
-                            from: item.transfer_from || 'nieznany', // punkt źródłowy transferu
-                            to: item.transfer_to || user.symbol, // punkt docelowy transferu
-                            product: item.fullName,
-                            size: item.size,
-                            details: JSON.stringify({
-                                stateId: newStateItem._id,
-                                transferId: item._id, // DODANO: ID transferu dla cofania
-                                fromTransfer: true,
-                                isIncomingTransfer: true,
-                                targetUser: user.symbol,
-                                barcode: finalBarcode
-                            }),
-                            timestamp: new Date(),
-                            transactionId: finalTransactionId
-                        });
-
-                        await historyEntry.save();
+                        // Historia została już utworzona przy usuwaniu z punktu źródłowego
+                        // (nie tworzymy drugiego wpisu dla tego samego transferu)
                         
                         // Dodaj do listy przetworzonych z flagą incoming transfer
                         addedItems.push({
