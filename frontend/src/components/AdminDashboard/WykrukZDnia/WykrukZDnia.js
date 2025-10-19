@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 const WykrukZDnia = () => {
   const [selectedDate, setSelectedDate] = useState('');
-  const [selectedSellingPoint, setSelectedSellingPoint] = useState('ZAKOPANE');
+  const [selectedSellingPoint, setSelectedSellingPoint] = useState('');
   const [sellingPoints, setSellingPoints] = useState([]);
+  const [locations, setLocations] = useState([]); // Nowe: lista lokalizacji
   const [wykrukData, setWykrukData] = useState([]);
-  const [zakopianeData, setZakopianeData] = useState({}); // dane dla wszystkich punktów Zakopanego
+  const [zakopianeData, setZakopianeData] = useState({}); // dane dla wszystkich punktów wybranej lokalizacji
   const [loading, setLoading] = useState(false);
 
   // Ustaw dzisiejszą datę jako domyślną
@@ -28,6 +29,20 @@ const WykrukZDnia = () => {
         });
         
         setSellingPoints(filteredPoints);
+        
+        // Zbierz wszystkie unikalne lokalizacje użytkowników (z rolą 'user')
+        const userLocations = [...new Set(
+          filteredPoints
+            .filter(user => user.role === 'user' && user.location && user.location.trim() !== '')
+            .map(user => user.location)
+        )];
+        
+        setLocations(userLocations);
+        
+        // Ustaw pierwszą dostępną lokalizację jako domyślną
+        if (userLocations.length > 0 && !selectedSellingPoint) {
+          setSelectedSellingPoint(userLocations[0]);
+        }
       } catch (error) {
         console.error('Error fetching selling points:', error);
       }
@@ -55,8 +70,8 @@ const WykrukZDnia = () => {
     // Tworzymy specjalną stronę do drukowania
     const printWindow = window.open('', '_blank');
     const currentDate = new Date().toLocaleDateString('pl-PL');
-    const selectedPointName = selectedSellingPoint === 'ZAKOPANE' 
-      ? 'Zakopane (wszystkie punkty)'
+    const selectedPointName = locations.includes(selectedSellingPoint)
+      ? `${selectedSellingPoint} (wszystkie punkty)`
       : sellingPoints.find(p => p.symbol === selectedSellingPoint)?.sellingPoint || 
         sellingPoints.find(p => p.symbol === selectedSellingPoint)?.symbol || 
         selectedSellingPoint;
@@ -396,7 +411,7 @@ const WykrukZDnia = () => {
         </div>
     `;
 
-    if (selectedSellingPoint === 'ZAKOPANE' && Object.keys(zakopianeData).length > 0) {
+    if (locations.includes(selectedSellingPoint) && Object.keys(zakopianeData).length > 0) {
       // Widok Zakopanego - jedna tabela
       const pointCodes = Object.keys(zakopianeData);
       let maxProducts = 0;
@@ -580,20 +595,16 @@ const WykrukZDnia = () => {
       if (response.ok) {
         const data = await response.json();
         
-        if (selectedSellingPoint === 'ZAKOPANE') {
-          // Dla Zakopanego pobierz dane dla wszystkich punktów
-          const zakopianePoints = ['M', 'P', 'S', 'T', 'K'];
-          const pointNames = {
-            'M': 'MOST',
-            'P': 'PARZYGNAT', 
-            'S': 'SKZAT',
-            'T': 'TATA',
-            'K': 'KRUPÓWKI'
-          };
+        if (locations.includes(selectedSellingPoint)) {
+          // Dla wybranej lokalizacji pobierz dane dla wszystkich punktów z tej lokalizacji
+          const locationUsers = sellingPoints.filter(user => 
+            user.location && user.location.toLowerCase() === selectedSellingPoint.toLowerCase() && user.role === 'user'
+          );
           
           const allPointsData = {};
           
-          zakopianePoints.forEach(point => {
+          locationUsers.forEach(user => {
+            const point = user.symbol;
             // Używamy dokładnie tej samej logiki filtrowania co dla pojedynczego punktu
             const filteredHistory = (data.history || []).filter(item => {
               const itemDate = new Date(item.timestamp).toISOString().split('T')[0];
@@ -607,7 +618,7 @@ const WykrukZDnia = () => {
             
             // Przetwórz dane dla tego punktu używając tej samej funkcji
             allPointsData[point] = {
-              name: pointNames[point],
+              name: user.sellingPoint || user.symbol, // Użyj nazwy punktu z bazy danych
               data: processWykrukData(filteredHistory, point)
             };
           });
@@ -807,7 +818,19 @@ const WykrukZDnia = () => {
               minWidth: '200px'
             }}
           >
-            <option value="ZAKOPANE">Zakopane (wszystkie punkty)</option>
+            {/* Opcje dla lokalizacji (wszystkie punkty) */}
+            {locations.map((location) => (
+              <option key={`location-${location}`} value={location}>
+                {location} (wszystkie punkty)
+              </option>
+            ))}
+            
+            {/* Separator */}
+            {locations.length > 0 && sellingPoints.length > 0 && (
+              <option disabled>────────────────</option>
+            )}
+            
+            {/* Pojedyncze punkty sprzedaży */}
             {sellingPoints.map((point) => (
               <option key={point._id} value={point.symbol}>
                 {point.role === 'magazyn' ? 'Magazyn' : 
@@ -818,7 +841,7 @@ const WykrukZDnia = () => {
           </select>
         </div>
 
-        {selectedSellingPoint && (selectedSellingPoint !== 'ZAKOPANE' ? wykrukData.length > 0 : Object.keys(zakopianeData).length > 0) && (
+        {selectedSellingPoint && (locations.includes(selectedSellingPoint) ? Object.keys(zakopianeData).length > 0 : wykrukData.length > 0) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <button
               onClick={handlePrint}
@@ -844,7 +867,7 @@ const WykrukZDnia = () => {
         )}
       </div>
 
-      {selectedSellingPoint === 'ZAKOPANE' && Object.keys(zakopianeData).length > 0 && (
+      {locations.includes(selectedSellingPoint) && Object.keys(zakopianeData).length > 0 && (
         <div style={{ marginBottom: '30px' }}>
           {(() => {
             // Znajdź maksymalną liczbę produktów w którymkolwiek punkcie
@@ -1099,7 +1122,7 @@ const WykrukZDnia = () => {
         </div>
       )}
 
-      {selectedSellingPoint && selectedSellingPoint !== 'ZAKOPANE' && (
+      {selectedSellingPoint && !locations.includes(selectedSellingPoint) && (
         <div style={{ marginBottom: '30px' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#6c757d' }}>
