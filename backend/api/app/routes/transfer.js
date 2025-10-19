@@ -3,10 +3,10 @@ const router = express.Router();
 const transferController = require('../controllers/transfer');
 const checkAuth = require('../middleware/check-auth'); // 🔒 TRANSFERY - KRYTYCZNE ZABEZPIECZENIE
 
-// ========== PUBLICZNE ENDPOINTY ==========
-router.get('/test', (req, res) => {
+// ========== ZABEZPIECZONE ENDPOINTY TESTOWE ==========
+router.get('/test', checkAuth, (req, res) => {
     res.status(200).json({ message: 'API is working!' });
-}); // Test endpoint może być publiczny
+}); // 🔒 Test endpoint teraz wymaga autoryzacji
 
 // ========== WSZYSTKIE TRANSFERY WYMAGAJĄ AUTORYZACJI ==========
 router.post('/', checkAuth, transferController.createTransfer); // 🔒 Tworzenie transferu

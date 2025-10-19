@@ -1,13 +1,74 @@
 const express = require('express');
 const app = express();
+const helmet = require('helmet'); // 🔒 Zabezpieczenia HTTP headers
+const rateLimit = require('express-rate-limit'); // 🔒 Rate limiting
+const mongoSanitize = require('express-mongo-sanitize'); // 🔒 Ochrona przed NoSQL injection
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const path = require('path');
 const cors = require('cors');
 const { port } = require('./config'); // Import port configuration
 const { domain } = require('./config'); // Import domain configuration
+// 🔒 ZABEZPIECZENIA HTTP HEADERS
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+        },
+    },
+    crossOriginEmbedderPolicy: false, // Dla compatibility z zewnętrznymi bibliotekami
+}));
+
 app.use(express.json({ limit: '50mb' })); // Increase JSON payload limit
-app.use(cors());
+
+// 🔒 BEZPIECZNA KONFIGURACJA CORS - zamiast app.use(cors())
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://twoja-domena.com'] // 🔒 Tylko twoja domena na produkcji
+        : ['http://localhost:3000', 'http://localhost:3001'], // Development
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// 🔒 RATE LIMITING - Ochrona przed atakami
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minut
+    max: 100, // maksymalnie 100 requestów na IP na 15 minut
+    message: {
+        error: 'Zbyt wiele requestów z tego IP, spróbuj ponownie za 15 minut.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minut
+    max: 5, // maksymalnie 5 prób logowania na IP na 15 minut
+    message: {
+        error: 'Zbyt wiele prób logowania, spróbuj ponownie za 15 minut.'
+    },
+    skipSuccessfulRequests: true,
+});
+
+app.use(limiter); // Globalny limit
+app.use('/api/user/login', loginLimiter); // Specjalny limit dla logowania
+
+// 🔒 OCHRONA PRZED NoSQL INJECTION
+app.use(mongoSanitize({
+  replaceWith: '_',
+  onSanitize: ({ req, key }) => {
+    console.warn(`⚠️ NoSQL injection attempt detected: ${key} in ${req.url}`);
+  }
+}));
 
 // Log wszystkich requestów - DISABLED
 // app.use((req, res, next) => {

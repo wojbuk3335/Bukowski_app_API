@@ -3,18 +3,63 @@ const router = express.Router();
 const SalesController = require('../controllers/sales');
 const historyLogger = require('../middleware/historyLogger');
 const checkAuth = require('../middleware/check-auth'); // ZABEZPIECZENIA SPRZEDAŻY
+const roleAuth = require('../middleware/role-auth'); // 🔒 KONTROLA RÓL
+const validators = require('../middleware/validators'); // 🔒 WALIDACJA DANYCH
 
 // ========== WSZYSTKIE ENDPOINTY SPRZEDAŻOWE WYMAGAJĄ AUTORYZACJI ==========
-router.get('/', checkAuth, SalesController.getAllSales); // 🔒 Wszystkie sprzedaże
+router.get('/', 
+    validators.queryValidation,
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.getAllSales
+); // 🔒 Wszystkie sprzedaże z walidacją
+
 router.get('/get-all-sales', checkAuth, SalesController.getAllSales); // 🔒 Duplikat
-router.get('/filter-by-date-and-point', checkAuth, SalesController.getSalesByDateAndSellingPoint); // 🔒 Filtrowanie
-router.post('/save-sales', checkAuth, SalesController.saveSales); // 🔒 Zapisywanie sprzedaży
-router.post('/insert-many-sales', checkAuth, SalesController.insertManySales); // 🔒 Masowe dodawanie
-router.delete('/delete-all-sales', checkAuth, SalesController.deleteAllSales); // 🔒 NIEBEZPIECZNE: Usuń wszystkie
+
+router.get('/filter-by-date-and-point', 
+    validators.dateValidation,
+    validators.queryValidation,
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.getSalesByDateAndSellingPoint
+); // 🔒 Filtrowanie z walidacją dat
+
+router.post('/save-sales', 
+    validators.salesValidation,
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.saveSales
+); // 🔒 Zapisywanie sprzedaży z walidacją
+
+router.post('/insert-many-sales', 
+    validators.salesValidation,
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.insertManySales
+); // 🔒 Masowe dodawanie z walidacją
+router.delete('/delete-all-sales', checkAuth, roleAuth.adminOnly(), SalesController.deleteAllSales); // 🔒🔒🔒 TYLKO ADMIN!
 
 // Dynamic routes - też zabezpieczone
-router.get('/:salesId', checkAuth, SalesController.getSalesById); // 🔒 Konkretna sprzedaż
-router.patch('/update-sales/:salesId', checkAuth, SalesController.updateSalesById); // 🔒 Aktualizacja
-router.delete('/delete-sale/:salesId', checkAuth, SalesController.deleteSalesById); // 🔒 Usuwanie
+router.get('/:salesId', 
+    validators.mongoIdValidation,
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.getSalesById
+); // 🔒 Konkretna sprzedaż z walidacją ID
+
+router.patch('/update-sales/:salesId', 
+    validators.mongoIdValidation,
+    validators.salesValidation,
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.updateSalesById
+); // 🔒 Aktualizacja z walidacją
+
+router.delete('/delete-sale/:salesId', 
+    validators.mongoIdValidation,
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.deleteSalesById
+); // 🔒 Usuwanie z walidacją ID
 
 module.exports = router;

@@ -3,10 +3,10 @@ const router = express.Router();
 const deductionController = require('../controllers/deductions');
 const checkAuth = require('../middleware/check-auth'); // 🔒🔒🔒 POTRĄCENIA - DANE FINANSOWE!
 
-// ========== PUBLICZNE ENDPOINTY ==========
-router.get('/test', (req, res) => {
+// ========== ZABEZPIECZONE ENDPOINTY TESTOWE ==========
+router.get('/test', checkAuth, (req, res) => {
     res.status(200).json({ message: 'Deductions API is working!' });
-}); // Test endpoint może być publiczny
+}); // 🔒 Test endpoint teraz wymaga autoryzacji
 
 // ========== WSZYSTKIE OPERACJE FINANSOWE WYMAGAJĄ AUTORYZACJI ==========
 router.post('/', checkAuth, deductionController.createDeduction); // 🔒🔒🔒 Tworzenie potrąceń

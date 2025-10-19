@@ -12,6 +12,10 @@ module.exports = (req, res, next) => {
             };
             return next();
         }
+
+        // 🔒 Logowanie podejrzanych prób dostępu
+        const userAgent = req.get('User-Agent') || 'Unknown';
+        const ip = req.ip || req.connection.remoteAddress;
         // Sprawdź czy nagłówek Authorization istnieje
         if (!req.headers.authorization) {
             return res.status(401).json({

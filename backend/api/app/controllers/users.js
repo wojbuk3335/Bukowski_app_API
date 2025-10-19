@@ -9,6 +9,7 @@ const argon2 = require('argon2'); // Replaced bcrypt with argon2
 const jwt = require('jsonwebtoken');
 const jsonwebtoken = require('../config').jsonwebtoken;
 const config = require('../config');
+const refreshTokenManager = require('../middleware/refresh-token'); // 🔒 REFRESH TOKENS
 
 class UsersController {
     // ... other methods ...
@@ -101,16 +102,31 @@ class UsersController {
                 argon2.verify(user.password, req.body.password) // Replaced bcrypt.compare with argon2.verify
                     .then(result => {
                         if (result) {
+                            // 🔒 TOKEN JWT Z PEŁNYMI DANYMI BEZPIECZEŃSTWA
                             const token = jwt.sign({
                                 email: user.email,
-                                userId: user._id
+                                userId: user._id,
+                                role: user.role,           // 🔒 KRYTYCZNE: Rola w tokenie
+                                symbol: user.symbol,       // 🔒 Symbol użytkownika
+                                sellingPoint: user.sellingPoint  // 🔒 Punkt sprzedaży
                             }, jsonwebtoken, {
                                 expiresIn: '1h'
                             });
 
+                            // 🔒 GENERUJ REFRESH TOKEN
+                            const { accessToken, refreshToken } = refreshTokenManager.generateTokenPair({
+                                email: user.email,
+                                userId: user._id,
+                                role: user.role,
+                                symbol: user.symbol,
+                                sellingPoint: user.sellingPoint
+                            });
+
                             return res.status(200).json({
                                 message: 'Auth successful',
-                                token: token,
+                                token: token, // Zachowaj dla backward compatibility
+                                accessToken: accessToken,
+                                refreshToken: refreshToken,
                                 userId: user._id,
                                 email: user.email,
                                 success: true,
@@ -292,10 +308,47 @@ class UsersController {
     }
 
     logout(req, res, next) {
-        // Inform the client to remove the token
-        res.status(200).json({
-            message: 'Logout successful. Please remove the token on the client side.'
-        });
+        try {
+            // 🔒 USUŃ REFRESH TOKEN z serwera
+            const { refreshToken } = req.body;
+            if (refreshToken) {
+                refreshTokenManager.revokeRefreshToken(refreshToken);
+            }
+            
+            res.status(200).json({
+                message: 'Logout successful. Tokens revoked.'
+            });
+        } catch (error) {
+            res.status(200).json({
+                message: 'Logout successful. Please remove the token on the client side.'
+            });
+        }
+    }
+
+    // 🔒 NOWA METODA: REFRESH TOKEN
+    refreshToken(req, res, next) {
+        try {
+            const { refreshToken } = req.body;
+            
+            if (!refreshToken) {
+                return res.status(400).json({
+                    message: 'Refresh token required'
+                });
+            }
+
+            const newAccessToken = refreshTokenManager.refreshAccessToken(refreshToken);
+            
+            res.status(200).json({
+                message: 'Token refreshed successfully',
+                accessToken: newAccessToken,
+                token: newAccessToken // Backward compatibility
+            });
+        } catch (error) {
+            return res.status(401).json({
+                message: error.message || 'Invalid refresh token',
+                error: 'REFRESH_TOKEN_INVALID'
+            });
+        }
     }
 
     // Get user references report - shows how many records reference this user

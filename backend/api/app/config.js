@@ -7,9 +7,17 @@ dotenv.config({path: path.join(__dirname, '../.env')});
 
 module.exports = {
   port: process.env.PORT || 3000,
-  // Baza testowa dla developmentu, produkcja używa .env na serwerze
-  database: process.env.DATABASE || 'mongodb+srv://wbukowski1985:3VX4byVnTO2CFRPc@bukowskiapp.emdzg.mongodb.net/BukowskiApp?retryWrites=true&w=majority&appName=BukowskiApp',
-  // JWT Secret - na produkcji musi być w .env z silnym kluczem
-  jsonwebtoken: process.env.JWT_SECRET || 'test-secret-only-for-development-change-in-production',
+  // 🔒 BEZPIECZNA KONFIGURACJA - wszystkie dane z .env
+  database: process.env.DATABASE || (() => {
+    console.error('❌ BŁĄD: Brak konfiguracji DATABASE w .env!');
+    console.error('💡 Dodaj: DATABASE=mongodb+srv://username:password@cluster.mongodb.net/database');
+    process.exit(1);
+  })(),
+  // 🔒 JWT Secret - MUSI być w .env!
+  jsonwebtoken: process.env.JWT_SECRET || (() => {
+    console.error('❌ BŁĄD: Brak JWT_SECRET w .env!');
+    console.error('💡 Wygeneruj silny klucz: openssl rand -base64 64');
+    process.exit(1);
+  })(),
   domain: process.env.DOMAIN || 'http://localhost:3000'
 };
