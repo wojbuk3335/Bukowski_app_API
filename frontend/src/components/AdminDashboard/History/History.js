@@ -55,7 +55,9 @@ const History = () => {
             setLoading(true);
             try {
                 const response = await axios.get('/api/history');
-                setHistoryData(response.data);
+                // Obsługuj nowy format odpowiedzi API
+                const historyArray = response.data.history || response.data;
+                setHistoryData(historyArray);
                 // Załaduj zapisane filtry i ulubione z localStorage
                 loadSavedData();
             } catch (error) {

@@ -956,6 +956,8 @@ class TransferProcessingController {
                         const historyEntry = new History({
                             collectionName: 'Stan',
                             operation: 'Dodano do stanu (transfer przychodzący)',
+                            from: item.transfer_from || 'nieznany', // punkt źródłowy transferu
+                            to: item.transfer_to || user.symbol, // punkt docelowy transferu
                             product: item.fullName,
                             size: item.size,
                             details: JSON.stringify({

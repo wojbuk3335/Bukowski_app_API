@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 const config = require ('../config')
 
+// Ustaw strictQuery aby pozbyć się ostrzeżenia
+mongoose.set('strictQuery', false);
+
 async function sendNotification(message) {
   console.log("Notification:", message);
 }

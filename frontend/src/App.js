@@ -38,6 +38,7 @@ import Manufacturers from './components/AdminDashboard/Manufacturers/Manufacture
 import Belts from './components/AdminDashboard/Belts/Belts';
 import Gloves from './components/AdminDashboard/Gloves/Gloves';
 import Cennik from './components/AdminDashboard/Cennik/Cennik';
+import WykrukZDnia from './components/AdminDashboard/WykrukZDnia/WykrukZDnia';
 
 function App() {
   return (
@@ -77,6 +78,7 @@ function App() {
           <Route path="state/:userId" element={<State />} />
           <Route path="warehouse" element={<Warehouse />} />
           <Route path="history" element={<History />} />
+          <Route path="wykruk" element={<WykrukZDnia />} />
           <Route path="corrections" element={<Corrections />} />
           <Route path="addtostate" element={<AddToState />} />
           <Route path="sales" element={<Sales/>} />

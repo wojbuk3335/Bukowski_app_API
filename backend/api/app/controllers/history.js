@@ -3,10 +3,31 @@ const History = require('../db/models/history');
 class HistoryController {
     getAllHistory = async (req, res, next) => {
         try {
-            const history = await History.find()
+            let query = {};
+            
+            // Jeśli podano datę w query parameters, filtruj po niej
+            if (req.query.date) {
+                const selectedDate = new Date(req.query.date);
+                const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
+                const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
+                
+                query.timestamp = {
+                    $gte: startOfDay,
+                    $lte: endOfDay
+                };
+            }
+            
+            const history = await History.find(query)
                 .populate('userloggedinId', 'username') // Ensure username is populated correctly
-                .select('collectionName operation from to timestamp userloggedinId product size details transactionId'); // Include transactionId in the response
-            res.status(200).json(history);
+                .select('collectionName operation from to timestamp userloggedinId product size details transactionId') // Include transactionId in the response
+                .sort({ timestamp: -1 }); // Sort by timestamp descending (newest first)
+            
+            // Zachowaj kompatybilność wsteczną - zwróć tablicę bezpośrednio jeśli nie ma filtrowania po dacie
+            if (req.query.date) {
+                res.status(200).json({ history });
+            } else {
+                res.status(200).json(history);
+            }
         } catch (err) {
             console.log(err);
             res.status(500).json({

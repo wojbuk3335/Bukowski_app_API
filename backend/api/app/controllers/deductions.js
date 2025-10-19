@@ -19,7 +19,7 @@ class DeductionController {
             res.status(200).json(deductions);
         } catch (error) {
             res.status(500).json({ error: error.message });
-        }
+        } 
     };
 
     // Get deduction by ID
