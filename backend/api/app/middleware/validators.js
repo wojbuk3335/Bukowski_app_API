@@ -16,17 +16,16 @@ const validators = {
         next();
     },
 
-    // Walidacja logowania
+    // Walidacja logowania - mniej restrykcyjna dla istniejących użytkowników
     loginValidation: [
         body('email')
             .isEmail()
             .normalizeEmail()
             .withMessage('Nieprawidłowy format email'),
         body('password')
-            .isLength({ min: 6 })
-            .withMessage('Hasło musi mieć minimum 6 znaków')
-            .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-            .withMessage('Hasło musi zawierać małą literę, wielką literę i cyfrę')
+            .isLength({ min: 4 })
+            .withMessage('Hasło musi mieć minimum 4 znaki')
+            // Usunięto wymaganie wielkiej litery dla logowania - dla zgodności z istniejącymi użytkownikami
     ],
 
     // Walidacja rejestracji
