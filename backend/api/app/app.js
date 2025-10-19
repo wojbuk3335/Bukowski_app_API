@@ -14,11 +14,11 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             scriptSrc: ["'self'"],
             imgSrc: ["'self'", "data:", "https:"],
             connectSrc: ["'self'"],
-            fontSrc: ["'self'"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
             objectSrc: ["'none'"],
             mediaSrc: ["'self'"],
             frameSrc: ["'none'"],
@@ -51,10 +51,10 @@ const limiter = rateLimit({
 });
 
 const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minut
-    max: 5, // maksymalnie 5 prób logowania na IP na 15 minut
+    windowMs: 5 * 60 * 1000, // 5 minut (krótszy czas)
+    max: 10, // więcej prób logowania na IP na 5 minut
     message: {
-        error: 'Zbyt wiele prób logowania, spróbuj ponownie za 15 minut.'
+        error: 'Zbyt wiele prób logowania, spróbuj ponownie za 5 minut.'
     },
     skipSuccessfulRequests: true,
 });
