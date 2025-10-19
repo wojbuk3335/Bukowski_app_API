@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const AddToState = ({ onAdd }) => {
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000';
   
   // Ustawienie dzisiejszej daty jako domyślnej
   const getTodayDate = () => {
@@ -56,7 +56,13 @@ const AddToState = ({ onAdd }) => {
   const checkProcessingStatus = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`${API_BASE_URL}/api/state/processing-status?date=${today}`);
+      const token = localStorage.getItem('AdminToken');
+      const response = await fetch(`${API_BASE_URL}/api/state/processing-status?date=${today}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
       setProcessingStatus(data);
     } catch (error) {
@@ -144,7 +150,13 @@ const AddToState = ({ onAdd }) => {
     // Fetch colors for label printing mapping
     const fetchColors = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/excel/color/get-all-colors`);
+        const token = localStorage.getItem('AdminToken');
+        const response = await fetch(`${API_BASE_URL}/api/excel/color/get-all-colors`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
         const data = await response.json();
         setColors(data.colors || []);
       } catch (error) {
@@ -293,7 +305,13 @@ const AddToState = ({ onAdd }) => {
   // Fetch users from API
   const fetchUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user`);
+      const token = localStorage.getItem('AdminToken');
+      const response = await fetch(`${API_BASE_URL}/api/user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
       
       // Filtruj użytkowników - usuń admin, magazyn i dom
@@ -311,8 +329,13 @@ const AddToState = ({ onAdd }) => {
   // Fetch transfers from API
   const fetchTransfers = async () => {
     try {
-
-      const response = await fetch(`${API_BASE_URL}/api/transfer`);
+      const token = localStorage.getItem('AdminToken');
+      const response = await fetch(`${API_BASE_URL}/api/transfer`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
 
       setTransfers(data || []);
@@ -325,8 +348,13 @@ const AddToState = ({ onAdd }) => {
   // Fetch warehouse items from API
   const fetchWarehouseItems = async () => {
     try {
-
-      const response = await fetch(`${API_BASE_URL}/api/state/warehouse`);
+      const token = localStorage.getItem('AdminToken');
+      const response = await fetch(`${API_BASE_URL}/api/state/warehouse`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -430,8 +458,13 @@ const AddToState = ({ onAdd }) => {
   // Fetch sales from API
   const fetchSales = async () => {
     try {
-
-      const response = await fetch(`${API_BASE_URL}/api/sales/get-all-sales`);
+      const token = localStorage.getItem('AdminToken');
+      const response = await fetch(`${API_BASE_URL}/api/sales/get-all-sales`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
       setSales(data || []);
 
@@ -443,8 +476,13 @@ const AddToState = ({ onAdd }) => {
   // Fetch all states from API (for checking if sold items still exist)
   const fetchAllStates = async () => {
     try {
-
-      const response = await fetch(`${API_BASE_URL}/api/state`);
+      const token = localStorage.getItem('AdminToken');
+      const response = await fetch(`${API_BASE_URL}/api/state`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const data = await response.json();
       setAllStates(data || []);
 

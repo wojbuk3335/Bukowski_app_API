@@ -615,11 +615,11 @@ const Cennik = () => {
                                                 <td className={styles.tableCell} data-label="Grupa">{item.manufacturer ? item.manufacturer.Prod_Opis : '-'}</td>
                                                 <td className={styles.tableCell} data-label="Zdjęcie">
                                                     <img 
-                                                        src={item.picture ? (item.picture.startsWith('http') ? item.picture : `http://localhost:3001/images/${item.picture}`) : defaultPicture} 
+                                                        src={item.picture ? (item.picture.startsWith('http') ? item.picture : `http://localhost:3000/images/${item.picture}`) : defaultPicture} 
                                                         alt={item.fullName}
                                                         className={styles.thumbnail}
                                                         style={{width: '40px', height: '40px', objectFit: 'cover', cursor: 'pointer'}}
-                                                        onClick={() => handlePictureClick(item.picture ? (item.picture.startsWith('http') ? item.picture : `http://localhost:3001/images/${item.picture}`) : defaultPicture)}
+                                                        onClick={() => handlePictureClick(item.picture ? (item.picture.startsWith('http') ? item.picture : `http://localhost:3000/images/${item.picture}`) : defaultPicture)}
                                                         onError={(e) => {
                                                             console.log('Image load error:', e.target.src);
                                                             e.target.src = defaultPicture; // Fallback to default image
