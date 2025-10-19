@@ -24,12 +24,22 @@ function Corrections() {
     try {
       setLoading(true);
       
+      const token = localStorage.getItem('AdminToken');
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+      
       // Pobierz wszystkie korekty
-      const correctionsResponse = await fetch('http://localhost:3001/api/corrections');
+      const correctionsResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/corrections`, {
+        headers
+      });
       const correctionsData = await correctionsResponse.json();
       
       // Pobierz statystyki
-      const statsResponse = await fetch('http://localhost:3001/api/corrections/stats');
+      const statsResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/corrections/stats`, {
+        headers
+      });
       const statsData = await statsResponse.json();
       
       setCorrections(correctionsData || []);
@@ -61,10 +71,12 @@ function Corrections() {
 
   const handleStatusUpdate = async (correctionId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/corrections/${correctionId}`, {
+      const token = localStorage.getItem('AdminToken');
+      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/corrections/${correctionId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           status: newStatus,
@@ -91,8 +103,14 @@ function Corrections() {
       setSearchingProduct(true);
       setSelectedCorrection(correction);
       
+      const token = localStorage.getItem('AdminToken');
       // Pobierz wszystkie stany z API
-      const stateResponse = await fetch('http://localhost:3001/api/state');
+      const stateResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/state`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const allStates = await stateResponse.json();
       
       console.log('🔍 Searching for correction:', {
@@ -177,11 +195,13 @@ function Corrections() {
       
       console.log(`Writing off from ${fromSymbol}:`, itemToWriteOff);
       
+      const token = localStorage.getItem('AdminToken');
       // Wywołanie API do odpisania produktu używając istniejącego endpointu
-      const writeOffResponse = await fetch(`http://localhost:3001/api/state/barcode/${itemToWriteOff.barcode}/symbol/${fromSymbol}`, {
+      const writeOffResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/state/barcode/${itemToWriteOff.barcode}/symbol/${fromSymbol}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
           'operation-type': 'write-off', // Dodajemy header określający typ operacji
           'correction-id': selectedCorrection._id, // ID korekty do aktualizacji
           'correction-transaction-id': selectedCorrection.transactionId // TransactionId korekty
