@@ -10,15 +10,52 @@ const SeachEngineTable = () => {
     const [symbols, setSymbols] = useState([]); // State for unique symbols
     const [selectedSymbols, setSelectedSymbols] = useState([]); // State for selected symbols
     const [selectedProducts, setSelectedProducts] = useState([]); // State for products selected for printing
+    const [persistentSelections, setPersistentSelections] = useState({}); // State for persistent checkbox selections
+
+    // Fetch persistent checkbox selections from database
+    const fetchPrintSelections = async () => {
+        try {
+            const response = await axios.get('/api/goods/print-selections');
+            setPersistentSelections(response.data.selections);
+            return response.data.selections;
+        } catch (error) {
+            console.error('❌ Error fetching print selections:', error);
+            console.error('Error details:', error.response?.data);
+            return {};
+        }
+    };
+
+    // Update persistent checkbox selection in database
+    const updatePrintSelection = async (productId, isSelected) => {
+        try {
+            const response = await axios.post('/api/goods/print-selections', {
+                selections: [{ productId, isSelected }]
+            });
+            
+            // Update local state
+            setPersistentSelections(prev => ({
+                ...prev,
+                [productId]: isSelected
+            }));
+            
+        } catch (error) {
+            console.error('❌ Error updating print selection:', error);
+            console.error('Error details:', error.response?.data);
+        }
+    };
 
     const fetchProducts = async () => {
         try {
             const goodsResponse = await axios.get('/api/excel/goods/get-all-goods');
             const productData = goodsResponse.data.goods.map((item) => ({
+                id: item._id,
                 fullName: item.fullName,
                 plec: item.Plec,
             }));
             setProducts(productData);
+
+            // Fetch persistent checkbox selections
+            const selections = await fetchPrintSelections();
 
             const stateResponse = await axios.get('/api/state');
             // Use stateResponse.data directly, no need for additional API calls
@@ -35,9 +72,17 @@ const SeachEngineTable = () => {
 
             const columns = 16; // Number of table columns: 1 checkbox + 1 product name + 14 sizes
             const rows = productData.length;
+
+            
             const tableArray = Array.from({ length: rows }, (_, rowIndex) =>
                 Array.from({ length: columns }, (_, colIndex) => {
-                    if (colIndex === 0) return false; // Checkbox column (initially unchecked)
+                    if (colIndex === 0) {
+                        // Checkbox column - use persistent selection state
+                        const productId = productData[rowIndex].id;
+                        const isSelected = selections[productId] || false;
+
+                        return isSelected;
+                    }
                     if (colIndex === 1) return productData[rowIndex].fullName; // Product name
                     if (colIndex === 2) return productData[rowIndex].plec; // Keep Plec in the array
                     return null;
@@ -160,23 +205,88 @@ const SeachEngineTable = () => {
         );
     };
 
-    // Handle product selection for printing
-    const handleProductCheckboxChange = (productName) => {
+    // Handle product selection for printing - now persistent in database
+    const handleProductCheckboxChange = async (productName) => {
+        // Find product ID by name
+        const product = products.find(p => p.fullName === productName);
+        if (!product) {
+            console.error('❌ Product not found:', productName);
+            return;
+        }
+        
+        const productId = product.id;
+        const currentlySelected = persistentSelections[productId] || false;
+        const newSelection = !currentlySelected;
+
+        // Update in database
+        await updatePrintSelection(productId, newSelection);
+
+        // Update local selectedProducts state for compatibility
         setSelectedProducts((prevSelected) =>
-            prevSelected.includes(productName)
-                ? prevSelected.filter((p) => p !== productName) // Remove product if already selected
-                : [...prevSelected, productName] // Add product if not selected
+            newSelection
+                ? [...prevSelected.filter(p => p !== productName), productName] // Add
+                : prevSelected.filter((p) => p !== productName) // Remove
         );
+
+        // Update table array checkbox state
+        setTableArray(prev => prev.map((row, rowIndex) => {
+            if (row[1] === productName) {
+                const newRow = [...row];
+                newRow[0] = newSelection; // Update checkbox state
+                return newRow;
+            }
+            return row;
+        }));
     };
 
-    // Handle select all products for printing
-    const handleSelectAllProducts = () => {
+    // Handle select all products for printing - now persistent in database
+    const handleSelectAllProducts = async () => {
         const currentFilteredProducts = filteredTableArray.map(row => row[1]); // Product name is now at index 1
-        if (selectedProducts.length === currentFilteredProducts.length && 
-            currentFilteredProducts.every(product => selectedProducts.includes(product))) {
-            setSelectedProducts([]); // Deselect all if all filtered are selected
-        } else {
-            setSelectedProducts(currentFilteredProducts); // Select all filtered products
+        
+        // Check if all filtered products are currently selected
+        const allSelected = currentFilteredProducts.every(productName => {
+            const product = products.find(p => p.fullName === productName);
+            return product && persistentSelections[product.id];
+        });
+
+        const selections = currentFilteredProducts.map(productName => {
+            const product = products.find(p => p.fullName === productName);
+            return {
+                productId: product?.id,
+                isSelected: !allSelected // If all selected, deselect all; otherwise select all
+            };
+        }).filter(s => s.productId);
+
+        // Update in database
+        try {
+            await axios.post('/api/goods/print-selections', { selections });
+            
+            // Update local states
+            const newSelections = { ...persistentSelections };
+            selections.forEach(({ productId, isSelected }) => {
+                newSelections[productId] = isSelected;
+            });
+            setPersistentSelections(newSelections);
+
+            if (allSelected) {
+                setSelectedProducts([]); // Deselect all
+            } else {
+                setSelectedProducts(currentFilteredProducts); // Select all
+            }
+
+            // Update table array
+            setTableArray(prev => prev.map(row => {
+                const product = products.find(p => p.fullName === row[1]);
+                if (product && currentFilteredProducts.includes(row[1])) {
+                    const newRow = [...row];
+                    newRow[0] = !allSelected; // Update checkbox state
+                    return newRow;
+                }
+                return row;
+            }));
+
+        } catch (error) {
+            console.error('Error updating bulk selections:', error);
         }
     };
 
@@ -491,7 +601,11 @@ const SeachEngineTable = () => {
 
         // Filter each cell to show only selected symbols, excluding checkbox and product name columns
         const filteredRow = row.map((cell, colIndex) => {
-            if (colIndex === 0) return selectedProducts.includes(row[1]); // Checkbox state based on selection
+            // Checkbox state based on persistent database selection
+            if (colIndex === 0) {
+                const product = products.find(p => p.fullName === row[1]);
+                return product ? (persistentSelections[product.id] || false) : false;
+            }
             if (colIndex === 1) return cell; // Always include product name column
             if (colIndex === 2 || !cell) return cell; // Skip Plec or empty cells
             if (selectedSymbols.length === 0) return cell; // Show all symbols if no checkboxes are selected
@@ -770,7 +884,10 @@ const SeachEngineTable = () => {
                                         <td key={colIndex}>
                                             <input
                                                 type="checkbox"
-                                                checked={selectedProducts.includes(row[1])}
+                                                checked={(() => {
+                                                    const product = products.find(p => p.fullName === row[1]);
+                                                    return product ? (persistentSelections[product.id] || false) : false;
+                                                })()}
                                                 onChange={() => handleProductCheckboxChange(row[1])}
                                                 title="Zaznacz do wydruku"
                                             />

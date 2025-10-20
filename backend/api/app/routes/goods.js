@@ -28,4 +28,8 @@ router.put('/:goodId', upload.single('Picture'),historyLogger('goods'), GoodsCon
 router.delete('/:goodId',historyLogger('goods'), GoodsController.deleteGood);
 router.post('/sync-product-names', GoodsController.syncProductNames);
 
+// Print selection endpoints
+router.post('/print-selections', GoodsController.updatePrintSelectionBulk);
+router.get('/print-selections', GoodsController.getPrintSelections);
+
 module.exports = router;

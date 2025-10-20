@@ -76,6 +76,7 @@ app.use('/api/excel/stock', stockRoutes);
 app.use('/api/excel/color', colorRoutes);
 app.use('/api/excel/size', sizeRoutes);
 app.use('/api/excel/goods', goodsRoutes);
+app.use('/api/goods', goodsRoutes); // Add direct API access for print selections
 app.use('/api/excel/category', categoryRoutes);
 app.use('/api/excel/subcategoryCoats', subcategoryCoatsRoutes);
 app.use('/api/excel/bags-category', bagsCategoryRoutes);

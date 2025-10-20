@@ -930,6 +930,64 @@ class GoodsController {
             });
         }
     }
+
+    // Update print selection state for multiple products
+    updatePrintSelectionBulk = async (req, res, next) => {
+        try {
+            const { selections } = req.body; // Array of {productId, isSelected}
+            
+            if (!selections || !Array.isArray(selections)) {
+                return res.status(400).json({
+                    message: 'Invalid selections format. Expected array of {productId, isSelected} objects.'
+                });
+            }
+
+            const updatePromises = selections.map(({ productId, isSelected }) => {
+                return Goods.updateOne(
+                    { _id: productId },
+                    { $set: { isSelectedForPrint: isSelected } }
+                );
+            });
+
+            await Promise.all(updatePromises);
+
+            res.status(200).json({
+                message: 'Print selections updated successfully',
+                updatedCount: selections.length
+            });
+
+        } catch (error) {
+            console.error('Error updating print selections:', error);
+            res.status(500).json({
+                error: error.message,
+                message: 'Failed to update print selections'
+            });
+        }
+    }
+
+    // Get print selection states for all products
+    getPrintSelections = async (req, res, next) => {
+        try {
+            const products = await Goods.find({}, '_id fullName isSelectedForPrint').exec();
+            
+            const selections = products.reduce((acc, product) => {
+                acc[product._id] = product.isSelectedForPrint || false;
+                return acc;
+            }, {});
+
+            res.status(200).json({
+                message: 'Print selections retrieved successfully',
+                selections: selections
+            });
+
+        } catch (error) {
+            console.error('Error getting print selections:', error);
+            res.status(500).json({
+                error: error.message,
+                message: 'Failed to get print selections'
+            });
+        }
+    }
 }
 
 module.exports = new GoodsController();
