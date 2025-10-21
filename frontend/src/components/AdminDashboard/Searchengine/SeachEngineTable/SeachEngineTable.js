@@ -44,6 +44,50 @@ const SeachEngineTable = () => {
         }
     };
 
+    // Helper function to identify women's leather jackets for limit enforcement
+    const isWomenLeatherJacket = (product, productName) => {
+        if (!product) return false;
+        
+        console.log(`🔍 SPRAWDZANIE PRODUKTU: ${productName}`, {
+            category: product.category,
+            subcategory: product.subcategory,
+            plec: product.plec,
+            subcategoryType: typeof product.subcategory
+        });
+        
+        // Method 1: Proper category structure check
+        if (product.category === 'Kurtki kożuchy futra' && 
+            product.subcategory && 
+            typeof product.subcategory === 'object' &&
+            product.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska' &&
+            product.plec === 'D') {
+            console.log(`✅ METODA 1: Poprawna struktura kategorii`);
+            return true;
+        }
+        
+        // Method 2: Direct subcategory ID check (if we know the ID)
+        if (product.category === 'Kurtki kożuchy futra' && 
+            product.subcategory === '68f7d26c5b8f61302b06f658' && // ID subcategory "Kurtka skórzana damska" 
+            product.plec === 'D') {
+            console.log(`✅ METODA 2: ID subcategory`);
+            return true;
+        }
+        
+        // Method 3: Fallback - name-based identification for products that might have incorrect structure
+        if (product.plec === 'D' && 
+            product.category === 'Kurtki kożuchy futra' &&
+            (productName.toLowerCase().includes('kurtka') || 
+             productName.toLowerCase().includes('skórzana') ||
+             productName.toLowerCase().includes('skorzana') ||
+             productName.toLowerCase().includes('jacket'))) {
+            console.log(`✅ METODA 3: Nazwa produktu (fallback)`);
+            return true;
+        }
+        
+        console.log(`❌ PRODUKT NIE PASUJE do kurtek skórzanych damskich`);
+        return false;
+    };
+
     const fetchProducts = async () => {
         try {
             const goodsResponse = await axios.get('/api/excel/goods/get-all-goods');
@@ -51,6 +95,8 @@ const SeachEngineTable = () => {
                 id: item._id,
                 fullName: item.fullName,
                 plec: item.Plec,
+                category: item.category,
+                subcategory: item.subcategory
             }));
             setProducts(productData);
 
@@ -169,6 +215,34 @@ const SeachEngineTable = () => {
             });
 
             setTableArray(tableArray);
+            
+            // 🔄 SYNCHRONIZACJA: Po załadowaniu danych, zsynchronizuj selectedProducts z persistentSelections
+            const selectedProductNames = productData
+                .filter(product => selections[product.id]) // Produkty zaznaczone w bazie
+                .map(product => product.fullName); // Pobierz nazwy produktów
+            
+            setSelectedProducts(selectedProductNames);
+            console.log('🔄 SYNCHRONIZACJA po odświeżeniu:', {
+                persistentSelectionsCount: Object.values(selections).filter(Boolean).length,
+                selectedProductsCount: selectedProductNames.length,
+                selectedProducts: selectedProductNames
+            });
+            
+            // 📊 SZCZEGÓŁOWE STATYSTYKI ZAZNACZONYCH PRODUKTÓW
+            const totalSelectedCheckboxes = Object.values(selections).filter(Boolean).length;
+            const womenLeatherJacketsSelected = selectedProductNames.filter(productName => {
+                const product = productData.find(p => p.fullName === productName);
+                return isWomenLeatherJacket(product, productName);
+            }).length;
+            
+            console.log('📊 STATYSTYKI ZAZNACZONYCH CHECKBOXÓW:', {
+                totalZaznaczone: totalSelectedCheckboxes,
+                kurtekSkorzanychDamskich: womenLeatherJacketsSelected,
+                limitKurtek: 120,
+                pozostaloDoLimitu: Math.max(0, 120 - womenLeatherJacketsSelected),
+                limitPrzekroczony: womenLeatherJacketsSelected > 120
+            });
+            
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -179,6 +253,25 @@ const SeachEngineTable = () => {
     useEffect(() => {
         fetchProducts();
     }, []);
+
+    // Monitor zmian w selectedProducts i wyświetlaj statystyki
+    useEffect(() => {
+        if (products.length > 0 && selectedProducts.length >= 0) {
+            const womenLeatherJacketsCount = selectedProducts.filter(productName => {
+                const product = products.find(p => p.fullName === productName);
+                return isWomenLeatherJacket(product, productName);
+            }).length;
+            
+            console.log('📊 AKTUALNE STATYSTYKI ZAZNACZONYCH:', {
+                totalZaznaczone: selectedProducts.length,
+                kurtekSkorzanychDamskich: womenLeatherJacketsCount,
+                limitKurtek: 120,
+                pozostaloDoLimitu: Math.max(0, 120 - womenLeatherJacketsCount),
+                limitPrzekroczony: womenLeatherJacketsCount > 120,
+                zaznaczoneProdukty: selectedProducts
+            });
+        }
+    }, [selectedProducts, products]); // Reaguj na zmiany w selectedProducts i products
 
     const handleSearch = (e) => {
         setSearchQuery(e.target.value.toLowerCase());
@@ -218,6 +311,45 @@ const SeachEngineTable = () => {
         const currentlySelected = persistentSelections[productId] || false;
         const newSelection = !currentlySelected;
 
+        // 🚨 SPRAWDZENIE LIMITU DLA KURTEK SKÓRZANYCH DAMSKICH
+        const isLeatherJacketWomen = isWomenLeatherJacket(product, productName);
+
+        console.log(`🔄 ZAZNACZANIE PRODUKTU:`, {
+            produkt: productName,
+            plec: product.plec,
+            category: product.category,
+            subcategory: product.subcategory,
+            aktualnieZaznaczony: currentlySelected,
+            nowanStan: newSelection,
+            czyKurtkaSkorzanaDamska: isLeatherJacketWomen
+        });
+
+        // Jeśli próbujemy zaznaczyć kurtkę skórzaną damską, sprawdź limit
+        if (newSelection && isLeatherJacketWomen) {
+            // Policz aktualnie zaznaczone kurtki skórzane damskie
+            const currentWomenLeatherJackets = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isWomenLeatherJacket(selectedProduct, selectedProductName);
+            }).length;
+
+            console.log(`🔢 SPRAWDZENIE LIMITU:`, {
+                aktualnieZaznaczone: currentWomenLeatherJackets,
+                limit: 120,
+                przekroczony: currentWomenLeatherJackets >= 120
+            });
+
+            if (currentWomenLeatherJackets >= 120) {
+                console.log(`🛑 BLOKADA AKTYWNA! ${currentWomenLeatherJackets}/120`);
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
+                     `Osiągnięto maksymalny limit 120 damskich kurtek skórzanych do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentWomenLeatherJackets}/120\n\n` +
+                     `Aby dodać nowy produkt, najpierw odznacz inne damskie kurtki skórzane.`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania
+            } else {
+                console.log(`✅ LIMIT OK! ${currentWomenLeatherJackets + 1}/120 - można zaznaczyć`);
+            }
+        }
+
         // Update in database
         await updatePrintSelection(productId, newSelection);
 
@@ -227,6 +359,24 @@ const SeachEngineTable = () => {
                 ? [...prevSelected.filter(p => p !== productName), productName] // Add
                 : prevSelected.filter((p) => p !== productName) // Remove
         );
+
+        // 📊 STATYSTYKI PO ZMIANIE CHECKBOXA
+        setTimeout(() => {
+            const totalSelected = selectedProducts.length + (newSelection ? 1 : -1);
+            const womenLeatherSelected = selectedProducts.filter(prodName => {
+                const prod = products.find(p => p.fullName === prodName);
+                return isWomenLeatherJacket(prod, prodName);
+            }).length + (newSelection && isLeatherJacketWomen ? 1 : (isLeatherJacketWomen ? -1 : 0));
+            
+            console.log('📊 STATYSTYKI PO ZMIANIE:', {
+                produktZmieniony: productName,
+                nowyStanCheckboxa: newSelection,
+                totalZaznaczonych: totalSelected,
+                kurtekSkorzanychDamskich: womenLeatherSelected,
+                limitKurtek: 120,
+                pozostaloDoLimitu: Math.max(0, 120 - womenLeatherSelected)
+            });
+        }, 100);
 
         // Update table array checkbox state
         setTableArray(prev => prev.map((row, rowIndex) => {
@@ -257,6 +407,47 @@ const SeachEngineTable = () => {
             };
         }).filter(s => s.productId);
 
+        // 🚨 SPRAWDZENIE LIMITU KURTEK SKÓRZANYCH DAMSKICH przy "Zaznacz wszystkie"
+        if (!allSelected) {
+            // Policz kurtki skórzane damskie w aktualnie filtrowanych produktach
+            const womenLeatherJacketsInFiltered = currentFilteredProducts.filter(productName => {
+                const product = products.find(p => p.fullName === productName);
+                return isWomenLeatherJacket(product, productName);
+            }).length;
+
+            // Policz aktualnie zaznaczone kurtki skórzane damskie (nie w filtrowanej liście)
+            const currentWomenLeatherJackets = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isWomenLeatherJacket(selectedProduct, selectedProductName) &&
+                    !currentFilteredProducts.includes(selectedProductName); // Nie w aktualnej filtrowanej liście
+            }).length;
+
+            const totalWomenLeatherJackets = currentWomenLeatherJackets + womenLeatherJacketsInFiltered;
+
+            console.log(`🔢 SPRAWDZENIE LIMITU "ZAZNACZ WSZYSTKIE":`, {
+                wFiltrowanych: womenLeatherJacketsInFiltered,
+                aktualnieZaznaczone: currentWomenLeatherJackets,
+                suma: totalWomenLeatherJackets,
+                limit: 120,
+                przekroczony: totalWomenLeatherJackets > 120
+            });
+
+            if (totalWomenLeatherJackets > 120) {
+                console.log(`🛑 BLOKADA "ZAZNACZ WSZYSTKIE" - przekroczenie limitu: ${totalWomenLeatherJackets}/120`);
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WSZYSTKICH PRODUKTÓW!\n\n` +
+                     `Przekroczenie limitu damskich kurtek skórzanych:\n` +
+                     `• W aktualnej liście: ${womenLeatherJacketsInFiltered}\n` +
+                     `• Już zaznaczone: ${currentWomenLeatherJackets}\n` +
+                     `• Łącznie po zaznaczeniu: ${totalWomenLeatherJackets}/120\n\n` +
+                     `Maksymalny limit: 120 damskich kurtek skórzanych\n\n` +
+                     `Rozwiązania:\n` +
+                     `• Odznacz inne damskie kurtki skórzane\n` +
+                     `• Użyj filtrów, aby ograniczyć listę\n` +
+                     `• Zaznaczaj produkty pojedynczo`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania wszystkich
+            }
+        }
+
         // Update in database
         try {
             await axios.post('/api/goods/print-selections', { selections });
@@ -273,6 +464,26 @@ const SeachEngineTable = () => {
             } else {
                 setSelectedProducts(currentFilteredProducts); // Select all
             }
+
+            // 📊 STATYSTYKI PO "ZAZNACZ WSZYSTKIE"
+            setTimeout(() => {
+                const newSelectedProducts = allSelected ? [] : currentFilteredProducts;
+                const totalSelected = newSelectedProducts.length;
+                const womenLeatherSelected = newSelectedProducts.filter(productName => {
+                    const product = products.find(p => p.fullName === productName);
+                    return isWomenLeatherJacket(product, productName);
+                }).length;
+                
+                console.log('📊 STATYSTYKI PO "ZAZNACZ WSZYSTKIE":', {
+                    akcja: allSelected ? 'ODZNACZ WSZYSTKIE' : 'ZAZNACZ WSZYSTKIE',
+                    produktyWFiltrze: currentFilteredProducts.length,
+                    totalZaznaczonych: totalSelected,
+                    kurtekSkorzanychDamskich: womenLeatherSelected,
+                    limitKurtek: 120,
+                    pozostaloDoLimitu: Math.max(0, 120 - womenLeatherSelected),
+                    limitPrzekroczony: womenLeatherSelected > 120
+                });
+            }, 100);
 
             // Update table array
             setTableArray(prev => prev.map(row => {
@@ -696,7 +907,10 @@ const SeachEngineTable = () => {
                         <th>
                             <input
                                 type="checkbox"
-                                checked={filteredTableArray.length > 0 && filteredTableArray.every(row => selectedProducts.includes(row[1]))}
+                                checked={filteredTableArray.length > 0 && filteredTableArray.every(row => {
+                                    const product = products.find(p => p.fullName === row[1]);
+                                    return product && persistentSelections[product.id];
+                                })}
                                 onChange={handleSelectAllProducts}
                                 title="Zaznacz/Odznacz wszystkie do wydruku"
                             />
