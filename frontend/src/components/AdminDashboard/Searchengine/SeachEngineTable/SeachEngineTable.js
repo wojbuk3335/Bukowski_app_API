@@ -88,6 +88,39 @@ const SeachEngineTable = () => {
         return false;
     };
 
+    // Funkcja sprawdzająca czy produkt to kurtka męska licówka
+    const isMenLeatherJacket = (product, productName) => {
+        if (!product) return false;
+        
+        console.log(`🔍 SPRAWDZANIE MĘSKIEJ KURTKI: ${productName}`, {
+            category: product.category,
+            subcategory: product.subcategory,
+            plec: product.plec,
+            subcategoryType: typeof product.subcategory
+        });
+        
+        // Method 1: Proper category structure check
+        if (product.category === 'Kurtki kożuchy futra' && 
+            product.subcategory && 
+            typeof product.subcategory === 'object' &&
+            product.subcategory.Kat_1_Opis_1 === 'Kurtka męska licówka' &&
+            product.plec === 'M') {
+            console.log(`✅ METODA 1: Męska kurtka licówka - poprawna struktura`);
+            return true;
+        }
+        
+        // Method 2: Direct subcategory ID check for men jackets (ID from our script: 68f7db03d1dde0b668d4c378)
+        if (product.category === 'Kurtki kożuchy futra' && 
+            product.subcategory === '68f7db03d1dde0b668d4c378' && // ID subcategory "Kurtka męska licówka" 
+            product.plec === 'M') {
+            console.log(`✅ METODA 2: ID męskiej subcategory`);
+            return true;
+        }
+        
+        console.log(`❌ PRODUKT NIE PASUJE do kurtek męskich licówek`);
+        return false;
+    };
+
     const fetchProducts = async () => {
         try {
             const goodsResponse = await axios.get('/api/excel/goods/get-all-goods');
@@ -235,12 +268,21 @@ const SeachEngineTable = () => {
                 return isWomenLeatherJacket(product, productName);
             }).length;
             
+            const menLeatherJacketsSelected = selectedProductNames.filter(productName => {
+                const product = productData.find(p => p.fullName === productName);
+                return isMenLeatherJacket(product, productName);
+            }).length;
+            
             console.log('📊 STATYSTYKI ZAZNACZONYCH CHECKBOXÓW:', {
                 totalZaznaczone: totalSelectedCheckboxes,
                 kurtekSkorzanychDamskich: womenLeatherJacketsSelected,
-                limitKurtek: 140,
-                pozostaloDoLimitu: Math.max(0, 140 - womenLeatherJacketsSelected),
-                limitPrzekroczony: womenLeatherJacketsSelected > 140
+                limitKurtekDamskich: 140,
+                pozostaloDoLimituDamskich: Math.max(0, 140 - womenLeatherJacketsSelected),
+                limitPrzekroczonaDamskie: womenLeatherJacketsSelected > 140,
+                kurtekMeskichLicowka: menLeatherJacketsSelected,
+                limitKurtekMeskich: 50,
+                pozostaloDoLimituMeskich: Math.max(0, 50 - menLeatherJacketsSelected),
+                limitPrzekroczonaMeskie: menLeatherJacketsSelected > 50
             });
             
         } catch (error) {
@@ -262,12 +304,21 @@ const SeachEngineTable = () => {
                 return isWomenLeatherJacket(product, productName);
             }).length;
             
+            const menLeatherJacketsCount = selectedProducts.filter(productName => {
+                const product = products.find(p => p.fullName === productName);
+                return isMenLeatherJacket(product, productName);
+            }).length;
+            
             console.log('📊 AKTUALNE STATYSTYKI ZAZNACZONYCH:', {
                 totalZaznaczone: selectedProducts.length,
                 kurtekSkorzanychDamskich: womenLeatherJacketsCount,
-                limitKurtek: 140,
-                pozostaloDoLimitu: Math.max(0, 140 - womenLeatherJacketsCount),
-                limitPrzekroczony: womenLeatherJacketsCount > 140,
+                limitDamskich: 140,
+                pozostaloDoLimituDamskich: Math.max(0, 140 - womenLeatherJacketsCount),
+                limitPrzekroczonaDamskie: womenLeatherJacketsCount > 140,
+                kurtekMeskichLicowka: menLeatherJacketsCount,
+                limitMeskich: 50,
+                pozostaloDoLimituMeskich: Math.max(0, 50 - menLeatherJacketsCount),
+                limitPrzekroczonaMeskie: menLeatherJacketsCount > 50,
                 zaznaczoneProdukty: selectedProducts
             });
         }
@@ -313,6 +364,9 @@ const SeachEngineTable = () => {
 
         // 🚨 SPRAWDZENIE LIMITU DLA KURTEK SKÓRZANYCH DAMSKICH
         const isLeatherJacketWomen = isWomenLeatherJacket(product, productName);
+        
+        // 🚨 SPRAWDZENIE LIMITU DLA KURTEK MĘSKICH LICÓWKA
+        const isLeatherJacketMen = isMenLeatherJacket(product, productName);
 
         console.log(`🔄 ZAZNACZANIE PRODUKTU:`, {
             produkt: productName,
@@ -321,7 +375,8 @@ const SeachEngineTable = () => {
             subcategory: product.subcategory,
             aktualnieZaznaczony: currentlySelected,
             nowanStan: newSelection,
-            czyKurtkaSkorzanaDamska: isLeatherJacketWomen
+            czyKurtkaSkorzanaDamska: isLeatherJacketWomen,
+            czyKurtkaMeskaLicowka: isLeatherJacketMen
         });
 
         // Jeśli próbujemy zaznaczyć kurtkę skórzaną damską, sprawdź limit
@@ -332,7 +387,7 @@ const SeachEngineTable = () => {
                 return isWomenLeatherJacket(selectedProduct, selectedProductName);
             }).length;
 
-            console.log(`🔢 SPRAWDZENIE LIMITU:`, {
+            console.log(`🔢 SPRAWDZENIE LIMITU DAMSKICH:`, {
                 aktualnieZaznaczone: currentWomenLeatherJackets,
                 limit: 140,
                 przekroczony: currentWomenLeatherJackets >= 140
@@ -346,7 +401,33 @@ const SeachEngineTable = () => {
                      `Aby dodać nowy produkt, najpierw odznacz inne damskie kurtki skórzane.`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania
             } else {
-                console.log(`✅ LIMIT OK! ${currentWomenLeatherJackets + 1}/140 - można zaznaczyć`);
+                console.log(`✅ LIMIT DAMSKICH OK! ${currentWomenLeatherJackets + 1}/140 - można zaznaczyć`);
+            }
+        }
+
+        // Jeśli próbujemy zaznaczyć kurtkę męską licówka, sprawdź limit
+        if (newSelection && isLeatherJacketMen) {
+            // Policz aktualnie zaznaczone kurtki męskie licówka
+            const currentMenLeatherJackets = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isMenLeatherJacket(selectedProduct, selectedProductName);
+            }).length;
+
+            console.log(`🔢 SPRAWDZENIE LIMITU MĘSKICH:`, {
+                aktualnieZaznaczone: currentMenLeatherJackets,
+                limit: 50,
+                przekroczony: currentMenLeatherJackets >= 50
+            });
+
+            if (currentMenLeatherJackets >= 50) {
+                console.log(`🛑 BLOKADA AKTYWNA! ${currentMenLeatherJackets}/50`);
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
+                     `Osiągnięto maksymalny limit 50 męskich kurtek licówka do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentMenLeatherJackets}/50\n\n` +
+                     `Aby dodać nowy produkt, najpierw odznacz inne męskie kurtki licówka.`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania
+            } else {
+                console.log(`✅ LIMIT MĘSKICH OK! ${currentMenLeatherJackets + 1}/50 - można zaznaczyć`);
             }
         }
 
@@ -368,13 +449,21 @@ const SeachEngineTable = () => {
                 return isWomenLeatherJacket(prod, prodName);
             }).length + (newSelection && isLeatherJacketWomen ? 1 : (isLeatherJacketWomen ? -1 : 0));
             
+            const menLeatherSelected = selectedProducts.filter(prodName => {
+                const prod = products.find(p => p.fullName === prodName);
+                return isMenLeatherJacket(prod, prodName);
+            }).length + (newSelection && isLeatherJacketMen ? 1 : (isLeatherJacketMen ? -1 : 0));
+            
             console.log('📊 STATYSTYKI PO ZMIANIE:', {
                 produktZmieniony: productName,
                 nowyStanCheckboxa: newSelection,
                 totalZaznaczonych: totalSelected,
                 kurtekSkorzanychDamskich: womenLeatherSelected,
-                limitKurtek: 140,
-                pozostaloDoLimitu: Math.max(0, 140 - womenLeatherSelected)
+                limitKurtekDamskich: 140,
+                pozostaloDoLimituDamskich: Math.max(0, 140 - womenLeatherSelected),
+                kurtekMeskichLicowka: menLeatherSelected,
+                limitKurtekMeskich: 50,
+                pozostaloDoLimituMeskich: Math.max(0, 50 - menLeatherSelected)
             });
         }, 100);
 
@@ -424,26 +513,58 @@ const SeachEngineTable = () => {
 
             const totalWomenLeatherJackets = currentWomenLeatherJackets + womenLeatherJacketsInFiltered;
 
-            console.log(`🔢 SPRAWDZENIE LIMITU "ZAZNACZ WSZYSTKIE":`, {
-                wFiltrowanych: womenLeatherJacketsInFiltered,
-                aktualnieZaznaczone: currentWomenLeatherJackets,
-                suma: totalWomenLeatherJackets,
-                limit: 140,
-                przekroczony: totalWomenLeatherJackets > 140
+            // 🚨 SPRAWDZENIE LIMITU KURTEK MĘSKICH LICÓWKA przy "Zaznacz wszystkie"
+            const menLeatherJacketsInFiltered = currentFilteredProducts.filter(productName => {
+                const product = products.find(p => p.fullName === productName);
+                return isMenLeatherJacket(product, productName);
+            }).length;
+
+            const currentMenLeatherJackets = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isMenLeatherJacket(selectedProduct, selectedProductName) &&
+                    !currentFilteredProducts.includes(selectedProductName);
+            }).length;
+
+            const totalMenLeatherJackets = currentMenLeatherJackets + menLeatherJacketsInFiltered;
+
+            console.log(`🔢 SPRAWDZENIE LIMITÓW "ZAZNACZ WSZYSTKIE":`, {
+                damskie: {
+                    wFiltrowanych: womenLeatherJacketsInFiltered,
+                    aktualnieZaznaczone: currentWomenLeatherJackets,
+                    suma: totalWomenLeatherJackets,
+                    limit: 140,
+                    przekroczony: totalWomenLeatherJackets > 140
+                },
+                meskie: {
+                    wFiltrowanych: menLeatherJacketsInFiltered,
+                    aktualnieZaznaczone: currentMenLeatherJackets,
+                    suma: totalMenLeatherJackets,
+                    limit: 50,
+                    przekroczony: totalMenLeatherJackets > 50
+                }
             });
 
+            // Sprawdź limit damskich kurtek
             if (totalWomenLeatherJackets > 140) {
-                console.log(`🛑 BLOKADA "ZAZNACZ WSZYSTKIE" - przekroczenie limitu: ${totalWomenLeatherJackets}/140`);
+                console.log(`🛑 BLOKADA "ZAZNACZ WSZYSTKIE" - przekroczenie limitu damskich: ${totalWomenLeatherJackets}/140`);
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WSZYSTKICH PRODUKTÓW!\n\n` +
                      `Przekroczenie limitu damskich kurtek skórzanych:\n` +
                      `• W aktualnej liście: ${womenLeatherJacketsInFiltered}\n` +
                      `• Już zaznaczone: ${currentWomenLeatherJackets}\n` +
                      `• Łącznie po zaznaczeniu: ${totalWomenLeatherJackets}/140\n\n` +
-                     `Maksymalny limit: 140 damskich kurtek skórzanych\n\n` +
-                     `Rozwiązania:\n` +
-                     `• Odznacz inne damskie kurtki skórzane\n` +
-                     `• Użyj filtrów, aby ograniczyć listę\n` +
-                     `• Zaznaczaj produkty pojedynczo`);
+                     `Maksymalny limit: 140 damskich kurtek skórzanych`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania wszystkich
+            }
+
+            // Sprawdź limit męskich kurtek
+            if (totalMenLeatherJackets > 50) {
+                console.log(`🛑 BLOKADA "ZAZNACZ WSZYSTKIE" - przekroczenie limitu męskich: ${totalMenLeatherJackets}/50`);
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WSZYSTKICH PRODUKTÓW!\n\n` +
+                     `Przekroczenie limitu męskich kurtek licówka:\n` +
+                     `• W aktualnej liście: ${menLeatherJacketsInFiltered}\n` +
+                     `• Już zaznaczone: ${currentMenLeatherJackets}\n` +
+                     `• Łącznie po zaznaczeniu: ${totalMenLeatherJackets}/50\n\n` +
+                     `Maksymalny limit: 50 męskich kurtek licówka`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania wszystkich
             }
         }
@@ -474,14 +595,23 @@ const SeachEngineTable = () => {
                     return isWomenLeatherJacket(product, productName);
                 }).length;
                 
+                const menLeatherSelected = newSelectedProducts.filter(productName => {
+                    const product = products.find(p => p.fullName === productName);
+                    return isMenLeatherJacket(product, productName);
+                }).length;
+                
                 console.log('📊 STATYSTYKI PO "ZAZNACZ WSZYSTKIE":', {
                     akcja: allSelected ? 'ODZNACZ WSZYSTKIE' : 'ZAZNACZ WSZYSTKIE',
                     produktyWFiltrze: currentFilteredProducts.length,
                     totalZaznaczonych: totalSelected,
                     kurtekSkorzanychDamskich: womenLeatherSelected,
-                    limitKurtek: 140,
-                    pozostaloDoLimitu: Math.max(0, 140 - womenLeatherSelected),
-                    limitPrzekroczony: womenLeatherSelected > 140
+                    limitKurtekDamskich: 140,
+                    pozostaloDoLimituDamskich: Math.max(0, 140 - womenLeatherSelected),
+                    limitPrzekroczonaDamskie: womenLeatherSelected > 140,
+                    kurtekMeskichLicowka: menLeatherSelected,
+                    limitKurtekMeskich: 50,
+                    pozostaloDoLimituMeskich: Math.max(0, 50 - menLeatherSelected),
+                    limitPrzekroczonaMeskie: menLeatherSelected > 50
                 });
             }, 100);
 
@@ -586,24 +716,25 @@ const SeachEngineTable = () => {
         
 
 
-        // Rozdziel na kurtki damskie i męskie - męskie mają undefined w row[2], więc używamy nazw
+        // Rozdziel na kurtki damskie i męskie na podstawie podkategorii z danych produktów
         const womenJackets = printTableData.filter(row => {
-            // Damskie: mają row[2] === 'D'
-            return row[2] === 'D';
+            const productData = products.find(p => p.fullName === row[1]);
+            if (!productData) return false;
+            
+            // Damskie: sprawdź podkategorię "Kurtka skórzana damska"
+            return productData.subcategory && 
+                   typeof productData.subcategory === 'object' &&
+                   productData.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska';
         });
         
         const menJackets = printTableData.filter(row => {
-            const name = row[1] || '';
-            // Męskie: sprawdź czy nazwa zaczyna się od męskich imion
-            const menNames = [
-                '32', 'Adam', 'Alan', 'Amadeusz', 'Ambroży', 'Albert', 'Amir', 'Antek', 
-                'Arkadiusz', 'Arnold', 'Artur', 'Bartłomiej', 'Dawid', 'Dominik', 'Filip',
-                'Grzegorz', 'Ireneusz', 'Jakub', 'Kajetan', 'Kordian', 'Leon', 'Maciej',
-                'Marcel', 'Marcin', 'Marian', 'Mariusz', 'Patryk', 'Robert',
-                'Roland', 'Samuel', 'Ignacy', 'Stanisław', 'Szczepan', 'Wojciech', 'Zbigniew'
-            ];
+            const productData = products.find(p => p.fullName === row[1]);
+            if (!productData) return false;
             
-            return menNames.some(menName => name.startsWith(menName + ' '));
+            // Męskie: sprawdź podkategorię "Kurtka męska licówka"
+            return productData.subcategory && 
+                   typeof productData.subcategory === 'object' &&
+                   productData.subcategory.Kat_1_Opis_1 === 'Kurtka męska licówka';
         });
 
 
@@ -648,6 +779,16 @@ const SeachEngineTable = () => {
                 .section-right {
                     float: right;
                     clear: right;
+                }
+                .section-title {
+                    font-size: 9px;
+                    font-weight: bold;
+                    margin: 0;
+                    padding: 0;
+                    line-height: 1.0;
+                    margin-bottom: 2px;
+                    color: black;
+                    text-align: center;
                 }
                 .header {
                     text-align: center;
@@ -696,18 +837,53 @@ const SeachEngineTable = () => {
                     min-width: 12px;
                     font-size: 6px;
                 }
-                /* Kolorowe ramki dla rozmiarów */
-                .size-xs { border-left: 1px solid yellow; border-right: 1px solid yellow; }
-                .size-m { border-left: 1px solid blue; border-right: 1px solid blue; }
-                .size-xl { border-left: 2px solid black; border-right: 2px solid black; }
-                .size-3xl { border-left: 1px solid red; border-right: 1px solid red; }
-                .size-5xl { border-left: 1px solid green; border-right: 1px solid green; }
-                .size-7xl { border-left: 1px solid yellow; border-right: 1px solid yellow; }
+                /* Kolorowe ramki dla rozmiarów - tylko lewo i prawo dla wszystkich */
+                .size-xs { 
+                    border-left: 2px solid orange; 
+                    border-right: 2px solid orange; 
+                }
+                .size-m { 
+                    border-left: 2px solid blue; 
+                    border-right: 2px solid blue; 
+                }
+                .size-xl { 
+                    border-left: 2px solid black; 
+                    border-right: 2px solid black; 
+                }
+                .size-3xl { 
+                    border-left: 2px solid red; 
+                    border-right: 2px solid red; 
+                }
+                .size-5xl { 
+                    border-left: 2px solid green; 
+                    border-right: 2px solid green; 
+                }
+                .size-7xl { 
+                    border-left: 2px solid yellow; 
+                    border-right: 2px solid yellow; 
+                }
+                
+                /* Bordery górne dla nagłówków */
+                th.size-xs { border-top: 2px solid orange; }
+                th.size-m { border-top: 2px solid blue; }
+                th.size-xl { border-top: 2px solid black; }
+                th.size-3xl { border-top: 2px solid red; }
+                th.size-5xl { border-top: 2px solid green; }
+                th.size-7xl { border-top: 2px solid yellow; }
+                
+                /* Bordery dolne dla ostatniego rzędu */
+                tr:last-child .size-xs { border-bottom: 2px solid orange; }
+                tr:last-child .size-m { border-bottom: 2px solid blue; }
+                tr:last-child .size-xl { border-bottom: 2px solid black; }
+                tr:last-child .size-3xl { border-bottom: 2px solid red; }
+                tr:last-child .size-5xl { border-bottom: 2px solid green; }
+                tr:last-child .size-7xl { border-bottom: 2px solid yellow; }
             </style>
         </head>
         <body>
             <!-- Sekcja lewa: Kurtki damskie -->
             <div class="section section-left">
+                <div class="section-title">Kurtki skórzane damskie licówka</div>
                 <table>
                     <thead>
                         <tr>
@@ -752,6 +928,7 @@ const SeachEngineTable = () => {
 
             <!-- Sekcja prawa: Kurtki męskie -->
             <div class="section section-right">
+                <div class="section-title">Kurtki skórzane męskie licówka</div>
                 <table>
                     <thead>
                         <tr>
