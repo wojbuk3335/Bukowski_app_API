@@ -64,4 +64,8 @@ router.post('/sync-product-names',
     GoodsController.syncProductNames
 ); // 🔒 Synchronizacja nazw produktów
 
+// Print selection endpoints
+router.post('/print-selections', GoodsController.updatePrintSelectionBulk);
+router.get('/print-selections', GoodsController.getPrintSelections);
+
 module.exports = router;

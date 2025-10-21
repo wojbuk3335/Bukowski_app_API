@@ -58,7 +58,9 @@ const goodsSchema = mongoose.Schema({
             value: { type: Number }
         }],
         default: []
-    }
+    },
+    // Field to persist checkbox selection state for printing
+    isSelectedForPrint: { type: Boolean, required: false, default: false }
 });
 
 goodsSchema.post('save', function (error, doc, next) {
