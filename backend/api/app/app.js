@@ -42,7 +42,7 @@ app.use(cors({
 // 🔒 RATE LIMITING - Ochrona przed atakami
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minut
-    max: 100, // maksymalnie 100 requestów na IP na 15 minut
+    max: 1000, // zwiększone z 100 do 1000 requestów na IP na 15 minut
     message: {
         error: 'Zbyt wiele requestów z tego IP, spróbuj ponownie za 15 minut.'
     },
@@ -52,7 +52,7 @@ const limiter = rateLimit({
 
 const loginLimiter = rateLimit({
     windowMs: 5 * 60 * 1000, // 5 minut (krótszy czas)
-    max: 10, // więcej prób logowania na IP na 5 minut
+    max: 50, // zwiększone z 10 do 50 prób logowania na IP na 5 minut
     message: {
         error: 'Zbyt wiele prób logowania, spróbuj ponownie za 5 minut.'
     },
