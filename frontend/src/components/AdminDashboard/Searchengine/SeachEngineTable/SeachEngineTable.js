@@ -238,9 +238,9 @@ const SeachEngineTable = () => {
             console.log('📊 STATYSTYKI ZAZNACZONYCH CHECKBOXÓW:', {
                 totalZaznaczone: totalSelectedCheckboxes,
                 kurtekSkorzanychDamskich: womenLeatherJacketsSelected,
-                limitKurtek: 120,
-                pozostaloDoLimitu: Math.max(0, 120 - womenLeatherJacketsSelected),
-                limitPrzekroczony: womenLeatherJacketsSelected > 120
+                limitKurtek: 140,
+                pozostaloDoLimitu: Math.max(0, 140 - womenLeatherJacketsSelected),
+                limitPrzekroczony: womenLeatherJacketsSelected > 140
             });
             
         } catch (error) {
@@ -265,9 +265,9 @@ const SeachEngineTable = () => {
             console.log('📊 AKTUALNE STATYSTYKI ZAZNACZONYCH:', {
                 totalZaznaczone: selectedProducts.length,
                 kurtekSkorzanychDamskich: womenLeatherJacketsCount,
-                limitKurtek: 120,
-                pozostaloDoLimitu: Math.max(0, 120 - womenLeatherJacketsCount),
-                limitPrzekroczony: womenLeatherJacketsCount > 120,
+                limitKurtek: 140,
+                pozostaloDoLimitu: Math.max(0, 140 - womenLeatherJacketsCount),
+                limitPrzekroczony: womenLeatherJacketsCount > 140,
                 zaznaczoneProdukty: selectedProducts
             });
         }
@@ -334,19 +334,19 @@ const SeachEngineTable = () => {
 
             console.log(`🔢 SPRAWDZENIE LIMITU:`, {
                 aktualnieZaznaczone: currentWomenLeatherJackets,
-                limit: 120,
-                przekroczony: currentWomenLeatherJackets >= 120
+                limit: 140,
+                przekroczony: currentWomenLeatherJackets >= 140
             });
 
-            if (currentWomenLeatherJackets >= 120) {
-                console.log(`🛑 BLOKADA AKTYWNA! ${currentWomenLeatherJackets}/120`);
+            if (currentWomenLeatherJackets >= 140) {
+                console.log(`🛑 BLOKADA AKTYWNA! ${currentWomenLeatherJackets}/140`);
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
-                     `Osiągnięto maksymalny limit 120 damskich kurtek skórzanych do druku.\n\n` +
-                     `Aktualnie zaznaczone: ${currentWomenLeatherJackets}/120\n\n` +
+                     `Osiągnięto maksymalny limit 140 damskich kurtek skórzanych do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentWomenLeatherJackets}/140\n\n` +
                      `Aby dodać nowy produkt, najpierw odznacz inne damskie kurtki skórzane.`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania
             } else {
-                console.log(`✅ LIMIT OK! ${currentWomenLeatherJackets + 1}/120 - można zaznaczyć`);
+                console.log(`✅ LIMIT OK! ${currentWomenLeatherJackets + 1}/140 - można zaznaczyć`);
             }
         }
 
@@ -373,8 +373,8 @@ const SeachEngineTable = () => {
                 nowyStanCheckboxa: newSelection,
                 totalZaznaczonych: totalSelected,
                 kurtekSkorzanychDamskich: womenLeatherSelected,
-                limitKurtek: 120,
-                pozostaloDoLimitu: Math.max(0, 120 - womenLeatherSelected)
+                limitKurtek: 140,
+                pozostaloDoLimitu: Math.max(0, 140 - womenLeatherSelected)
             });
         }, 100);
 
@@ -428,18 +428,18 @@ const SeachEngineTable = () => {
                 wFiltrowanych: womenLeatherJacketsInFiltered,
                 aktualnieZaznaczone: currentWomenLeatherJackets,
                 suma: totalWomenLeatherJackets,
-                limit: 120,
-                przekroczony: totalWomenLeatherJackets > 120
+                limit: 140,
+                przekroczony: totalWomenLeatherJackets > 140
             });
 
-            if (totalWomenLeatherJackets > 120) {
-                console.log(`🛑 BLOKADA "ZAZNACZ WSZYSTKIE" - przekroczenie limitu: ${totalWomenLeatherJackets}/120`);
+            if (totalWomenLeatherJackets > 140) {
+                console.log(`🛑 BLOKADA "ZAZNACZ WSZYSTKIE" - przekroczenie limitu: ${totalWomenLeatherJackets}/140`);
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WSZYSTKICH PRODUKTÓW!\n\n` +
                      `Przekroczenie limitu damskich kurtek skórzanych:\n` +
                      `• W aktualnej liście: ${womenLeatherJacketsInFiltered}\n` +
                      `• Już zaznaczone: ${currentWomenLeatherJackets}\n` +
-                     `• Łącznie po zaznaczeniu: ${totalWomenLeatherJackets}/120\n\n` +
-                     `Maksymalny limit: 120 damskich kurtek skórzanych\n\n` +
+                     `• Łącznie po zaznaczeniu: ${totalWomenLeatherJackets}/140\n\n` +
+                     `Maksymalny limit: 140 damskich kurtek skórzanych\n\n` +
                      `Rozwiązania:\n` +
                      `• Odznacz inne damskie kurtki skórzane\n` +
                      `• Użyj filtrów, aby ograniczyć listę\n` +
@@ -479,9 +479,9 @@ const SeachEngineTable = () => {
                     produktyWFiltrze: currentFilteredProducts.length,
                     totalZaznaczonych: totalSelected,
                     kurtekSkorzanychDamskich: womenLeatherSelected,
-                    limitKurtek: 120,
-                    pozostaloDoLimitu: Math.max(0, 120 - womenLeatherSelected),
-                    limitPrzekroczony: womenLeatherSelected > 120
+                    limitKurtek: 140,
+                    pozostaloDoLimitu: Math.max(0, 140 - womenLeatherSelected),
+                    limitPrzekroczony: womenLeatherSelected > 140
                 });
             }, 100);
 
@@ -567,10 +567,12 @@ const SeachEngineTable = () => {
         printWindow.close();
     };
     
-    // Funkcja pomocnicza do zamiany MAGAZYN na X
+    // Funkcja pomocnicza do zamiany MAGAZYN na X i dodania odstępów wokół /
     const formatCellContent = (content) => {
         if (!content || typeof content !== 'string') return content || '';
-        return content.replace(/MAGAZYN/g, 'X');
+        return content
+            .replace(/MAGAZYN/g, 'X')
+            .replace(/\//g, ' / '); // Dodaj spacje wokół ukośników dla lepszej czytelności
     };
     
     // Funkcja generująca HTML dla strony 1 (dwie sekcje: damskie po lewej, męskie po prawej)
@@ -620,16 +622,16 @@ const SeachEngineTable = () => {
                 @media print {
                     body {
                         font-family: Arial, sans-serif;
-                        font-size: 10px;
-                        line-height: 1.2;
+                        font-size: 8px;
+                        line-height: 1.1;
                         margin: 0;
                         padding: 0;
                     }
                 }
                 body {
                     font-family: Arial, sans-serif;
-                    font-size: 10px;
-                    line-height: 1.2;
+                    font-size: 8px;
+                    line-height: 1.1;
                     margin: 0;
                     padding: 0;
                     display: flex;
@@ -650,7 +652,7 @@ const SeachEngineTable = () => {
                 .header {
                     text-align: center;
                     font-weight: bold;
-                    font-size: 12px;
+                    font-size: 10px;
                     color: black;
                     margin-bottom: 10px;
                     border-bottom: 2px solid #000;
@@ -659,7 +661,7 @@ const SeachEngineTable = () => {
                 table {
                     width: 100%;
                     border-collapse: collapse;
-                    font-size: 8px;
+                    font-size: 7px;
                     border-spacing: 0;
                     margin: 0;
                     margin-bottom: 5px;
@@ -669,9 +671,10 @@ const SeachEngineTable = () => {
                     padding: 0.5px;
                     text-align: center;
                     vertical-align: middle;
-                    line-height: 1;
+                    line-height: 1.0;
                     height: auto;
                     font-weight: 600;
+                    font-size: 6px;
                 }
                 th {
                     background-color: #495057;
@@ -682,7 +685,7 @@ const SeachEngineTable = () => {
                 .product-name {
                     text-align: left;
                     font-size: 6px;
-                    max-width: 65px;
+                    max-width: 60px;
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
@@ -902,7 +905,11 @@ const SeachEngineTable = () => {
                 </div>
             </div>
             <table className="table table-bordered text-center" style={{ backgroundColor: 'black' }}>
-                <thead style={{ backgroundColor: '#495057' }}>
+                <thead style={{ 
+                    backgroundColor: '#495057',
+                    fontSize: '18px',
+                    fontWeight: 'bold'
+                }}>
                     <tr>
                         <th>
                             <input
@@ -1086,7 +1093,10 @@ const SeachEngineTable = () => {
                         <th></th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody style={{
+                    fontSize: '15px',
+                    fontWeight: '600'
+                }}>
                     {filteredTableArray.map((row, rowIndex) => (
                         <tr key={rowIndex}>
                             {row.map((cell, colIndex) => {
