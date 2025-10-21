@@ -59,7 +59,8 @@ const SeachEngineTable = () => {
         if (product.category === 'Kurtki kożuchy futra' && 
             product.subcategory && 
             typeof product.subcategory === 'object' &&
-            product.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska' &&
+            (product.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska' || 
+             product.subcategory.Kat_1_Opis_1 === 'Kurtka damska licówka') &&
             product.plec === 'D') {
             console.log(`✅ METODA 1: Poprawna struktura kategorii`);
             return true;
@@ -721,10 +722,11 @@ const SeachEngineTable = () => {
             const productData = products.find(p => p.fullName === row[1]);
             if (!productData) return false;
             
-            // Damskie: sprawdź podkategorię "Kurtka skórzana damska"
+            // Damskie: sprawdź podkategorię "Kurtka skórzana damska" lub "Kurtka damska licówka"
             return productData.subcategory && 
                    typeof productData.subcategory === 'object' &&
-                   productData.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska';
+                   (productData.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska' ||
+                    productData.subcategory.Kat_1_Opis_1 === 'Kurtka damska licówka');
         });
         
         const menJackets = printTableData.filter(row => {

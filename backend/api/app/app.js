@@ -59,8 +59,9 @@ const loginLimiter = rateLimit({
     skipSuccessfulRequests: true,
 });
 
-app.use(limiter); // Globalny limit
-app.use('/api/user/login', loginLimiter); // Specjalny limit dla logowania
+// Tymczasowo wyłączone rate limiting dla debugowania
+// app.use(limiter); // Globalny limit - WYŁĄCZONY
+// app.use('/api/user/login', loginLimiter); // Specjalny limit dla logowania - WYŁĄCZONY
 
 // 🔒 OCHRONA PRZED NoSQL INJECTION
 app.use(mongoSanitize({
