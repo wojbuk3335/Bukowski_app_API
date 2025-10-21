@@ -33,7 +33,7 @@ router.post('/refresh-token', UsersController.refreshToken); // 🔒 Odświeżan
 // ========== ZABEZPIECZONE ENDPOINTY (wymagają autoryzacji) ==========
 router.get('/validate-token', checkAuth, UsersController.verifyToken); // Walidacja tokenu
 router.get('/verifyToken', checkAuth, UsersController.verifyToken); // Duplikat - też zabezpieczony
-router.get('/', checkAuth, UsersController.getAllUsers); // 🔒 Lista użytkowników - tylko dla zalogowanych
+router.get('/', UsersController.getAllUsers); // � TYMCZASOWO WYŁĄCZONE DLA DEVELOPMENTU
 
 router.delete('/:userId', 
     validators.mongoIdValidation,

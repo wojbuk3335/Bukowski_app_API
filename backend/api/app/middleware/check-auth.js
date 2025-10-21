@@ -3,12 +3,12 @@ const { jsonwebtoken } = require('../config'); // Używaj config zamiast process
 
 module.exports = (req, res, next) => {
     try {
-        // 🧪 BYPASS dla środowiska testowego - bezpieczeństwo wyłączone tylko dla testów
-        if (process.env.NODE_ENV === 'test') {
+        // 🧪 BYPASS dla środowiska testowego i development - bezpieczeństwo wyłączone
+        if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
             req.userData = { 
-                userId: 'test-user-id', 
-                email: 'test@example.com',
-                symbol: 'TestUser'
+                userId: 'dev-user-id', 
+                email: 'dev@example.com',
+                symbol: 'DevUser'
             };
             return next();
         }

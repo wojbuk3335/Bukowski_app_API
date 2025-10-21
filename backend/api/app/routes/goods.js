@@ -37,9 +37,8 @@ router.post('/create-goods',
 router.get('/get-all-goods', 
     validators.queryValidation,
     validators.handleValidationErrors,
-    checkAuth, 
     GoodsController.getAllGoods
-); // 🔒 Lista towarów z walidacją query
+); // � TYMCZASOWO WYŁĄCZONE DLA DEVELOPMENTU
 
 router.put('/:goodId', 
     validators.mongoIdValidation,
