@@ -26,3 +26,24 @@
 .table tr:hover {
     background-color: #f9f9f9;
 }
+
+/* Styles for colored rows - better text readability */
+.table tr[style*="background-color"] td {
+    color: #000 !important;
+    text-shadow: 1px 1px 1px rgba(255,255,255,0.8);
+    font-weight: 600;
+}
+
+/* Ensure color picker input is visible */
+.table input[type="color"] {
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+/* Make sure text remains readable on dark backgrounds */
+.table tr[style*="background-color: #000"] td,
+.table tr[style*="background-color: rgb(0"] td {
+    color: #fff !important;
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.8);
+}

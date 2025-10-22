@@ -988,6 +988,70 @@ class GoodsController {
             });
         }
     }
+
+    // Update row background colors for multiple products
+    updateRowColorsBulk = async (req, res, next) => {
+        try {
+            const { colors } = req.body; // Array of {productId, color}
+            
+            if (!colors || !Array.isArray(colors)) {
+                return res.status(400).json({
+                    message: 'Invalid colors format. Expected array of {productId, color} objects.'
+                });
+            }
+
+            const updatePromises = colors.map(({ productId, color }) => {
+                // Validate hex color format
+                const isValidColor = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color);
+                if (!isValidColor) {
+                    throw new Error(`Invalid color format: ${color}. Expected hex format like #ffffff`);
+                }
+
+                return Goods.updateOne(
+                    { _id: productId },
+                    { $set: { rowBackgroundColor: color } }
+                );
+            });
+
+            await Promise.all(updatePromises);
+
+            res.status(200).json({
+                message: 'Row colors updated successfully',
+                updatedCount: colors.length
+            });
+
+        } catch (error) {
+            console.error('Error updating row colors:', error);
+            res.status(500).json({
+                error: error.message,
+                message: 'Failed to update row colors'
+            });
+        }
+    }
+
+    // Get row background colors for all products
+    getRowColors = async (req, res, next) => {
+        try {
+            const products = await Goods.find({}, '_id fullName rowBackgroundColor').exec();
+            
+            const colors = products.reduce((acc, product) => {
+                acc[product._id] = product.rowBackgroundColor || '#ffffff';
+                return acc;
+            }, {});
+
+            res.status(200).json({
+                message: 'Row colors retrieved successfully',
+                colors: colors
+            });
+
+        } catch (error) {
+            console.error('Error getting row colors:', error);
+            res.status(500).json({
+                error: error.message,
+                message: 'Failed to get row colors'
+            });
+        }
+    }
 }
 
 module.exports = new GoodsController();

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import PropTypes from 'prop-types';
+import styles from './SeachEngineTable.module.css';
 
 const SeachEngineTable = () => {
     const [products, setProducts] = useState([]);
@@ -11,6 +12,7 @@ const SeachEngineTable = () => {
     const [selectedSymbols, setSelectedSymbols] = useState([]); // State for selected symbols
     const [selectedProducts, setSelectedProducts] = useState([]); // State for products selected for printing
     const [persistentSelections, setPersistentSelections] = useState({}); // State for persistent checkbox selections
+    const [rowColors, setRowColors] = useState({}); // State for row colors (productName -> color)
 
     // Fetch persistent checkbox selections from database
     const fetchPrintSelections = async () => {
@@ -20,6 +22,19 @@ const SeachEngineTable = () => {
             return response.data.selections;
         } catch (error) {
             console.error('❌ Error fetching print selections:', error);
+            console.error('Error details:', error.response?.data);
+            return {};
+        }
+    };
+
+    // Fetch persistent row colors from database
+    const fetchRowColors = async () => {
+        try {
+            const response = await axios.get('/api/goods/row-colors');
+            setRowColors(response.data.colors);
+            return response.data.colors;
+        } catch (error) {
+            console.error('❌ Error fetching row colors:', error);
             console.error('Error details:', error.response?.data);
             return {};
         }
@@ -44,16 +59,33 @@ const SeachEngineTable = () => {
         }
     };
 
+    // Update row color in database
+    const updateRowColor = async (productId, color) => {
+        try {
+            const response = await axios.post('/api/goods/row-colors', {
+                colors: [{ productId, color }]
+            });
+            
+        } catch (error) {
+            console.error('❌ Error updating row color:', error);
+            console.error('Error details:', error.response?.data);
+        }
+    };
+
+    // Helper function to determine if color is dark or light
+    const isColorDark = (hexColor) => {
+        if (!hexColor) return false;
+        const hex = hexColor.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        return brightness < 128;
+    };
+
     // Helper function to identify women's leather jackets for limit enforcement
     const isWomenLeatherJacket = (product, productName) => {
         if (!product) return false;
-        
-        console.log(`🔍 SPRAWDZANIE PRODUKTU: ${productName}`, {
-            category: product.category,
-            subcategory: product.subcategory,
-            plec: product.plec,
-            subcategoryType: typeof product.subcategory
-        });
         
         // Method 1: Proper category structure check
         if (product.category === 'Kurtki kożuchy futra' && 
@@ -62,7 +94,6 @@ const SeachEngineTable = () => {
             (product.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska' || 
              product.subcategory.Kat_1_Opis_1 === 'Kurtka damska licówka') &&
             product.plec === 'D') {
-            console.log(`✅ METODA 1: Poprawna struktura kategorii`);
             return true;
         }
         
@@ -70,7 +101,6 @@ const SeachEngineTable = () => {
         if (product.category === 'Kurtki kożuchy futra' && 
             product.subcategory === '68f7d26c5b8f61302b06f658' && // ID subcategory "Kurtka skórzana damska" 
             product.plec === 'D') {
-            console.log(`✅ METODA 2: ID subcategory`);
             return true;
         }
         
@@ -81,11 +111,9 @@ const SeachEngineTable = () => {
              productName.toLowerCase().includes('skórzana') ||
              productName.toLowerCase().includes('skorzana') ||
              productName.toLowerCase().includes('jacket'))) {
-            console.log(`✅ METODA 3: Nazwa produktu (fallback)`);
             return true;
         }
         
-        console.log(`❌ PRODUKT NIE PASUJE do kurtek skórzanych damskich`);
         return false;
     };
 
@@ -93,20 +121,12 @@ const SeachEngineTable = () => {
     const isMenLeatherJacket = (product, productName) => {
         if (!product) return false;
         
-        console.log(`🔍 SPRAWDZANIE MĘSKIEJ KURTKI: ${productName}`, {
-            category: product.category,
-            subcategory: product.subcategory,
-            plec: product.plec,
-            subcategoryType: typeof product.subcategory
-        });
-        
         // Method 1: Proper category structure check
         if (product.category === 'Kurtki kożuchy futra' && 
             product.subcategory && 
             typeof product.subcategory === 'object' &&
             product.subcategory.Kat_1_Opis_1 === 'Kurtka męska licówka' &&
             product.plec === 'M') {
-            console.log(`✅ METODA 1: Męska kurtka licówka - poprawna struktura`);
             return true;
         }
         
@@ -114,11 +134,9 @@ const SeachEngineTable = () => {
         if (product.category === 'Kurtki kożuchy futra' && 
             product.subcategory === '68f7db03d1dde0b668d4c378' && // ID subcategory "Kurtka męska licówka" 
             product.plec === 'M') {
-            console.log(`✅ METODA 2: ID męskiej subcategory`);
             return true;
         }
         
-        console.log(`❌ PRODUKT NIE PASUJE do kurtek męskich licówek`);
         return false;
     };
 
@@ -137,6 +155,9 @@ const SeachEngineTable = () => {
             // Fetch persistent checkbox selections
             const selections = await fetchPrintSelections();
 
+            // Fetch persistent row colors
+            const colors = await fetchRowColors();
+
             const stateResponse = await axios.get('/api/state');
             // Use stateResponse.data directly, no need for additional API calls
             const resolvedStateData = stateResponse.data.map((stateItem) => ({
@@ -150,7 +171,7 @@ const SeachEngineTable = () => {
             const uniqueSymbols = [...new Set(resolvedStateData.map((item) => item.symbol))];
             setSymbols(uniqueSymbols);
 
-            const columns = 16; // Number of table columns: 1 checkbox + 1 product name + 14 sizes
+            const columns = 17; // Number of table columns: 1 checkbox + 1 new column + 1 product name + 14 sizes
             const rows = productData.length;
 
             
@@ -163,8 +184,13 @@ const SeachEngineTable = () => {
 
                         return isSelected;
                     }
-                    if (colIndex === 1) return productData[rowIndex].fullName; // Product name
-                    if (colIndex === 2) return productData[rowIndex].plec; // Keep Plec in the array
+                    if (colIndex === 1) {
+                        // Color column - use color from database or default to white
+                        const productId = productData[rowIndex].id;
+                        return colors[productId] || '#ffffff';
+                    }
+                    if (colIndex === 2) return productData[rowIndex].fullName; // Product name
+                    if (colIndex === 3) return productData[rowIndex].plec; // Keep Plec in the array
                     return null;
                 })
             );
@@ -179,62 +205,62 @@ const SeachEngineTable = () => {
                     switch (size) {
                         case 'XXS':
                         case '32':
-                            columnIndex = 3;
+                            columnIndex = 4;
                             break;
                         case 'XS':
                         case '34':
-                            columnIndex = 4;
+                            columnIndex = 5;
                             break;
                         case 'S':
                         case '36':
-                            columnIndex = 5;
+                            columnIndex = 6;
                             break;
                         case 'M':
                         case '38':
-                            columnIndex = 6;
+                            columnIndex = 7;
                             break;
                         case 'L':
                         case '40':
-                            columnIndex = 7;
+                            columnIndex = 8;
                             break;
                         case 'XL':
                         case '42':
-                            columnIndex = 8;
+                            columnIndex = 9;
                             break;
                         case '2XL':
                         case '44':
-                            columnIndex = 9;
+                            columnIndex = 10;
                             break;
                         case '3XL':
                         case '46':
-                            columnIndex = 10;
+                            columnIndex = 11;
                             break;
                         case '4XL':
                         case '48':
-                            columnIndex = 11;
+                            columnIndex = 12;
                             break;
                         case '5XL':
                         case '50':
-                            columnIndex = 12;
+                            columnIndex = 13;
                             break;
                         case '6XL':
                         case '52':
-                            columnIndex = 13;
+                            columnIndex = 14;
                             break;
                         case '7XL':
                         case '54':
-                            columnIndex = 14;
+                            columnIndex = 15;
                             break;
                         case '8XL':
                         case '56':
                         case '66':
-                            columnIndex = 15;
+                            columnIndex = 16;
                             break;
                         default:
                             return;
                     }
                     tableArray.forEach((row) => {
-                        if (row[1] === matchedProduct.fullName) { // Product name is now at index 1
+                        if (row[2] === matchedProduct.fullName) { // Product name is now at index 2
                             if (row[columnIndex]) {
                                 const existingSymbols = row[columnIndex].split('/');
                                 if (!existingSymbols.includes(stateItem.symbol)) {
@@ -256,11 +282,14 @@ const SeachEngineTable = () => {
                 .map(product => product.fullName); // Pobierz nazwy produktów
             
             setSelectedProducts(selectedProductNames);
-            console.log('🔄 SYNCHRONIZACJA po odświeżeniu:', {
-                persistentSelectionsCount: Object.values(selections).filter(Boolean).length,
-                selectedProductsCount: selectedProductNames.length,
-                selectedProducts: selectedProductNames
+
+            // 🎨 SYNCHRONIZACJA KOLORÓW: Mapuj kolory z ID produktów na nazwy produktów
+            const colorsByProductName = {};
+            productData.forEach(product => {
+                const colorFromDb = colors[product.id] || '#ffffff';
+                colorsByProductName[product.fullName] = colorFromDb;
             });
+            setRowColors(colorsByProductName);
             
             // 📊 SZCZEGÓŁOWE STATYSTYKI ZAZNACZONYCH PRODUKTÓW
             const totalSelectedCheckboxes = Object.values(selections).filter(Boolean).length;
@@ -274,18 +303,6 @@ const SeachEngineTable = () => {
                 return isMenLeatherJacket(product, productName);
             }).length;
             
-            console.log('📊 STATYSTYKI ZAZNACZONYCH CHECKBOXÓW:', {
-                totalZaznaczone: totalSelectedCheckboxes,
-                kurtekSkorzanychDamskich: womenLeatherJacketsSelected,
-                limitKurtekDamskich: 140,
-                pozostaloDoLimituDamskich: Math.max(0, 140 - womenLeatherJacketsSelected),
-                limitPrzekroczonaDamskie: womenLeatherJacketsSelected > 140,
-                kurtekMeskichLicowka: menLeatherJacketsSelected,
-                limitKurtekMeskich: 50,
-                pozostaloDoLimituMeskich: Math.max(0, 50 - menLeatherJacketsSelected),
-                limitPrzekroczonaMeskie: menLeatherJacketsSelected > 50
-            });
-            
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -296,6 +313,61 @@ const SeachEngineTable = () => {
     useEffect(() => {
         fetchProducts();
     }, []);
+
+    // Handle color change for rows
+    const handleColorChange = async (productName, color) => {
+        // Find product ID by name
+        const product = products.find(p => p.fullName === productName);
+        if (!product) {
+            console.error('❌ Product not found:', productName);
+            return;
+        }
+
+        // Update local state immediately for UI responsiveness
+        setRowColors(prev => ({
+            ...prev,
+            [productName]: color
+        }));
+
+        // Update table array with new color
+        setTableArray(prev => prev.map(row => {
+            if (row[2] === productName) {
+                const newRow = [...row];
+                newRow[1] = color; // Update color column
+                return newRow;
+            }
+            return row;
+        }));
+
+        // Save to database
+        await updateRowColor(product.id, color);
+    };
+
+    // Reset all colors to white
+    const handleResetColors = async () => {
+        // Reset local state
+        setRowColors({});
+        setTableArray(prev => prev.map(row => {
+            const newRow = [...row];
+            newRow[1] = '#ffffff'; // Reset color to white
+            return newRow;
+        }));
+
+        // Reset colors in database for all products
+        try {
+            const colorUpdates = products.map(product => ({
+                productId: product.id,
+                color: '#ffffff'
+            }));
+
+            await axios.post('/api/goods/row-colors', {
+                colors: colorUpdates
+            });
+
+        } catch (error) {
+            console.error('❌ Error resetting colors in database:', error);
+        }
+    };
 
     // Monitor zmian w selectedProducts i wyświetlaj statystyki
     useEffect(() => {
@@ -309,19 +381,6 @@ const SeachEngineTable = () => {
                 const product = products.find(p => p.fullName === productName);
                 return isMenLeatherJacket(product, productName);
             }).length;
-            
-            console.log('📊 AKTUALNE STATYSTYKI ZAZNACZONYCH:', {
-                totalZaznaczone: selectedProducts.length,
-                kurtekSkorzanychDamskich: womenLeatherJacketsCount,
-                limitDamskich: 140,
-                pozostaloDoLimituDamskich: Math.max(0, 140 - womenLeatherJacketsCount),
-                limitPrzekroczonaDamskie: womenLeatherJacketsCount > 140,
-                kurtekMeskichLicowka: menLeatherJacketsCount,
-                limitMeskich: 50,
-                pozostaloDoLimituMeskich: Math.max(0, 50 - menLeatherJacketsCount),
-                limitPrzekroczonaMeskie: menLeatherJacketsCount > 50,
-                zaznaczoneProdukty: selectedProducts
-            });
         }
     }, [selectedProducts, products]); // Reaguj na zmiany w selectedProducts i products
 
@@ -369,16 +428,7 @@ const SeachEngineTable = () => {
         // 🚨 SPRAWDZENIE LIMITU DLA KURTEK MĘSKICH LICÓWKA
         const isLeatherJacketMen = isMenLeatherJacket(product, productName);
 
-        console.log(`🔄 ZAZNACZANIE PRODUKTU:`, {
-            produkt: productName,
-            plec: product.plec,
-            category: product.category,
-            subcategory: product.subcategory,
-            aktualnieZaznaczony: currentlySelected,
-            nowanStan: newSelection,
-            czyKurtkaSkorzanaDamska: isLeatherJacketWomen,
-            czyKurtkaMeskaLicowka: isLeatherJacketMen
-        });
+        // Logika zaznaczania produktu bez logowania
 
         // Jeśli próbujemy zaznaczyć kurtkę skórzaną damską, sprawdź limit
         if (newSelection && isLeatherJacketWomen) {
@@ -388,21 +438,12 @@ const SeachEngineTable = () => {
                 return isWomenLeatherJacket(selectedProduct, selectedProductName);
             }).length;
 
-            console.log(`🔢 SPRAWDZENIE LIMITU DAMSKICH:`, {
-                aktualnieZaznaczone: currentWomenLeatherJackets,
-                limit: 140,
-                przekroczony: currentWomenLeatherJackets >= 140
-            });
-
             if (currentWomenLeatherJackets >= 140) {
-                console.log(`🛑 BLOKADA AKTYWNA! ${currentWomenLeatherJackets}/140`);
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
                      `Osiągnięto maksymalny limit 140 damskich kurtek skórzanych do druku.\n\n` +
                      `Aktualnie zaznaczone: ${currentWomenLeatherJackets}/140\n\n` +
                      `Aby dodać nowy produkt, najpierw odznacz inne damskie kurtki skórzane.`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania
-            } else {
-                console.log(`✅ LIMIT DAMSKICH OK! ${currentWomenLeatherJackets + 1}/140 - można zaznaczyć`);
             }
         }
 
@@ -414,21 +455,12 @@ const SeachEngineTable = () => {
                 return isMenLeatherJacket(selectedProduct, selectedProductName);
             }).length;
 
-            console.log(`🔢 SPRAWDZENIE LIMITU MĘSKICH:`, {
-                aktualnieZaznaczone: currentMenLeatherJackets,
-                limit: 50,
-                przekroczony: currentMenLeatherJackets >= 50
-            });
-
             if (currentMenLeatherJackets >= 50) {
-                console.log(`🛑 BLOKADA AKTYWNA! ${currentMenLeatherJackets}/50`);
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
                      `Osiągnięto maksymalny limit 50 męskich kurtek licówka do druku.\n\n` +
                      `Aktualnie zaznaczone: ${currentMenLeatherJackets}/50\n\n` +
                      `Aby dodać nowy produkt, najpierw odznacz inne męskie kurtki licówka.`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania
-            } else {
-                console.log(`✅ LIMIT MĘSKICH OK! ${currentMenLeatherJackets + 1}/50 - można zaznaczyć`);
             }
         }
 
@@ -442,35 +474,9 @@ const SeachEngineTable = () => {
                 : prevSelected.filter((p) => p !== productName) // Remove
         );
 
-        // 📊 STATYSTYKI PO ZMIANIE CHECKBOXA
-        setTimeout(() => {
-            const totalSelected = selectedProducts.length + (newSelection ? 1 : -1);
-            const womenLeatherSelected = selectedProducts.filter(prodName => {
-                const prod = products.find(p => p.fullName === prodName);
-                return isWomenLeatherJacket(prod, prodName);
-            }).length + (newSelection && isLeatherJacketWomen ? 1 : (isLeatherJacketWomen ? -1 : 0));
-            
-            const menLeatherSelected = selectedProducts.filter(prodName => {
-                const prod = products.find(p => p.fullName === prodName);
-                return isMenLeatherJacket(prod, prodName);
-            }).length + (newSelection && isLeatherJacketMen ? 1 : (isLeatherJacketMen ? -1 : 0));
-            
-            console.log('📊 STATYSTYKI PO ZMIANIE:', {
-                produktZmieniony: productName,
-                nowyStanCheckboxa: newSelection,
-                totalZaznaczonych: totalSelected,
-                kurtekSkorzanychDamskich: womenLeatherSelected,
-                limitKurtekDamskich: 140,
-                pozostaloDoLimituDamskich: Math.max(0, 140 - womenLeatherSelected),
-                kurtekMeskichLicowka: menLeatherSelected,
-                limitKurtekMeskich: 50,
-                pozostaloDoLimituMeskich: Math.max(0, 50 - menLeatherSelected)
-            });
-        }, 100);
-
         // Update table array checkbox state
         setTableArray(prev => prev.map((row, rowIndex) => {
-            if (row[1] === productName) {
+            if (row[2] === productName) {
                 const newRow = [...row];
                 newRow[0] = newSelection; // Update checkbox state
                 return newRow;
@@ -481,7 +487,7 @@ const SeachEngineTable = () => {
 
     // Handle select all products for printing - now persistent in database
     const handleSelectAllProducts = async () => {
-        const currentFilteredProducts = filteredTableArray.map(row => row[1]); // Product name is now at index 1
+        const currentFilteredProducts = filteredTableArray.map(row => row[2]); // Product name is now at index 2
         
         // Check if all filtered products are currently selected
         const allSelected = currentFilteredProducts.every(productName => {
@@ -528,26 +534,10 @@ const SeachEngineTable = () => {
 
             const totalMenLeatherJackets = currentMenLeatherJackets + menLeatherJacketsInFiltered;
 
-            console.log(`🔢 SPRAWDZENIE LIMITÓW "ZAZNACZ WSZYSTKIE":`, {
-                damskie: {
-                    wFiltrowanych: womenLeatherJacketsInFiltered,
-                    aktualnieZaznaczone: currentWomenLeatherJackets,
-                    suma: totalWomenLeatherJackets,
-                    limit: 140,
-                    przekroczony: totalWomenLeatherJackets > 140
-                },
-                meskie: {
-                    wFiltrowanych: menLeatherJacketsInFiltered,
-                    aktualnieZaznaczone: currentMenLeatherJackets,
-                    suma: totalMenLeatherJackets,
-                    limit: 50,
-                    przekroczony: totalMenLeatherJackets > 50
-                }
-            });
-
+            // Sprawdzenie limitów bez logowania
+            
             // Sprawdź limit damskich kurtek
             if (totalWomenLeatherJackets > 140) {
-                console.log(`🛑 BLOKADA "ZAZNACZ WSZYSTKIE" - przekroczenie limitu damskich: ${totalWomenLeatherJackets}/140`);
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WSZYSTKICH PRODUKTÓW!\n\n` +
                      `Przekroczenie limitu damskich kurtek skórzanych:\n` +
                      `• W aktualnej liście: ${womenLeatherJacketsInFiltered}\n` +
@@ -559,7 +549,6 @@ const SeachEngineTable = () => {
 
             // Sprawdź limit męskich kurtek
             if (totalMenLeatherJackets > 50) {
-                console.log(`🛑 BLOKADA "ZAZNACZ WSZYSTKIE" - przekroczenie limitu męskich: ${totalMenLeatherJackets}/50`);
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WSZYSTKICH PRODUKTÓW!\n\n` +
                      `Przekroczenie limitu męskich kurtek licówka:\n` +
                      `• W aktualnej liście: ${menLeatherJacketsInFiltered}\n` +
@@ -601,25 +590,13 @@ const SeachEngineTable = () => {
                     return isMenLeatherJacket(product, productName);
                 }).length;
                 
-                console.log('📊 STATYSTYKI PO "ZAZNACZ WSZYSTKIE":', {
-                    akcja: allSelected ? 'ODZNACZ WSZYSTKIE' : 'ZAZNACZ WSZYSTKIE',
-                    produktyWFiltrze: currentFilteredProducts.length,
-                    totalZaznaczonych: totalSelected,
-                    kurtekSkorzanychDamskich: womenLeatherSelected,
-                    limitKurtekDamskich: 140,
-                    pozostaloDoLimituDamskich: Math.max(0, 140 - womenLeatherSelected),
-                    limitPrzekroczonaDamskie: womenLeatherSelected > 140,
-                    kurtekMeskichLicowka: menLeatherSelected,
-                    limitKurtekMeskich: 50,
-                    pozostaloDoLimituMeskich: Math.max(0, 50 - menLeatherSelected),
-                    limitPrzekroczonaMeskie: menLeatherSelected > 50
-                });
+                // Statystyki po zaznaczeniu wszystkich (bez logowania)
             }, 100);
 
             // Update table array
             setTableArray(prev => prev.map(row => {
-                const product = products.find(p => p.fullName === row[1]);
-                if (product && currentFilteredProducts.includes(row[1])) {
+                const product = products.find(p => p.fullName === row[2]);
+                if (product && currentFilteredProducts.includes(row[2])) {
                     const newRow = [...row];
                     newRow[0] = !allSelected; // Update checkbox state
                     return newRow;
@@ -662,8 +639,6 @@ const SeachEngineTable = () => {
             return productData && productData.plec === 'M';
         }).length;
         
-        console.log(`Drukowanie strony 1 - Damskie: ${womenCount}, Męskie: ${menCount}, Łącznie: ${leatherJackets.length}`);
-        
         // Utwórz dane do wydruku - damskie po lewej, męskie po prawej
         const printData = {
             title: 'Kurtki Skórzane - Damskie i Męskie',
@@ -673,9 +648,6 @@ const SeachEngineTable = () => {
         
         // Zapisz dane do sessionStorage dla funkcji drukowania
         sessionStorage.setItem('printPage1Data', JSON.stringify(printData));
-        
-        // Wyświetl przypomnienie o ustawieniu liczby kopii
-        console.log('PRZYPOMNIENIE: Ustaw liczbę kopii na 6 w oknie drukowania');
         
         const printContent = generatePrintPage1HTML(leatherJackets);
         const printWindow = window.open('', '_blank');
@@ -690,7 +662,7 @@ const SeachEngineTable = () => {
                     printWindow.print.copies = 6;
                 }
             } catch (error) {
-                console.log('Nie można automatycznie ustawić liczby kopii');
+                // Błąd ustawiania liczby kopii
             }
         });
         
@@ -709,17 +681,16 @@ const SeachEngineTable = () => {
     // Funkcja generująca HTML dla strony 1 (dwie sekcje: damskie po lewej, męskie po prawej)
     const generatePrintPage1HTML = (leatherJackets) => {
 
-        
         // Filtruj zaznaczone produkty z danych tabeli
         const printTableData = filteredTableArray.filter(row => 
-            leatherJackets.includes(row[1]) // row[1] to nazwa produktu
+            leatherJackets.includes(row[2]) // row[2] to nazwa produktu
         );
         
 
 
         // Rozdziel na kurtki damskie i męskie na podstawie podkategorii z danych produktów
         const womenJackets = printTableData.filter(row => {
-            const productData = products.find(p => p.fullName === row[1]);
+            const productData = products.find(p => p.fullName === row[2]);
             if (!productData) return false;
             
             // Damskie: sprawdź podkategorię "Kurtka skórzana damska" lub "Kurtka damska licówka"
@@ -730,7 +701,7 @@ const SeachEngineTable = () => {
         });
         
         const menJackets = printTableData.filter(row => {
-            const productData = products.find(p => p.fullName === row[1]);
+            const productData = products.find(p => p.fullName === row[2]);
             if (!productData) return false;
             
             // Męskie: sprawdź podkategorię "Kurtka męska licówka"
@@ -752,6 +723,14 @@ const SeachEngineTable = () => {
                     size: A4;
                     margin: 10mm;
                 }
+                
+                /* Globalne wymuszenie kolorów tła */
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                
                 @media print {
                     body {
                         font-family: Arial, sans-serif;
@@ -838,6 +817,7 @@ const SeachEngineTable = () => {
                 .size-cell {
                     min-width: 12px;
                     font-size: 6px;
+                    background-color: white !important;
                 }
                 /* Kolorowe ramki dla rozmiarów - tylko lewo i prawo dla wszystkich */
                 .size-xs { 
@@ -880,6 +860,60 @@ const SeachEngineTable = () => {
                 tr:last-child .size-3xl { border-bottom: 2px solid red; }
                 tr:last-child .size-5xl { border-bottom: 2px solid green; }
                 tr:last-child .size-7xl { border-bottom: 2px solid yellow; }
+                
+                /* Zapewnienie czytelności tekstu na kolorowych tłach */
+                tr[style*="background-color"] td {
+                    color: black !important;
+                    text-shadow: 1px 1px 1px rgba(255,255,255,0.8);
+                }
+                
+                /* WYMUSZENIE KOLORÓW TŁA W WYDRUKU */
+                @media print {
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    html, body {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    /* WAŻNE: Wymuszenie kolorów dla tr i td */
+                    table tr[style*="background-color"] {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    table tr {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    table td {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                }
+                
+                /* WYMUSZENIE KOLORÓW dla wszystkich elementów */
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                
+                /* WYMUSZENIE KOLORÓW dla wierszy tabeli */
+                tr {
+                    -webkit-print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
             </style>
         </head>
         <body>
@@ -889,7 +923,7 @@ const SeachEngineTable = () => {
                 <table>
                     <thead>
                         <tr>
-                            <th class="product-name">Nazwa</th>
+                            <th class="product-name" style="background-color: #ffffff !important;">Nazwa</th>
                                 <th class="size-cell">XXS/32</th>
                             <th class="size-cell size-xs">XS/34</th>
                             <th class="size-cell">S/36</th>
@@ -906,24 +940,35 @@ const SeachEngineTable = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        ${womenJackets.map((row, rowIndex) => `
-                            <tr>
-                                <td class="product-name">${row[1]}</td>
-                                <td class="size-cell">${formatCellContent(row[3])}</td>
-                                <td class="size-cell size-xs">${formatCellContent(row[4])}</td>
-                                <td class="size-cell">${formatCellContent(row[5])}</td>
-                                <td class="size-cell size-m">${formatCellContent(row[6])}</td>
-                                <td class="size-cell">${formatCellContent(row[7])}</td>
-                                <td class="size-cell size-xl">${formatCellContent(row[8])}</td>
-                                <td class="size-cell">${formatCellContent(row[9])}</td>
-                                <td class="size-cell size-3xl">${formatCellContent(row[10])}</td>
-                                <td class="size-cell">${formatCellContent(row[11])}</td>
-                                <td class="size-cell size-5xl">${formatCellContent(row[12])}</td>
-                                <td class="size-cell">${formatCellContent(row[13])}</td>
-                                <td class="size-cell size-7xl">${formatCellContent(row[14])}</td>
-                                <td class="size-cell">${formatCellContent(row[15])}</td>
+                        ${womenJackets.map((row, rowIndex) => {
+                            const bgColor = row[1] || '#ffffff';
+                            const isDark = isColorDark(bgColor);
+                            return `
+                            <tr style="
+                                background-color: ${bgColor} !important; 
+                                background: ${bgColor} !important;
+                                color: ${isDark ? '#ffffff' : '#000000'} !important;
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            ">
+                                <td class="product-name" style="background-color: ${bgColor} !important; color: #000000 !important;">${row[2]}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[4])}</td>
+                                <td class="size-cell size-xs" style="background-color: ${bgColor} !important;">${formatCellContent(row[5])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                <td class="size-cell size-m" style="background-color: ${bgColor} !important;">${formatCellContent(row[7])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[8])}</td>
+                                <td class="size-cell size-xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[9])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
+                                <td class="size-cell size-3xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[11])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[12])}</td>
+                                <td class="size-cell size-5xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[13])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[14])}</td>
+                                <td class="size-cell size-7xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[15])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[16])}</td>
                             </tr>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>
@@ -934,7 +979,7 @@ const SeachEngineTable = () => {
                 <table>
                     <thead>
                         <tr>
-                            <th class="product-name">Nazwa</th>
+                            <th class="product-name" style="background-color: #ffffff !important;">Nazwa</th>
                             <th class="size-cell">XXS/44</th>
                             <th class="size-cell size-xs">XS/46</th>
                             <th class="size-cell">S/48</th>
@@ -951,24 +996,35 @@ const SeachEngineTable = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        ${menJackets.map((row, rowIndex) => `
-                            <tr>
-                                <td class="product-name">${row[1]}</td>
-                                <td class="size-cell">${formatCellContent(row[3])}</td>
-                                <td class="size-cell size-xs">${formatCellContent(row[4])}</td>
-                                <td class="size-cell">${formatCellContent(row[5])}</td>
-                                <td class="size-cell size-m">${formatCellContent(row[6])}</td>
-                                <td class="size-cell">${formatCellContent(row[7])}</td>
-                                <td class="size-cell size-xl">${formatCellContent(row[8])}</td>
-                                <td class="size-cell">${formatCellContent(row[9])}</td>
-                                <td class="size-cell size-3xl">${formatCellContent(row[10])}</td>
-                                <td class="size-cell">${formatCellContent(row[11])}</td>
-                                <td class="size-cell size-5xl">${formatCellContent(row[12])}</td>
-                                <td class="size-cell">${formatCellContent(row[13])}</td>
-                                <td class="size-cell size-7xl">${formatCellContent(row[14])}</td>
-                                <td class="size-cell">${formatCellContent(row[15])}</td>
+                        ${menJackets.map((row, rowIndex) => {
+                            const bgColor = row[1] || '#ffffff';
+                            const isDark = isColorDark(bgColor);
+                            return `
+                            <tr style="
+                                background-color: ${bgColor} !important; 
+                                background: ${bgColor} !important;
+                                color: ${isDark ? '#ffffff' : '#000000'} !important;
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            ">
+                                <td class="product-name" style="background-color: ${bgColor} !important; color: #000000 !important;">${row[2]}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[4])}</td>
+                                <td class="size-cell size-xs" style="background-color: ${bgColor} !important;">${formatCellContent(row[5])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                <td class="size-cell size-m" style="background-color: ${bgColor} !important;">${formatCellContent(row[7])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[8])}</td>
+                                <td class="size-cell size-xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[9])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
+                                <td class="size-cell size-3xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[11])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[12])}</td>
+                                <td class="size-cell size-5xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[13])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[14])}</td>
+                                <td class="size-cell size-7xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[15])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[16])}</td>
                             </tr>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
             </div>
@@ -985,22 +1041,22 @@ const SeachEngineTable = () => {
         }
         
         // Dla strony 2 możemy dodać inne produkty lub inne kategorie
-        console.log('Drukowanie strony 2 dla produktów:', selectedProducts);
         alert(`Strona 2 - funkcjonalność w przygotowaniu\n\nZaznaczone produkty (${selectedProducts.length}):\n${selectedProducts.join('\n')}`);
     };
 
     const filteredTableArray = tableArray.map((row) => {
-        const matchesSearchQuery = row[1]?.toLowerCase().includes(searchQuery); // Product name is now at index 1
+        const matchesSearchQuery = row[2]?.toLowerCase().includes(searchQuery); // Product name is now at index 2
 
-        // Filter each cell to show only selected symbols, excluding checkbox and product name columns
+        // Filter each cell to show only selected symbols, excluding checkbox, new column and product name columns
         const filteredRow = row.map((cell, colIndex) => {
             // Checkbox state based on persistent database selection
             if (colIndex === 0) {
-                const product = products.find(p => p.fullName === row[1]);
+                const product = products.find(p => p.fullName === row[2]);
                 return product ? (persistentSelections[product.id] || false) : false;
             }
-            if (colIndex === 1) return cell; // Always include product name column
-            if (colIndex === 2 || !cell) return cell; // Skip Plec or empty cells
+            if (colIndex === 1) return cell; // New column
+            if (colIndex === 2) return cell; // Always include product name column
+            if (colIndex === 3 || !cell) return cell; // Skip Plec or empty cells
             if (selectedSymbols.length === 0) return cell; // Show all symbols if no checkboxes are selected
 
             const cellSymbols = cell.split('/'); // Split cell content by '/'
@@ -1008,8 +1064,8 @@ const SeachEngineTable = () => {
             return matchingSymbols.join('/') || null; // Join matching symbols or return null if none match
         });
 
-        // Check if the row has any visible symbols after filtering (excluding checkbox, product name, and plec columns)
-        const hasVisibleSymbols = selectedSymbols.length === 0 || filteredRow.some((cell, colIndex) => colIndex > 2 && cell);
+        // Check if the row has any visible symbols after filtering (excluding checkbox, new column, product name, and plec columns)
+        const hasVisibleSymbols = selectedSymbols.length === 0 || filteredRow.some((cell, colIndex) => colIndex > 3 && cell);
 
         return matchesSearchQuery && hasVisibleSymbols ? filteredRow : null; // Keep the row if it matches the search query and has visible symbols
     }).filter(Boolean); // Remove rows that are null
@@ -1041,7 +1097,19 @@ const SeachEngineTable = () => {
     }
 
     return (
-        <div className="container mt-4">
+        <>
+            {/* CSS dla ukrycia kolumny kolorów w trybie print */}
+            <style>
+                {`
+                    @media print {
+                        /* Ukryj tylko color picker inputy w print, nie całą kolumnę */
+                        .color-picker-column input[type="color"] {
+                            display: none !important;
+                        }
+                    }
+                `}
+            </style>
+            <div className="container mt-4">
             <div className="d-flex justify-content-center align-items-center mb-3">
                 <button
                     className="btn btn-success btn-sm"
@@ -1058,6 +1126,14 @@ const SeachEngineTable = () => {
                     disabled={selectedProducts.length === 0}
                 >
                     Drukuj stronę 2 ({selectedProducts.length})
+                </button>
+                <button
+                    className="btn btn-warning btn-sm"
+                    onClick={handleResetColors}
+                    style={{ marginRight: '10px' }}
+                    title="Resetuj wszystkie kolory do białego"
+                >
+                    Resetuj kolory
                 </button>
                 <input
                     type="text"
@@ -1094,13 +1170,14 @@ const SeachEngineTable = () => {
                             <input
                                 type="checkbox"
                                 checked={filteredTableArray.length > 0 && filteredTableArray.every(row => {
-                                    const product = products.find(p => p.fullName === row[1]);
+                                    const product = products.find(p => p.fullName === row[2]);
                                     return product && persistentSelections[product.id];
                                 })}
                                 onChange={handleSelectAllProducts}
                                 title="Zaznacz/Odznacz wszystkie do wydruku"
                             />
                         </th>
+                        <th className="color-picker-column">Kolor</th>
                         <th>Rozmiary męskie</th>
                         <th>XXS/40</th>
                         <th
@@ -1166,6 +1243,7 @@ const SeachEngineTable = () => {
                     </tr>
                     <tr>
                         <th></th>
+                        <th></th>
                         <th>Rozmiary damskie</th>
                         <th>XXS/32</th>
                         <th
@@ -1225,6 +1303,7 @@ const SeachEngineTable = () => {
                     </tr>
                     <tr>
                         <th></th>
+                        <th></th>
                         <th>Rozmiary dziecięce</th>
                         <th></th>
                         <th style={{
@@ -1276,10 +1355,22 @@ const SeachEngineTable = () => {
                     fontSize: '15px',
                     fontWeight: '600'
                 }}>
-                    {filteredTableArray.map((row, rowIndex) => (
-                        <tr key={rowIndex}>
+                    {filteredTableArray.map((row, rowIndex) => {
+                        const bgColor = row[1] || '#ffffff';
+                        const isDark = isColorDark(bgColor);
+                        
+                        return (
+                            <tr 
+                                key={rowIndex}
+                                style={{
+                                    backgroundColor: bgColor, // Apply background color from color picker
+                                    transition: 'background-color 0.3s ease', // Smooth color transition
+                                    color: isDark ? '#ffffff' : '#000000', // White text on dark bg, black on light bg
+                                    textShadow: isDark ? '1px 1px 1px rgba(0,0,0,0.8)' : '1px 1px 1px rgba(255,255,255,0.8)' // Appropriate text shadow
+                                }}
+                            >
                             {row.map((cell, colIndex) => {
-                                if (colIndex === 2) return null; // Skip the Plec column (index 2)
+                                if (colIndex === 3) return null; // Skip the Plec column (index 3)
                                 
                                 if (colIndex === 0) {
                                     // Checkbox column
@@ -1288,11 +1379,35 @@ const SeachEngineTable = () => {
                                             <input
                                                 type="checkbox"
                                                 checked={(() => {
-                                                    const product = products.find(p => p.fullName === row[1]);
+                                                    const product = products.find(p => p.fullName === row[2]);
                                                     return product ? (persistentSelections[product.id] || false) : false;
                                                 })()}
-                                                onChange={() => handleProductCheckboxChange(row[1])}
+                                                onChange={() => handleProductCheckboxChange(row[2])}
                                                 title="Zaznacz do wydruku"
+                                            />
+                                        </td>
+                                    );
+                                }
+                                
+                                if (colIndex === 1) {
+                                    // Color picker column
+                                    return (
+                                        <td key={colIndex} className="color-picker-column" style={{ 
+                                            padding: '2px', 
+                                            textAlign: 'center'
+                                        }}>
+                                            <input
+                                                type="color"
+                                                value={row[1] || '#ffffff'}
+                                                onChange={(e) => handleColorChange(row[2], e.target.value)}
+                                                style={{
+                                                    width: '30px',
+                                                    height: '25px',
+                                                    border: 'none',
+                                                    borderRadius: '3px',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Wybierz kolor dla wydruku"
                                             />
                                         </td>
                                     );
@@ -1302,47 +1417,49 @@ const SeachEngineTable = () => {
                                     <td
                                         key={colIndex}
                                         style={{
-                                            backgroundColor: colIndex === 15 ? 'black' : '', // Set background color for column 15 (8XL)
-                                            borderLeft: colIndex === 4 ? '3px solid orange' :
-                                                        colIndex === 6 ? '3px solid blue' :
-                                                        colIndex === 8 ? '3px solid white' :
-                                                        colIndex === 10 ? '3px solid red' :
-                                                        colIndex === 12 ? '3px solid green' :
-                                                        colIndex === 14 ? '3px solid yellow' : '',
-                                            borderRight: colIndex === 4 ? '3px solid orange' :
-                                                         colIndex === 6 ? '3px solid blue' :
-                                                         colIndex === 8 ? '3px solid white' :
-                                                         colIndex === 10 ? '3px solid red' :
-                                                         colIndex === 12 ? '3px solid green' :
-                                                         colIndex === 14 ? '3px solid yellow' : '',
+                                            backgroundColor: colIndex === 16 ? 'black' : '', // Set background color for column 16 (8XL)
+                                            borderLeft: colIndex === 5 ? '3px solid orange' :
+                                                        colIndex === 7 ? '3px solid blue' :
+                                                        colIndex === 9 ? '3px solid white' :
+                                                        colIndex === 11 ? '3px solid red' :
+                                                        colIndex === 13 ? '3px solid green' :
+                                                        colIndex === 15 ? '3px solid yellow' : '',
+                                            borderRight: colIndex === 5 ? '3px solid orange' :
+                                                         colIndex === 7 ? '3px solid blue' :
+                                                         colIndex === 9 ? '3px solid white' :
+                                                         colIndex === 11 ? '3px solid red' :
+                                                         colIndex === 13 ? '3px solid green' :
+                                                         colIndex === 15 ? '3px solid yellow' : '',
                                             borderBottom: rowIndex === filteredTableArray.length - 1
-                                                ? colIndex === 4
-                                                    ? '3px solid orange' // Bottom border for column 4
-                                                    : colIndex === 6
-                                                    ? '3px solid blue' // Bottom border for column 6
-                                                    : colIndex === 8
-                                                    ? '3px solid white' // Bottom border for column 8
-                                                    : colIndex === 10
-                                                    ? '3px solid red' // Bottom border for column 10
-                                                    : colIndex === 12
-                                                    ? '3px solid green' // Bottom border for column 12
-                                                    : colIndex === 14
-                                                    ? '3px solid yellow' // Bottom border for column 14
+                                                ? colIndex === 5
+                                                    ? '3px solid orange' // Bottom border for column 5
+                                                    : colIndex === 7
+                                                    ? '3px solid blue' // Bottom border for column 7
+                                                    : colIndex === 9
+                                                    ? '3px solid white' // Bottom border for column 9
+                                                    : colIndex === 11
+                                                    ? '3px solid red' // Bottom border for column 11
+                                                    : colIndex === 13
+                                                    ? '3px solid green' // Bottom border for column 13
+                                                    : colIndex === 15
+                                                    ? '3px solid yellow' // Bottom border for column 15
                                                     : ''
                                                 : '', // No bottom border for other rows
                                         }}
                                     >
-                                        {colIndex > 2 
+                                        {colIndex > 3 
                                             ? (cell && typeof cell === 'string' ? cell.replace(/MAGAZYN/g, 'X') : cell) || '' 
                                             : cell}
                                     </td>
                                 );
                             })}
                         </tr>
-                    ))}
+                        );
+                    })}
                 </tbody>
             </table>
         </div>
+        </>
     );
 };
 

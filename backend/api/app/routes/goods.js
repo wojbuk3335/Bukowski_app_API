@@ -67,4 +67,8 @@ router.post('/sync-product-names',
 router.post('/print-selections', GoodsController.updatePrintSelectionBulk);
 router.get('/print-selections', GoodsController.getPrintSelections);
 
+// Row color endpoints
+router.post('/row-colors', GoodsController.updateRowColorsBulk);
+router.get('/row-colors', GoodsController.getRowColors);
+
 module.exports = router;

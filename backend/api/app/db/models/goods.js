@@ -60,7 +60,9 @@ const goodsSchema = mongoose.Schema({
         default: []
     },
     // Field to persist checkbox selection state for printing
-    isSelectedForPrint: { type: Boolean, required: false, default: false }
+    isSelectedForPrint: { type: Boolean, required: false, default: false },
+    // Field to persist row background color for UI and printing
+    rowBackgroundColor: { type: String, required: false, default: '#ffffff' }
 });
 
 goodsSchema.post('save', function (error, doc, next) {
