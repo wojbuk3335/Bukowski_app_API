@@ -20,7 +20,7 @@ const validators = {
     loginValidation: [
         body('email')
             .isEmail()
-            .normalizeEmail()
+            // .normalizeEmail() - USUNIETE: nie normalizuj email przy logowaniu
             .withMessage('Nieprawidłowy format email'),
         body('password')
             .isLength({ min: 4 })

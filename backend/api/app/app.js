@@ -32,7 +32,7 @@ app.use(express.json({ limit: '50mb' })); // Increase JSON payload limit
 // 🔒 BEZPIECZNA KONFIGURACJA CORS - zamiast app.use(cors())
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' 
-        ? ['https://twoja-domena.com'] // 🔒 Tylko twoja domena na produkcji
+        ? ['https://bukowskiapp.pl'] // 🔒 Poprawna domena produkcyjna
         : ['http://localhost:3000', 'http://localhost:3001'], // Development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -71,11 +71,12 @@ app.use(mongoSanitize({
   }
 }));
 
-// Log wszystkich requestów - DISABLED
-// app.use((req, res, next) => {
-//     console.log(`📨 ${req.method} ${req.url} from ${req.get('host')} - Origin: ${req.get('origin')}`);
-//     next();
-// });
+// Log wszystkich requestów dla logowania - TEMPORARY DEBUG
+app.use('/api/user/login', (req, res, next) => {
+    console.log(`� LOGIN REQUEST: ${req.method} ${req.url} from ${req.get('host')} - Origin: ${req.get('origin')}`);
+    console.log(`🔍 LOGIN BODY:`, req.body);
+    next();
+});
 
 // Set UTF-8 headers only for API routes
 app.use('/api', (req, res, next) => {

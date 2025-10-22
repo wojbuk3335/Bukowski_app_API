@@ -90,10 +90,15 @@ class UsersController {
     }
 
     login(req, res, next) {
+        console.log(`🔍 LOGIN ATTEMPT: email=${req.body.email}, password length=${req.body.password?.length}`);
+        
         User.findOne({ email: req.body.email })
             .exec()
             .then(user => {
+                console.log(`🔍 USER FOUND:`, user ? `Yes (ID: ${user._id})` : 'No');
+                
                 if (!user) {
+                    console.log(`❌ LOGIN FAILED: User not found for email: ${req.body.email}`);
                     return res.status(401).json({
                         message: 'Auth failed'
                     });
