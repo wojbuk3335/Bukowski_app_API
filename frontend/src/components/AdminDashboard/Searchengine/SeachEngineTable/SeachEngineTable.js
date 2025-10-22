@@ -710,6 +710,19 @@ const SeachEngineTable = () => {
                    productData.subcategory.Kat_1_Opis_1 === 'Kurtka męska licówka';
         });
 
+        // Filtruj kamizelki licówka (męskie i damskie)
+        const kamizelki = printTableData.filter(row => {
+            const productData = products.find(p => p.fullName === row[2]);
+            if (!productData) return false;
+            
+            // Kamizelki: sprawdź podkategorię "Kamizelka damska licówka" lub "Kamizelka męska licówka"
+            return productData.category === 'Kurtki kożuchy futra' && 
+                   productData.subcategory && 
+                   typeof productData.subcategory === 'object' &&
+                   (productData.subcategory.Kat_1_Opis_1 === 'Kamizelka damska licówka' ||
+                    productData.subcategory.Kat_1_Opis_1 === 'Kamizelka męska licówka');
+        });
+
 
 
         return `
@@ -917,7 +930,7 @@ const SeachEngineTable = () => {
             </style>
         </head>
         <body>
-            <!-- Sekcja lewa: Kurtki damskie -->
+            <!-- Sekcja górna lewa: Kurtki damskie -->
             <div class="section section-left">
                 <div class="section-title">Kurtki skórzane damskie licówka</div>
                 <table>
@@ -973,7 +986,7 @@ const SeachEngineTable = () => {
                 </table>
             </div>
 
-            <!-- Sekcja prawa: Kurtki męskie -->
+            <!-- Sekcja górna prawa: Kurtki męskie -->
             <div class="section section-right">
                 <div class="section-title">Kurtki skórzane męskie licówka</div>
                 <table>
@@ -1027,6 +1040,62 @@ const SeachEngineTable = () => {
                         }).join('')}
                     </tbody>
                 </table>
+                
+                <!-- Kamizelki licówka pod męskimi -->
+                <div style="margin-top: 15px;">
+                    <div class="section-title">Kamizelki licówka</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="product-name" style="background-color: #ffffff !important;">Nazwa</th>
+                                <th class="size-cell">XXS/32</th>
+                                <th class="size-cell size-xs">XS/34</th>
+                                <th class="size-cell">S/36</th>
+                                <th class="size-cell size-m">M/38</th>
+                                <th class="size-cell">L/40</th>
+                                <th class="size-cell size-xl">XL/42</th>
+                                <th class="size-cell">2XL/44</th>
+                                <th class="size-cell size-3xl">3XL/46</th>
+                                <th class="size-cell">4XL/48</th>
+                                <th class="size-cell size-5xl">5XL/50</th>
+                                <th class="size-cell">6XL/52</th>
+                                <th class="size-cell size-7xl">7XL/54</th>
+                                <th class="size-cell">8XL/56</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${kamizelki.map((row, rowIndex) => {
+                                const bgColor = row[1] || '#ffffff';
+                                const isDark = isColorDark(bgColor);
+                                return `
+                                <tr style="
+                                    background-color: ${bgColor} !important; 
+                                    background: ${bgColor} !important;
+                                    color: ${isDark ? '#ffffff' : '#000000'} !important;
+                                    -webkit-print-color-adjust: exact !important;
+                                    color-adjust: exact !important;
+                                    print-color-adjust: exact !important;
+                                ">
+                                    <td class="product-name" style="background-color: ${bgColor} !important; color: #000000 !important;">${row[2]}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[4])}</td>
+                                    <td class="size-cell size-xs" style="background-color: ${bgColor} !important;">${formatCellContent(row[5])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                    <td class="size-cell size-m" style="background-color: ${bgColor} !important;">${formatCellContent(row[7])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[8])}</td>
+                                    <td class="size-cell size-xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[9])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
+                                    <td class="size-cell size-3xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[11])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[12])}</td>
+                                    <td class="size-cell size-5xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[13])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[14])}</td>
+                                    <td class="size-cell size-7xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[15])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[16])}</td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </body>
         </html>
@@ -1068,7 +1137,7 @@ const SeachEngineTable = () => {
         const hasVisibleSymbols = selectedSymbols.length === 0 || filteredRow.some((cell, colIndex) => colIndex > 3 && cell);
 
         return matchesSearchQuery && hasVisibleSymbols ? filteredRow : null; // Keep the row if it matches the search query and has visible symbols
-    }).filter(Boolean); // Remove rows that are null
+    }).filter(row => row !== null);
 
     if (loading) {
         return (

@@ -26,13 +26,11 @@ const upload = multer({
 
 // ========== WSZYSTKIE OPERACJE NA TOWARACH WYMAGAJĄ AUTORYZACJI ==========
 router.post('/create-goods', 
-    validators.productValidation,
-    validators.handleValidationErrors,
     checkAuth, 
     upload.single('Picture'), 
     historyLogger('goods'), 
     GoodsController.createGood
-); // 🔒 Tworzenie towaru z walidacją
+); // 🔒 Tworzenie towaru bez walidacji express-validator (kontroler ma własną)
 
 router.get('/get-all-goods', 
     validators.queryValidation,
@@ -42,7 +40,6 @@ router.get('/get-all-goods',
 
 router.put('/:goodId', 
     validators.mongoIdValidation,
-    validators.productValidation,
     validators.handleValidationErrors,
     checkAuth, 
     upload.single('Picture'), 

@@ -74,12 +74,14 @@ const validators = {
 
     // Walidacja danych produktowych
     productValidation: [
-        body('name')
+        body('fullName')
+            .optional()
             .isLength({ min: 1, max: 100 })
             .trim()
             .escape() // Escape HTML
             .withMessage('Nazwa produktu jest wymagana (1-100 znaków)'),
         body('price')
+            .optional()
             .isNumeric()
             .isFloat({ min: 0 })
             .withMessage('Cena musi być liczbą dodatnią'),

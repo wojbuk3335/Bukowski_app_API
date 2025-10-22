@@ -79,7 +79,22 @@ const generateRemainingProductCode = async (remainingProductCode, colorData) => 
 
 class GoodsController {
     async createGood(req, res, next) {
+        console.log('🔍 CREATE GOOD DEBUG:');
+        console.log('req.body:', req.body);
+        console.log('req.file:', req.file);
+        
         const { stock, color, fullName, code, category, subcategory, remainingsubsubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId, priceKarpacz, discount_priceKarpacz } = req.body; // Add manufacturer and Karpacz fields
+        
+        // Basic validation
+        if (!fullName || fullName.trim() === '') {
+            console.log('❌ fullName validation failed');
+            return res.status(400).json({ message: 'Nazwa produktu jest wymagana' });
+        }
+        if (!code || code.trim() === '') {
+            console.log('❌ code validation failed');
+            return res.status(400).json({ message: 'Kod produktu jest wymagany' });
+        }
+        
         // Handle picture field - in test environment, use picture from req.body directly if no file uploaded
         const picture = req.file ? `${config.domain}/images/${req.file.filename}` : (req.body.picture || '');
         const priceExceptions = JSON.parse(req.body.priceExceptions || '[]');
@@ -118,8 +133,11 @@ class GoodsController {
         }
 
         // Validate price
-        if (price <= 0) {
-            return res.status(400).json({ message: 'Cena musi być większa od zera' });
+        console.log('🔍 Price validation:', { price, type: typeof price, parsed: parseFloat(price) });
+        const numericPrice = parseFloat(price);
+        if (!price || isNaN(numericPrice) || numericPrice <= 0) {
+            console.log('❌ Price validation failed');
+            return res.status(400).json({ message: 'Cena musi być liczbą większą od zera' });
         }
 
         // Check for duplicate sizes in price exceptions
@@ -153,6 +171,7 @@ class GoodsController {
             }
         }
 
+        console.log('✅ All validations passed, creating goodData...');
         const goodData = {
             _id: new mongoose.Types.ObjectId(),
             color,
@@ -168,7 +187,9 @@ class GoodsController {
             // Karpacz pricing fields
             priceKarpacz: parseFloat(priceKarpacz) || 0,
             discount_priceKarpacz: parseFloat(discount_priceKarpacz) || 0,
-            priceExceptionsKarpacz
+            priceExceptionsKarpacz,
+            // Default row background color
+            rowBackgroundColor: '#ffffff'
         };
 
         // Add manufacturer if provided
@@ -253,6 +274,7 @@ class GoodsController {
                     // Don't fail the product creation if sync fails - just log the error
                 }
                 
+                console.log('✅ Sending success response to frontend');
                 res.status(201).json({
                     message: 'Good created successfully and added to all price lists',
                     createdGood: {
