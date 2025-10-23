@@ -197,6 +197,90 @@ const SeachEngineTable = () => {
                 product.subcategory.Kat_1_Opis_1 === 'Kamizelka męska licówka');
     };
 
+    // Funkcja sprawdzająca czy produkt to kożuch damski
+    const isWomensFurCoat = (product, productName) => {
+        if (!product) return false;
+        
+        // WYKLUCZENIE: Jeśli to produkt R&B, nie licz go jako kożuch damski (ma własny limit)
+        if (isRBProduct(product, productName)) {
+            return false;
+        }
+        
+        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kożuchem damskim
+        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
+            return false;
+        }
+        
+        // Sprawdź podkategorię "Kożuch damski"
+        return product.category === 'Kurtki kożuchy futra' && 
+               product.subcategory && 
+               typeof product.subcategory === 'object' &&
+               product.subcategory.Kat_1_Opis_1 === 'Kożuch damski';
+    };
+
+    // Funkcja sprawdzająca czy produkt to kożuch męski
+    const isMensFurCoat = (product, productName) => {
+        if (!product) return false;
+        
+        // WYKLUCZENIE: Jeśli to produkt R&B, nie licz go jako kożuch męski (ma własny limit)
+        if (isRBProduct(product, productName)) {
+            return false;
+        }
+        
+        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kożuchem męskim
+        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
+            return false;
+        }
+        
+        // Sprawdź podkategorię "Kożuch męski " (uwaga na spację na końcu!)
+        return product.category === 'Kurtki kożuchy futra' && 
+               product.subcategory && 
+               typeof product.subcategory === 'object' &&
+               product.subcategory.Kat_1_Opis_1 === 'Kożuch męski ';
+    };
+
+    // Funkcja sprawdzająca czy produkt to kożuch dziecięcy
+    const isChildrensFurCoat = (product, productName) => {
+        if (!product) return false;
+        
+        // WYKLUCZENIE: Jeśli to produkt R&B, nie licz go jako kożuch dziecięcy (ma własny limit)
+        if (isRBProduct(product, productName)) {
+            return false;
+        }
+        
+        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kożuchem dziecięcym
+        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
+            return false;
+        }
+        
+        // Sprawdź podkategorię "Kożuch dziecięcy"
+        return product.category === 'Kurtki kożuchy futra' && 
+               product.subcategory && 
+               typeof product.subcategory === 'object' &&
+               product.subcategory.Kat_1_Opis_1 === 'Kożuch dziecięcy';
+    };
+
+    // Funkcja sprawdzająca czy produkt to kamizelka dziecięca
+    const isChildrensVest = (product, productName) => {
+        if (!product) return false;
+        
+        // WYKLUCZENIE: Jeśli to produkt R&B, nie licz go jako kamizelka dziecięca (ma własny limit)
+        if (isRBProduct(product, productName)) {
+            return false;
+        }
+        
+        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kamizelką dziecięcą
+        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
+            return false;
+        }
+        
+        // Sprawdź podkategorię "Kamizelka dziecięca"
+        return product.category === 'Kurtki kożuchy futra' && 
+               product.subcategory && 
+               typeof product.subcategory === 'object' &&
+               product.subcategory.Kat_1_Opis_1 === 'Kamizelka dziecięca';
+    };
+
     const fetchProducts = async () => {
         try {
             const goodsResponse = await axios.get('/api/excel/goods/get-all-goods');
@@ -314,6 +398,46 @@ const SeachEngineTable = () => {
                         case '66':
                             columnIndex = 16;
                             break;
+                        // Rozmiary dziecięce
+                        case '92':
+                            columnIndex = 4;
+                            break;
+                        case '98':
+                            columnIndex = 5;
+                            break;
+                        case '104':
+                            columnIndex = 6;
+                            break;
+                        case '110':
+                            columnIndex = 7;
+                            break;
+                        case '116':
+                            columnIndex = 8;
+                            break;
+                        case '122':
+                            columnIndex = 9;
+                            break;
+                        case '128':
+                            columnIndex = 10;
+                            break;
+                        case '134':
+                            columnIndex = 11;
+                            break;
+                        case '140':
+                            columnIndex = 12;
+                            break;
+                        case '146':
+                            columnIndex = 13;
+                            break;
+                        case '152':
+                            columnIndex = 14;
+                            break;
+                        case '158':
+                            columnIndex = 15;
+                            break;
+                        case '164':
+                            columnIndex = 16;
+                            break;
                         default:
                             return;
                     }
@@ -403,6 +527,29 @@ const SeachEngineTable = () => {
 
     // Reset all colors to white
     const handleResetColors = async () => {
+        // Wyświetl okno potwierdzenia z prośbą o wpisanie słowa "RESETUJ"
+        const confirmationWord = prompt(
+            '⚠️ UWAGA! RESETOWANIE KOLORÓW\n\n' +
+            'Ta operacja wyczyści WSZYSTKIE kolory produktów w tabeli!\n' +
+            'Wszystkie produkty zostaną ustawione na kolor biały.\n\n' +
+            'Aby potwierdzić, wpisz słowo: RESETUJ\n' +
+            '(wielkość liter ma znaczenie)'
+        );
+
+        // Sprawdź czy użytkownik wpisał poprawne słowo potwierdzające
+        if (confirmationWord !== 'RESETUJ') {
+            if (confirmationWord !== null) {
+                // Użytkownik wpisał coś, ale niepoprawnie
+                alert('❌ Błędne słowo potwierdzające!\n\nOperacja resetowania kolorów została anulowana.\n\nAby zresetować kolory, spróbuj ponownie i wpisz dokładnie: RESETUJ');
+            }
+            // Jeśli confirmationWord === null, użytkownik anulował (kliknął Cancel)
+            console.log('🚫 Resetowanie kolorów zostało anulowane przez użytkownika');
+            return; // Przerwij wykonywanie funkcji
+        }
+
+        // Jeśli doszliśmy tutaj, użytkownik wpisał poprawne słowo
+        console.log('✅ Potwierdzenie resetowania kolorów - rozpoczynam resetowanie...');
+
         // Reset local state
         setRowColors({});
         setTableArray(prev => prev.map(row => {
@@ -422,8 +569,12 @@ const SeachEngineTable = () => {
                 colors: colorUpdates
             });
 
+            // Pokaż komunikat o powodzeniu
+            alert('✅ RESETOWANIE KOLORÓW ZAKOŃCZONE POMYŚLNIE!\n\nWszystkie kolory produktów zostały zresetowane do białego.');
+
         } catch (error) {
             console.error('❌ Error resetting colors in database:', error);
+            alert('❌ BŁĄD PODCZAS RESETOWANIA KOLORÓW!\n\nWystąpił problem z połączeniem z bazą danych.\nSpróbuj ponownie lub skontaktuj się z administratorem.');
         }
     };
 
@@ -492,6 +643,15 @@ const SeachEngineTable = () => {
         // 🚨 SPRAWDZENIE LIMITU DLA PRODUKTÓW R&B
         const isRB = isRBProduct(product, productName);
 
+        // 🚨 SPRAWDZENIE LIMITU DLA KOŻUCHÓW DAMSKICH
+        const isWomenFurCoat = isWomensFurCoat(product, productName);
+
+        // 🚨 SPRAWDZENIE LIMITU DLA KOŻUCHÓW MĘSKICH
+        const isMenFurCoat = isMensFurCoat(product, productName);
+
+        // 🚨 SPRAWDZENIE LIMITU DLA PRODUKTÓW DZIECIĘCYCH
+        const isChildrenProduct = isChildrensFurCoat(product, productName) || isChildrensVest(product, productName);
+
         // Logika zaznaczania produktu bez logowania
 
         // Jeśli próbujemy zaznaczyć kurtkę skórzaną damską, sprawdź limit
@@ -519,10 +679,10 @@ const SeachEngineTable = () => {
                 return isMenLeatherJacket(selectedProduct, selectedProductName);
             }).length;
 
-            if (currentMenLeatherJackets >= 50) {
+            if (currentMenLeatherJackets >= 45) {
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
-                     `Osiągnięto maksymalny limit 50 męskich kurtek licówka do druku.\n\n` +
-                     `Aktualnie zaznaczone: ${currentMenLeatherJackets}/50\n\n` +
+                     `Osiągnięto maksymalny limit 45 męskich kurtek licówka do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentMenLeatherJackets}/45\n\n` +
                      `Aby dodać nowy produkt, najpierw odznacz inne męskie kurtki licówka.`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania
             }
@@ -536,11 +696,45 @@ const SeachEngineTable = () => {
                 return isVestLicowka(selectedProduct, selectedProductName);
             }).length;
 
-            if (currentVests >= 20) {
+            if (currentVests >= 10) {
                 alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
-                     `Osiągnięto maksymalny limit 20 kamizelek licówka do druku.\n\n` +
-                     `Aktualnie zaznaczone: ${currentVests}/20\n\n` +
+                     `Osiągnięto maksymalny limit 10 kamizelek licówka do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentVests}/10\n\n` +
                      `Aby dodać nowy produkt, najpierw odznacz inne kamizelki licówka.`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania
+            }
+        }
+
+        // Jeśli próbujemy zaznaczyć kożuch damski, sprawdź limit
+        if (newSelection && isWomenFurCoat) {
+            // Policz aktualnie zaznaczone kożuchy damskie
+            const currentWomenFurCoats = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isWomensFurCoat(selectedProduct, selectedProductName);
+            }).length;
+
+            if (currentWomenFurCoats >= 140) {
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
+                     `Osiągnięto maksymalny limit 140 kożuchów damskich do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentWomenFurCoats}/140\n\n` +
+                     `Aby dodać nowy produkt, najpierw odznacz inne kożuchy damskie.`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania
+            }
+        }
+
+        // Jeśli próbujemy zaznaczyć kożuch męski, sprawdź limit
+        if (newSelection && isMenFurCoat) {
+            // Policz aktualnie zaznaczone kożuchy męskie
+            const currentMenFurCoats = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isMensFurCoat(selectedProduct, selectedProductName);
+            }).length;
+
+            if (currentMenFurCoats >= 45) {
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
+                     `Osiągnięto maksymalny limit 45 kożuchów męskich do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentMenFurCoats}/45\n\n` +
+                     `Aby dodać nowy produkt, najpierw odznacz inne kożuchy męskie.`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania
             }
         }
@@ -558,6 +752,23 @@ const SeachEngineTable = () => {
                      `Osiągnięto maksymalny limit 40 produktów R&B do druku.\n\n` +
                      `Aktualnie zaznaczone: ${currentRBProducts}/40\n\n` +
                      `Aby dodać nowy produkt, najpierw odznacz inne produkty R&B.`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania
+            }
+        }
+
+        // Jeśli próbujemy zaznaczyć produkt dziecięcy, sprawdź limit
+        if (newSelection && isChildrenProduct) {
+            // Policz aktualnie zaznaczone produkty dziecięce
+            const currentChildrenProducts = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isChildrensFurCoat(selectedProduct, selectedProductName) || isChildrensVest(selectedProduct, selectedProductName);
+            }).length;
+
+            if (currentChildrenProducts >= 15) {
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
+                     `Osiągnięto maksymalny limit 15 produktów dziecięcych do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentChildrenProducts}/15\n\n` +
+                     `Aby dodać nowy produkt, najpierw odznacz inne produkty dziecięce.`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania
             }
         }
@@ -879,7 +1090,7 @@ const SeachEngineTable = () => {
             return productData.subcategory && 
                    typeof productData.subcategory === 'object' &&
                    productData.subcategory.Kat_1_Opis_1 === 'Kurtka męska licówka';
-        });
+        }).slice(0, 45); // LIMIT 45 kurtek męskich
 
         // Filtruj kamizelki licówka (męskie i damskie)
         const kamizelki = printTableData.filter(row => {
@@ -1423,6 +1634,430 @@ const SeachEngineTable = () => {
         `;
     };
 
+    // Funkcja generująca HTML dla strony 2 (kożuchy damskie po lewej, męskie + dziecięce po prawej)
+    const generatePrintPage2HTML = () => {
+
+        // Filtruj zaznaczone produkty z danych tabeli
+        const printTableData = filteredTableArray.filter(row => 
+            selectedProducts.includes(row[2]) // row[2] to nazwa produktu
+        );
+
+        // Filtruj kożuchy damskie (podkategoria "Kożuch damski") - LIMIT 140
+        const womensFurCoats = printTableData.filter(row => {
+            const productData = products.find(p => p.fullName === row[2]);
+            if (!productData) return false;
+            
+            // Kożuchy damskie: sprawdź podkategorię "Kożuch damski"
+            return productData.subcategory && 
+                   typeof productData.subcategory === 'object' &&
+                   productData.subcategory.Kat_1_Opis_1 === 'Kożuch damski';
+        }).slice(0, 140); // LIMIT 140 produktów
+
+        // Filtruj kożuchy męskie (podkategoria "Kożuch męski") - LIMIT 45
+        const mensFurCoats = printTableData.filter(row => {
+            const productData = products.find(p => p.fullName === row[2]);
+            if (!productData) return false;
+            
+            // Kożuchy męskie: sprawdź podkategorię "Kożuch męski"
+            return productData.subcategory && 
+                   typeof productData.subcategory === 'object' &&
+                   productData.subcategory.Kat_1_Opis_1 === 'Kożuch męski ';
+        }).slice(0, 45); // LIMIT 45 kożuchów męskich
+
+        // Filtruj produkty dziecięce (kożuchy + kamizelki) - LIMIT 15
+        const childrenProducts = printTableData.filter(row => {
+            const productData = products.find(p => p.fullName === row[2]);
+            if (!productData) return false;
+            
+            // Użyj isChildrensFurCoat i isChildrensVest zamiast własnego filtra
+            return isChildrensFurCoat(productData, row[2]) || isChildrensVest(productData, row[2]);
+        }).slice(0, 15); // LIMIT 15 produktów dziecięcych
+
+        return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Kożuchy Damskie i Męskie</title>
+            <!-- DOMYŚLNIE: Ustaw liczbę kopii na 6 w oknie drukowania -->
+            <style>
+                @page {
+                    size: A4;
+                    margin: 10mm;
+                }
+                
+                /* Globalne wymuszenie kolorów tła */
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                
+                @media print {
+                    body {
+                        font-family: Arial, sans-serif;
+                        font-size: 8px;
+                        line-height: 1.1;
+                        margin: 0;
+                        padding: 0;
+                    }
+                }
+                body {
+                    font-family: Arial, sans-serif;
+                    font-size: 8px;
+                    line-height: 1.1;
+                    margin: 0;
+                    padding: 0;
+                    display: flex;
+                    gap: 10px;
+                }
+                .section {
+                    width: 48%;
+                    float: left;
+                }
+                .section-left {
+                    float: left;
+                    clear: left;
+                }
+                .section-right {
+                    float: right;
+                    clear: right;
+                }
+                .section-title {
+                    font-size: 9px;
+                    font-weight: bold;
+                    margin: 0;
+                    padding: 0;
+                    line-height: 1.0;
+                    margin-bottom: 2px;
+                    color: black;
+                    text-align: center;
+                }
+                .header {
+                    text-align: center;
+                    font-weight: bold;
+                    font-size: 10px;
+                    color: black;
+                    margin-bottom: 10px;
+                    border-bottom: 2px solid #000;
+                    padding-bottom: 5px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 7px;
+                    border-spacing: 0;
+                    margin: 0;
+                    margin-bottom: 5px;
+                }
+                th, td {
+                    border: 1px solid #000;
+                    padding: 0.5px;
+                    text-align: center;
+                    vertical-align: middle;
+                    line-height: 1.0;
+                    height: auto;
+                    font-weight: 600;
+                    font-size: 6px;
+                }
+                th {
+                    background-color: #495057;
+                    color: black;
+                    font-weight: bold;
+                    font-size: 7px;
+                }
+                .product-name {
+                    text-align: left;
+                    font-size: 6px;
+                    max-width: 60px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    text-transform: uppercase;
+                    font-weight: bold;
+                }
+                .size-cell {
+                    min-width: 12px;
+                    font-size: 6px;
+                    background-color: white !important;
+                }
+                /* Kolorowe ramki dla rozmiarów - tylko lewo i prawo dla wszystkich */
+                .size-xs { 
+                    border-left: 2px solid orange; 
+                    border-right: 2px solid orange; 
+                }
+                .size-m { 
+                    border-left: 2px solid blue; 
+                    border-right: 2px solid blue; 
+                }
+                .size-xl { 
+                    border-left: 2px solid black; 
+                    border-right: 2px solid black; 
+                }
+                .size-3xl { 
+                    border-left: 2px solid red; 
+                    border-right: 2px solid red; 
+                }
+                .size-5xl { 
+                    border-left: 2px solid green; 
+                    border-right: 2px solid green; 
+                }
+                .size-7xl { 
+                    border-left: 2px solid yellow; 
+                    border-right: 2px solid yellow; 
+                }
+                
+                /* Bordery górne dla nagłówków */
+                th.size-xs { border-top: 2px solid orange; }
+                th.size-m { border-top: 2px solid blue; }
+                th.size-xl { border-top: 2px solid black; }
+                th.size-3xl { border-top: 2px solid red; }
+                th.size-5xl { border-top: 2px solid green; }
+                th.size-7xl { border-top: 2px solid yellow; }
+                
+                /* Bordery dolne dla ostatniego rzędu */
+                tr:last-child .size-xs { border-bottom: 2px solid orange; }
+                tr:last-child .size-m { border-bottom: 2px solid blue; }
+                tr:last-child .size-xl { border-bottom: 2px solid black; }
+                tr:last-child .size-3xl { border-bottom: 2px solid red; }
+                tr:last-child .size-5xl { border-bottom: 2px solid green; }
+                tr:last-child .size-7xl { border-bottom: 2px solid yellow; }
+                
+                /* Zapewnienie czytelności tekstu na kolorowych tłach */
+                tr[style*="background-color"] td {
+                    color: black !important;
+                    text-shadow: 1px 1px 1px rgba(255,255,255,0.8);
+                }
+                
+                /* WYMUSZENIE KOLORÓW TŁA W WYDRUKU */
+                @media print {
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    html, body {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    /* WAŻNE: Wymuszenie kolorów dla tr i td */
+                    table tr[style*="background-color"] {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    table tr {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    table td {
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                }
+                
+                /* WYMUSZENIE KOLORÓW dla wszystkich elementów */
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                
+                /* WYMUSZENIE KOLORÓW dla wierszy tabeli */
+                tr {
+                    -webkit-print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+            </style>
+        </head>
+        <body>
+            <style>
+                /* Style dla rozmiarów dziecięcych */
+                .size-104 { 
+                    border-left: 2px solid blue; 
+                    border-right: 2px solid blue; 
+                }
+                .size-128 { 
+                    border-left: 2px solid black; 
+                    border-right: 2px solid black; 
+                }
+                .size-152 { 
+                    border-left: 2px solid red; 
+                    border-right: 2px solid red; 
+                }
+                th.size-104 { border-top: 2px solid blue; }
+                th.size-128 { border-top: 2px solid black; }
+                th.size-152 { border-top: 2px solid red; }
+                tr:last-child .size-104 { border-bottom: 2px solid blue; }
+                tr:last-child .size-128 { border-bottom: 2px solid black; }
+                tr:last-child .size-152 { border-bottom: 2px solid red; }
+            </style>
+            
+            <!-- Sekcja lewa: Kożuchy damskie -->
+            <div class="section section-left">
+                <div class="section-title">Kożuchy damskie</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="product-name" style="background-color: #ffffff !important;">Nazwa</th>
+                                <th class="size-cell">XXS/32</th>
+                            <th class="size-cell size-xs">XS/34</th>
+                            <th class="size-cell">S/36</th>
+                            <th class="size-cell size-m">M/38</th>
+                            <th class="size-cell">L/40</th>
+                            <th class="size-cell size-xl">XL/42</th>
+                            <th class="size-cell">2XL/44</th>
+                            <th class="size-cell size-3xl">3XL/46</th>
+                            <th class="size-cell">4XL/48</th>
+                            <th class="size-cell size-5xl">5XL/50</th>
+                            <th class="size-cell">6XL/52</th>
+                            <th class="size-cell size-7xl">7XL/54</th>
+                            <th class="size-cell">8XL/56</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${womensFurCoats.map((row, rowIndex) => {
+                            const bgColor = row[1] || '#ffffff';
+                            const isDark = isColorDark(bgColor);
+                            return `
+                            <tr style="
+                                background-color: ${bgColor} !important; 
+                                background: ${bgColor} !important;
+                                color: ${isDark ? '#ffffff' : '#000000'} !important;
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            ">
+                                <td class="product-name" style="background-color: ${bgColor} !important; color: #000000 !important;">${row[2]}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[4])}</td>
+                                <td class="size-cell size-xs" style="background-color: ${bgColor} !important;">${formatCellContent(row[5])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                <td class="size-cell size-m" style="background-color: ${bgColor} !important;">${formatCellContent(row[7])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[8])}</td>
+                                <td class="size-cell size-xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[9])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
+                                <td class="size-cell size-3xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[11])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[12])}</td>
+                                <td class="size-cell size-5xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[13])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[14])}</td>
+                                <td class="size-cell size-7xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[15])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[16])}</td>
+                            </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Sekcja prawa: Kożuchy męskie -->
+            <div class="section section-right">
+                <div class="section-title">Kożuchy męskie</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="product-name" style="background-color: #ffffff !important;">Nazwa</th>
+                            <th class="size-cell">XXS/44</th>
+                            <th class="size-cell size-xs">XS/46</th>
+                            <th class="size-cell">S/48</th>
+                            <th class="size-cell size-m">M/50</th>
+                            <th class="size-cell">L/52</th>
+                            <th class="size-cell size-xl">XL/54</th>
+                            <th class="size-cell">2XL/56</th>
+                            <th class="size-cell size-3xl">3XL/58</th>
+                            <th class="size-cell">4XL/60</th>
+                            <th class="size-cell size-5xl">5XL/62</th>
+                            <th class="size-cell">6XL/64</th>
+                            <th class="size-cell size-7xl">7XL/66</th>
+                            <th class="size-cell">8XL/66</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${mensFurCoats.map((row, rowIndex) => {
+                            const bgColor = row[1] || '#ffffff';
+                            const isDark = isColorDark(bgColor);
+                            return `
+                            <tr style="
+                                background-color: ${bgColor} !important; 
+                                background: ${bgColor} !important;
+                                color: ${isDark ? '#ffffff' : '#000000'} !important;
+                                -webkit-print-color-adjust: exact !important;
+                                color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            ">
+                                <td class="product-name" style="background-color: ${bgColor} !important; color: #000000 !important;">${row[2]}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[4])}</td>
+                                <td class="size-cell size-xs" style="background-color: ${bgColor} !important;">${formatCellContent(row[5])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                <td class="size-cell size-m" style="background-color: ${bgColor} !important;">${formatCellContent(row[7])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[8])}</td>
+                                <td class="size-cell size-xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[9])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
+                                <td class="size-cell size-3xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[11])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[12])}</td>
+                                <td class="size-cell size-5xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[13])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[14])}</td>
+                                <td class="size-cell size-7xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[15])}</td>
+                                <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[16])}</td>
+                            </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+
+                <!-- Sekcja dziecięca pod kożuchami męskimi -->
+                <div style="margin-top: 15px;">
+                    <div class="section-title">Kamizelki i kożuchy dziecięce</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="product-name" style="background-color: #ffffff !important;">Nazwa</th>
+                                <th class="size-cell">92</th>
+                                <th class="size-cell size-104">104</th>
+                                <th class="size-cell">116</th>
+                                <th class="size-cell size-128">128</th>
+                                <th class="size-cell">140</th>
+                                <th class="size-cell size-152">152</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${childrenProducts.map((row, rowIndex) => {
+                                const bgColor = row[1] || '#ffffff';
+                                const isDark = isColorDark(bgColor);
+                                return `
+                                <tr style="
+                                    background-color: ${bgColor} !important; 
+                                    background: ${bgColor} !important;
+                                    color: ${isDark ? '#ffffff' : '#000000'} !important;
+                                    -webkit-print-color-adjust: exact !important;
+                                    color-adjust: exact !important;
+                                    print-color-adjust: exact !important;
+                                ">
+                                    <td class="product-name" style="background-color: ${bgColor} !important; color: #000000 !important;">${row[2]}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[4])}</td>
+                                    <td class="size-cell size-104" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[8])}</td>
+                                    <td class="size-cell size-128" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[12])}</td>
+                                    <td class="size-cell size-152" style="background-color: ${bgColor} !important;">${formatCellContent(row[14])}</td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+    };
+
     // Handle printing page 2
     const handlePrintPage2 = () => {
         if (selectedProducts.length === 0) {
@@ -1430,8 +2065,35 @@ const SeachEngineTable = () => {
             return;
         }
         
-        // Dla strony 2 możemy dodać inne produkty lub inne kategorie
-        alert(`Strona 2 - funkcjonalność w przygotowaniu\n\nZaznaczone produkty (${selectedProducts.length}):\n${selectedProducts.join('\n')}`);
+        // Utwórz dane do wydruku - kożuchy damskie po lewej, męskie po prawej
+        const printData = {
+            title: 'Kożuchy Damskie i Męskie',
+            products: selectedProducts,
+            layout: 'split-view' // Dwie sekcje na jednej kartce
+        };
+        
+        // Zapisz dane do sessionStorage dla funkcji drukowania
+        sessionStorage.setItem('printPage2Data', JSON.stringify(printData));
+        
+        const printContent = generatePrintPage2HTML();
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        
+        // Próba ustawienia domyślnej liczby kopii na 6
+        printWindow.addEventListener('beforeprint', () => {
+            try {
+                // Dla niektórych przeglądarek można ustawić domyślną liczbę kopii
+                if (printWindow.print.copies !== undefined) {
+                    printWindow.print.copies = 6;
+                }
+            } catch (error) {
+                // Błąd ustawiania liczby kopii
+            }
+        });
+        
+        printWindow.print();
+        printWindow.close();
     };
 
     const filteredTableArray = tableArray.map((row) => {

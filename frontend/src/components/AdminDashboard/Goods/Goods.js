@@ -120,7 +120,7 @@ const Goods = () => {
             .then(response => response.json())
             .then(data => {
                 const colors = (data.colors || []).filter(color => 
-                    color.Kol_Opis && color.Kol_Opis.trim() !== ''
+                    color && color.Kol_Opis && color.Kol_Opis.trim() !== ''
                 );
                 setColors(colors);
                 if (colors.length > 0) {
@@ -491,7 +491,7 @@ const Goods = () => {
         
         // Find color description for filter text
         const selectedColorObj = colors.find(color => color._id === colorId);
-        if (selectedColorObj) {
+        if (selectedColorObj && selectedColorObj.Kol_Opis) {
             setColorFilterText(selectedColorObj.Kol_Opis);
         }
         
@@ -984,8 +984,8 @@ const Goods = () => {
         
         // Check if the new value would match any color
         const wouldMatchAnyColor = colors.some(color => 
-            color.Kol_Opis.toLowerCase().includes(value.toLowerCase()) ||
-            color.Kol_Kod.toLowerCase().includes(value.toLowerCase())
+            color && color.Kol_Opis && color.Kol_Opis.toLowerCase().includes(value.toLowerCase()) ||
+            color && color.Kol_Kod && color.Kol_Kod.toLowerCase().includes(value.toLowerCase())
         );
         
         // Only allow the change if it matches some color or if it's a deletion (shorter than current)
@@ -1028,7 +1028,7 @@ const Goods = () => {
             e.preventDefault();
             if (selectedColorIndex >= 0 && selectedColorIndex < filteredColors.length) {
                 const color = filteredColors[selectedColorIndex];
-                handleColorSelect(color._id, color.Kol_Opis);
+                handleColorSelect(color._id, color.Kol_Opis || '');
             }
         } else if (e.key === 'Escape') {
             setIsColorDropdownOpen(false);
@@ -1038,10 +1038,10 @@ const Goods = () => {
 
     const getFilteredColors = () => {
         return colors
-            .filter(color => color.Kol_Opis && color.Kol_Opis.trim() !== '')
+            .filter(color => color && color.Kol_Opis && color.Kol_Opis.trim() !== '')
             .filter(color => 
                 color.Kol_Opis.toLowerCase().includes(colorFilterText.toLowerCase()) ||
-                color.Kol_Kod.toLowerCase().includes(colorFilterText.toLowerCase())
+                (color.Kol_Kod && color.Kol_Kod.toLowerCase().includes(colorFilterText.toLowerCase()))
             )
             .sort((a, b) => {
                 // Sortuj według kodu koloru numerycznie
@@ -1739,7 +1739,7 @@ const Goods = () => {
         setSelectedRemainingProductIndex(-1); // Reset keyboard navigation
         
         // Reset color filtering states
-        setColorFilterText(colors.length > 0 ? colors[0].Kol_Opis : ''); // Reset color filter text
+        setColorFilterText(colors.length > 0 && colors[0].Kol_Opis ? colors[0].Kol_Opis : ''); // Reset color filter text
         setIsColorDropdownOpen(false); // Close color dropdown
         setSelectedColorIndex(-1); // Reset color keyboard navigation
         
@@ -2453,7 +2453,7 @@ const Goods = () => {
                                                                 selectedColor === color._id ? '#111111' : '#000000',
                                                             color: '#ffffff'
                                                         }}
-                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis)}
+                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis || '')}
                                                         onMouseEnter={(e) => {
                                                             if (selectedColorIndex !== index) {
                                                                 e.target.style.backgroundColor = '#444444';
@@ -2761,7 +2761,7 @@ const Goods = () => {
                                                                 selectedColor === color._id ? '#111111' : '#000000',
                                                             color: '#ffffff'
                                                         }}
-                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis)}
+                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis || '')}
                                                         onMouseEnter={(e) => {
                                                             if (selectedColorIndex !== index) {
                                                                 e.target.style.backgroundColor = '#444444';
@@ -3037,7 +3037,7 @@ const Goods = () => {
                                                                 selectedColor === color._id ? '#111111' : '#000000',
                                                             color: '#ffffff'
                                                         }}
-                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis)}
+                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis || '')}
                                                         onMouseEnter={(e) => {
                                                             if (selectedColorIndex !== index) {
                                                                 e.target.style.backgroundColor = '#444444';
@@ -3330,7 +3330,7 @@ const Goods = () => {
                                                                 selectedColor === color._id ? '#111111' : '#000000',
                                                             color: '#ffffff'
                                                         }}
-                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis)}
+                                                        onClick={() => handleColorSelect(color._id, color.Kol_Opis || '')}
                                                         onMouseEnter={(e) => {
                                                             if (selectedColorIndex !== index) {
                                                                 e.target.style.backgroundColor = '#444444';
@@ -3461,7 +3461,7 @@ const Goods = () => {
                                 <td className={styles.tableCell} data-label="Produkt">
                                     {(good.category === 'Torebki' || good.category === 'Portfele' || good.category === 'Pozostały asortyment') ? (good.bagProduct || '-') : (good.stock ? good.stock.Tow_Opis : '-')}
                                 </td>
-                                <td className={styles.tableCell} data-label="Kolor">{good.color.Kol_Opis}</td>
+                                <td className={styles.tableCell} data-label="Kolor">{good.color ? good.color.Kol_Opis || '-' : '-'}</td>
                                 <td className={styles.tableCell} data-label="Nazwa produktu">{good.fullName}</td>
                                 <td className={styles.tableCell} data-label="Kod produktu">{good.code}</td>
                                 <td className={styles.tableCell} data-label="Kategoria">{good.category}</td>
