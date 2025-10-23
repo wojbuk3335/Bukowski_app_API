@@ -184,6 +184,11 @@ const SeachEngineTable = () => {
             return false;
         }
         
+        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kamizelką licówka
+        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
+            return false;
+        }
+        
         // Sprawdź podkategorię "Kamizelka damska licówka" lub "Kamizelka męska licówka"
         return product.category === 'Kurtki kożuchy futra' && 
                product.subcategory && 
