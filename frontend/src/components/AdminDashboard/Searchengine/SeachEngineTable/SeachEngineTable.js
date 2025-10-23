@@ -87,8 +87,8 @@ const SeachEngineTable = () => {
     const isRBProduct = (product, productName) => {
         if (!product) return false;
         
-        // Method 1: Check by manufacturer ID (R&B ID: 68eebc6478015550b96ae903)
-        if (product.manufacturer === '68eebc6478015550b96ae903') {
+        // Method 1: Check by manufacturer ID (R&B ID na serwerze: 68eb68aa9c8a8a8eb473f2e0)
+        if (product.manufacturer === '68eb68aa9c8a8a8eb473f2e0') {
             return true;
         }
         
@@ -96,6 +96,12 @@ const SeachEngineTable = () => {
         if (product.manufacturer && 
             typeof product.manufacturer === 'object' &&
             product.manufacturer.Prod_Opis === 'R&B') {
+            return true;
+        }
+        
+        // Method 3: DODATKOWA OCHRONA - sprawdź po nazwie produktu
+        if (productName && typeof productName === 'string' && 
+            productName.toLowerCase().includes('r&b')) {
             return true;
         }
         
