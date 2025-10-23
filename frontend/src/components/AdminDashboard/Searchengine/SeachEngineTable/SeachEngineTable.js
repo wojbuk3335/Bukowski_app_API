@@ -173,6 +173,11 @@ const SeachEngineTable = () => {
     const isVestLicowka = (product, productName) => {
         if (!product) return false;
         
+        // WYKLUCZENIE: Jeśli to produkt R&B, nie licz go jako kamizelka licówka (ma własny limit)
+        if (isRBProduct(product, productName)) {
+            return false;
+        }
+        
         // Sprawdź podkategorię "Kamizelka damska licówka" lub "Kamizelka męska licówka"
         return product.category === 'Kurtki kożuchy futra' && 
                product.subcategory && 
