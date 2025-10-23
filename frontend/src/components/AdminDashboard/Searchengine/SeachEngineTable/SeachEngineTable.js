@@ -83,9 +83,33 @@ const SeachEngineTable = () => {
         return brightness < 128;
     };
 
+    // Funkcja sprawdzająca czy produkt to kurtka R&B
+    const isRBProduct = (product, productName) => {
+        if (!product) return false;
+        
+        // Method 1: Check by manufacturer ID (R&B ID: 68eebc6478015550b96ae903)
+        if (product.manufacturer === '68eebc6478015550b96ae903') {
+            return true;
+        }
+        
+        // Method 2: Check by manufacturer object if it's populated
+        if (product.manufacturer && 
+            typeof product.manufacturer === 'object' &&
+            product.manufacturer.Prod_Opis === 'R&B') {
+            return true;
+        }
+        
+        return false;
+    };
+
     // Helper function to identify women's leather jackets for limit enforcement
     const isWomenLeatherJacket = (product, productName) => {
         if (!product) return false;
+        
+        // WYKLUCZENIE: Jeśli to produkt R&B, nie licz go jako damska kurtka licówka (ma własny limit)
+        if (isRBProduct(product, productName)) {
+            return false;
+        }
         
         // Method 1: Proper category structure check
         if (product.category === 'Kurtki kożuchy futra' && 
@@ -121,6 +145,11 @@ const SeachEngineTable = () => {
     const isMenLeatherJacket = (product, productName) => {
         if (!product) return false;
         
+        // Wyklucz produkty R&B - one mają swój własny limit 40 sztuk
+        if (isRBProduct(product, productName)) {
+            return false;
+        }
+        
         // Method 1: Proper category structure check
         if (product.category === 'Kurtki kożuchy futra' && 
             product.subcategory && 
@@ -140,6 +169,18 @@ const SeachEngineTable = () => {
         return false;
     };
 
+    // Funkcja sprawdzająca czy produkt to kamizelka licówka (męska lub damska)
+    const isVestLicowka = (product, productName) => {
+        if (!product) return false;
+        
+        // Sprawdź podkategorię "Kamizelka damska licówka" lub "Kamizelka męska licówka"
+        return product.category === 'Kurtki kożuchy futra' && 
+               product.subcategory && 
+               typeof product.subcategory === 'object' &&
+               (product.subcategory.Kat_1_Opis_1 === 'Kamizelka damska licówka' ||
+                product.subcategory.Kat_1_Opis_1 === 'Kamizelka męska licówka');
+    };
+
     const fetchProducts = async () => {
         try {
             const goodsResponse = await axios.get('/api/excel/goods/get-all-goods');
@@ -148,7 +189,8 @@ const SeachEngineTable = () => {
                 fullName: item.fullName,
                 plec: item.Plec,
                 category: item.category,
-                subcategory: item.subcategory
+                subcategory: item.subcategory,
+                manufacturer: item.manufacturer
             }));
             setProducts(productData);
 
@@ -428,6 +470,12 @@ const SeachEngineTable = () => {
         // 🚨 SPRAWDZENIE LIMITU DLA KURTEK MĘSKICH LICÓWKA
         const isLeatherJacketMen = isMenLeatherJacket(product, productName);
 
+        // 🚨 SPRAWDZENIE LIMITU DLA KAMIZELEK LICÓWKA
+        const isVest = isVestLicowka(product, productName);
+
+        // 🚨 SPRAWDZENIE LIMITU DLA PRODUKTÓW R&B
+        const isRB = isRBProduct(product, productName);
+
         // Logika zaznaczania produktu bez logowania
 
         // Jeśli próbujemy zaznaczyć kurtkę skórzaną damską, sprawdź limit
@@ -460,6 +508,40 @@ const SeachEngineTable = () => {
                      `Osiągnięto maksymalny limit 50 męskich kurtek licówka do druku.\n\n` +
                      `Aktualnie zaznaczone: ${currentMenLeatherJackets}/50\n\n` +
                      `Aby dodać nowy produkt, najpierw odznacz inne męskie kurtki licówka.`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania
+            }
+        }
+
+        // Jeśli próbujemy zaznaczyć kamizelkę licówka, sprawdź limit
+        if (newSelection && isVest) {
+            // Policz aktualnie zaznaczone kamizelki licówka
+            const currentVests = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isVestLicowka(selectedProduct, selectedProductName);
+            }).length;
+
+            if (currentVests >= 20) {
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
+                     `Osiągnięto maksymalny limit 20 kamizelek licówka do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentVests}/20\n\n` +
+                     `Aby dodać nowy produkt, najpierw odznacz inne kamizelki licówka.`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania
+            }
+        }
+
+        // Jeśli próbujemy zaznaczyć produkt R&B, sprawdź limit
+        if (newSelection && isRB) {
+            // Policz aktualnie zaznaczone produkty R&B
+            const currentRBProducts = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isRBProduct(selectedProduct, selectedProductName);
+            }).length;
+
+            if (currentRBProducts >= 40) {
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WIĘCEJ PRODUKTÓW!\n\n` +
+                     `Osiągnięto maksymalny limit 40 produktów R&B do druku.\n\n` +
+                     `Aktualnie zaznaczone: ${currentRBProducts}/40\n\n` +
+                     `Aby dodać nowy produkt, najpierw odznacz inne produkty R&B.`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania
             }
         }
@@ -534,6 +616,20 @@ const SeachEngineTable = () => {
 
             const totalMenLeatherJackets = currentMenLeatherJackets + menLeatherJacketsInFiltered;
 
+            // 🚨 SPRAWDZENIE LIMITU KAMIZELEK LICÓWKA przy "Zaznacz wszystkie"
+            const vestsInFiltered = currentFilteredProducts.filter(productName => {
+                const product = products.find(p => p.fullName === productName);
+                return isVestLicowka(product, productName);
+            }).length;
+
+            const currentVests = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isVestLicowka(selectedProduct, selectedProductName) &&
+                    !currentFilteredProducts.includes(selectedProductName);
+            }).length;
+
+            const totalVests = currentVests + vestsInFiltered;
+
             // Sprawdzenie limitów bez logowania
             
             // Sprawdź limit damskich kurtek
@@ -555,6 +651,42 @@ const SeachEngineTable = () => {
                      `• Już zaznaczone: ${currentMenLeatherJackets}\n` +
                      `• Łącznie po zaznaczeniu: ${totalMenLeatherJackets}/50\n\n` +
                      `Maksymalny limit: 50 męskich kurtek licówka`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania wszystkich
+            }
+
+            // Sprawdź limit kamizelek licówka
+            if (totalVests > 20) {
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WSZYSTKICH PRODUKTÓW!\n\n` +
+                     `Przekroczenie limitu kamizelek licówka:\n` +
+                     `• W aktualnej liście: ${vestsInFiltered}\n` +
+                     `• Już zaznaczone: ${currentVests}\n` +
+                     `• Łącznie po zaznaczeniu: ${totalVests}/20\n\n` +
+                     `Maksymalny limit: 20 kamizelek licówka`);
+                return; // BLOKUJ - nie kontynuuj zaznaczania wszystkich
+            }
+
+            // 🚨 SPRAWDZENIE LIMITU PRODUKTÓW R&B przy "Zaznacz wszystkie"
+            const rbProductsInFiltered = currentFilteredProducts.filter(productName => {
+                const product = products.find(p => p.fullName === productName);
+                return isRBProduct(product, productName);
+            }).length;
+
+            const currentRBProducts = selectedProducts.filter(selectedProductName => {
+                const selectedProduct = products.find(p => p.fullName === selectedProductName);
+                return isRBProduct(selectedProduct, selectedProductName) &&
+                    !currentFilteredProducts.includes(selectedProductName);
+            }).length;
+
+            const totalRBProducts = currentRBProducts + rbProductsInFiltered;
+
+            // Sprawdź limit produktów R&B
+            if (totalRBProducts > 40) {
+                alert(`🚫 NIE MOŻNA ZAZNACZYĆ WSZYSTKICH PRODUKTÓW!\n\n` +
+                     `Przekroczenie limitu produktów R&B:\n` +
+                     `• W aktualnej liście: ${rbProductsInFiltered}\n` +
+                     `• Już zaznaczone: ${currentRBProducts}\n` +
+                     `• Łącznie po zaznaczeniu: ${totalRBProducts}/40\n\n` +
+                     `Maksymalny limit: 40 produktów R&B`);
                 return; // BLOKUJ - nie kontynuuj zaznaczania wszystkich
             }
         }
@@ -588,6 +720,16 @@ const SeachEngineTable = () => {
                 const menLeatherSelected = newSelectedProducts.filter(productName => {
                     const product = products.find(p => p.fullName === productName);
                     return isMenLeatherJacket(product, productName);
+                }).length;
+
+                const vestsSelected = newSelectedProducts.filter(productName => {
+                    const product = products.find(p => p.fullName === productName);
+                    return isVestLicowka(product, productName);
+                }).length;
+
+                const rbSelected = newSelectedProducts.filter(productName => {
+                    const product = products.find(p => p.fullName === productName);
+                    return isRBProduct(product, productName);
                 }).length;
                 
                 // Statystyki po zaznaczeniu wszystkich (bez logowania)
@@ -693,6 +835,11 @@ const SeachEngineTable = () => {
             const productData = products.find(p => p.fullName === row[2]);
             if (!productData) return false;
             
+            // WYKLUCZENIE: Jeśli to produkt R&B, nie licz go jako damska kurtka licówka (ma własną sekcję)
+            if (isRBProduct(productData, row[2])) {
+                return false;
+            }
+            
             // Damskie: sprawdź podkategorię "Kurtka skórzana damska" lub "Kurtka damska licówka"
             return productData.subcategory && 
                    typeof productData.subcategory === 'object' &&
@@ -703,6 +850,14 @@ const SeachEngineTable = () => {
         const menJackets = printTableData.filter(row => {
             const productData = products.find(p => p.fullName === row[2]);
             if (!productData) return false;
+            
+            // Wyklucz produkty R&B - one mają swoją osobną sekcję
+            if (productData.manufacturer === '68eebc6478015550b96ae903' ||
+                (productData.manufacturer && 
+                 typeof productData.manufacturer === 'object' &&
+                 productData.manufacturer.Prod_Opis === 'R&B')) {
+                return false;
+            }
             
             // Męskie: sprawdź podkategorię "Kurtka męska licówka"
             return productData.subcategory && 
@@ -721,6 +876,18 @@ const SeachEngineTable = () => {
                    typeof productData.subcategory === 'object' &&
                    (productData.subcategory.Kat_1_Opis_1 === 'Kamizelka damska licówka' ||
                     productData.subcategory.Kat_1_Opis_1 === 'Kamizelka męska licówka');
+        });
+
+        // Filtruj produkty R&B
+        const rbProducts = printTableData.filter(row => {
+            const productData = products.find(p => p.fullName === row[2]);
+            if (!productData) return false;
+            
+            // R&B: sprawdź producenta R&B (ID: 68eebc6478015550b96ae903)
+            return productData.manufacturer === '68eebc6478015550b96ae903' ||
+                   (productData.manufacturer && 
+                    typeof productData.manufacturer === 'object' &&
+                    productData.manufacturer.Prod_Opis === 'R&B');
         });
 
 
@@ -1096,6 +1263,144 @@ const SeachEngineTable = () => {
                         </tbody>
                     </table>
                 </div>
+
+                <!-- R&B pod kamizelkami -->
+                <div style="margin-top: 15px;">
+                    <div class="section-title">R&B</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="product-name" style="background-color: #ffffff !important;">Nazwa</th>
+                                <th class="size-cell">XXS/32</th>
+                                <th class="size-cell size-xs">XS/34</th>
+                                <th class="size-cell">S/36</th>
+                                <th class="size-cell size-m">M/38</th>
+                                <th class="size-cell">L/40</th>
+                                <th class="size-cell size-xl">XL/42</th>
+                                <th class="size-cell">2XL/44</th>
+                                <th class="size-cell size-3xl">3XL/46</th>
+                                <th class="size-cell">4XL/48</th>
+                                <th class="size-cell size-5xl">5XL/50</th>
+                                <th class="size-cell">6XL/52</th>
+                                <th class="size-cell size-7xl">7XL/54</th>
+                                <th class="size-cell">8XL/56</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rbProducts.map((row, rowIndex) => {
+                                const bgColor = row[1] || '#ffffff';
+                                const isDark = isColorDark(bgColor);
+                                return `
+                                <tr style="
+                                    background-color: ${bgColor} !important; 
+                                    background: ${bgColor} !important;
+                                    color: ${isDark ? '#ffffff' : '#000000'} !important;
+                                    -webkit-print-color-adjust: exact !important;
+                                    color-adjust: exact !important;
+                                    print-color-adjust: exact !important;
+                                ">
+                                    <td class="product-name" style="background-color: ${bgColor} !important; color: #000000 !important;">${row[2]}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[4])}</td>
+                                    <td class="size-cell size-xs" style="background-color: ${bgColor} !important;">${formatCellContent(row[5])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                    <td class="size-cell size-m" style="background-color: ${bgColor} !important;">${formatCellContent(row[7])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[8])}</td>
+                                    <td class="size-cell size-xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[9])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
+                                    <td class="size-cell size-3xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[11])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[12])}</td>
+                                    <td class="size-cell size-5xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[13])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[14])}</td>
+                                    <td class="size-cell size-7xl" style="background-color: ${bgColor} !important;">${formatCellContent(row[15])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[16])}</td>
+                                </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Tabela punktów sprzedaży pod R&B -->
+                <div style="margin-top: 15px;">
+                    <table style="width: 100%; border-collapse: collapse; border: 2px solid #000;">
+                        <thead>
+                            <tr>
+                                <th style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; width: 25%; background-color: #ffffff !important;">KRUPÓWKI</th>
+                                <th style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; width: 25%; background-color: #ffffff !important;">TATA</th>
+                                <th style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; width: 25%; background-color: #ffffff !important;">MOST</th>
+                                <th style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; width: 25%; background-color: #ffffff !important;">PARZYGNAT</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                                <td style="border: 1px solid #000; padding: 4px; height: 15px;">&nbsp;</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </body>
         </html>
@@ -1175,6 +1480,25 @@ const SeachEngineTable = () => {
                         .color-picker-column input[type="color"] {
                             display: none !important;
                         }
+                    }
+                    
+                    /* Style dla checkboxów - powiększone z cursor pointer */
+                    input[type="checkbox"] {
+                        width: 18px !important;
+                        height: 18px !important;
+                        cursor: pointer !important;
+                        transform: scale(1.2);
+                        margin: 2px;
+                    }
+                    
+                    /* Style dla labeli przy checkboxach */
+                    label {
+                        cursor: pointer !important;
+                    }
+                    
+                    /* Dodatkowy margines dla komórek z checkboxami */
+                    td input[type="checkbox"] {
+                        margin: 4px;
                     }
                 `}
             </style>
