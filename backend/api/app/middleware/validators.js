@@ -50,7 +50,8 @@ const validators = {
 
     // Walidacja ID MongoDB
     mongoIdValidation: [
-        param('id').isMongoId().withMessage('Nieprawidłowy format ID'),
+        param('id').optional().isMongoId().withMessage('Nieprawidłowy format ID'),
+        param('goodId').optional().isMongoId().withMessage('Nieprawidłowy format ID towaru'),
         param('userId').optional().isMongoId().withMessage('Nieprawidłowy format ID użytkownika'),
         param('salesId').optional().isMongoId().withMessage('Nieprawidłowy format ID sprzedaży')
     ],
