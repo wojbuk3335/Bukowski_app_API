@@ -70,6 +70,7 @@ const Goods = () => {
     const [sizes, setSizes] = useState([]);
     const [editingGood, setEditingGood] = useState(null); // New state for editing
     const [productName, setProductName] = useState(''); // New state for product name
+    const [searchTerm, setSearchTerm] = useState(''); // State for search functionality
     const modalRef = useRef(null);
 
     const toggle = () => {
@@ -2227,6 +2228,28 @@ const Goods = () => {
         }
     };
 
+    // Filter goods based on search term
+    const filteredGoods = goods.filter(good => {
+        if (!searchTerm) return true;
+        
+        const searchLower = searchTerm.toLowerCase();
+        
+        return (
+            // Search in product name
+            (good.fullName && good.fullName.toLowerCase().includes(searchLower)) ||
+            // Search in product code
+            (good.code && good.code.toLowerCase().includes(searchLower)) ||
+            // Search in category
+            (good.category && good.category.toLowerCase().includes(searchLower)) ||
+            // Search in product description (for jackets)
+            (good.stock && good.stock.Tow_Opis && good.stock.Tow_Opis.toLowerCase().includes(searchLower)) ||
+            // Search in bag product code (for bags/wallets/remaining)
+            (good.bagProduct && good.bagProduct.toLowerCase().includes(searchLower)) ||
+            // Search in color
+            (good.color && good.color.Kol_Opis && good.color.Kol_Opis.toLowerCase().includes(searchLower))
+        );
+    });
+
     return (
         <div>
             <Modal 
@@ -3418,19 +3441,47 @@ const Goods = () => {
                 </ModalBody>
             </Modal>
             
-            {/* Action buttons */}
-            <div className="d-flex justify-content-center mb-3">
-                <div className="btn-group">
-                    <Button color="primary" className="me-2 btn btn-sm" onClick={toggle}>
-                        Dodaj produkt
+            {/* Action buttons and search */}
+            <div className="d-flex justify-content-center align-items-center mb-3">
+                <Button color="primary" className="me-2 btn btn-sm" onClick={toggle}>
+                    Dodaj produkt
+                </Button>
+                <Button color="success" className="me-2 btn btn-sm" onClick={() => handleExport('excel')}>
+                    Export to Excel
+                </Button>
+                <Button color="warning" className="btn btn-sm me-3" onClick={handlePrint}>
+                    Drukuj cennik
+                </Button>
+                <Input
+                    type="text"
+                    placeholder="Szukaj produktów..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                        maxWidth: '300px',
+                        marginRight: '10px',
+                        backgroundColor: '#000000',
+                        color: '#ffffff',
+                        border: '1px solid #333333',
+                        borderRadius: '4px'
+                    }}
+                />
+                {searchTerm && (
+                    <Button 
+                        color="secondary" 
+                        size="sm" 
+                        className="me-2"
+                        onClick={() => setSearchTerm('')}
+                        title="Wyczyść wyszukiwanie"
+                    >
+                        ✕
                     </Button>
-                    <Button color="success" className="me-2 btn btn-sm" onClick={() => handleExport('excel')}>
-                        Export to Excel
-                    </Button>
-                    <Button color="warning" className="btn btn-sm" onClick={handlePrint}>
-                        Drukuj cennik
-                    </Button>
-                </div>
+                )}
+                {searchTerm && (
+                    <small className="text-muted">
+                        Znaleziono: {filteredGoods.length} z {goods.length}
+                    </small>
+                )}
             </div>
             
             <div className={styles.tableContainer}>
@@ -3455,7 +3506,7 @@ const Goods = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {goods.map((good, index) => (
+                        {filteredGoods.map((good, index) => (
                             <tr key={good._id}>
                                 <th scope="row" className={styles.tableCell} data-label="Lp">{index + 1}</th>
                                 <td className={styles.tableCell} data-label="Produkt">

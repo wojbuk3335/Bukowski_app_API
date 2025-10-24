@@ -113,13 +113,6 @@ function Corrections() {
       });
       const allStates = await stateResponse.json();
       
-      console.log('🔍 Searching for correction:', {
-        barcode: correction.barcode,
-        fullName: correction.fullName,
-        size: correction.size
-      });
-      console.log('📊 Total states available:', allStates.length);
-      
       // Znajdź wszystkie lokalizacje gdzie ten produkt istnieje
       // POPRAWKA: Dla transferów barcode może być MongoDB ID, więc szukaj też po fullName + size
       const matchingItems = allStates.filter(item => {
@@ -215,9 +208,6 @@ function Corrections() {
         alert(`Produkt został odpisany ze stanu w punkcie ${fromSymbol}`);
         
         // Powiadom komponent AddToState że transakcja została skorygowana
-        console.log('🔍 Debug selectedCorrection:', selectedCorrection);
-        console.log('🔍 Debug selectedCorrection.transactionId:', selectedCorrection.transactionId);
-        
         if (selectedCorrection.transactionId) {
           // Send event
           const event = new CustomEvent('transactionCorrected', {
@@ -241,10 +231,8 @@ function Corrections() {
               console.log('💾 Saved corrected transaction to localStorage:', selectedCorrection.transactionId);
             }
           } catch (error) {
-            console.error('Error saving to localStorage:', error);
+            console.error('Error storing corrected transaction ID:', error);
           }
-        } else {
-          console.log('❌ No transactionId found in selectedCorrection - cannot dispatch event');
         }
         
         // Odśwież listę dostępnych lokalizacji (usuń tę lokalizację jeśli nie ma już produktów)

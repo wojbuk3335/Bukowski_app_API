@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 const AddToState = ({ onAdd }) => {
   // Użyj relatywnej ścieżki która automatycznie wykorzysta proxy
   const API_BASE_URL = '';
-  console.log('🔧 [AddToState] Using relative paths for API calls');
   
   // Ustawienie dzisiejszej daty jako domyślnej
   const getTodayDate = () => {
@@ -122,21 +121,16 @@ const AddToState = ({ onAdd }) => {
     };
 
     const handleTransactionCorrected = (event) => {
-      console.log('🔔 Received transactionCorrected event:', event.detail);
       const { transactionId } = event.detail;
       if (transactionId) {
-        console.log(`📝 Marking transaction ${transactionId} as corrected`);
-        
         // Use functional update to avoid stale closure
         setCorrectedTransactionIds(prevIds => {
           const newIds = new Set([...prevIds, transactionId]);
           const idsArray = Array.from(newIds);
-          console.log('📋 Updated correctedTransactionIds:', idsArray);
           
           // Save to localStorage
           try {
             localStorage.setItem('correctedTransactionIds', JSON.stringify(idsArray));
-            console.log('💾 Saved corrected transactions to localStorage');
           } catch (error) {
             console.error('Error saving to localStorage:', error);
           }

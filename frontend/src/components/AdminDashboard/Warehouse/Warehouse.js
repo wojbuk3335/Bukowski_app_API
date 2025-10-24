@@ -1494,9 +1494,6 @@ const Warehouse = () => {
         let filtersList = [];
         const selectedFiltersValues = selectedFiltersForReport.map(f => f.value);
         
-        console.log('🔍 DEBUG Filtry - selectedFiltersForReport:', selectedFiltersForReport);
-        console.log('🔍 DEBUG Filtry - selectedFiltersValues:', selectedFiltersValues);
-        
         // Sprawdź i dodaj wszystkie aktywne filtry
         if (selectedFiltersValues.includes('specific') && selectedProductForReport) {
             filtersList = [selectedProductForReport.label];
@@ -1522,8 +1519,6 @@ const Warehouse = () => {
                 filtersList = ['Wszystkie produkty'];
             }
         }
-        
-        console.log('🔍 DEBUG Filtry - finalFiltersList:', filtersList);
         
         // Twórz tekst z prefiksem "Filtry:"
         const filterText = convertPolishChars(`Filtry: ${filtersList.join(', ')}`);

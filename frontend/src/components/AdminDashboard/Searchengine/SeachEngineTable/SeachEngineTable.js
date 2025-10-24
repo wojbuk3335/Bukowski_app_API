@@ -405,102 +405,227 @@ const SeachEngineTable = () => {
                 if (matchedProduct) {
                     const size = stateItem.size;
                     let columnIndex;
-                    switch (size) {
-                        case 'XXS':
-                        case '32':
-                            columnIndex = 4;
-                            break;
-                        case 'XS':
-                        case '34':
-                            columnIndex = 5;
-                            break;
-                        case 'S':
-                        case '36':
-                            columnIndex = 6;
-                            break;
-                        case 'M':
-                        case '38':
-                            columnIndex = 7;
-                            break;
-                        case 'L':
-                        case '40':
-                            columnIndex = 8;
-                            break;
-                        case 'XL':
-                        case '42':
-                            columnIndex = 9;
-                            break;
-                        case '2XL':
-                        case '44':
-                            columnIndex = 10;
-                            break;
-                        case '3XL':
-                        case '46':
-                            columnIndex = 11;
-                            break;
-                        case '4XL':
-                        case '48':
-                            columnIndex = 12;
-                            break;
-                        case '5XL':
-                        case '50':
-                            columnIndex = 13;
-                            break;
-                        case '6XL':
-                        case '52':
-                            columnIndex = 14;
-                            break;
-                        case '7XL':
-                        case '54':
-                            columnIndex = 15;
-                            break;
-                        case '8XL':
-                        case '56':
-                        case '66':
-                            columnIndex = 16;
-                            break;
-                        // Rozmiary dziecięce
-                        case '92':
-                            columnIndex = 4;
-                            break;
-                        case '98':
-                            columnIndex = 5;
-                            break;
-                        case '104':
-                            columnIndex = 6;
-                            break;
-                        case '110':
-                            columnIndex = 7;
-                            break;
-                        case '116':
-                            columnIndex = 8;
-                            break;
-                        case '122':
-                            columnIndex = 9;
-                            break;
-                        case '128':
-                            columnIndex = 10;
-                            break;
-                        case '134':
-                            columnIndex = 11;
-                            break;
-                        case '140':
-                            columnIndex = 12;
-                            break;
-                        case '146':
-                            columnIndex = 13;
-                            break;
-                        case '152':
-                            columnIndex = 14;
-                            break;
-                        case '158':
-                            columnIndex = 15;
-                            break;
-                        case '164':
-                            columnIndex = 16;
-                            break;
-                        default:
-                            return;
+                    
+
+                    
+                    // � UNIWERSALNE MAPOWANIE ROZMIARÓW WG PŁCI
+                    if (matchedProduct.plec === 'Dz' || matchedProduct.plec === 'U') {
+                        // DZIECIĘCE ROZMIARY KOŻUCHÓW: 104→kol.7  116→kol.8  128→kol.9  140→kol.10  152→kol.11
+                        switch (size) {
+                            case '104':
+                                columnIndex = 7;
+                                break;
+                            case '116':
+                                columnIndex = 8;
+                                break;
+                            case '128':
+                                columnIndex = 9;
+                                break;
+                            case '140':
+                                columnIndex = 10;
+                                break;
+                            case '152':
+                                columnIndex = 11;
+                                break;
+                            default:
+                                return;
+                        }
+                    } else if (matchedProduct.plec === 'M') {
+                        // MĘSKIE ROZMIARY: XXS/40  XS/42  S/44  M/48  L/50  XL/52  2XL/54  3XL/56  4XL/58  5XL/60  6XL/62  7XL/64  8XL/66
+                        switch (size) {
+                            case 'XXS':
+                            case '40':
+                                columnIndex = 4;
+                                break;
+                            case 'XS':
+                            case '42':
+                                columnIndex = 5;
+                                break;
+                            case 'S':
+                            case '44':
+                                columnIndex = 6;
+                                break;
+                            case 'M':
+                            case '48':
+                                columnIndex = 7;
+                                break;
+                            case 'L':
+                            case '50':
+                                columnIndex = 8;
+                                break;
+                            case 'XL':
+                            case '52':
+                                columnIndex = 9;
+                                break;
+                            case '2XL':
+                            case '54':
+                                columnIndex = 10;
+                                break;
+                            case '3XL':
+                            case '56':
+                                columnIndex = 11;
+                                break;
+                            case '4XL':
+                            case '58':
+                                columnIndex = 12;
+                                break;
+                            case '5XL':
+                            case '60':
+                                columnIndex = 13;
+                                break;
+                            case '6XL':
+                            case '62':
+                                columnIndex = 14;
+                                break;
+                            case '7XL':
+                            case '64':
+                                columnIndex = 15;
+                                break;
+                            case '8XL':
+                            case '66':
+                                columnIndex = 16;
+                                break;
+                            // Rozmiary dziecięce
+                            case '92':
+                                columnIndex = 4;
+                                break;
+                            case '98':
+                                columnIndex = 5;
+                                break;
+                            case '104':
+                                columnIndex = 6;
+                                break;
+                            case '110':
+                                columnIndex = 7;
+                                break;
+                            case '116':
+                                columnIndex = 8;
+                                break;
+                            case '122':
+                                columnIndex = 9;
+                                break;
+                            case '128':
+                                columnIndex = 10;
+                                break;
+                            case '134':
+                                columnIndex = 11;
+                                break;
+                            case '140':
+                                columnIndex = 12;
+                                break;
+                            case '146':
+                                columnIndex = 13;
+                                break;
+                            case '152':
+                                columnIndex = 14;
+                                break;
+                            case '158':
+                                columnIndex = 15;
+                                break;
+                            case '164':
+                                columnIndex = 16;
+                                break;
+                            default:
+                                return;
+                        }
+                    } else {
+                        // DAMSKIE ROZMIARY: XXS/32  XS/34  S/36  M/38  L/40  XL/42  2XL/44  3XL/46  4XL/48  5XL/50  6XL/52  7XL/54  8XL/56
+                        switch (size) {
+                            case 'XXS':
+                            case '32':
+                                columnIndex = 4;
+                                break;
+                            case 'XS':
+                            case '34':
+                                columnIndex = 5;
+                                break;
+                            case 'S':
+                            case '36':
+                                columnIndex = 6;
+                                break;
+                            case 'M':
+                            case '38':
+                                columnIndex = 7;
+                                break;
+                            case 'L':
+                            case '40':
+                                columnIndex = 8;
+                                break;
+                            case 'XL':
+                            case '42':
+                                columnIndex = 9;
+                                break;
+                            case '2XL':
+                            case '44':
+                                columnIndex = 10;
+                                break;
+                            case '3XL':
+                            case '46':
+                                columnIndex = 11;
+                                break;
+                            case '4XL':
+                            case '48':
+                                columnIndex = 12;
+                                break;
+                            case '5XL':
+                            case '50':
+                                columnIndex = 13;
+                                break;
+                            case '6XL':
+                            case '52':
+                                columnIndex = 14;
+                                break;
+                            case '7XL':
+                            case '54':
+                                columnIndex = 15;
+                                break;
+                            case '8XL':
+                            case '56':
+                                columnIndex = 16;
+                                break;
+                            // Rozmiary dziecięce - używają tego samego mapowania co damskie
+                            case '92':
+                                columnIndex = 4;
+                                break;
+                            case '98':
+                                columnIndex = 5;
+                                break;
+                            case '104':
+                                columnIndex = 6;
+                                break;
+                            case '110':
+                                columnIndex = 7;
+                                break;
+                            case '116':
+                                columnIndex = 8;
+                                break;
+                            case '122':
+                                columnIndex = 9;
+                                break;
+                            case '128':
+                                columnIndex = 10;
+                                break;
+                            case '134':
+                                columnIndex = 11;
+                                break;
+                            case '140':
+                                columnIndex = 12;
+                                break;
+                            case '146':
+                                columnIndex = 13;
+                                break;
+                            case '152':
+                                columnIndex = 14;
+                                break;
+                            case '158':
+                                columnIndex = 15;
+                                break;
+                            case '164':
+                                columnIndex = 16;
+                                break;
+                            default:
+                                return;
+                        }
                     }
                     tableArray.forEach((row) => {
                         if (row[2] === matchedProduct.fullName) { // Product name is now at index 2

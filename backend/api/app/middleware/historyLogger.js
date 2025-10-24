@@ -421,11 +421,6 @@ const historyLogger = (collectionName) => {
             }
 
             if (operation === 'Dodano do stanu') {
-                console.log('DEBUG: req.body in historyLogger:', {
-                    fullName: req.body.fullName,
-                    size: req.body.size,
-                    sellingPoint: req.body.sellingPoint
-                });
                 from = 'Produkcja'; // Set "Skąd" to "Produkcja" for this operation
                 to = req.body.sellingPoint || '-'; // Set "Dokąd" to sellingPoint or "-" if not provided
                 product = req.body.fullName || 'Nieznany produkt'; // Set product to fullName only

@@ -79,19 +79,13 @@ const generateRemainingProductCode = async (remainingProductCode, colorData) => 
 
 class GoodsController {
     async createGood(req, res, next) {
-        console.log('🔍 CREATE GOOD DEBUG:');
-        console.log('req.body:', req.body);
-        console.log('req.file:', req.file);
-        
         const { stock, color, fullName, code, category, subcategory, remainingsubsubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId, priceKarpacz, discount_priceKarpacz } = req.body; // Add manufacturer and Karpacz fields
         
         // Basic validation
         if (!fullName || fullName.trim() === '') {
-            console.log('❌ fullName validation failed');
             return res.status(400).json({ message: 'Nazwa produktu jest wymagana' });
         }
         if (!code || code.trim() === '') {
-            console.log('❌ code validation failed');
             return res.status(400).json({ message: 'Kod produktu jest wymagany' });
         }
         
@@ -133,10 +127,8 @@ class GoodsController {
         }
 
         // Validate price
-        console.log('🔍 Price validation:', { price, type: typeof price, parsed: parseFloat(price) });
         const numericPrice = parseFloat(price);
         if (!price || isNaN(numericPrice) || numericPrice <= 0) {
-            console.log('❌ Price validation failed');
             return res.status(400).json({ message: 'Cena musi być liczbą większą od zera' });
         }
 
@@ -839,19 +831,13 @@ class GoodsController {
             } 
             else if (type === 'color' && fieldType === 'Kol_Opis') {
                 // Find all goods that use this color
-                console.log(`🔍 Searching for goods with color ID: ${oldValue.id}`);
                 goods = await Goods.find({ color: oldValue.id });
-                
-                console.log(`🔍 Found ${goods.length} products using color: ${oldValue.name}`);
-                console.log('🔍 Goods found:', goods.map(g => ({ _id: g._id, fullName: g.fullName, color: g.color })));
 
                 // Update each product's fullName
                 for (const good of goods) {
                     const oldFullName = good.fullName;
                     // Use regex to replace the old color name with new one (more precise)
                     const newFullName = good.fullName.replace(new RegExp(oldValue.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), newValue);
-                    
-                    console.log(`🔍 Processing: "${oldFullName}" → "${newFullName}" (changed: ${oldFullName !== newFullName})`);
                     
                     if (oldFullName !== newFullName) {
                         await Goods.updateOne(
@@ -869,8 +855,6 @@ class GoodsController {
                     subcategory: 'belts',
                     remainingsubsubcategory: oldValue.name.trim()
                 });
-                
-                console.log(`🔍 Found ${goods.length} products using belt: ${oldValue.name}`);
                 
                 // Update each product's remainingsubsubcategory and fullName
                 for (const good of goods) {
@@ -902,8 +886,6 @@ class GoodsController {
                     remainingsubsubcategory: oldValue.name.trim()
                 });
                 
-                console.log(`🔍 Found ${goods.length} products using glove: ${oldValue.name}`);
-                
                 // Update each product's remainingsubsubcategory and fullName
                 for (const good of goods) {
                     const oldFullName = good.fullName;
@@ -932,8 +914,6 @@ class GoodsController {
                 goods = await Goods.find({ 
                     bagProduct: oldValue.name
                 });
-                
-                console.log(`🔍 Found ${goods.length} products using remaining product code: ${oldValue.name}`);
                 
                 // Update each product's bagProduct, fullName and code
                 for (const good of goods) {

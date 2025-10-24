@@ -73,8 +73,6 @@ app.use(mongoSanitize({
 
 // Log wszystkich requestów dla logowania - TEMPORARY DEBUG
 app.use('/api/user/login', (req, res, next) => {
-    console.log(`� LOGIN REQUEST: ${req.method} ${req.url} from ${req.get('host')} - Origin: ${req.get('origin')}`);
-    console.log(`🔍 LOGIN BODY:`, req.body);
     next();
 });
 
