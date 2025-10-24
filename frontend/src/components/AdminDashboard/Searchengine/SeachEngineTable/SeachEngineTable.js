@@ -8,6 +8,7 @@ const SeachEngineTable = () => {
     const [tableArray, setTableArray] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [manufacturers, setManufacturers] = useState([]); // State for manufacturers list
     const [symbols, setSymbols] = useState([]); // State for unique symbols
     const [selectedSymbols, setSelectedSymbols] = useState([]); // State for selected symbols
     const [selectedProducts, setSelectedProducts] = useState([]); // State for products selected for printing
@@ -85,29 +86,199 @@ const SeachEngineTable = () => {
         return brightness < 128;
     };
 
-    // Funkcja sprawdzająca czy produkt to kurtka R&B
-    const isRBProduct = (product, productName) => {
+    // Universal function to get manufacturer info dynamically
+    const getManufacturerInfo = (product) => {
+        if (!product) return { name: 'Unknown', id: null };
+        
+        // If manufacturer is populated as object
+        if (product.manufacturer && typeof product.manufacturer === 'object') {
+            return {
+                name: product.manufacturer.Prod_Opis || 'Unknown',
+                id: product.manufacturer._id || product.manufacturer.id || null
+            };
+        }
+        
+        // If manufacturer is just an ID, find it in manufacturers list
+        if (product.manufacturer && typeof product.manufacturer === 'string' && Array.isArray(manufacturers) && manufacturers.length > 0) {
+            const manufacturerObj = manufacturers.find(m => m._id === product.manufacturer);
+            if (manufacturerObj) {
+                return {
+                    name: manufacturerObj.Prod_Opis || 'Unknown',
+                    id: manufacturerObj._id
+                };
+            }
+        }
+        
+        return { name: 'Unknown', id: product.manufacturer };
+    };
+
+    // Universal function to check if product belongs to specific manufacturer
+    const isManufacturerProduct = (product, manufacturerKeywords, productName = null) => {
         if (!product) return false;
         
-        // Method 1: Check by manufacturer ID (R&B ID na serwerze: 68eb68aa9c8a8a8eb473f2e0)
-        if (product.manufacturer === '68eb68aa9c8a8a8eb473f2e0') {
-            return true;
+        const manufacturerInfo = getManufacturerInfo(product);
+        
+        // Check by manufacturer name (case insensitive)
+        if (manufacturerInfo.name && typeof manufacturerInfo.name === 'string') {
+            const manufacturerName = manufacturerInfo.name.toLowerCase();
+            const keywordsArray = Array.isArray(manufacturerKeywords) 
+                ? manufacturerKeywords 
+                : [manufacturerKeywords];
+            
+            if (keywordsArray.some(keyword => 
+                manufacturerName.includes(keyword.toLowerCase()))) {
+                return true;
+            }
         }
         
-        // Method 2: Check by manufacturer object if it's populated
-        if (product.manufacturer && 
-            typeof product.manufacturer === 'object' &&
-            product.manufacturer.Prod_Opis === 'R&B') {
-            return true;
-        }
-        
-        // Method 3: DODATKOWA OCHRONA - sprawdź po nazwie produktu
-        if (productName && typeof productName === 'string' && 
-            productName.toLowerCase().includes('r&b')) {
-            return true;
+        // Additional protection: check by product name if provided
+        if (productName && typeof productName === 'string') {
+            const productNameLower = productName.toLowerCase();
+            const keywordsArray = Array.isArray(manufacturerKeywords) 
+                ? manufacturerKeywords 
+                : [manufacturerKeywords];
+                
+            if (keywordsArray.some(keyword => 
+                productNameLower.includes(keyword.toLowerCase()))) {
+                return true;
+            }
         }
         
         return false;
+    };
+
+    // Universal manufacturer detection (works across all environments)
+    const isRBProduct = (product, productName) => {
+        const manufacturerInfo = getManufacturerInfo(product);
+        
+        // Method 1: Check if manufacturer has a code field (if exists)
+        if (manufacturerInfo.id && Array.isArray(manufacturers) && manufacturers.length > 0) {
+            const rbManufacturer = manufacturers.find(m => 
+                m._id === manufacturerInfo.id && 
+                (m.code === 'RB' || m.slug === 'rb' || m.shortName === 'RB')
+            );
+            if (rbManufacturer) return true;
+        }
+        
+        // Method 2: Pattern-based detection (works regardless of exact name)
+        if (manufacturerInfo.name) {
+            const namePattern = manufacturerInfo.name.toLowerCase();
+            // Look for R&B patterns, regardless of what comes after &
+            if (namePattern.match(/r\s*&\s*b/i) || 
+                namePattern.match(/r\s*&\s*blue/i) ||
+                namePattern.match(/rb[^a-z]/i) ||
+                namePattern === 'rb') {
+                return true;
+            }
+        }
+        
+        // Method 3: Fallback - check product name for R&B patterns
+        if (productName) {
+            const productNameLower = productName.toLowerCase();
+            if (productNameLower.includes('r&b') || 
+                productNameLower.includes('r&blue') ||
+                productNameLower.match(/\brb\b/)) {
+                return true;
+            }
+        }
+        
+        return false;
+    };
+
+    // Universal manufacturer detection functions
+    const isJRProduct = (product, productName) => {
+        const manufacturerInfo = getManufacturerInfo(product);
+        
+        // Check for JR manufacturer patterns
+        if (manufacturerInfo.id && Array.isArray(manufacturers) && manufacturers.length > 0) {
+            const jrManufacturer = manufacturers.find(m => 
+                m._id === manufacturerInfo.id && 
+                (m.code === 'JR' || m.slug === 'jr' || m.shortName === 'JR')
+            );
+            if (jrManufacturer) return true;
+        }
+        
+        if (manufacturerInfo.name) {
+            const namePattern = manufacturerInfo.name.toLowerCase();
+            if (namePattern.match(/\bjr\b/) || namePattern.includes('j.r')) {
+                return true;
+            }
+        }
+        
+        if (productName) {
+            const productNameLower = productName.toLowerCase();
+            if (productNameLower.match(/\bjr\b/) || productNameLower.includes('j.r')) {
+                return true;
+            }
+        }
+        
+        return false;
+    };
+
+    const isSkrzatProduct = (product, productName) => {
+        const manufacturerInfo = getManufacturerInfo(product);
+        
+        if (manufacturerInfo.name) {
+            const namePattern = manufacturerInfo.name.toLowerCase();
+            if (namePattern.includes('skrzat')) {
+                return true;
+            }
+        }
+        
+        return productName ? productName.toLowerCase().includes('skrzat') : false;
+    };
+
+    const isTataProduct = (product, productName) => {
+        const manufacturerInfo = getManufacturerInfo(product);
+        
+        if (manufacturerInfo.name) {
+            const namePattern = manufacturerInfo.name.toLowerCase();
+            if (namePattern.includes('tata')) {
+                return true;
+            }
+        }
+        
+        return productName ? productName.toLowerCase().includes('tata') : false;
+    };
+
+    // Universal manufacturer detector - works for any manufacturer name changes
+    const detectManufacturerGroup = (product, productName) => {
+        const manufacturerInfo = getManufacturerInfo(product);
+        
+        if (!manufacturerInfo.name) return 'unknown';
+        
+        const name = manufacturerInfo.name.toLowerCase();
+        
+        // R&B group detection (works for R&B, R&Blue, RB, etc.)
+        if (name.match(/r\s*&\s*b/i) || name.match(/r\s*&\s*blue/i) || name.match(/\brb\b/)) {
+            return 'rb';
+        }
+        
+        // JR group detection
+        if (name.match(/\bjr\b/) || name.includes('j.r')) {
+            return 'jr';
+        }
+        
+        // Other manufacturers
+        if (name.includes('skrzat')) return 'skrzat';
+        if (name.includes('tata')) return 'tata';
+        if (name.includes('most')) return 'most';
+        if (name.includes('krupówki') || name.includes('krupowki')) return 'krupowki';
+        if (name.includes('parzygnat')) return 'parzygnat';
+        
+        return 'other';
+    };
+
+    const isMostProduct = (product, productName) => {
+        return isManufacturerProduct(product, ['Most', 'most'], productName);
+    };
+
+    const isKrupowkiProduct = (product, productName) => {
+        return isManufacturerProduct(product, ['Krupówki', 'krupowki'], productName);
+    };
+
+    const isParzygnatProduct = (product, productName) => {
+        return isManufacturerProduct(product, ['Parzygnat', 'parzygnat'], productName);
     };
 
     // Helper function to identify women's leather jackets for limit enforcement
@@ -323,7 +494,12 @@ const SeachEngineTable = () => {
     const isJRVest = (product, productName) => {
         if (!product) return false;
         
-        // Sprawdź czy to kamizelka JR z lisa
+        // Enhanced check: First verify it's a JR product using dynamic manufacturer detection
+        if (!isJRProduct(product, productName)) {
+            return false;
+        }
+        
+        // Then check if it's a vest (kamizelka z lisa)
         if (product.category === 'Kurtki kożuchy futra') {
             // Sprawdź czy subcategory to string
             if (typeof product.subcategory === 'string') {
@@ -340,7 +516,12 @@ const SeachEngineTable = () => {
 
     const fetchProducts = async () => {
         try {
-            const goodsResponse = await axios.get('/api/excel/goods/get-all-goods');
+            // Fetch goods and manufacturers in parallel
+            const [goodsResponse, manufacturersResponse] = await Promise.all([
+                axios.get('/api/excel/goods/get-all-goods'),
+                axios.get('/api/manufacturers')
+            ]);
+            
             const productData = goodsResponse.data.goods.map((item) => ({
                 id: item._id,
                 fullName: item.fullName,
@@ -350,6 +531,7 @@ const SeachEngineTable = () => {
                 manufacturer: item.manufacturer
             }));
             setProducts(productData);
+            setManufacturers(manufacturersResponse.data || []);
 
             // Fetch persistent checkbox selections
             const selections = await fetchPrintSelections();
@@ -766,7 +948,7 @@ const SeachEngineTable = () => {
 
     // Monitor zmian w selectedProducts i wyświetlaj statystyki
     useEffect(() => {
-        if (products.length > 0 && selectedProducts.length >= 0) {
+        if (products.length > 0 && selectedProducts.length >= 0 && Array.isArray(manufacturers)) {
             const womenLeatherJacketsCount = selectedProducts.filter(productName => {
                 const product = products.find(p => p.fullName === productName);
                 return isWomenLeatherJacket(product, productName);
@@ -777,7 +959,7 @@ const SeachEngineTable = () => {
                 return isMenLeatherJacket(product, productName);
             }).length;
         }
-    }, [selectedProducts, products]); // Reaguj na zmiany w selectedProducts i products
+    }, [selectedProducts, products, manufacturers]); // Reaguj na zmiany w selectedProducts, products i manufacturers
 
     const handleSearch = (e) => {
         setSearchQuery(e.target.value.toLowerCase());
@@ -1265,10 +1447,7 @@ const SeachEngineTable = () => {
             if (!productData) return false;
             
             // Wyklucz produkty R&B - one mają swoją osobną sekcję
-            if (productData.manufacturer === '68eebc6478015550b96ae903' ||
-                (productData.manufacturer && 
-                 typeof productData.manufacturer === 'object' &&
-                 productData.manufacturer.Prod_Opis === 'R&B')) {
+            if (isRBProduct(productData, row[2])) {
                 return false;
             }
             
@@ -1296,12 +1475,23 @@ const SeachEngineTable = () => {
             const productData = products.find(p => p.fullName === row[2]);
             if (!productData) return false;
             
-            // R&B: sprawdź producenta R&B (ID: 68eebc6478015550b96ae903)
-            return productData.manufacturer === '68eebc6478015550b96ae903' ||
-                   (productData.manufacturer && 
-                    typeof productData.manufacturer === 'object' &&
-                    productData.manufacturer.Prod_Opis === 'R&B');
+            // R&B: użyj dynamicznej funkcji wykrywania R&B
+            return isRBProduct(productData, row[2]);
         });
+
+        // Pobierz dynamiczną nazwę producenta R&B
+        const getRBManufacturerName = () => {
+            if (rbProducts.length > 0) {
+                const firstRBProduct = products.find(p => p.fullName === rbProducts[0][2]);
+                if (firstRBProduct) {
+                    const manufacturerInfo = getManufacturerInfo(firstRBProduct);
+                    return manufacturerInfo.name || 'R&B';
+                }
+            }
+            return 'R&B'; // Fallback nazwa
+        };
+        
+        const rbManufacturerName = getRBManufacturerName();
 
 
 
@@ -1679,7 +1869,7 @@ const SeachEngineTable = () => {
 
                 <!-- R&B pod kamizelkami -->
                 <div style="margin-top: 15px;">
-                    <div class="section-title">R&B</div>
+                    <div class="section-title">${rbManufacturerName}</div>
                     <table>
                         <thead>
                             <tr>
