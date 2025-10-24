@@ -363,7 +363,48 @@ class GoodsController {
             const populatedGoods = await Promise.all(goods.map(async (good) => {
                 if (good.category === 'Kurtki kożuchy futra' && good.subcategory) {
                     // For coats, populate from SubcategoryCoats model
-                    const subcategoryData = await SubcategoryCoats.findById(good.subcategory).select('Kat_1_Opis_1 Płeć');
+                    let subcategoryData = null;
+                    
+                    // First try to find by ObjectId (original approach)
+                    const mongoose = require('mongoose');
+                    if (mongoose.Types.ObjectId.isValid(good.subcategory)) {
+                        try {
+                            subcategoryData = await SubcategoryCoats.findById(good.subcategory).select('Kat_1_Opis_1 Płeć');
+                        } catch (error) {
+                            // If ObjectId lookup fails, subcategoryData remains null
+                            console.log(`ObjectId lookup failed for: ${good.subcategory}`);
+                        }
+                    }
+                    
+                    // If ObjectId lookup failed or subcategory is not found, try by name
+                    if (!subcategoryData) {
+                        try {
+                            const SubcategoryCoatsNew = require('../db/models/subcategoryCoatsNew');
+                            const newSubcategoryData = await SubcategoryCoatsNew.findOne({ name: good.subcategory }).select('name category');
+                            
+                            // If found in new collection, transform to match old structure
+                            if (newSubcategoryData) {
+                                subcategoryData = {
+                                    _id: newSubcategoryData._id,
+                                    Kat_1_Opis_1: newSubcategoryData.name,
+                                    Płeć: null
+                                };
+                            }
+                        } catch (error) {
+                            // If new collection lookup also fails, keep subcategoryData as null
+                            console.log(`Name lookup failed for: ${good.subcategory}`);
+                        }
+                    }
+                    
+                    // If still no subcategoryData found, use fallback
+                    if (!subcategoryData) {
+                        subcategoryData = {
+                            _id: null,
+                            Kat_1_Opis_1: good.subcategory, // Use original string as display name
+                            Płeć: null
+                        };
+                    }
+                    
                     return {
                         ...good.toObject(),
                         subcategory: subcategoryData
@@ -449,7 +490,27 @@ class GoodsController {
                     };
                 } else if (good.subcategory) {
                     // For other categories, populate from Category model
-                    const subcategoryData = await Category.findById(good.subcategory).select('Kat_1_Opis_1');
+                    let subcategoryData = null;
+                    
+                    // First try to find by ObjectId (original approach)
+                    const mongoose = require('mongoose');
+                    if (mongoose.Types.ObjectId.isValid(good.subcategory)) {
+                        try {
+                            subcategoryData = await Category.findById(good.subcategory).select('Kat_1_Opis_1');
+                        } catch (error) {
+                            // If ObjectId lookup fails, subcategoryData remains null
+                            console.log(`Category ObjectId lookup failed for: ${good.subcategory}`);
+                        }
+                    }
+                    
+                    // If ObjectId lookup failed or subcategory is string, use fallback
+                    if (!subcategoryData) {
+                        subcategoryData = {
+                            _id: null,
+                            Kat_1_Opis_1: good.subcategory, // Use original string as display name
+                        };
+                    }
+                    
                     return {
                         ...good.toObject(),
                         subcategory: subcategoryData
