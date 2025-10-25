@@ -2098,7 +2098,9 @@ const SeachEngineTable = () => {
 
             // Policz dla każdego punktu sprzedaży - WSZYSTKIE produkty
             allProductsStateData.forEach(stateItem => {
-                const sellingPoint = stateItem.selling_point_name || stateItem.sellingPoint || stateItem.selling_point;
+                // POPRAWKA: Sprawdź wszystkie możliwe pola dla punktu sprzedaży
+                const sellingPoint = stateItem.selling_point_name || stateItem.sellingPoint || stateItem.selling_point || stateItem.location;
+                
                 // Każdy rekord w states = 1 sztuka produktu
                 const quantity = 1;
                 
