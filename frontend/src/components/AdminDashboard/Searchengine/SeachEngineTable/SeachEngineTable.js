@@ -269,6 +269,184 @@ const SeachEngineTable = () => {
         return 'other';
     };
 
+    // ========== UNIWERSALNY SYSTEM WYKRYWANIA KATEGORII PRODUKTÓW ==========
+    
+    // Universal category detector - works for ALL product categories
+    const getProductCategory = (product) => {
+        if (!product) return { type: 'unknown', category: 'unknown', subcategory: 'unknown' };
+        
+        const mainCategory = product.category || 'unknown';
+        let subcategoryName = 'unknown';
+        
+        // Extract subcategory name
+        if (product.subcategory && typeof product.subcategory === 'object') {
+            subcategoryName = product.subcategory.Kat_1_Opis_1 || 'unknown';
+        } else if (typeof product.subcategory === 'string') {
+            subcategoryName = product.subcategory;
+        }
+        
+        const subName = subcategoryName.toLowerCase();
+        const gender = product.plec || 'unknown';
+        
+        // Return detailed category information
+        return {
+            type: mainCategory,
+            category: mainCategory,
+            subcategory: subcategoryName,
+            subcategoryLower: subName,
+            gender: gender,
+            // Category flags for easy checking
+            isJacket: subName.includes('kurtka'),
+            isVest: subName.includes('kamizelka'),
+            isFurCoat: subName.includes('kożuch'),
+            isBag: mainCategory.toLowerCase().includes('torb'),
+            isBelt: mainCategory.toLowerCase().includes('pas') || mainCategory.toLowerCase().includes('belt'),
+            isWallet: mainCategory.toLowerCase().includes('portfel'),
+            isGlove: mainCategory.toLowerCase().includes('rękaw'),
+            isLeather: subName.includes('skórzana') || subName.includes('licówka') || subName.includes('licowka'),
+            isWomen: gender === 'D',
+            isMen: gender === 'M',
+            isChildren: gender === 'Dz' || gender === 'U' || subName.includes('dziecięc')
+        };
+    };
+    
+    // Specific category detection functions - now universal for all categories
+    const isWomenLeatherJacketCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isJacket && cat.isWomen && cat.isLeather;
+    };
+
+    const isMenLeatherJacketCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isJacket && cat.isMen && cat.isLeather;
+    };
+
+    const isVestLicowkaCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isVest && cat.isLeather && (cat.isWomen || cat.isMen);
+    };
+
+    const isWomensFurCoatCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isFurCoat && cat.isWomen;
+    };
+
+    const isMensFurCoatCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isFurCoat && cat.isMen;
+    };
+
+    const isChildrensFurCoatCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isFurCoat && cat.isChildren;
+    };
+
+    const isChildrensVestCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isVest && cat.isChildren;
+    };
+
+    // NEW: Universal category detection for ALL product types
+    const isBagCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isBag;
+    };
+
+    const isWalletCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isWallet;
+    };
+
+    const isBeltCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isBelt;
+    };
+
+    const isGloveCategory = (product) => {
+        const cat = getProductCategory(product);
+        return cat.isGlove;
+    };
+
+    // NEW: Universal product detection functions for ALL categories
+    const isBagProduct = (product, productName) => {
+        if (!product) return false;
+        return isBagCategory(product);
+    };
+
+    const isWalletProduct = (product, productName) => {
+        if (!product) return false;
+        return isWalletCategory(product);
+    };
+
+    const isBeltProduct = (product, productName) => {
+        if (!product) return false;
+        return isBeltCategory(product);
+    };
+
+    const isGloveProduct = (product, productName) => {
+        if (!product) return false;
+        return isGloveCategory(product);
+    };
+
+    // Universal product counter - counts ALL products with category detection
+    const getProductCategoryType = (product, productName) => {
+        if (!product) return 'unknown';
+        
+        if (isRBProduct(product, productName)) return 'rb';
+        if (isWomenLeatherJacket(product, productName)) return 'women-leather-jacket';
+        if (isMenLeatherJacket(product, productName)) return 'men-leather-jacket';
+        if (isVestLicowka(product, productName)) return 'vest-licowka';
+        if (isWomensFurCoat(product, productName)) return 'women-fur-coat';
+        if (isMensFurCoat(product, productName)) return 'men-fur-coat';
+        if (isChildrensFurCoat(product, productName)) return 'children-fur-coat';
+        if (isChildrensVest(product, productName)) return 'children-vest';
+        if (isBagProduct(product, productName)) return 'bag';
+        if (isWalletProduct(product, productName)) return 'wallet';
+        if (isBeltProduct(product, productName)) return 'belt';
+        if (isGloveProduct(product, productName)) return 'glove';
+        
+        return 'other';
+    };
+
+    const isMenVestFromFurCategory = (product) => {
+        if (!product || !product.subcategory || typeof product.subcategory !== 'object') return false;
+        
+        const subcategoryName = product.subcategory.Kat_1_Opis_1;
+        if (!subcategoryName || typeof subcategoryName !== 'string') return false;
+        
+        const name = subcategoryName.toLowerCase();
+        
+        // Pattern matching for men's fur vests
+        return name.includes('kamizelka') && name.includes('męska') && 
+               name.includes('kożuch');
+    };
+
+    const isWomenVestFromFurCategory = (product) => {
+        if (!product || !product.subcategory || typeof product.subcategory !== 'object') return false;
+        
+        const subcategoryName = product.subcategory.Kat_1_Opis_1;
+        if (!subcategoryName || typeof subcategoryName !== 'string') return false;
+        
+        const name = subcategoryName.toLowerCase();
+        
+        // Pattern matching for women's fur vests
+        return name.includes('kamizelka') && name.includes('damska') && 
+               (name.includes('kożuch') || name.includes('kożcuha')); // uwzględnij literówkę
+    };
+
+    const isJRVestFromFoxCategory = (product) => {
+        if (!product || !product.subcategory || typeof product.subcategory !== 'object') return false;
+        
+        const subcategoryName = product.subcategory.Kat_1_Opis_1;
+        if (!subcategoryName || typeof subcategoryName !== 'string') return false;
+        
+        const name = subcategoryName.toLowerCase();
+        
+        // Pattern matching for JR fox vests
+        return name.includes('kamizelka') && name.includes('damska') && 
+               name.includes('lisa');
+    };
+
     const isMostProduct = (product, productName) => {
         return isManufacturerProduct(product, ['Most', 'most'], productName);
     };
@@ -290,34 +468,8 @@ const SeachEngineTable = () => {
             return false;
         }
         
-        // Method 1: Proper category structure check
-        if (product.category === 'Kurtki kożuchy futra' && 
-            product.subcategory && 
-            typeof product.subcategory === 'object' &&
-            (product.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska' || 
-             product.subcategory.Kat_1_Opis_1 === 'Kurtka damska licówka') &&
-            product.plec === 'D') {
-            return true;
-        }
-        
-        // Method 2: Direct subcategory ID check (if we know the ID)
-        if (product.category === 'Kurtki kożuchy futra' && 
-            product.subcategory === '68f7d26c5b8f61302b06f658' && // ID subcategory "Kurtka skórzana damska" 
-            product.plec === 'D') {
-            return true;
-        }
-        
-        // Method 3: Fallback - name-based identification for products that might have incorrect structure
-        if (product.plec === 'D' && 
-            product.category === 'Kurtki kożuchy futra' &&
-            (productName.toLowerCase().includes('kurtka') || 
-             productName.toLowerCase().includes('skórzana') ||
-             productName.toLowerCase().includes('skorzana') ||
-             productName.toLowerCase().includes('jacket'))) {
-            return true;
-        }
-        
-        return false;
+        // Use universal category detection - works for ALL categories now
+        return isWomenLeatherJacketCategory(product);
     };
 
     // Funkcja sprawdzająca czy produkt to kurtka męska licówka
@@ -329,23 +481,8 @@ const SeachEngineTable = () => {
             return false;
         }
         
-        // Method 1: Proper category structure check
-        if (product.category === 'Kurtki kożuchy futra' && 
-            product.subcategory && 
-            typeof product.subcategory === 'object' &&
-            product.subcategory.Kat_1_Opis_1 === 'Kurtka męska licówka' &&
-            product.plec === 'M') {
-            return true;
-        }
-        
-        // Method 2: Direct subcategory ID check for men jackets (ID from our script: 68f7db03d1dde0b668d4c378)
-        if (product.category === 'Kurtki kożuchy futra' && 
-            product.subcategory === '68f7db03d1dde0b668d4c378' && // ID subcategory "Kurtka męska licówka" 
-            product.plec === 'M') {
-            return true;
-        }
-        
-        return false;
+        // Use universal category detection - works for ALL categories now
+        return isMenLeatherJacketCategory(product);
     };
 
     // Funkcja sprawdzająca czy produkt to kamizelka licówka (męska lub damska)
@@ -357,17 +494,8 @@ const SeachEngineTable = () => {
             return false;
         }
         
-        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kamizelką licówka
-        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
-            return false;
-        }
-        
-        // Sprawdź podkategorię "Kamizelka damska licówka" lub "Kamizelka męska licówka"
-        return product.category === 'Kurtki kożuchy futra' && 
-               product.subcategory && 
-               typeof product.subcategory === 'object' &&
-               (product.subcategory.Kat_1_Opis_1 === 'Kamizelka damska licówka' ||
-                product.subcategory.Kat_1_Opis_1 === 'Kamizelka męska licówka');
+        // Use universal category detection - works for ALL categories now
+        return isVestLicowkaCategory(product);
     };
 
     // Funkcja sprawdzająca czy produkt to kożuch damski
@@ -379,16 +507,8 @@ const SeachEngineTable = () => {
             return false;
         }
         
-        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kożuchem damskim
-        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
-            return false;
-        }
-        
-        // Sprawdź podkategorię "Kożuch damski"
-        return product.category === 'Kurtki kożuchy futra' && 
-               product.subcategory && 
-               typeof product.subcategory === 'object' &&
-               product.subcategory.Kat_1_Opis_1 === 'Kożuch damski';
+        // Use universal category detection - works for ALL categories now
+        return isWomensFurCoatCategory(product);
     };
 
     // Funkcja sprawdzająca czy produkt to kożuch męski
@@ -400,16 +520,8 @@ const SeachEngineTable = () => {
             return false;
         }
         
-        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kożuchem męskim
-        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
-            return false;
-        }
-        
-        // Sprawdź podkategorię "Kożuch męski " (uwaga na spację na końcu!)
-        return product.category === 'Kurtki kożuchy futra' && 
-               product.subcategory && 
-               typeof product.subcategory === 'object' &&
-               product.subcategory.Kat_1_Opis_1 === 'Kożuch męski ';
+        // Use universal category detection - works for ALL categories now
+        return isMensFurCoatCategory(product);
     };
 
     // Funkcja sprawdzająca czy produkt to kożuch dziecięcy
@@ -421,16 +533,8 @@ const SeachEngineTable = () => {
             return false;
         }
         
-        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kożuchem dziecięcym
-        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
-            return false;
-        }
-        
-        // Sprawdź podkategorię "Kożuch dziecięcy"
-        return product.category === 'Kurtki kożuchy futra' && 
-               product.subcategory && 
-               typeof product.subcategory === 'object' &&
-               product.subcategory.Kat_1_Opis_1 === 'Kożuch dziecięcy';
+        // Use universal category detection - works for ALL categories now
+        return isChildrensFurCoatCategory(product);
     };
 
     // Funkcja sprawdzająca czy produkt to kamizelka dziecięca
@@ -442,53 +546,29 @@ const SeachEngineTable = () => {
             return false;
         }
         
-        // WYKLUCZENIE: Jeśli brak podkategorii, nie może być kamizelką dziecięcą
-        if (!product.subcategory || !product.subcategory.Kat_1_Opis_1) {
-            return false;
-        }
-        
-        // Sprawdź podkategorię "Kamizelka dziecięca"
-        return product.category === 'Kurtki kożuchy futra' && 
-               product.subcategory && 
-               typeof product.subcategory === 'object' &&
-               product.subcategory.Kat_1_Opis_1 === 'Kamizelka dziecięca';
+        // Use universal category detection - works for ALL categories now
+        return isChildrensVestCategory(product);
     };
 
-    // Funkcja do identyfikacji kamizelek męskich z kożucha
+    // Funkcja do identyfikacji kamizelek męskich (UNIWERSALNIE - wszystkie kategorie)
     const isMenVest = (product, productName) => {
         if (!product) return false;
         
-        // Sprawdź czy to kamizelka męska z kożucha
-        if (product.category === 'Kurtki kożuchy futra') {
-            // Sprawdź czy subcategory to string
-            if (typeof product.subcategory === 'string') {
-                return product.subcategory === 'Kamizelka męska z kożucha';
-            }
-            // Sprawdź czy subcategory to obiekt z polem Kat_1_Opis_1
-            if (typeof product.subcategory === 'object' && product.subcategory && product.subcategory.Kat_1_Opis_1) {
-                return product.subcategory.Kat_1_Opis_1 === 'Kamizelka męska z kożucha';
-            }
-        }
+        // Użyj uniwersalnego detektora kategorii zamiast sprawdzania konkretnej kategorii
+        const category = getProductCategory(product);
         
-        return false;
+        // Sprawdź czy to kamizelka męska (pattern-based detection)
+        return category.isVest && category.isMen;
     };
 
     const isWomenVest = (product, productName) => {
         if (!product) return false;
         
-        // Sprawdź czy to kamizelka damska z kożucha
-        if (product.category === 'Kurtki kożuchy futra') {
-            // Sprawdź czy subcategory to string
-            if (typeof product.subcategory === 'string') {
-                return product.subcategory === 'Kamizelka damska z kożcuha';
-            }
-            // Sprawdź czy subcategory to obiekt z polem Kat_1_Opis_1
-            if (typeof product.subcategory === 'object' && product.subcategory && product.subcategory.Kat_1_Opis_1) {
-                return product.subcategory.Kat_1_Opis_1 === 'Kamizelka damska z kożcuha';
-            }
-        }
+        // Użyj uniwersalnego detektora kategorii zamiast sprawdzania konkretnej kategorii
+        const category = getProductCategory(product);
         
-        return false;
+        // Sprawdź czy to kamizelka damska (pattern-based detection)
+        return category.isVest && category.isWomen;
     };
 
     const isJRVest = (product, productName) => {
@@ -499,17 +579,9 @@ const SeachEngineTable = () => {
             return false;
         }
         
-        // Then check if it's a vest (kamizelka z lisa)
-        if (product.category === 'Kurtki kożuchy futra') {
-            // Sprawdź czy subcategory to string
-            if (typeof product.subcategory === 'string') {
-                return product.subcategory === 'Kamizelka damska z lisa';
-            }
-            // Sprawdź czy subcategory to obiekt z polem Kat_1_Opis_1
-            if (typeof product.subcategory === 'object' && product.subcategory && product.subcategory.Kat_1_Opis_1) {
-                return product.subcategory.Kat_1_Opis_1 === 'Kamizelka damska z lisa';
-            }
-        }
+        // Then check if it's a vest (kamizelka) using universal detection
+        const category = getProductCategory(product);
+        return category.isVest;
         
         return false;
     };
@@ -1435,11 +1507,8 @@ const SeachEngineTable = () => {
                 return false;
             }
             
-            // Damskie: sprawdź podkategorię "Kurtka skórzana damska" lub "Kurtka damska licówka"
-            return productData.subcategory && 
-                   typeof productData.subcategory === 'object' &&
-                   (productData.subcategory.Kat_1_Opis_1 === 'Kurtka skórzana damska' ||
-                    productData.subcategory.Kat_1_Opis_1 === 'Kurtka damska licówka');
+            // Damskie: użyj dynamicznego wykrywania kategorii
+            return productData.plec === 'D' && isWomenLeatherJacketCategory(productData);
         });
         
         const menJackets = printTableData.filter(row => {
@@ -1451,10 +1520,8 @@ const SeachEngineTable = () => {
                 return false;
             }
             
-            // Męskie: sprawdź podkategorię "Kurtka męska licówka"
-            return productData.subcategory && 
-                   typeof productData.subcategory === 'object' &&
-                   productData.subcategory.Kat_1_Opis_1 === 'Kurtka męska licówka';
+            // Męskie: użyj dynamicznego wykrywania kategorii
+            return productData.plec === 'M' && isMenLeatherJacketCategory(productData);
         }).slice(0, 45); // LIMIT 45 kurtek męskich
 
         // Filtruj kamizelki licówka (męskie i damskie)
@@ -1462,12 +1529,9 @@ const SeachEngineTable = () => {
             const productData = products.find(p => p.fullName === row[2]);
             if (!productData) return false;
             
-            // Kamizelki: sprawdź podkategorię "Kamizelka damska licówka" lub "Kamizelka męska licówka"
-            return productData.category === 'Kurtki kożuchy futra' && 
-                   productData.subcategory && 
-                   typeof productData.subcategory === 'object' &&
-                   (productData.subcategory.Kat_1_Opis_1 === 'Kamizelka damska licówka' ||
-                    productData.subcategory.Kat_1_Opis_1 === 'Kamizelka męska licówka');
+            // Kamizelki: użyj uniwersalnego wykrywania kategorii (wszystkie kategorie!)
+            const category = getProductCategory(productData);
+            return category.isVest;
         });
 
         // Filtruj produkty R&B
@@ -2013,7 +2077,7 @@ const SeachEngineTable = () => {
     // Funkcja generująca HTML dla strony 2 (kożuchy damskie po lewej, męskie + dziecięce po prawej)
     const generatePrintPage2HTML = (selectedDate = '') => {
 
-        // Oblicz sumy dla każdego punktu sprzedaży - WSZYSTKIE produkty z kategorii "Kurtki kożuchy futra"
+        // Oblicz sumy dla każdego punktu sprzedaży - WSZYSTKIE produkty (wszystkie kategorie!)
         const calculateInventorySums = () => {
             const sums = {
                 krupowki: 0,    // K
@@ -2023,20 +2087,17 @@ const SeachEngineTable = () => {
                 skrzat: 0       // S
             };
 
-            // Filtruj WSZYSTKIE produkty z kategorii "Kurtki kożuchy futra" (nie tylko wybrane do druku)
-            const furCoatsStateData = resolvedStateData.filter(stateItem => {
+            // Filtruj WSZYSTKIE produkty z WSZYSTKICH kategorii (nie tylko "Kurtki kożuchy futra")
+            const allProductsStateData = resolvedStateData.filter(stateItem => {
                 // Znajdź produkt w liście products
                 const product = products.find(p => p.fullName === stateItem.fullName);
                 
-                // Sprawdź czy produkt należy do kategorii "Kurtki kożuchy futra"
-                if (product && product.category === 'Kurtki kożuchy futra') {
-                    return true;
-                }
-                return false;
+                // Teraz liczymy WSZYSTKIE produkty, niezależnie od kategorii
+                return product !== undefined;
             });
 
-            // Policz dla każdego punktu sprzedaży
-            furCoatsStateData.forEach(stateItem => {
+            // Policz dla każdego punktu sprzedaży - WSZYSTKIE produkty
+            allProductsStateData.forEach(stateItem => {
                 const sellingPoint = stateItem.selling_point_name || stateItem.sellingPoint || stateItem.selling_point;
                 // Każdy rekord w states = 1 sztuka produktu
                 const quantity = 1;
@@ -2082,10 +2143,8 @@ const SeachEngineTable = () => {
             const productData = products.find(p => p.fullName === row[2]);
             if (!productData) return false;
             
-            // Kożuchy damskie: sprawdź podkategorię "Kożuch damski"
-            return productData.subcategory && 
-                   typeof productData.subcategory === 'object' &&
-                   productData.subcategory.Kat_1_Opis_1 === 'Kożuch damski';
+            // Kożuchy damskie: użyj dynamicznego wykrywania kategorii
+            return isWomensFurCoatCategory(productData);
         }).slice(0, 140); // LIMIT 140 produktów
 
         // Filtruj kożuchy męskie (podkategoria "Kożuch męski") - LIMIT 45
@@ -2093,10 +2152,8 @@ const SeachEngineTable = () => {
             const productData = products.find(p => p.fullName === row[2]);
             if (!productData) return false;
             
-            // Kożuchy męskie: sprawdź podkategorię "Kożuch męski"
-            return productData.subcategory && 
-                   typeof productData.subcategory === 'object' &&
-                   productData.subcategory.Kat_1_Opis_1 === 'Kożuch męski ';
+            // Kożuchy męskie: użyj dynamicznego wykrywania kategorii
+            return isMensFurCoatCategory(productData);
         }).slice(0, 45); // LIMIT 45 kożuchów męskich
 
         // Filtruj produkty dziecięce (kożuchy + kamizelki) - LIMIT 15
