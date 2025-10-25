@@ -983,12 +983,10 @@ const SeachEngineTable = () => {
                 alert('❌ Błędne słowo potwierdzające!\n\nOperacja resetowania kolorów została anulowana.\n\nAby zresetować kolory, spróbuj ponownie i wpisz dokładnie: RESETUJ');
             }
             // Jeśli confirmationWord === null, użytkownik anulował (kliknął Cancel)
-            console.log('🚫 Resetowanie kolorów zostało anulowane przez użytkownika');
             return; // Przerwij wykonywanie funkcji
         }
 
-        // Jeśli doszliśmy tutaj, użytkownik wpisał poprawne słowo
-        console.log('✅ Potwierdzenie resetowania kolorów - rozpoczynam resetowanie...');
+        // Jeśli doszliśmy tutaj, użytkownik wpisał poprawne słowo — kontynuuj reset
 
         // Reset local state
         setRowColors({});
@@ -2092,14 +2090,20 @@ const SeachEngineTable = () => {
                 // Znajdź produkt w liście products
                 const product = products.find(p => p.fullName === stateItem.fullName);
                 
+
+                
                 // Teraz liczymy WSZYSTKIE produkty, niezależnie od kategorii
                 return product !== undefined;
             });
+
+
 
             // Policz dla każdego punktu sprzedaży - WSZYSTKIE produkty
             allProductsStateData.forEach(stateItem => {
                 // POPRAWKA: Sprawdź wszystkie możliwe pola dla punktu sprzedaży
                 const sellingPoint = stateItem.selling_point_name || stateItem.sellingPoint || stateItem.selling_point || stateItem.location;
+                
+
                 
                 // Każdy rekord w states = 1 sztuka produktu
                 const quantity = 1;
