@@ -664,8 +664,11 @@ const SeachEngineTable = () => {
                     
                     // � UNIWERSALNE MAPOWANIE ROZMIARÓW WG PŁCI
                     if (matchedProduct.plec === 'Dz' || matchedProduct.plec === 'U') {
-                        // DZIECIĘCE ROZMIARY KOŻUCHÓW: 104→kol.7  116→kol.8  128→kol.9  140→kol.10  152→kol.11
+                        // DZIECIĘCE ROZMIARY: 92→kol.6(S/44)  104→kol.7(M/48)  116→kol.8(L/50)  128→kol.9(XL/52)  140→kol.10(2XL/54)  152→kol.11(3XL/56)
                         switch (size) {
+                            case '92':
+                                columnIndex = 6;
+                                break;
                             case '104':
                                 columnIndex = 7;
                                 break;
@@ -739,45 +742,25 @@ const SeachEngineTable = () => {
                             case '66':
                                 columnIndex = 16;
                                 break;
-                            // Rozmiary dziecięce
+                            // Rozmiary dziecięce: 92→kol.6(S/44)  104→kol.7(M/48)  116→kol.8(L/50)  128→kol.9(XL/52)  140→kol.10(2XL/54)  152→kol.11(3XL/56)
                             case '92':
-                                columnIndex = 4;
-                                break;
-                            case '98':
-                                columnIndex = 5;
-                                break;
-                            case '104':
                                 columnIndex = 6;
                                 break;
-                            case '110':
+                            case '104':
                                 columnIndex = 7;
                                 break;
                             case '116':
                                 columnIndex = 8;
                                 break;
-                            case '122':
+                            case '128':
                                 columnIndex = 9;
                                 break;
-                            case '128':
+                            case '140':
                                 columnIndex = 10;
                                 break;
-                            case '134':
+                            case '152':
                                 columnIndex = 11;
                                 break;
-                            case '140':
-                                columnIndex = 12;
-                                break;
-                            case '146':
-                                columnIndex = 13;
-                                break;
-                            case '152':
-                                columnIndex = 14;
-                                break;
-                            case '158':
-                                columnIndex = 15;
-                                break;
-                            case '164':
-                                columnIndex = 16;
                                 break;
                             default:
                                 return;
@@ -2090,8 +2073,6 @@ const SeachEngineTable = () => {
                 // Znajdź produkt w liście products
                 const product = products.find(p => p.fullName === stateItem.fullName);
                 
-
-                
                 // Teraz liczymy WSZYSTKIE produkty, niezależnie od kategorii
                 return product !== undefined;
             });
@@ -2562,12 +2543,12 @@ const SeachEngineTable = () => {
                                     print-color-adjust: exact !important;
                                 ">
                                     <td class="product-name" style="background-color: ${bgColor} !important; color: #000000 !important;">${row[2]}</td>
-                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[4])}</td>
-                                    <td class="size-cell size-104" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[6])}</td>
+                                    <td class="size-cell size-104" style="background-color: ${bgColor} !important;">${formatCellContent(row[7])}</td>
                                     <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[8])}</td>
-                                    <td class="size-cell size-128" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
-                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[12])}</td>
-                                    <td class="size-cell size-152" style="background-color: ${bgColor} !important;">${formatCellContent(row[14])}</td>
+                                    <td class="size-cell size-128" style="background-color: ${bgColor} !important;">${formatCellContent(row[9])}</td>
+                                    <td class="size-cell" style="background-color: ${bgColor} !important;">${formatCellContent(row[10])}</td>
+                                    <td class="size-cell size-152" style="background-color: ${bgColor} !important;">${formatCellContent(row[11])}</td>
                                 </tr>
                                 `;
                             }).join('')}
@@ -3167,7 +3148,7 @@ const SeachEngineTable = () => {
                             borderRight: '3px solid orange',
                         }}
                         ></th>
-                        <th></th>
+                        <th>92</th>
                         <th
                             style={{
                                 borderLeft: '3px solid blue',

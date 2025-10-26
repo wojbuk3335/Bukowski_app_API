@@ -8,7 +8,8 @@ module.exports = (req, res, next) => {
             req.userData = { 
                 userId: 'dev-user-id', 
                 email: 'dev@example.com',
-                symbol: 'DevUser'
+                symbol: 'DevUser',
+                role: 'admin'  // DODANO ROLĘ ADMIN dla development!
             };
             return next();
         }
