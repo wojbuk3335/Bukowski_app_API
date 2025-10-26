@@ -40,6 +40,7 @@ const Warehouse = () => {
     const [selectedSellingPoint, setSelectedSellingPoint] = useState(''); // State for selected selling point
     const [input1Value, setInput1Value] = useState('');
     const [input2Value, setInput2Value] = useState('');
+    const [quantity, setQuantity] = useState(1); // State for quantity input
     const inputRefs = useRef([null, null]); // Array of refs for both inputs
 
     const [selectedIds, setSelectedIds] = useState([]); // State for selected row IDs
@@ -300,23 +301,30 @@ const Warehouse = () => {
                 price,
             };
 
-            const response = await axios.post('/api/state', dataToSend);
+            // Dodaj torebki w pętli według ilości
+            const newRows = [];
+            for (let i = 0; i < quantity; i++) {
+                const response = await axios.post('/api/state', dataToSend);
 
-            const newRow = {
-                id: response.data._id,
-                fullName: finalProductName,
-                plec: selectedGood.gender || 'Unisex',
-                date: selectedDate.toISOString().split('T')[0],
-                size: '-',
-                barcode: response.data.barcode,
-                symbol: sellingPoint,
-                price,
-            };
+                const newRow = {
+                    id: response.data._id,
+                    fullName: finalProductName,
+                    plec: selectedGood.gender || 'Unisex',
+                    date: selectedDate.toISOString().split('T')[0],
+                    size: '-',
+                    barcode: response.data.barcode,
+                    symbol: sellingPoint,
+                    price,
+                };
+                newRows.push(newRow);
+            }
 
-            setTableData((prevData) => [newRow, ...prevData]);
+            // Dodaj wszystkie nowe wiersze do tabeli na raz
+            setTableData((prevData) => [...newRows, ...prevData]);
 
             // Reset inputs
             setInput1Value('');
+            setQuantity(1); // Reset quantity to 1
             
             // Dla React Select musimy użyć setTimeout żeby upewnić się, że stan się zaktualizował
             setTimeout(() => {
@@ -386,23 +394,30 @@ const Warehouse = () => {
                 price,
             };
 
-            const response = await axios.post('/api/state', dataToSend);
+            // Dodaj portfele w pętli według ilości
+            const newRows = [];
+            for (let i = 0; i < quantity; i++) {
+                const response = await axios.post('/api/state', dataToSend);
 
-            const newRow = {
-                id: response.data._id,
-                fullName: finalProductName,
-                plec: selectedGood.gender || 'Unisex',
-                date: selectedDate.toISOString().split('T')[0],
-                size: '-',
-                barcode: response.data.barcode,
-                symbol: sellingPoint,
-                price,
-            };
+                const newRow = {
+                    id: response.data._id,
+                    fullName: finalProductName,
+                    plec: selectedGood.gender || 'Unisex',
+                    date: selectedDate.toISOString().split('T')[0],
+                    size: '-',
+                    barcode: response.data.barcode,
+                    symbol: sellingPoint,
+                    price,
+                };
+                newRows.push(newRow);
+            }
 
-            setTableData((prevData) => [newRow, ...prevData]);
+            // Dodaj wszystkie nowe wiersze do tabeli na raz
+            setTableData((prevData) => [...newRows, ...prevData]);
 
             // Reset inputs
             setInput1Value('');
+            setQuantity(1); // Reset quantity to 1
             
             // Dla React Select musimy użyć setTimeout żeby upewnić się, że stan się zaktualizował
             setTimeout(() => {
@@ -472,23 +487,30 @@ const Warehouse = () => {
                 price,
             };
 
-            const response = await axios.post('/api/state', dataToSend);
+            // Dodaj pozostały asortyment w pętli według ilości
+            const newRows = [];
+            for (let i = 0; i < quantity; i++) {
+                const response = await axios.post('/api/state', dataToSend);
 
-            const newRow = {
-                id: response.data._id,
-                fullName: finalProductName,
-                plec: selectedGood.gender || 'Unisex',
-                date: selectedDate.toISOString().split('T')[0],
-                size: '-',
-                barcode: response.data.barcode,
-                symbol: sellingPoint,
-                price,
-            };
+                const newRow = {
+                    id: response.data._id,
+                    fullName: finalProductName,
+                    plec: selectedGood.gender || 'Unisex',
+                    date: selectedDate.toISOString().split('T')[0],
+                    size: '-',
+                    barcode: response.data.barcode,
+                    symbol: sellingPoint,
+                    price,
+                };
+                newRows.push(newRow);
+            }
 
-            setTableData((prevData) => [newRow, ...prevData]);
+            // Dodaj wszystkie nowe wiersze do tabeli na raz
+            setTableData((prevData) => [...newRows, ...prevData]);
 
             // Reset inputs
             setInput1Value('');
+            setQuantity(1); // Reset quantity to 1
             
             // Dla React Select musimy użyć setTimeout żeby upewnić się, że stan się zaktualizował
             setTimeout(() => {
@@ -556,21 +578,29 @@ const Warehouse = () => {
                 price,
             };
 
-            const response = await axios.post('/api/state', dataToSend);
-
-            const newRow = {
-                id: response.data._id,
-                fullName: input1Value.trim(),
-                date: selectedDate.toISOString(),
-                size: selectedSize,
-                barcode: response.data.barcode || "Brak danych",
-                symbol: selectedSellingPoint,
-                price: price,
-            };
-            setTableData((prevData) => [newRow, ...prevData]);
+            // Dodaj produkty w pętli według ilości
+            const newRows = [];
+            for (let i = 0; i < quantity; i++) {
+                const response = await axios.post('/api/state', dataToSend);
+                
+                const newRow = {
+                    id: response.data._id,
+                    fullName: input1Value.trim(),
+                    date: selectedDate.toISOString(),
+                    size: selectedSize,
+                    barcode: response.data.barcode || "Brak danych",
+                    symbol: selectedSellingPoint,
+                    price: price,
+                };
+                newRows.push(newRow);
+            }
+            
+            // Dodaj wszystkie nowe wiersze do tabeli na raz
+            setTableData((prevData) => [...newRows, ...prevData]);
 
             setInput1Value('');
             setInput2Value('');
+            setQuantity(1); // Reset quantity to 1
             // Do not reset selectedSellingPoint
             setTimeout(() => {
                 if (inputRefs.current[0] && inputRefs.current[0].focus) {
@@ -1716,6 +1746,23 @@ const Warehouse = () => {
             </div>
 
             <div className={`d-flex align-items-center gap-3 mb-4 ${styles.responsiveContainer}`}>
+                <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    value={quantity}
+                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                    placeholder="Ilość"
+                    className="form-control"
+                    style={{
+                        backgroundColor: 'black',
+                        color: 'white',
+                        border: '1px solid white',
+                        borderRadius: '4px',
+                        width: '80px',
+                        textAlign: 'center'
+                    }}
+                />
                 <Select
                     ref={(el) => (inputRefs.current[0] = el)}
                     value={goodsOptions.find((option) => option.label === input1Value) || null}
