@@ -82,7 +82,8 @@ exports.updateManyRemainingProducts = async (req, res, next) => {
                 productItem._id,
                 { 
                     Poz_Nr: productItem.Poz_Nr,
-                    Poz_Kod: productItem.Poz_Kod
+                    Poz_Kod: productItem.Poz_Kod,
+                    productType: productItem.productType
                 },
                 { new: true }
             );
@@ -155,7 +156,8 @@ exports.updateRemainingProducts = async (req, res, next) => {
             id,
             { 
                 Poz_Nr: req.body.Poz_Nr,
-                Poz_Kod: req.body.Poz_Kod
+                Poz_Kod: req.body.Poz_Kod,
+                productType: req.body.productType
             },
             { new: true }
         );
@@ -200,6 +202,11 @@ exports.updateRemainingProducts = async (req, res, next) => {
         // Compare Poz_Nr
         if (req.body.Poz_Nr !== undefined && oldProduct.Poz_Nr !== req.body.Poz_Nr) {
             changes.push(`Numer pozycji został zmieniony z ${oldProduct.Poz_Nr || 'brak'} na ${req.body.Poz_Nr || 'brak'}`);
+        }
+        
+        // Compare productType
+        if (req.body.productType !== undefined && oldProduct.productType !== req.body.productType) {
+            changes.push(`Typ produktu został zmieniony z ${oldProduct.productType || 'nieokreślony'} na ${req.body.productType || 'nieokreślony'}`);
         }
         
         const details = changes.length > 0 ? changes.join(', ') : 'Brak zmian w produkcie';

@@ -10,6 +10,12 @@ const remainingProductsSchema = mongoose.Schema({
     Poz_Kod: { 
         type: mongoose.Schema.Types.Mixed, 
         required: false 
+    },
+    productType: { 
+        type: String, 
+        enum: ['Rękawiczka', 'Pasek', ''], 
+        default: '',
+        required: false 
     }
 });
 

@@ -973,6 +973,18 @@ const Goods = () => {
     const getFilteredRemainingProducts = () => {
         return remainingProducts
             .filter(product => product.Poz_Kod && product.Poz_Kod.trim() !== '')
+            .filter(product => {
+                // Filter by product type based on selected remaining category
+                if (selectedRemainingCategory === 'belts') {
+                    // Show only belts: format "ABC 123" (3 letters + space + 3 digits)
+                    return /^[A-Z]{3} \d{3}$/.test(product.Poz_Kod);
+                } else if (selectedRemainingCategory === 'gloves') {
+                    // Show only gloves: must contain dot with exactly 3 digits after it
+                    return /\d+\.\d{3}/.test(product.Poz_Kod);
+                }
+                // For other categories, show all products
+                return true;
+            })
             .filter(product => 
                 product.Poz_Kod.toLowerCase().startsWith(remainingProductFilterText.toLowerCase())
             )
@@ -1273,12 +1285,12 @@ const Goods = () => {
     };
 
     const generateRemainingProductCode = () => {
-        // Format kodu dla pozostałego asortymentu: 000 + kolor(2) + 00 + Poz_Nr(2) + po_kropce(3) + suma(1)
+        // Format kodu dla pozostałego asortymentu: 000 + kolor(2) + 00 + Poz_Nr(2) + 3_cyfry(3) + suma(1)
         // Pozycje 1-3: 000 (zawsze zera)
         // Pozycje 4-5: Kod koloru (2 cyfry)
         // Pozycje 6-7: 00 (zawsze zera)
         // Pozycje 8-9: Poz_Nr z wybranego produktu (2 cyfry)
-        // Pozycje 10-12: Wartość po kropce z Poz_Kod (3 cyfry)
+        // Pozycje 10-12: PASKI: ostatnie 3 cyfry z kodu (np. "APS 202" → "202") | RĘKAWICZKI: cyfry po kropce (np. "12.123" → "123")
         // Pozycja 13: Suma kontrolna
         
         const color = colors.find(color => color._id === selectedColor);
@@ -1302,16 +1314,26 @@ const Goods = () => {
         const productNumber = remainingProduct.Poz_Nr || 0;
         code += productNumber.toString().padStart(2, '0').substring(0, 2);
         
-        // Pozycje 10-12: Wartość po kropce z Poz_Kod - 3 cyfry
-        let afterDotValue = '000';
+        // Pozycje 10-12: Wartość po kropce z Poz_Kod (3 cyfry) - SPECJALNA LOGIKA DLA PASKÓW
+        let lastThreeDigits = '000';
         if (selectedRemainingProductCode) {
-            const afterDotMatch = selectedRemainingProductCode.match(/\.(\d+)/); // Znajdź cyfry po kropce
-            if (afterDotMatch) {
-                const digits = afterDotMatch[1];
-                afterDotValue = digits.padStart(3, '0').substring(0, 3);
+            // Sprawdź czy to pasek (format "ABC 123")
+            if (selectedRemainingCategory === 'belts' && /^[A-Z]{3} \d{3}$/.test(selectedRemainingProductCode)) {
+                // Dla pasków: weź ostatnie 3 cyfry z kodu (np. z "APS 202" weź "202")
+                const beltNumberMatch = selectedRemainingProductCode.match(/\s(\d{3})$/);
+                if (beltNumberMatch) {
+                    lastThreeDigits = beltNumberMatch[1]; // Już są 3 cyfry
+                }
+            } else {
+                // Dla rękawiczek: standardowa logika - cyfry po kropce
+                const afterDotMatch = selectedRemainingProductCode.match(/\.(\d+)/); // Znajdź cyfry po kropce
+                if (afterDotMatch) {
+                    const digits = afterDotMatch[1];
+                    lastThreeDigits = digits.padStart(3, '0').substring(0, 3);
+                }
             }
         }
-        code += afterDotValue;
+        code += lastThreeDigits;
         
         // Pozycja 13: Suma kontrolna
         const controlSum = calculateControlSum(code);
@@ -3155,6 +3177,11 @@ const Goods = () => {
                                         const categoryId = e.target.value;
                                         setSelectedRemainingCategory(categoryId);
                                         handleRemainingCategoryChange(categoryId);
+                                        
+                                        // Reset product filter when category changes
+                                        setRemainingProductFilterText('');
+                                        setSelectedRemainingProductCode('');
+                                        setIsRemainingProductDropdownOpen(false);
                                     }}
                                     disabled={editingGood && editingGood.subcategory && (editingGood.subcategory._id === 'belts' || editingGood.subcategory._id === 'gloves')}
                                     title={editingGood && editingGood.subcategory && (editingGood.subcategory._id === 'belts' || editingGood.subcategory._id === 'gloves') ? "Podkategoria nie może być zmieniona dla pasków i rękawiczek podczas edycji" : ""}
