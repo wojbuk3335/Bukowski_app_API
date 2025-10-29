@@ -32,7 +32,7 @@ const validators = {
     signupValidation: [
         body('email')
             .isEmail()
-            .normalizeEmail()
+            // .normalizeEmail() - USUNIETE: zachowaj kropki w emailach
             .withMessage('Nieprawidłowy format email'),
         body('password')
             .isLength({ min: 8 })

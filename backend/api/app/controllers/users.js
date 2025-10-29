@@ -10,6 +10,8 @@ const jwt = require('jsonwebtoken');
 const jsonwebtoken = require('../config').jsonwebtoken;
 const config = require('../config');
 const refreshTokenManager = require('../middleware/refresh-token'); // 🔒 REFRESH TOKENS
+const emailService = require('../services/emailService'); // 🔒 EMAIL SERVICE FOR 2FA
+const twoFactorAuthService = require('../services/twoFactorAuthService'); // 🔒 2FA SERVICE
 
 class UsersController {
     // ... other methods ...
@@ -101,20 +103,46 @@ class UsersController {
                 }
 
                 argon2.verify(user.password, req.body.password) // Replaced bcrypt.compare with argon2.verify
-                    .then(result => {
+                    .then(async result => {
                         if (result) {
-                            // 🔒 TOKEN JWT Z PEŁNYMI DANYMI BEZPIECZEŃSTWA
+                            // 🔒 DLA ADMINÓW: WYMAGA 2FA
+                            if (user.role === 'admin') {
+                                // Generuj i wyślij kod weryfikacyjny
+                                const verificationCode = twoFactorAuthService.generateVerificationCode();
+                                twoFactorAuthService.storeVerificationCode(user._id.toString(), verificationCode);
+                                
+                                // Wyślij kod na email
+                                const emailResult = await emailService.sendVerificationCode(user.email, verificationCode);
+                                
+                                if (emailResult.success) {
+                                    console.log(`📧 2FA code sent to admin: ${user.email}`);
+                                    return res.status(200).json({
+                                        message: 'Verification code sent',
+                                        requiresVerification: true,
+                                        userId: user._id,
+                                        email: user.email,
+                                        success: false, // Nie jest jeszcze w pełni zalogowany
+                                        step: '2fa_verification'
+                                    });
+                                } else {
+                                    console.error('❌ Failed to send 2FA email:', emailResult.error);
+                                    return res.status(500).json({
+                                        message: 'Błąd wysyłania kodu weryfikacyjnego. Spróbuj ponownie.'
+                                    });
+                                }
+                            }
+
+                            // 🔒 DLA ZWYKŁYCH UŻYTKOWNIKÓW: Normalny login
                             const token = jwt.sign({
                                 email: user.email,
                                 userId: user._id,
-                                role: user.role,           // 🔒 KRYTYCZNE: Rola w tokenie
-                                symbol: user.symbol,       // 🔒 Symbol użytkownika
-                                sellingPoint: user.sellingPoint  // 🔒 Punkt sprzedaży
+                                role: user.role,
+                                symbol: user.symbol,
+                                sellingPoint: user.sellingPoint
                             }, jsonwebtoken, {
-                                expiresIn: '15m' // 🔒 PRODUKCJA: 15 minut dla backward compatibility
+                                expiresIn: '15m'
                             });
 
-                            // 🔒 GENERUJ REFRESH TOKEN z flagą rememberMe
                             const rememberMe = req.body.rememberMe || false;
                             const { accessToken, refreshToken } = refreshTokenManager.generateTokenPair({
                                 email: user.email,
@@ -126,7 +154,7 @@ class UsersController {
 
                             return res.status(200).json({
                                 message: 'Auth successful',
-                                token: token, // Zachowaj dla backward compatibility
+                                token: token,
                                 accessToken: accessToken,
                                 refreshToken: refreshToken,
                                 userId: user._id,
@@ -612,4 +640,184 @@ const blacklistToken = async (token) => {
     return Promise.resolve(); // Placeholder for actual implementation
 };
 
-module.exports = new UsersController();
+class UsersControllerExtension extends UsersController {
+    // 🔒 WERYFIKACJA KODU 2FA
+    async verifyTwoFactorCode(req, res, next) {
+        try {
+            const { userId, verificationCode } = req.body;
+
+            if (!userId || !verificationCode) {
+                return res.status(400).json({
+                    message: 'Kod weryfikacyjny i ID użytkownika są wymagane',
+                    success: false
+                });
+            }
+
+            // Sprawdź czy użytkownik istnieje i jest adminem
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({
+                    message: 'Użytkownik nie został znaleziony',
+                    success: false
+                });
+            }
+
+            if (user.role !== 'admin') {
+                return res.status(403).json({
+                    message: 'Weryfikacja 2FA dostępna tylko dla administratorów',
+                    success: false
+                });
+            }
+
+            // Weryfikuj kod
+            const verificationResult = twoFactorAuthService.verifyCode(userId, verificationCode);
+            
+            if (verificationResult.success) {
+                // Kod poprawny - wygeneruj tokeny i zaloguj
+                const token = jwt.sign({
+                    email: user.email,
+                    userId: user._id,
+                    role: user.role,
+                    symbol: user.symbol,
+                    sellingPoint: user.sellingPoint
+                }, jsonwebtoken, {
+                    expiresIn: '15m'
+                });
+
+                // Pobierz rememberMe z sesji lub ustaw domyślną wartość
+                const rememberMe = req.body.rememberMe || false;
+                const { accessToken, refreshToken } = refreshTokenManager.generateTokenPair({
+                    email: user.email,
+                    userId: user._id,
+                    role: user.role,
+                    symbol: user.symbol,
+                    sellingPoint: user.sellingPoint
+                }, rememberMe);
+
+                console.log(`✅ 2FA verification successful for admin: ${user.email}`);
+                
+                return res.status(200).json({
+                    message: 'Weryfikacja 2FA zakończona pomyślnie',
+                    token: token,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    userId: user._id,
+                    email: user.email,
+                    success: true,
+                    role: user.role,
+                    symbol: user.symbol,
+                    sellingPoint: user.sellingPoint,
+                    location: user.location
+                });
+            } else {
+                console.log(`❌ 2FA verification failed for user ${userId}:`, verificationResult.error);
+                return res.status(400).json({
+                    message: verificationResult.error,
+                    success: false,
+                    errorCode: verificationResult.errorCode,
+                    attemptsLeft: verificationResult.attemptsLeft
+                });
+            }
+
+        } catch (error) {
+            console.error('Error in 2FA verification:', error);
+            return res.status(500).json({
+                message: 'Błąd podczas weryfikacji kodu',
+                success: false
+            });
+        }
+    }
+
+    // 🔒 PONOWNE WYSŁANIE KODU 2FA
+    async resendTwoFactorCode(req, res, next) {
+        try {
+            const { userId } = req.body;
+
+            if (!userId) {
+                return res.status(400).json({
+                    message: 'ID użytkownika jest wymagane',
+                    success: false
+                });
+            }
+
+            // Sprawdź czy użytkownik istnieje i jest adminem
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({
+                    message: 'Użytkownik nie został znaleziony',
+                    success: false
+                });
+            }
+
+            if (user.role !== 'admin') {
+                return res.status(403).json({
+                    message: 'Weryfikacja 2FA dostępna tylko dla administratorów',
+                    success: false
+                });
+            }
+
+            // Usuń stary kod (jeśli istnieje)
+            twoFactorAuthService.removeCode(userId);
+
+            // Generuj nowy kod
+            const verificationCode = twoFactorAuthService.generateVerificationCode();
+            twoFactorAuthService.storeVerificationCode(userId, verificationCode);
+
+            // Wyślij nowy kod
+            const emailResult = await emailService.sendVerificationCode(user.email, verificationCode);
+
+            if (emailResult.success) {
+                console.log(`📧 2FA code resent to admin: ${user.email}`);
+                return res.status(200).json({
+                    message: 'Nowy kod weryfikacyjny został wysłany',
+                    success: true
+                });
+            } else {
+                console.error('❌ Failed to resend 2FA email:', emailResult.error);
+                return res.status(500).json({
+                    message: 'Błąd wysyłania kodu weryfikacyjnego',
+                    success: false
+                });
+            }
+
+        } catch (error) {
+            console.error('Error resending 2FA code:', error);
+            return res.status(500).json({
+                message: 'Błąd podczas wysyłania kodu',
+                success: false
+            });
+        }
+    }
+
+    // 🔒 STATUS 2FA (do debugowania)
+    async getTwoFactorStatus(req, res, next) {
+        try {
+            const { userId } = req.params;
+
+            if (!userId) {
+                return res.status(400).json({
+                    message: 'ID użytkownika jest wymagane',
+                    success: false
+                });
+            }
+
+            const codeInfo = twoFactorAuthService.getCodeInfo(userId);
+            const stats = twoFactorAuthService.getStats();
+
+            return res.status(200).json({
+                codeInfo: codeInfo,
+                systemStats: stats,
+                success: true
+            });
+
+        } catch (error) {
+            console.error('Error getting 2FA status:', error);
+            return res.status(500).json({
+                message: 'Błąd podczas pobierania statusu 2FA',
+                success: false
+            });
+        }
+    }
+}
+
+module.exports = new UsersControllerExtension();

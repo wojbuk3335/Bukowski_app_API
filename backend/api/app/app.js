@@ -63,10 +63,15 @@ const loginLimiter = rateLimit({
 // app.use(limiter); // Globalny limit - WYŁĄCZONY
 // app.use('/api/user/login', loginLimiter); // Specjalny limit dla logowania - WYŁĄCZONY
 
-// 🔒 OCHRONA PRZED NoSQL INJECTION
+// 🔒 OCHRONA PRZED NoSQL INJECTION (z wyjątkami dla poprawnych danych)
 app.use(mongoSanitize({
   replaceWith: '_',
+  allowDots: true, // Zezwól na kropki w emailach
   onSanitize: ({ req, key }) => {
+    // Nie loguj normalnych emaili z kropkami
+    if (key.includes('@') && key.includes('.') && !key.includes('$') && !key.includes('{')) {
+      return; // To prawdopodobnie normalny email
+    }
     console.warn(`⚠️ NoSQL injection attempt detected: ${key} in ${req.url}`);
   }
 }));

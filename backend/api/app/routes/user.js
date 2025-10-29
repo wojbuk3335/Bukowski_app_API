@@ -30,6 +30,19 @@ router.post('/login',
 
 router.post('/refresh-token', UsersController.refreshToken); // 🔒 Odświeżanie tokenu - publiczne
 
+// ========== ENDPOINTY 2FA (publiczne - przed pełnym logowaniem) ==========
+router.post('/verify-2fa', 
+    UsersController.verifyTwoFactorCode
+); // 🔒 Weryfikacja kodu 2FA
+
+router.post('/resend-2fa', 
+    UsersController.resendTwoFactorCode
+); // 🔒 Ponowne wysłanie kodu 2FA
+
+router.get('/2fa-status/:userId', 
+    UsersController.getTwoFactorStatus
+); // 🔒 Status 2FA (debug)
+
 // ========== ZABEZPIECZONE ENDPOINTY (wymagają autoryzacji) ==========
 router.get('/validate-token', checkAuth, UsersController.verifyToken); // Walidacja tokenu
 router.get('/verifyToken', checkAuth, UsersController.verifyToken); // Duplikat - też zabezpieczony
