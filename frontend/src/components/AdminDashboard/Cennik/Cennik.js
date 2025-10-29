@@ -4,6 +4,9 @@ import { FormGroup, Label, Input, Button, Table, Modal, ModalHeader, ModalBody, 
 import defaultPicture from '../../../assets/images/default_image_2.png';
 
 const Cennik = () => {
+    // API Base URL configuration
+    const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+    
     // Format price function - remove unnecessary decimal zeros
     const formatPrice = (price) => {
         if (!price && price !== 0) return '';
@@ -100,7 +103,7 @@ const Cennik = () => {
         
         setLoadingPriceList(true);
         try {
-            const response = await fetch(`/api/pricelists/${sellingPointId}`, {
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/${sellingPointId}`, {
                 // Add headers to suppress console errors for expected 404s
                 headers: {
                     'Accept': 'application/json',
@@ -134,7 +137,7 @@ const Cennik = () => {
     // Check if price list is synchronized with goods
     const checkSynchronization = async (sellingPointId) => {
         try {
-            const response = await fetch(`/api/pricelists/${sellingPointId}/compare`);
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/${sellingPointId}/compare`);
             if (response.ok) {
                 const data = await response.json();
                 setComparisonData(data);
@@ -147,9 +150,15 @@ const Cennik = () => {
                 } else {
                     setShowOutdatedWarning(false);
                 }
+            } else if (response.status === 404) {
+                // Price list doesn't exist - clear comparison data and hide warning
+                setComparisonData(null);
+                setShowOutdatedWarning(false);
+            } else {
+                console.error('Error checking synchronization:', response.statusText);
             }
         } catch (error) {
-            console.error('Error checking synchronization:', error);
+            console.error('Network error checking synchronization:', error);
         }
     };
 
@@ -159,7 +168,7 @@ const Cennik = () => {
         
         setLoadingPriceList(true);
         try {
-            const response = await fetch(`/api/pricelists/${selectedSellingPoint}/create`, {
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/${selectedSellingPoint}/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -186,7 +195,7 @@ const Cennik = () => {
         
         setLoadingPriceList(true);
         try {
-            const response = await fetch(`/api/pricelists/${selectedSellingPoint}/clone`, {
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/${selectedSellingPoint}/clone`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -215,7 +224,7 @@ const Cennik = () => {
         if (!editingItem || !selectedSellingPoint) return;
         
         try {
-            const response = await fetch(`/api/pricelists/${selectedSellingPoint}/update`, {
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/${selectedSellingPoint}/update`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -307,7 +316,7 @@ const Cennik = () => {
         }
 
         try {
-            const response = await fetch(`/api/pricelists/${selectedSellingPoint}`, {
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/${selectedSellingPoint}`, {
                 method: 'DELETE',
             });
 
@@ -329,7 +338,7 @@ const Cennik = () => {
     // Add new products to ALL existing price lists
     const addNewProductsToAll = async () => {
         try {
-            const response = await fetch('/api/pricelists/add-new-to-all', {
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/add-new-to-all`, {
                 method: 'POST',
             });
 
@@ -373,7 +382,7 @@ const Cennik = () => {
         setSyncModal(true);
         
         try {
-            const response = await fetch(`/api/pricelists/${selectedSellingPoint}/compare`);
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/${selectedSellingPoint}/compare`);
             if (response.ok) {
                 const data = await response.json();
                 setComparisonData(data);
@@ -392,7 +401,7 @@ const Cennik = () => {
     // Synchronize ALL price lists with goods (global)
     const synchronizeAllPriceLists = async (updateOutdated = true, addNew = true, removeDeleted = false) => {
         try {
-            const response = await fetch('/api/pricelists/sync-all', {
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/sync-all`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -436,7 +445,7 @@ const Cennik = () => {
     // Synchronize price list with goods
     const synchronizePriceList = async (updateOutdated = true, addNew = true, removeDeleted = false) => {
         try {
-            const response = await fetch(`/api/pricelists/${selectedSellingPoint}/sync`, {
+            const response = await fetch(`${API_BASE_URL}/api/pricelists/${selectedSellingPoint}/sync`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

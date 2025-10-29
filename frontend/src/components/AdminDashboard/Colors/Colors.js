@@ -94,7 +94,11 @@ const Colors = () => {
         try {
             setLoading(true);
             const result = (await axios.get(`/api/excel/color/get-all-colors`)).data;
-            const sortedColors = Array.isArray(result.colors) ? result.colors.sort((a, b) => a.Kol_Kod.localeCompare(b.Kol_Kod)) : [];
+            const sortedColors = Array.isArray(result.colors) ? result.colors.sort((a, b) => {
+                const aKod = a.Kol_Kod || '';
+                const bKod = b.Kol_Kod || '';
+                return aKod.localeCompare(bKod);
+            }) : [];
             setRows(sortedColors);
         } catch (error) {
             console.log(error);

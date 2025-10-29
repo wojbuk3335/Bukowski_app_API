@@ -13,21 +13,21 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
 
     // Manually populate subcategory for goods (same as in create function)
     const currentGoods = await Promise.all(goods.map(async (good) => {
-        if (good.category === 'Kurtki kożuchy futra' && good.subcategory) {
+        if (good.category === 'Kurtki kożuchy futra' && good.subcategory && mongoose.Types.ObjectId.isValid(good.subcategory)) {
             const SubcategoryCoats = require('../db/models/subcategoryCoats');
             const subcategoryData = await SubcategoryCoats.findById(good.subcategory).select('Kat_1_Opis_1');
             return {
                 ...good.toObject(),
                 subcategory: subcategoryData
             };
-        } else if (good.category === 'Torebki' && good.bagsCategoryId) {
+        } else if (good.category === 'Torebki' && good.bagsCategoryId && mongoose.Types.ObjectId.isValid(good.bagsCategoryId)) {
             const BagsCategory = require('../db/models/bagsCategory');
             const bagsCategoryData = await BagsCategory.findById(good.bagsCategoryId).select('Kat_1_Opis_1');
             return {
                 ...good.toObject(),
                 subcategory: bagsCategoryData
             };
-        } else if (good.category === 'Portfele' && good.bagsCategoryId) {
+        } else if (good.category === 'Portfele' && good.bagsCategoryId && mongoose.Types.ObjectId.isValid(good.bagsCategoryId)) {
             const WalletsCategory = require('../db/models/walletsCategory');
             const walletsCategoryData = await WalletsCategory.findById(good.bagsCategoryId).select('Kat_1_Opis_1');
             return {
@@ -41,7 +41,7 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
                 subcategoryData = { _id: 'belts', Kat_1_Opis_1: 'Paski' };
             } else if (good.subcategory === 'gloves') {
                 subcategoryData = { _id: 'gloves', Kat_1_Opis_1: 'Rękawiczki' };
-            } else {
+            } else if (mongoose.Types.ObjectId.isValid(good.subcategory)) {
                 const remainingData = await RemainingCategory.findById(good.subcategory).select('Rem_Kat_1_Opis_1');
                 if (remainingData) {
                     subcategoryData = { _id: remainingData._id, Kat_1_Opis_1: remainingData.Rem_Kat_1_Opis_1 };
@@ -296,7 +296,6 @@ class PriceListController {
             const priceList = await PriceList.findOne({ sellingPointId })
                 .populate('items.stock', 'Tow_Opis Tow_Kod')
                 .populate('items.color', 'Kol_Opis Kol_Kod')
-                .populate('items.subcategory', 'Kat_1_Opis_1')
                 .populate('items.manufacturer', 'Prod_Opis')
                 .populate('items.priceExceptions.size', 'Roz_Opis');
             
@@ -308,29 +307,29 @@ class PriceListController {
             const populatedItems = await Promise.all(priceList.items.map(async (item) => {
                 const itemObj = item.toObject();
                 
-                if (itemObj.category === 'Kurtki kożuchy futra' && itemObj.subcategory) {
+                if (itemObj.category === 'Kurtki kożuchy futra' && itemObj.subcategory && mongoose.Types.ObjectId.isValid(itemObj.subcategory)) {
                     const SubcategoryCoats = require('../db/models/subcategoryCoats');
                     const subcategoryData = await SubcategoryCoats.findById(itemObj.subcategory).select('Kat_1_Opis_1');
                     itemObj.subcategory = subcategoryData;
                 } else if (itemObj.category === 'Torebki') {
-                    if (itemObj.bagsCategoryId) {
+                    if (itemObj.bagsCategoryId && mongoose.Types.ObjectId.isValid(itemObj.bagsCategoryId)) {
                         // Manually populate bagsCategoryId for bags
                         const BagsCategory = require('../db/models/bagsCategory');
                         const bagsCategoryData = await BagsCategory.findById(itemObj.bagsCategoryId).select('Kat_1_Opis_1');
                         itemObj.subcategory = bagsCategoryData;
-                    } else if (itemObj.subcategory) {
+                    } else if (itemObj.subcategory && mongoose.Types.ObjectId.isValid(itemObj.subcategory)) {
                         // Old format: subcategory contains bagsCategoryId, manually populate it
                         const BagsCategory = require('../db/models/bagsCategory');
                         const bagsCategoryData = await BagsCategory.findById(itemObj.subcategory).select('Kat_1_Opis_1');
                         itemObj.subcategory = bagsCategoryData;
                     }
                 } else if (itemObj.category === 'Portfele') {
-                    if (itemObj.bagsCategoryId) {
+                    if (itemObj.bagsCategoryId && mongoose.Types.ObjectId.isValid(itemObj.bagsCategoryId)) {
                         // Manually populate bagsCategoryId for wallets
                         const WalletsCategory = require('../db/models/walletsCategory');
                         const walletsCategoryData = await WalletsCategory.findById(itemObj.bagsCategoryId).select('Kat_1_Opis_1');
                         itemObj.subcategory = walletsCategoryData;
-                    } else if (itemObj.subcategory) {
+                    } else if (itemObj.subcategory && mongoose.Types.ObjectId.isValid(itemObj.subcategory)) {
                         // Old format: subcategory contains wallets category id, manually populate it
                         const WalletsCategory = require('../db/models/walletsCategory');
                         const walletsCategoryData = await WalletsCategory.findById(itemObj.subcategory).select('Kat_1_Opis_1');
@@ -346,7 +345,7 @@ class PriceListController {
                         itemObj.subcategory = { _id: 'belts', Kat_1_Opis_1: 'Paski' };
                     } else if (itemObj.subcategory === 'gloves') {
                         itemObj.subcategory = { _id: 'gloves', Kat_1_Opis_1: 'Rękawiczki' };
-                    } else {
+                    } else if (mongoose.Types.ObjectId.isValid(itemObj.subcategory)) {
                         // It's an ObjectId, populate it
                         try {
                             const remainingData = await RemainingCategory.findById(itemObj.subcategory).select('Rem_Kat_1_Opis_1');
@@ -412,21 +411,21 @@ class PriceListController {
 
             // Manually populate subcategory based on category (like in goods controller)
             const populatedGoods = await Promise.all(goods.map(async (good) => {
-                if (good.category === 'Kurtki kożuchy futra' && good.subcategory) {
+                if (good.category === 'Kurtki kożuchy futra' && good.subcategory && mongoose.Types.ObjectId.isValid(good.subcategory)) {
                     const SubcategoryCoats = require('../db/models/subcategoryCoats');
                     const subcategoryData = await SubcategoryCoats.findById(good.subcategory).select('Kat_1_Opis_1');
                     return {
                         ...good.toObject(),
                         subcategory: subcategoryData
                     };
-                } else if (good.category === 'Torebki' && good.bagsCategoryId) {
+                } else if (good.category === 'Torebki' && good.bagsCategoryId && mongoose.Types.ObjectId.isValid(good.bagsCategoryId)) {
                     const BagsCategory = require('../db/models/bagsCategory');
                     const bagsCategoryData = await BagsCategory.findById(good.bagsCategoryId).select('Kat_1_Opis_1');
                     return {
                         ...good.toObject(),
                         subcategory: bagsCategoryData
                     };
-                } else if (good.category === 'Portfele' && good.bagsCategoryId) {
+                } else if (good.category === 'Portfele' && good.bagsCategoryId && mongoose.Types.ObjectId.isValid(good.bagsCategoryId)) {
                     const WalletsCategory = require('../db/models/walletsCategory');
                     const walletsCategoryData = await WalletsCategory.findById(good.bagsCategoryId).select('Kat_1_Opis_1');
                     return {
@@ -440,7 +439,7 @@ class PriceListController {
                         subcategoryData = { _id: 'belts', Kat_1_Opis_1: 'Paski' };
                     } else if (good.subcategory === 'gloves') {
                         subcategoryData = { _id: 'gloves', Kat_1_Opis_1: 'Rękawiczki' };
-                    } else {
+                    } else if (mongoose.Types.ObjectId.isValid(good.subcategory)) {
                         const remainingData = await RemainingCategory.findById(good.subcategory).select('Rem_Kat_1_Opis_1');
                         if (remainingData) {
                             subcategoryData = { _id: remainingData._id, Kat_1_Opis_1: remainingData.Rem_Kat_1_Opis_1 };
@@ -572,7 +571,6 @@ class PriceListController {
             const populatedPriceList = await PriceList.findById(priceList._id)
                 .populate('items.stock', 'Tow_Opis Tow_Kod')
                 .populate('items.color', 'Kol_Opis Kol_Kod')
-                .populate('items.subcategory', 'Kat_1_Opis_1')
                 .populate('items.manufacturer', 'Prod_Opis')
                 .populate('items.priceExceptions.size', 'Roz_Opis');
             
@@ -669,7 +667,6 @@ class PriceListController {
             const goods = await Goods.find()
                 .populate('stock', 'Tow_Opis Tow_Kod')
                 .populate('color', 'Kol_Opis Kol_Kod')
-                .populate('subcategory', 'Kat_1_Opis_1')
                 .populate('manufacturer', 'Prod_Opis')
                 .populate('priceExceptions.size', 'Roz_Opis');
 
@@ -714,7 +711,6 @@ class PriceListController {
             const populatedPriceList = await PriceList.findById(existingPriceList._id)
                 .populate('items.stock', 'Tow_Opis Tow_Kod')
                 .populate('items.color', 'Kol_Opis Kol_Kod')
-                .populate('items.subcategory', 'Kat_1_Opis_1')
                 .populate('items.manufacturer', 'Prod_Opis')
                 .populate('items.priceExceptions.size', 'Roz_Opis');
 
@@ -743,7 +739,6 @@ class PriceListController {
             const goods = await Goods.find()
                 .populate('stock', 'Tow_Opis Tow_Kod')
                 .populate('color', 'Kol_Opis Kol_Kod')
-                .populate('subcategory', 'Kat_1_Opis_1')
                 .populate('manufacturer', 'Prod_Opis')
                 .populate('priceExceptions.size', 'Roz_Opis');
 
@@ -818,7 +813,6 @@ class PriceListController {
             const priceList = await PriceList.findOne({ sellingPointId })
                 .populate('items.stock', 'Tow_Opis Tow_Kod')
                 .populate('items.color', 'Kol_Opis Kol_Kod')
-                .populate('items.subcategory', 'Kat_1_Opis_1')
                 .populate('items.manufacturer', 'Prod_Opis')
                 .populate('items.priceExceptions.size', 'Roz_Opis');
 
@@ -858,7 +852,6 @@ class PriceListController {
             const priceList = await PriceList.findOne({ sellingPointId })
                 .populate('items.stock', 'Tow_Opis Tow_Kod')
                 .populate('items.color', 'Kol_Opis Kol_Kod')
-                .populate('items.subcategory', 'Kat_1_Opis_1')
                 .populate('items.manufacturer', 'Prod_Opis')
                 .populate('items.priceExceptions.size', 'Roz_Opis');
                 
@@ -958,7 +951,6 @@ class PriceListController {
             // Populate the updated price list
             await priceList.populate('items.stock', 'Tow_Opis Tow_Kod');
             await priceList.populate('items.color', 'Kol_Opis Kol_Kod');
-            await priceList.populate('items.subcategory', 'Kat_1_Opis_1');
             await priceList.populate('items.manufacturer', 'Prod_Opis');
             await priceList.populate('items.priceExceptions.size', 'Roz_Opis');
 
@@ -984,7 +976,6 @@ class PriceListController {
         const priceList = await PriceList.findOne({ sellingPointId })
             .populate('items.stock', 'Tow_Opis Tow_Kod')
             .populate('items.color', 'Kol_Opis Kol_Kod')
-            .populate('items.subcategory', 'Kat_1_Opis_1')
             .populate('items.manufacturer', 'Prod_Opis')
             .populate('items.priceExceptions.size', 'Roz_Opis');
 
@@ -1003,7 +994,6 @@ class PriceListController {
         const allPriceLists = await PriceList.find()
             .populate('items.stock', 'Tow_Opis Tow_Kod')
             .populate('items.color', 'Kol_Opis Kol_Kod')
-            .populate('items.subcategory', 'Kat_1_Opis_1')
             .populate('items.manufacturer', 'Prod_Opis')
             .populate('items.priceExceptions.size', 'Roz_Opis');
         
