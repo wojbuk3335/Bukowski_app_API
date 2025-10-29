@@ -28,8 +28,6 @@ const AdminDashBoard = () => {
             setAuth({ email, token: accessToken, role });
             
             // 🕐 Start activity monitoring when user is authenticated
-            console.log('🕐 Starting activity monitoring for admin dashboard');
-            
             // Configure session based on remember me preference
             const rememberMe = localStorage.getItem('AdminRememberMe') === 'true';
             tokenService.configureSessionType(rememberMe);

@@ -23,8 +23,6 @@ class ActivityMonitor {
 
     // Start monitoring user activity
     startMonitoring() {
-        console.log('🕐 Starting activity monitoring...');
-        
         // Add event listeners for user activity
         this.activityEvents.forEach(event => {
             document.addEventListener(event, this.resetActivityTimer.bind(this), true);
@@ -40,7 +38,6 @@ class ActivityMonitor {
         this.warningShown = false;
         
         if (!this.isActive) {
-            console.log('👤 User became active again');
             this.isActive = true;
         }
     }
@@ -64,7 +61,6 @@ class ActivityMonitor {
             
             // Mark as inactive
             if (timeSinceLastActivity >= this.warningTimeout && this.isActive) {
-                console.log('😴 User became inactive');
                 this.isActive = false;
             }
             
@@ -73,8 +69,6 @@ class ActivityMonitor {
 
     // Show warning to user about upcoming logout
     showInactivityWarning() {
-        console.log('⚠️ Showing inactivity warning');
-        
         // Show a simple alert (you can replace with a proper modal)
         const remainingTime = Math.ceil((this.inactivityTimeout - this.warningTimeout) / 1000);
         
@@ -147,8 +141,6 @@ class ActivityMonitor {
 
     // Stop monitoring (for cleanup)
     stopMonitoring() {
-        console.log('🛑 Stopping activity monitoring');
-        
         if (this.intervalId) {
             clearInterval(this.intervalId);
             this.intervalId = null;
@@ -176,7 +168,6 @@ class ActivityMonitor {
         
         const timeoutMinutes = Math.round(timeoutMs / (60 * 1000));
         const warningMinutes = Math.round(this.warningTimeout / (60 * 1000));
-        console.log(`⏱️ Inactivity timeout set to ${timeoutMinutes} min, warning at ${warningMinutes} min`);
     }
 
     // Get current activity status

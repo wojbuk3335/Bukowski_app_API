@@ -1,7 +1,7 @@
 // Token Management Service with Auto-Refresh and Token Validation
 class TokenService {
     constructor() {
-        this.API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+        this.API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://bukowskiapp.pl';
         this.refreshPromise = null; // Prevent multiple refresh requests
         this.isRefreshingToken = false;
     }
@@ -196,7 +196,6 @@ class TokenService {
 
     // Configure session type based on "Remember Me"
     configureSessionType(rememberMe) {
-        console.log(`🔐 Configuring session type: ${rememberMe ? 'Long-term' : 'Short-term'}`);
         localStorage.setItem('SessionType', rememberMe ? 'long' : 'short');
         
         // Configure activity monitor
@@ -204,11 +203,9 @@ class TokenService {
             if (rememberMe) {
                 // 🔒 PRODUKCJA: Long session: 4 godziny inactivity timeout
                 module.default.setInactivityTimeout(4 * 60 * 60 * 1000, 3.5 * 60 * 60 * 1000);
-                console.log('⏱️ PRODUKCJA Long session: 4 godziny inactivity timeout set');
             } else {
                 // 🔒 PRODUKCJA: Short session: 30 minut inactivity timeout  
                 module.default.setInactivityTimeout(30 * 60 * 1000, 25 * 60 * 1000);
-                console.log('⏱️ PRODUKCJA Short session: 30 minut inactivity timeout set');
             }
         }).catch(error => {
             console.error('Error configuring activity monitor:', error);

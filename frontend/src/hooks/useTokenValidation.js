@@ -11,8 +11,6 @@ const useTokenValidation = (requireAuth = true) => {
         const validateToken = async () => {
             if (!requireAuth) return;
 
-            console.log(`🔍 Validating token for route: ${location.pathname}`);
-
             try {
                 const isValid = await tokenService.validateTokenOnRouteChange();
                 

@@ -9,6 +9,7 @@ import UserDashboard from './components/UserDashboard/UserDashboard';
 import AdminPrivateRoute from './components/PrivateRoute/AdminPrivateRoute';
 import UserPrivateRoute from './components/PrivateRoute/UserPrivateRoute';
 import AdminDashboard from './components/AdminDashboard/AdminDashboard';
+import TwoFactorVerification from './components/TwoFactorVerification/TwoFactorVerification';
 import Stock from './components/AdminDashboard/Stock/Stock';
 import NoFound from './components/AdminDashboard/NoFound/NoFound';
 import Profile from './components/AdminDashboard/Profile/Profile';
@@ -46,6 +47,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/user" />} />
         <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/admin/verify-2fa" element={<TwoFactorVerification />} />
         <Route path="/user" element={<UserLogin />} />
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={AdminDashboard} allowedRoles={['admin']} />}>
           <Route path="stock" element={<Stock />} />

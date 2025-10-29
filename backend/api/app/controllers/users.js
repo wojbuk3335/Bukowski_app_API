@@ -92,6 +92,8 @@ class UsersController {
     }
 
     login(req, res, next) {
+        console.log(`🚀 LOGIN ATTEMPT: ${req.body.email} - ${new Date().toISOString()}`);
+        
         User.findOne({ email: req.body.email })
             .exec()
             .then(user => {
@@ -101,33 +103,50 @@ class UsersController {
                         message: 'Auth failed'
                     });
                 }
+                
+                console.log(`👤 USER FOUND: ${user.email} - Role: ${user.role}`);
 
+                console.log(`🔑 Verifying password for user: ${user.email}`);
                 argon2.verify(user.password, req.body.password) // Replaced bcrypt.compare with argon2.verify
                     .then(async result => {
+                        console.log(`🔑 Password verification result: ${result}`);
                         if (result) {
                             // 🔒 DLA ADMINÓW: WYMAGA 2FA
                             if (user.role === 'admin') {
-                                // Generuj i wyślij kod weryfikacyjny
-                                const verificationCode = twoFactorAuthService.generateVerificationCode();
-                                twoFactorAuthService.storeVerificationCode(user._id.toString(), verificationCode);
-                                
-                                // Wyślij kod na email
-                                const emailResult = await emailService.sendVerificationCode(user.email, verificationCode);
-                                
-                                if (emailResult.success) {
-                                    console.log(`📧 2FA code sent to admin: ${user.email}`);
-                                    return res.status(200).json({
-                                        message: 'Verification code sent',
-                                        requiresVerification: true,
-                                        userId: user._id,
-                                        email: user.email,
-                                        success: false, // Nie jest jeszcze w pełni zalogowany
-                                        step: '2fa_verification'
-                                    });
-                                } else {
-                                    console.error('❌ Failed to send 2FA email:', emailResult.error);
+                                try {
+                                    console.log(`🔐 ADMIN LOGIN: Starting 2FA process for ${user.email}`);
+                                    
+                                    // Generuj i wyślij kod weryfikacyjny
+                                    const verificationCode = twoFactorAuthService.generateVerificationCode();
+                                    console.log(`🎲 Generated 2FA code: ${verificationCode}`);
+                                    
+                                    twoFactorAuthService.storeVerificationCode(user._id.toString(), verificationCode);
+                                    console.log(`💾 Stored 2FA code for user ID: ${user._id}`);
+                                    
+                                    // Wyślij kod na email
+                                    console.log(`📧 Attempting to send email to: ${user.email}`);
+                                    const emailResult = await emailService.sendVerificationCode(user.email, verificationCode);
+                                    console.log(`📧 Email result:`, emailResult);
+                                    
+                                    if (emailResult.success) {
+                                        return res.status(200).json({
+                                            message: 'Verification code sent',
+                                            requiresVerification: true,
+                                            userId: user._id,
+                                            email: user.email,
+                                            success: false, // Nie jest jeszcze w pełni zalogowany
+                                            step: '2fa_verification'
+                                        });
+                                    } else {
+                                        console.error('❌ Failed to send 2FA email:', emailResult.error);
+                                        return res.status(500).json({
+                                            message: 'Błąd wysyłania kodu weryfikacyjnego. Spróbuj ponownie.'
+                                        });
+                                    }
+                                } catch (error) {
+                                    console.error('❌ CRITICAL ERROR in 2FA process:', error);
                                     return res.status(500).json({
-                                        message: 'Błąd wysyłania kodu weryfikacyjnego. Spróbuj ponownie.'
+                                        message: 'Wewnętrzny błąd serwera podczas procesu 2FA'
                                     });
                                 }
                             }
@@ -171,12 +190,14 @@ class UsersController {
                         });
                     })
                     .catch(err => {
+                        console.error('❌ PASSWORD VERIFICATION ERROR:', err);
                         res.status(401).json({
                             message: 'Auth failed'
                         });
                     });
             })
             .catch(error => {
+                console.error('❌ DATABASE ERROR in login:', error);
                 res.status(500).json({
                     error: error
                 });

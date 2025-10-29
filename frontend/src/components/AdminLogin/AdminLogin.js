@@ -55,7 +55,7 @@ const AdminLogin = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+      const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://bukowskiapp.pl';
       
       // Send rememberMe flag to backend
       const response = await axios.post(`${API_BASE_URL}/api/user/login`, { 
@@ -63,6 +63,19 @@ const AdminLogin = () => {
         password, 
         rememberMe 
       });
+      
+      // Sprawdź czy wymaga weryfikacji 2FA
+      if (response.data.requiresVerification && response.data.step === '2fa_verification') {
+        // Przekieruj do weryfikacji 2FA z danymi sesji
+        navigate('/admin/verify-2fa', {
+          state: {
+            userId: response.data.userId,
+            email: response.data.email,
+            rememberMe: rememberMe
+          }
+        });
+        return;
+      }
       
       if (response.data.success) {
         localStorage.setItem('AdminRole', response.data.role);

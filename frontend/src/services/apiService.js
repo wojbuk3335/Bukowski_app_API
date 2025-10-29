@@ -3,7 +3,7 @@ import tokenService from './tokenService';
 // API Service with automatic token management
 class ApiService {
     constructor() {
-        this.API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+        this.API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://bukowskiapp.pl';
     }
 
     // Enhanced fetch with automatic token handling
