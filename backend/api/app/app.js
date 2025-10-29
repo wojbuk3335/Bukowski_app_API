@@ -48,6 +48,16 @@ const limiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    handler: (req, res, next, options) => {
+        // Loguj gdy ktoś uderza w limit
+        try {
+            const securityLogger = require('./services/securityLogger');
+            securityLogger.rateLimitHit(req, 'GLOBAL_LIMIT');
+        } catch (error) {
+            console.error('Security logging error:', error);
+        }
+        res.status(options.statusCode).json(options.message);
+    }
 });
 
 const loginLimiter = rateLimit({
@@ -57,11 +67,29 @@ const loginLimiter = rateLimit({
         error: 'Zbyt wiele prób logowania, spróbuj ponownie za 5 minut.'
     },
     skipSuccessfulRequests: true,
+    handler: (req, res, next, options) => {
+        // Loguj próby brute force na logowanie
+        try {
+            const securityLogger = require('./services/securityLogger');
+            securityLogger.rateLimitHit(req, 'LOGIN_LIMIT');
+            securityLogger.suspiciousActivity(req, 'BRUTE_FORCE_LOGIN', {
+                attemptedEmail: req.body?.email || 'unknown'
+            });
+        } catch (error) {
+            console.error('Security logging error:', error);
+        }
+        res.status(options.statusCode).json(options.message);
+    }
 });
 
-// Tymczasowo wyłączone rate limiting dla debugowania
-// app.use(limiter); // Globalny limit - WYŁĄCZONY
-// app.use('/api/user/login', loginLimiter); // Specjalny limit dla logowania - WYŁĄCZONY
+// 🔒 RATE LIMITING ENABLED - Ochrona przed atakami
+app.use(limiter); // Globalny limit - 1000 req/15min per IP
+app.use('/api/user/login', loginLimiter); // Limit logowania - 50 prób/5min per IP
+
+// 🔒 SECURITY MIDDLEWARE
+const { ipValidator, addIPToToken } = require('./middleware/ipValidator');
+app.use('/api/admin', ipValidator); // Walidacja IP dla ścieżek adminów
+app.use('/api/user/login', addIPToToken); // Dodawanie IP do nowych sesji
 
 // 🔒 OCHRONA PRZED NoSQL INJECTION (z wyjątkami dla poprawnych danych)
 app.use(mongoSanitize({

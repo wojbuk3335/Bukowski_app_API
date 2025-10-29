@@ -8,6 +8,13 @@ class EmailService {
                          process.env.SMTP_PASS === 'MUSISZ-WYGENEROWAC-HASLO-APLIKACJI' ||
                          process.env.SMTP_PASS === 'your-app-password';
 
+        // DEBUG: Pokaż aktualną konfigurację email
+        console.log('📧 EMAIL SERVICE CONFIG:');
+        console.log('  SMTP_USER:', process.env.SMTP_USER);
+        console.log('  EMAIL_FROM:', process.env.EMAIL_FROM);
+        console.log('  EMAIL_TEST_MODE:', process.env.EMAIL_TEST_MODE);
+        console.log('  isTestMode:', this.isTestMode);
+
         if (this.isTestMode) {
             console.log('📧 EMAIL SERVICE: Running in TEST MODE - emails will be logged to console');
             this.transporter = null;
@@ -49,16 +56,24 @@ class EmailService {
             }
 
             // TRYB PRODUKCYJNY - wysyłaj prawdziwy email
+            const fromAddress = process.env.EMAIL_FROM || 'BukowskiApp <bukowskiapp.system@gmail.com>';
+            console.log('📧 DEBUG: Wysyłam email z adresu:', fromAddress);
+            
             const mailOptions = {
-                from: 'Bukowski App <wbukowski1985@gmail.com>',
+                from: fromAddress,
                 to: email,
-                subject: 'Kod weryfikacyjny - Bukowski App',
+                subject: 'Kod weryfikacyjny - BukowskiApp',
+                replyTo: 'BukowskiApp <bukowskiapp.system@gmail.com>',
+                headers: {
+                    'X-Sender': 'BukowskiApp',
+                    'X-Application': 'BukowskiApp 2FA System'
+                },
                 html: `
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
                         <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                            <h2 style="color: #333; text-align: center; margin-bottom: 30px;">Kod weryfikacyjny</h2>
+                            <h2 style="color: #333; text-align: center; margin-bottom: 30px;">🔐 Kod weryfikacyjny - BukowskiApp</h2>
                             <p style="color: #666; font-size: 16px; line-height: 1.5;">
-                                Otrzymujesz ten email, ponieważ ktoś próbuje zalogować się do panelu administracyjnego.
+                                Otrzymujesz ten email, ponieważ ktoś próbuje zalogować się do panelu administracyjnego BukowskiApp.
                             </p>
                             <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; text-align: center; margin: 20px 0;">
                                 <p style="color: #333; font-size: 18px; margin-bottom: 10px;">Twój kod weryfikacyjny:</p>
@@ -69,7 +84,7 @@ class EmailService {
                             </p>
                             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
                             <p style="color: #999; font-size: 12px; text-align: center;">
-                                Wiadomość wygenerowana automatycznie - nie odpowiadaj na ten email.
+                                Wiadomość wygenerowana automatycznie przez BukowskiApp - nie odpowiadaj na ten email.
                             </p>
                         </div>
                     </div>
