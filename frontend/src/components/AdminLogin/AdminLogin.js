@@ -6,6 +6,7 @@ import AuthContext from '../../context/AuthProvider';
 import AuthForm from '../AuthForm/AuthForm';
 import userIcon from '../../assets/images/user.png';
 import Icon from '../../assets/images/admin.png';
+import tokenService from '../../services/tokenService';
 
 const AdminLogin = () => {
   const { setAuth } = useContext(AuthContext);
@@ -16,12 +17,26 @@ const AdminLogin = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('AdminToken');
-    const role = localStorage.getItem('AdminRole');
-    if (token && role === 'admin') {
-      setAuth({ token, role });
-      navigate('/admin/dashboard');
-    }
+    const checkExistingAuth = async () => {
+      const { accessToken } = tokenService.getTokens();
+      const role = localStorage.getItem('AdminRole');
+      
+      if (accessToken && role === 'admin') {
+        try {
+          // Validate token before proceeding
+          const isValid = await tokenService.validateTokenOnRouteChange();
+          if (isValid) {
+            setAuth({ token: accessToken, role });
+            navigate('/admin/dashboard');
+          }
+        } catch (error) {
+          // Token invalid, stay on login page
+          console.log('Existing token invalid, user needs to login');
+        }
+      }
+    };
+    
+    checkExistingAuth();
   }, [setAuth, navigate]);
 
   const handleInputChange = (event) => {
@@ -40,13 +55,31 @@ const AdminLogin = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const response = await axios.post('/api/user/login', { email, password });
+      const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+      
+      // Send rememberMe flag to backend
+      const response = await axios.post(`${API_BASE_URL}/api/user/login`, { 
+        email, 
+        password, 
+        rememberMe 
+      });
+      
       if (response.data.success) {
         localStorage.setItem('AdminRole', response.data.role);
         localStorage.setItem('AdminEmail', email);
+        localStorage.setItem('AdminRememberMe', rememberMe.toString()); // Store remember me preference
+        
         if (response.data.role === 'admin') {
+          // Store both access and refresh tokens
+          tokenService.setTokens(
+            response.data.accessToken || response.data.token, // Use accessToken if available, fallback to token
+            response.data.refreshToken
+          );
+          
+          // Configure activity monitor based on remember me
+          tokenService.configureSessionType(rememberMe);
+          
           setAuth(response.data);
-          localStorage.setItem('AdminToken', response.data.token);
           navigate('/admin/dashboard');
         } else {
           setError('Dostęp tylko dla administratorów.');

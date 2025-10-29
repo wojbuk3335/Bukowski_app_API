@@ -111,17 +111,18 @@ class UsersController {
                                 symbol: user.symbol,       // 🔒 Symbol użytkownika
                                 sellingPoint: user.sellingPoint  // 🔒 Punkt sprzedaży
                             }, jsonwebtoken, {
-                                expiresIn: '1h'
+                                expiresIn: '15m' // 🔒 PRODUKCJA: 15 minut dla backward compatibility
                             });
 
-                            // 🔒 GENERUJ REFRESH TOKEN
+                            // 🔒 GENERUJ REFRESH TOKEN z flagą rememberMe
+                            const rememberMe = req.body.rememberMe || false;
                             const { accessToken, refreshToken } = refreshTokenManager.generateTokenPair({
                                 email: user.email,
                                 userId: user._id,
                                 role: user.role,
                                 symbol: user.symbol,
                                 sellingPoint: user.sellingPoint
-                            });
+                            }, rememberMe);
 
                             return res.status(200).json({
                                 message: 'Auth successful',

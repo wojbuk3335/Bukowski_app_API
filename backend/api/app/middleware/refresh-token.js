@@ -10,8 +10,8 @@ class RefreshTokenManager {
         this.tokenExpiry = new Map();
     }
 
-    // Generuj parę tokenów (access + refresh)
-    generateTokenPair(userData) {
+        // Generuj parę tokenów (access + refresh)
+    generateTokenPair(userData, rememberMe = false) {
         const accessToken = jwt.sign({
             email: userData.email,
             userId: userData.userId,
@@ -19,13 +19,15 @@ class RefreshTokenManager {
             symbol: userData.symbol,
             sellingPoint: userData.sellingPoint
         }, jsonwebtoken, {
-            expiresIn: '15m' // 🔒 Krótszy czas dla access token
+            expiresIn: '15m' // 🔒 PRODUKCJA: Access token 15 minut
         });
 
         const refreshToken = crypto.randomBytes(64).toString('hex');
-        const expiryTime = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 dni
-
-        // Zapisz refresh token
+        
+        // 🔒 PRODUKCJA REMEMBER ME: Różne czasy dla refresh token
+        const expiryTime = rememberMe 
+            ? Date.now() + (30 * 24 * 60 * 60 * 1000)  // 🔒 PRODUKCJA: 30 dni jeśli "zapamiętaj"
+            : Date.now() + (24 * 60 * 60 * 1000);      // 🔒 PRODUKCJA: 24 godziny jeśli nie        // Zapisz refresh token
         this.refreshTokens.set(refreshToken, userData);
         this.tokenExpiry.set(refreshToken, expiryTime);
 
@@ -55,7 +57,7 @@ class RefreshTokenManager {
             symbol: userData.symbol,
             sellingPoint: userData.sellingPoint
         }, jsonwebtoken, {
-            expiresIn: '15m'
+            expiresIn: '15m' // 🔒 PRODUKCJA: 15 minut dla nowego access token
         });
 
         return newAccessToken;
