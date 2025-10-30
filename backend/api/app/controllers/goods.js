@@ -163,7 +163,6 @@ class GoodsController {
             }
         }
 
-        console.log('✅ All validations passed, creating goodData...');
         const goodData = {
             _id: new mongoose.Types.ObjectId(),
             color,
@@ -266,7 +265,6 @@ class GoodsController {
                     // Don't fail the product creation if sync fails - just log the error
                 }
                 
-                console.log('✅ Sending success response to frontend');
                 res.status(201).json({
                     message: 'Good created successfully and added to all price lists',
                     createdGood: {

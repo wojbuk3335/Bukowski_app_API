@@ -16,16 +16,25 @@ const validators = {
         next();
     },
 
-    // Walidacja logowania - mniej restrykcyjna dla istniejących użytkowników
+    // Walidacja logowania - bardziej restrykcyjna dla bezpieczeństwa
     loginValidation: [
         body('email')
             .isEmail()
-            // .normalizeEmail() - USUNIETE: nie normalizuj email przy logowaniu
             .withMessage('Nieprawidłowy format email'),
         body('password')
-            .isLength({ min: 4 })
-            .withMessage('Hasło musi mieć minimum 4 znaki')
-            // Usunięto wymaganie wielkiej litery dla logowania - dla zgodności z istniejącymi użytkownikami
+            .isLength({ min: 6 })
+            .withMessage('Hasło musi mieć minimum 6 znaków')
+            .custom((value, { req }) => {
+                // Loguj podejrzane próby z bardzo krótkimi hasłami
+                if (value && value.length < 4) {
+                    const securityLogger = require('../services/securityLogger');
+                    securityLogger.log('VERY_SHORT_PASSWORD_ATTEMPT', {
+                        passwordLength: value.length,
+                        email: req.body.email
+                    }, req);
+                }
+                return true;
+            })
     ],
 
     // Walidacja rejestracji

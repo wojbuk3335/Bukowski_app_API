@@ -157,9 +157,6 @@ class StockController {
             .then(async (result) => {
                 // Check if Tow_Opis (stock name) was changed and sync product names
                 if (updateOps.Tow_Opis && oldStock.Tow_Opis !== updateOps.Tow_Opis) {
-                    console.log('🔄 Stock name changed, syncing product names...');
-                    console.log(`Old name: "${oldStock.Tow_Opis}" → New name: "${updateOps.Tow_Opis}"`);
-
                     try {
                         // In test environment, call directly to avoid HTTP issues
                         if (process.env.NODE_ENV === 'test') {
@@ -196,7 +193,6 @@ class StockController {
                                 newValue: updateOps.Tow_Opis
                             });
                         }
-                        console.log('✅ Product names synchronized after stock update');
                     } catch (syncError) {
                         console.error('❌ Error synchronizing product names after stock update:', syncError.message);
                         // Don't fail the stock update if sync fails

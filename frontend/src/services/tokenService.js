@@ -1,9 +1,161 @@
 // Token Management Service with Auto-Refresh and Token Validation
+import axios from 'axios';
+
 class TokenService {
     constructor() {
         this.API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://bukowskiapp.pl';
         this.refreshPromise = null; // Prevent multiple refresh requests
         this.isRefreshingToken = false;
+        
+        // 🔒 SETUP AXIOS INTERCEPTOR dla automatycznego dodawania tokenów
+        this.setupAxiosInterceptors();
+
+        // 🔁 UNIVERSAL FETCH WRAPPER - obsługuje WSZYSTKIE typy zapytań API w aplikacji
+        if (typeof window !== 'undefined' && window.fetch && !window.__fetchWithAuthPatched) {
+            const originalFetch = window.fetch.bind(window);
+            window.__originalFetch = originalFetch;
+            window.__fetchWithAuthPatched = true;
+
+            window.fetch = async (input, init = {}) => {
+                try {
+                    // Normalize URL string
+                    const url = typeof input === 'string' ? input : input.url;
+
+                    // 🎯 UNIVERSALNE WYKRYWANIE ZAPYTAŃ API - wszystkie możliwe przypadki:
+                    const needsAuth = url && (
+                        // 1. Relatywne URL: '/api/...'
+                        url.startsWith('/api') ||
+                        // 2. Absolutne URL do tego samego backendu: 'http://localhost:3000/api/...' lub 'https://bukowskiapp.pl/api/...'
+                        url.includes('localhost:3000/api/') ||
+                        url.includes('bukowskiapp.pl/api/') ||
+                        // 3. URL z process.env.REACT_APP_API_BASE_URL + '/api/'
+                        (this.API_BASE_URL && url.includes(this.API_BASE_URL + '/api/')) ||
+                        // 4. Dowolny URL zawierający '/api/' (catch-all dla wszystkich możliwych backend URL)
+                        (url.includes('/api/') && !url.includes('localhost:9100') && !url.includes('external-api'))
+                    );
+
+                    if (needsAuth) {
+                        // Ensure we have a valid token (this will refresh if needed)
+                        try {
+                            const token = await this.getValidAccessToken();
+                            init = init || {};
+                            init.headers = Object.assign({}, init.headers || {}, {
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': init.headers?.['Content-Type'] || 'application/json'
+                            });
+                        } catch (err) {
+                            // If token retrieval/refresh fails, clear tokens and continue without header
+                            this.clearTokens();
+                            // Still continue the request - backend will return 401 and user will be redirected
+                        }
+                    }
+
+                    return await originalFetch(input, init);
+                } catch (err) {
+                    return Promise.reject(err);
+                }
+            };
+        }
+
+        // 🔧 WRAPPER dla axios.create() - zapewnia że nowe instancje axios też mają interceptory
+        if (typeof window !== 'undefined' && axios.create && !axios.__createWithAuthPatched) {
+            const originalCreate = axios.create.bind(axios);
+            axios.__originalCreate = originalCreate;
+            axios.__createWithAuthPatched = true;
+
+            axios.create = (config = {}) => {
+                const instance = originalCreate(config);
+                
+                // Dodaj interceptory do nowej instancji
+                instance.interceptors.request.use(
+                    async (requestConfig) => {
+                        try {
+                            const token = await this.getValidAccessToken();
+                            if (token) {
+                                requestConfig.headers.Authorization = `Bearer ${token}`;
+                            }
+                        } catch (err) {
+                            // Token unavailable, continue without auth
+                        }
+                        return requestConfig;
+                    },
+                    (error) => Promise.reject(error)
+                );
+
+                instance.interceptors.response.use(
+                    (response) => response,
+                    async (error) => {
+                        const originalRequest = error.config;
+                        if (error.response?.status === 401 && !originalRequest._retry) {
+                            originalRequest._retry = true;
+                            try {
+                                const newToken = await this.refreshAccessToken();
+                                if (newToken) {
+                                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                                    return instance(originalRequest);
+                                }
+                            } catch (refreshError) {
+                                this.clearTokens();
+                                window.location.href = '/admin/login';
+                            }
+                        }
+                        return Promise.reject(error);
+                    }
+                );
+
+                return instance;
+            };
+        }
+    }
+
+    // 🔒 UNIWERSALNA konfiguracja axios interceptors - działa dla WSZYSTKICH instancji axios
+    setupAxiosInterceptors() {
+        // 🎯 WZMOCNIONY Request interceptor - dodaje token do każdego żądania
+        axios.interceptors.request.use(
+            async (config) => {
+                try {
+                    // 🚀 PROAKTYWNE pobieranie tokenu (z refresh jeśli potrzeba)
+                    const token = await this.getValidAccessToken();
+                    if (token) {
+                        config.headers.Authorization = `Bearer ${token}`;
+                    }
+                } catch (err) {
+                    // Jeśli nie ma tokenu lub refresh się nie udał, kontynuuj bez tokenu
+                }
+                return config;
+            },
+            (error) => {
+                return Promise.reject(error);
+            }
+        );
+
+        // Response interceptor - obsługuje wygasłe tokeny
+        axios.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                const originalRequest = error.config;
+                
+                if (error.response?.status === 401 && !originalRequest._retry) {
+                    originalRequest._retry = true;
+                    
+        
+                    
+                    try {
+                        const newToken = await this.refreshAccessToken();
+                        if (newToken) {
+                            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                            return axios(originalRequest);
+                        }
+                    } catch (refreshError) {
+                        this.clearTokens();
+                        window.location.href = '/admin/login';
+                        return Promise.reject(refreshError);
+                    }
+                }
+                
+                return Promise.reject(error);
+            }
+        );
     }
 
     // Get tokens from localStorage
@@ -15,6 +167,8 @@ class TokenService {
 
     // Store tokens in localStorage
     setTokens(accessToken, refreshToken) {
+
+        
         if (accessToken) {
             localStorage.setItem('AdminToken', accessToken);
         }
@@ -26,6 +180,8 @@ class TokenService {
         const payload = this.parseJWT(accessToken);
         if (payload && payload.exp) {
             localStorage.setItem('AdminTokenExpiry', payload.exp * 1000); // Convert to ms
+        } else {
+            console.warn('⚠️ Could not parse token expiry');
         }
     }
 
@@ -129,7 +285,6 @@ class TokenService {
 
         // Check if token is expiring soon
         if (this.isTokenExpiring(accessToken)) {
-            console.log('🔄 Token expiring, refreshing...');
             return await this.refreshAccessToken();
         }
 
@@ -165,7 +320,6 @@ class TokenService {
             await this.getValidAccessToken();
             return true;
         } catch (error) {
-            console.log('🚪 Token validation failed, redirecting to login');
             this.clearTokens();
             return false;
         }
@@ -186,7 +340,7 @@ class TokenService {
                     body: JSON.stringify({ refreshToken })
                 });
             } catch (error) {
-                console.log('Server logout failed, continuing with local logout');
+                // Server logout failed, continuing with local logout
             }
         }
 
@@ -208,7 +362,7 @@ class TokenService {
                 module.default.setInactivityTimeout(30 * 60 * 1000, 25 * 60 * 1000);
             }
         }).catch(error => {
-            console.error('Error configuring activity monitor:', error);
+            // Error configuring activity monitor
         });
     }
 
@@ -218,11 +372,10 @@ class TokenService {
             const { accessToken } = this.getTokens();
             
             if (accessToken && this.isTokenExpiring(accessToken, 2)) { // 2 minutes buffer for production
-                console.log('🕐 Proactive token refresh triggered');
                 try {
                     await this.getValidAccessToken();
                 } catch (error) {
-                    console.log('🚪 Proactive refresh failed, user will be logged out');
+                    // Proactive refresh failed, user will be logged out
                 }
             }
         }, 60000); // 🔒 PRODUKCJA: Check every minute

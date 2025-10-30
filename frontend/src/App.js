@@ -3,6 +3,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import './styles/custom.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import tokenService from './services/tokenService'; // 🔒 Import tokenService
 import AdminLogin from './components/AdminLogin/AdminLogin';
 import UserLogin from './components/UserLogin/UserLogin';
 import UserDashboard from './components/UserDashboard/UserDashboard';
@@ -40,8 +41,14 @@ import Belts from './components/AdminDashboard/Belts/Belts';
 import Gloves from './components/AdminDashboard/Gloves/Gloves';
 import Cennik from './components/AdminDashboard/Cennik/Cennik';
 import WykrukZDnia from './components/AdminDashboard/WykrukZDnia/WykrukZDnia';
+import ApiTestComponent from './components/ApiTestComponent';
 
 function App() {
+  // 🔒 Inicjalizacja TokenService przy starcie aplikacji
+  useEffect(() => {
+    // TokenService automatically initialized on import
+  }, []);
+
   return (
     <div className="App">
       <Routes>
@@ -86,6 +93,7 @@ function App() {
           <Route path="sales" element={<Sales/>} />
           <Route path="remaining-products" element={<RemainingProducts />} />
           <Route path="cennik" element={<Cennik />} />
+          <Route path="api-test" element={<ApiTestComponent />} />
         </Route>
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />
         <Route path="/user/dashboard/*" element={<UserPrivateRoute element={UserDashboard} allowedRoles={['user']} />}>

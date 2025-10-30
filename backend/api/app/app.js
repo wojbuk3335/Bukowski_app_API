@@ -52,7 +52,7 @@ const limiter = rateLimit({
         // Loguj gdy ktoś uderza w limit
         try {
             const securityLogger = require('./services/securityLogger');
-            securityLogger.rateLimitHit(req, 'GLOBAL_LIMIT');
+            securityLogger.log('RATE_LIMIT_HIT', { limitType: 'GLOBAL_LIMIT' }, req);
         } catch (error) {
             console.error('Security logging error:', error);
         }
@@ -71,10 +71,10 @@ const loginLimiter = rateLimit({
         // Loguj próby brute force na logowanie
         try {
             const securityLogger = require('./services/securityLogger');
-            securityLogger.rateLimitHit(req, 'LOGIN_LIMIT');
-            securityLogger.suspiciousActivity(req, 'BRUTE_FORCE_LOGIN', {
+            securityLogger.log('RATE_LIMIT_HIT', { limitType: 'LOGIN_LIMIT' }, req);
+            securityLogger.log('BRUTE_FORCE_LOGIN', {
                 attemptedEmail: req.body?.email || 'unknown'
-            });
+            }, req);
         } catch (error) {
             console.error('Security logging error:', error);
         }
@@ -88,8 +88,28 @@ app.use('/api/user/login', loginLimiter); // Limit logowania - 50 prób/5min per
 
 // 🔒 SECURITY MIDDLEWARE
 const { ipValidator, addIPToToken } = require('./middleware/ipValidator');
+const tokenBlacklist = require('./services/tokenBlacklist');
+const securityLogger = require('./services/securityLogger');
+
 app.use('/api/admin', ipValidator); // Walidacja IP dla ścieżek adminów
 app.use('/api/user/login', addIPToToken); // Dodawanie IP do nowych sesji
+
+// 🔒 Sprawdzanie blacklisty tokenów dla wszystkich chronionych ścieżek
+app.use('/api', tokenBlacklist.checkTokenBlacklist());
+
+// 🔒 Wykrywanie podejrzanych User-Agent
+app.use('/api', (req, res, next) => {
+    const userAgent = req.get('User-Agent') || '';
+    const suspiciousPatterns = ['bot', 'crawler', 'spider', 'curl', 'wget'];
+    const isSuspicious = suspiciousPatterns.some(pattern => 
+        userAgent.toLowerCase().includes(pattern)
+    );
+    
+    if (isSuspicious) {
+        securityLogger.log('SUSPICIOUS_USER_AGENT', { userAgent }, req);
+    }
+    next();
+});
 
 // 🔒 OCHRONA PRZED NoSQL INJECTION (z wyjątkami dla poprawnych danych)
 app.use(mongoSanitize({
@@ -100,6 +120,8 @@ app.use(mongoSanitize({
     if (key.includes('@') && key.includes('.') && !key.includes('$') && !key.includes('{')) {
       return; // To prawdopodobnie normalny email
     }
+    // Loguj poważne próby injection
+    securityLogger.log('NOSQL_INJECTION_ATTEMPT', { injectionPayload: key }, req);
     console.warn(`⚠️ NoSQL injection attempt detected: ${key} in ${req.url}`);
   }
 }));
@@ -224,7 +246,7 @@ app.use((error, req, res, next) => {
 // Start the server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
     app.listen(port, () => {
-        console.log(`Server uruchomiony na ${domain}`);
+        // Server started silently
     });
 }
 

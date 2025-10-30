@@ -1,15 +1,17 @@
 const jwt = require('jsonwebtoken');
 const { jsonwebtoken } = require('../config'); // Używaj config zamiast process.env
+const tokenBlacklist = require('../services/tokenBlacklist');
+const securityLogger = require('../services/securityLogger');
 
 module.exports = (req, res, next) => {
     try {
-        // 🧪 BYPASS dla środowiska testowego i development - bezpieczeństwo wyłączone
-        if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+        // 🧪 BYPASS TYLKO dla środowiska testowego - NIE dla development!
+        if (process.env.NODE_ENV === 'test') {
             req.userData = { 
-                userId: 'dev-user-id', 
-                email: 'dev@example.com',
-                symbol: 'DevUser',
-                role: 'admin'  // DODANO ROLĘ ADMIN dla development!
+                userId: 'test-user-id', 
+                email: 'test@example.com',
+                symbol: 'TestUser',
+                role: 'admin'
             };
             return next();
         }
@@ -19,6 +21,7 @@ module.exports = (req, res, next) => {
         const ip = req.ip || req.connection.remoteAddress;
         // Sprawdź czy nagłówek Authorization istnieje
         if (!req.headers.authorization) {
+            securityLogger.log('UNAUTHORIZED_ACCESS', { reason: 'No token provided' }, req);
             return res.status(401).json({
                 message: 'Access denied. No token provided.'
             });
@@ -35,10 +38,13 @@ module.exports = (req, res, next) => {
         // Wyciągnij token
         const token = authHeader.split(' ')[1];
         if (!token) {
+            securityLogger.log('UNAUTHORIZED_ACCESS', { reason: 'Token is missing' }, req);
             return res.status(401).json({
                 message: 'Access denied. Token is missing.'
             });
         }
+
+        // 🔒 Token blacklisting jest obsługiwane przez globalne middleware w app.js
 
         // Weryfikuj token używając config (nie process.env)
         const decoded = jwt.verify(token, jsonwebtoken);

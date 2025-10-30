@@ -92,41 +92,28 @@ class UsersController {
     }
 
     login(req, res, next) {
-        console.log(`🚀 LOGIN ATTEMPT: ${req.body.email} - ${new Date().toISOString()}`);
-        
         User.findOne({ email: req.body.email })
             .exec()
             .then(user => {
                 if (!user) {
-                    console.log(`❌ LOGIN FAILED: User not found for email: ${req.body.email}`);
                     return res.status(401).json({
                         message: 'Auth failed'
                     });
                 }
-                
-                console.log(`👤 USER FOUND: ${user.email} - Role: ${user.role}`);
 
-                console.log(`🔑 Verifying password for user: ${user.email}`);
                 argon2.verify(user.password, req.body.password) // Replaced bcrypt.compare with argon2.verify
                     .then(async result => {
-                        console.log(`🔑 Password verification result: ${result}`);
                         if (result) {
                             // 🔒 DLA ADMINÓW: WYMAGA 2FA
                             if (user.role === 'admin') {
                                 try {
-                                    console.log(`🔐 ADMIN LOGIN: Starting 2FA process for ${user.email}`);
-                                    
                                     // Generuj i wyślij kod weryfikacyjny
                                     const verificationCode = twoFactorAuthService.generateVerificationCode();
-                                    console.log(`🎲 Generated 2FA code: ${verificationCode}`);
                                     
                                     twoFactorAuthService.storeVerificationCode(user._id.toString(), verificationCode);
-                                    console.log(`💾 Stored 2FA code for user ID: ${user._id}`);
                                     
                                     // Wyślij kod na email
-                                    console.log(`📧 Attempting to send email to: ${user.email}`);
                                     const emailResult = await emailService.sendVerificationCode(user.email, verificationCode);
-                                    console.log(`📧 Email result:`, emailResult);
                                     
                                     if (emailResult.success) {
                                         return res.status(200).json({
@@ -138,13 +125,11 @@ class UsersController {
                                             step: '2fa_verification'
                                         });
                                     } else {
-                                        console.error('❌ Failed to send 2FA email:', emailResult.error);
                                         return res.status(500).json({
                                             message: 'Błąd wysyłania kodu weryfikacyjnego. Spróbuj ponownie.'
                                         });
                                     }
                                 } catch (error) {
-                                    console.error('❌ CRITICAL ERROR in 2FA process:', error);
                                     return res.status(500).json({
                                         message: 'Wewnętrzny błąd serwera podczas procesu 2FA'
                                     });
@@ -202,6 +187,45 @@ class UsersController {
                     error: error
                 });
             });
+    }
+
+    // 🔒 BEZPIECZNE WYLOGOWANIE - unieważnia token
+    logout(req, res, next) {
+        try {
+            const tokenBlacklist = require('../services/tokenBlacklist');
+            const securityLogger = require('../services/securityLogger');
+            
+            // Pobierz token z nagłówka
+            const authHeader = req.headers.authorization;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.split(' ')[1];
+                
+                // Dodaj token do blacklisty
+                tokenBlacklist.blacklistToken(token);
+                
+                // Zaloguj wylogowanie
+                securityLogger.log('USER_LOGOUT', {
+                    userId: req.userData?.userId,
+                    email: req.userData?.email
+                }, req);
+                
+                res.status(200).json({
+                    success: true,
+                    message: 'Wylogowano pomyślnie'
+                });
+            } else {
+                res.status(400).json({
+                    success: false,
+                    message: 'Brak tokenu do unieważnienia'
+                });
+            }
+        } catch (error) {
+            console.error('❌ Błąd podczas wylogowywania:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Błąd serwera podczas wylogowywania'
+            });
+        }
     }
 
     deleteUser(req, res, next) {
@@ -358,23 +382,7 @@ class UsersController {
         });
     }
 
-    logout(req, res, next) {
-        try {
-            // 🔒 USUŃ REFRESH TOKEN z serwera
-            const { refreshToken } = req.body;
-            if (refreshToken) {
-                refreshTokenManager.revokeRefreshToken(refreshToken);
-            }
-            
-            res.status(200).json({
-                message: 'Logout successful. Tokens revoked.'
-            });
-        } catch (error) {
-            res.status(200).json({
-                message: 'Logout successful. Please remove the token on the client side.'
-            });
-        }
-    }
+    // USUNIĘTO STARĄ METODĘ LOGOUT - używamy nowej z blacklistingiem w linii 208
 
     // 🔒 NOWA METODA: REFRESH TOKEN
     refreshToken(req, res, next) {
@@ -715,7 +723,7 @@ class UsersControllerExtension extends UsersController {
                     sellingPoint: user.sellingPoint
                 }, rememberMe);
 
-                console.log(`✅ 2FA verification successful for admin: ${user.email}`);
+
                 
                 return res.status(200).json({
                     message: 'Weryfikacja 2FA zakończona pomyślnie',
@@ -731,7 +739,6 @@ class UsersControllerExtension extends UsersController {
                     location: user.location
                 });
             } else {
-                console.log(`❌ 2FA verification failed for user ${userId}:`, verificationResult.error);
                 return res.status(400).json({
                     message: verificationResult.error,
                     success: false,
@@ -741,7 +748,6 @@ class UsersControllerExtension extends UsersController {
             }
 
         } catch (error) {
-            console.error('Error in 2FA verification:', error);
             return res.status(500).json({
                 message: 'Błąd podczas weryfikacji kodu',
                 success: false
@@ -788,7 +794,6 @@ class UsersControllerExtension extends UsersController {
             const emailResult = await emailService.sendVerificationCode(user.email, verificationCode);
 
             if (emailResult.success) {
-                console.log(`📧 2FA code resent to admin: ${user.email}`);
                 return res.status(200).json({
                     message: 'Nowy kod weryfikacyjny został wysłany',
                     success: true

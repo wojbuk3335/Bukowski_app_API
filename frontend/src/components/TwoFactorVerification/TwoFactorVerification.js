@@ -165,9 +165,9 @@ const TwoFactorVerification = () => {
         localStorage.setItem('AdminEmail', email);
         localStorage.setItem('AdminRememberMe', rememberMe?.toString() || 'false');
         
-        // Konfiguruj tokeny i sesję
+        // Konfiguruj tokeny i sesję - używaj tylko nowego systemu tokenów
         tokenService.setTokens(
-          response.data.accessToken || response.data.token,
+          response.data.accessToken,
           response.data.refreshToken
         );
         

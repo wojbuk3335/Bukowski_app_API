@@ -24,12 +24,12 @@ class TwoFactorAuthService {
             createdAt: Date.now()
         });
 
-        console.log(`2FA code stored for user ${userId}: ${code} (expires at ${new Date(expiresAt)})`);
+
         
         // Automatyczne usunięcie po wygaśnięciu
         setTimeout(() => {
             this.verificationCodes.delete(userId);
-            console.log(`2FA code expired and removed for user ${userId}`);
+
         }, this.CODE_EXPIRY);
     }
 
@@ -81,7 +81,6 @@ class TwoFactorAuthService {
 
         // Kod poprawny - usunięcie z pamięci
         this.verificationCodes.delete(userId);
-        console.log(`2FA verification successful for user ${userId}`);
         
         return {
             success: true,

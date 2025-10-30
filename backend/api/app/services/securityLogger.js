@@ -33,11 +33,7 @@ class SecurityLogger {
         const logLine = JSON.stringify(logEntry) + '\n';
         fs.appendFileSync(this.logFile, logLine);
 
-        // Log do konsoli w trybie development
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`🚨 SECURITY EVENT: ${event} from ${ip}`);
-            console.log(`   Details:`, details);
-        }
+        // Security events are logged to file only for production readiness
     }
 
     // Różne typy zdarzeń bezpieczeństwa

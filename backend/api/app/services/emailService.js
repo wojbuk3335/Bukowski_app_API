@@ -8,15 +8,7 @@ class EmailService {
                          process.env.SMTP_PASS === 'MUSISZ-WYGENEROWAC-HASLO-APLIKACJI' ||
                          process.env.SMTP_PASS === 'your-app-password';
 
-        // DEBUG: Pokaż aktualną konfigurację email
-        console.log('📧 EMAIL SERVICE CONFIG:');
-        console.log('  SMTP_USER:', process.env.SMTP_USER);
-        console.log('  EMAIL_FROM:', process.env.EMAIL_FROM);
-        console.log('  EMAIL_TEST_MODE:', process.env.EMAIL_TEST_MODE);
-        console.log('  isTestMode:', this.isTestMode);
-
         if (this.isTestMode) {
-            console.log('📧 EMAIL SERVICE: Running in TEST MODE - emails will be logged to console');
             this.transporter = null;
         } else {
             // Konfiguracja NodeMailer dla produkcji
@@ -57,7 +49,6 @@ class EmailService {
 
             // TRYB PRODUKCYJNY - wysyłaj prawdziwy email
             const fromAddress = process.env.EMAIL_FROM || 'BukowskiApp <bukowskiapp.system@gmail.com>';
-            console.log('📧 DEBUG: Wysyłam email z adresu:', fromAddress);
             
             const mailOptions = {
                 from: fromAddress,
@@ -92,7 +83,6 @@ class EmailService {
             };
 
             const info = await this.transporter.sendMail(mailOptions);
-            console.log('✅ Email sent successfully:', info.messageId);
             return { success: true, messageId: info.messageId };
 
         } catch (error) {
@@ -104,7 +94,6 @@ class EmailService {
     // Test połączenia SMTP
     async testConnection() {
         if (this.isTestMode) {
-            console.log('📧 TEST MODE: Skipping SMTP connection test');
             return true;
         }
 

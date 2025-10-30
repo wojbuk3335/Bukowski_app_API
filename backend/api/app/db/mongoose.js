@@ -11,7 +11,7 @@ async function sendNotification(message) {
 async function connectToDatabase() {
   try {
     await mongoose.connect(config.database), {};
-    console.log("Successfully connected to MongoDB.");
+    // Connected to MongoDB silently
     // await sendNotification("Successfully connected to MongoDB."); // DISABLED - no need for notification
   } catch (err) {
     console.error("Failed to connect to MongoDB:", err);

@@ -28,6 +28,8 @@ router.post('/login',
     UsersController.login
 ); // 🔒 Logowanie z walidacją
 
+router.post('/logout', checkAuth, UsersController.logout); // 🔒 Bezpieczne wylogowanie
+
 router.post('/refresh-token', UsersController.refreshToken); // 🔒 Odświeżanie tokenu - publiczne
 
 // ========== ENDPOINTY 2FA (publiczne - przed pełnym logowaniem) ==========
@@ -46,7 +48,7 @@ router.get('/2fa-status/:userId',
 // ========== ZABEZPIECZONE ENDPOINTY (wymagają autoryzacji) ==========
 router.get('/validate-token', checkAuth, UsersController.verifyToken); // Walidacja tokenu
 router.get('/verifyToken', checkAuth, UsersController.verifyToken); // Duplikat - też zabezpieczony
-router.get('/', UsersController.getAllUsers); // � TYMCZASOWO WYŁĄCZONE DLA DEVELOPMENTU
+router.get('/', checkAuth, UsersController.getAllUsers); // 🔒 ZABEZPIECZONE - wymagany token
 
 router.delete('/:userId', 
     validators.mongoIdValidation,

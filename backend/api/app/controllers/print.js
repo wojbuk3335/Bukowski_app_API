@@ -6,8 +6,7 @@ const config = require('../config');
 // Import net module with error handling
 let net;
 try {
-    net = require('net');
-    console.log('✅ Module net successfully imported');
+    const net = require('net');
 } catch (error) {
     console.error('❌ Failed to import net module:', error);
     throw error;
