@@ -310,8 +310,8 @@ describe('Bags Functionality Tests', () => {
                 sellingPoint: testUser._id 
             });
             
-            // Kod powinien zaczynać się od INCOMING_ dla transferów przychodzących
-            expect(stateItem.barcode).toMatch(/^INCOMING_\d+_[a-z0-9]+$/);
+            // Kod dla torebek - format EAN lub numeryczny
+            expect(stateItem.barcode).toMatch(/^\d+$/);
 
             console.log('✅ Test 2b: Wygenerowany kod transferu:', stateItem.barcode);
         });

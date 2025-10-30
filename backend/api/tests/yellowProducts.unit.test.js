@@ -59,7 +59,7 @@ describe('Yellow Products (Incoming Transfers) - Unit Tests', () => {
       expect(transfer.transfer_to).toBe('Target User');
       expect(transfer.productId).toBe('test_product_123');
       expect(transfer.dateString).toBe('2025-08-31');
-      expect(transfer.processed).toBe(false);
+      expect(transfer.yellowProcessed).toBe(false);
     });
 
     test('2. Powinien oznaczyć transfer jako przetworzony', async () => {
@@ -71,17 +71,17 @@ describe('Yellow Products (Incoming Transfers) - Unit Tests', () => {
         date: new Date('2025-08-31'),
         dateString: '2025-08-31',
         productId: 'process_test_456',
-        processed: false
+        yellowProcessed: false
       });
 
       // Oznacz jako przetworzony
-      transfer.processed = true;
-      transfer.processedAt = new Date();
+      transfer.yellowProcessed = true;
+      transfer.yellowProcessedAt = new Date();
       await transfer.save();
 
       const updatedTransfer = await Transfer.findById(transfer._id);
-      expect(updatedTransfer.processed).toBe(true);
-      expect(updatedTransfer.processedAt).toBeDefined();
+      expect(updatedTransfer.yellowProcessed).toBe(true);
+      expect(updatedTransfer.yellowProcessedAt).toBeDefined();
     });
 
     test('3. Powinien dodać element do stanu z kodem kreskowym', async () => {
@@ -364,7 +364,7 @@ describe('Yellow Products (Incoming Transfers) - Unit Tests', () => {
       await State.findByIdAndDelete(stateItem._id);
 
       // 4. Przywróć transfer
-      transfer.processed = false;
+      transfer.yellowProcessed = false;
       await transfer.save();
 
       // 5. Usuń historię
@@ -375,7 +375,7 @@ describe('Yellow Products (Incoming Transfers) - Unit Tests', () => {
       expect(remainingStateItems).toHaveLength(0);
 
       const restoredTransfer = await Transfer.findById(transfer._id);
-      expect(restoredTransfer.processed).toBe(false);
+      expect(restoredTransfer.yellowProcessed).toBe(false);
 
       const remainingHistory = await History.find({});
       expect(remainingHistory).toHaveLength(0);
@@ -432,7 +432,7 @@ describe('Yellow Products (Incoming Transfers) - Unit Tests', () => {
         expect(transfer.fullName).toBe(`Batch Product ${index + 1}`);
         expect(transfer.transfer_to).toBe('BatchUser');
         expect(transfer.productId).toBe(`batch_${index + 1}`);
-        expect(transfer.processed).toBe(false);
+        expect(transfer.yellowProcessed).toBe(false);
       });
 
       // Symuluj przetworzenie wszystkich
@@ -463,7 +463,7 @@ describe('Yellow Products (Incoming Transfers) - Unit Tests', () => {
         const transfer = await Transfer.create(transferData);
         
         // 2. Oznacz jako przetworzony
-        transfer.processed = true;
+        transfer.yellowProcessed = true;
         await transfer.save();
         
         // 3. Dodaj historię
@@ -483,7 +483,7 @@ describe('Yellow Products (Incoming Transfers) - Unit Tests', () => {
         const savedHistory = await History.findOne({ transactionId: 'consistency_test' });
 
         expect(savedTransfer).toBeDefined();
-        expect(savedTransfer.processed).toBe(true);
+        expect(savedTransfer.yellowProcessed).toBe(true);
         expect(savedHistory).toBeDefined();
         expect(savedHistory.operation).toBe('Dodano do stanu (transfer przychodzący)');
 

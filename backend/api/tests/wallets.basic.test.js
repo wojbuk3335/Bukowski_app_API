@@ -232,7 +232,7 @@ describe('Wallets Basic Tests', () => {
             expect(walletTransfer).toBeTruthy();
             expect(walletTransfer.transfer_to).toBe('P');
             expect(walletTransfer.transfer_from).toBe('MAGAZYN');
-            expect(walletTransfer.processed).toBe(false);
+            expect(walletTransfer.yellowProcessed).toBe(false);
 
             console.log('✅ Transfer portfela utworzony');
         });
