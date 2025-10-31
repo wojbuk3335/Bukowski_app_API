@@ -9,6 +9,12 @@ module.exports = function(app) {
       logLevel: 'debug',
       onProxyReq: (proxyReq, req, res) => {
         console.log(`[PROXY] ${req.method} ${req.url} -> http://localhost:3000${req.url}`);
+        
+        // Forward Authorization header if present
+        if (req.headers.authorization) {
+          proxyReq.setHeader('Authorization', req.headers.authorization);
+          console.log(`[PROXY] Forwarded Authorization header`);
+        }
       }
     })
   );

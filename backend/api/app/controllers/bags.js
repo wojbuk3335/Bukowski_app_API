@@ -168,11 +168,16 @@ exports.updateManyBags = async (req, res, next) => {
         // Synchronize price lists after updating multiple bags
         if (updatedCount > 0) {
             try {
+                const token = req.headers.authorization;
                 await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                     updateOutdated: true,
                     addNew: false,
                     removeDeleted: false,
                     updatePrices: false // TYLKO NAZWY, nie ceny
+                }, {
+                    headers: {
+                        Authorization: token
+                    }
                 });
                 console.log('Price lists synchronized after multiple bags update');
             } catch (syncError) {
@@ -283,11 +288,16 @@ exports.updateBags = async (req, res, next) => {
             // Synchronize price lists after updating goods
             if (goodsToUpdate.length > 0) {
                 try {
+                    const token = req.headers.authorization;
                     await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                         updateOutdated: true,
                         addNew: false,
                         removeDeleted: false,
                         updatePrices: false // TYLKO NAZWY, nie ceny
+                    }, {
+                        headers: {
+                            Authorization: token
+                        }
                     });
                     console.log('Price lists synchronized after bag name update');
                 } catch (syncError) {

@@ -22,7 +22,7 @@ class TokenService {
                     const url = typeof input === 'string' ? input : input.url;
 
                     // 🎯 UNIVERSALNE WYKRYWANIE ZAPYTAŃ API - wszystkie możliwe przypadki:
-                    const needsAuth = url && (
+                    const isApiUrl = url && (
                         // 1. Relatywne URL: '/api/...'
                         url.startsWith('/api') ||
                         // 2. Absolutne URL do tego samego backendu: 'http://localhost:3000/api/...' lub 'https://bukowskiapp.pl/api/...'
@@ -33,6 +33,10 @@ class TokenService {
                         // 4. Dowolny URL zawierający '/api/' (catch-all dla wszystkich możliwych backend URL)
                         (url.includes('/api/') && !url.includes('localhost:9100') && !url.includes('external-api'))
                     );
+
+                    // ⚠️ SKIP tokenService for FormData requests - let proxy handle them
+                    const isFormData = init && init.body instanceof FormData;
+                    const needsAuth = isApiUrl && !isFormData;
 
                     if (needsAuth) {
                         // Ensure we have a valid token (this will refresh if needed)

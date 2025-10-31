@@ -139,7 +139,8 @@ app.use('/api', (req, res, next) => {
 
 const mongoose = require('./db/mongoose');
 
-// app.use(morgan('dev')); // HTTP request logging - DISABLED
+// app.use(morgan('dev')); // HTTP request logging - DISABLED for production
+
 app.use(bodyParser.urlencoded({ extended: false, limit: '50mb' })); // Increase URL encoded limit
 app.use(bodyParser.json({ limit: '50mb' })); // Increase JSON limit
 

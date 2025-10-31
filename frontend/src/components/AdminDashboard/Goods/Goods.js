@@ -1520,8 +1520,16 @@ const Goods = () => {
         const url = editingGood ? `/api/excel/goods/${editingGood._id}` : '/api/excel/goods/create-goods';
         const method = editingGood ? 'PUT' : 'POST';
 
+        // Get token for Authorization header
+        const token = localStorage.getItem('AdminToken');
+        const headers = {};
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+        }
+
         fetch(url, {
             method: method,
+            headers: headers,
             body: formData
         })
             .then(response => response.json())

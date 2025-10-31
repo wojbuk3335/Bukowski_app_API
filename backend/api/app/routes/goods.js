@@ -24,13 +24,13 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 } // Limit file size to 5MB
 });
 
-// ========== WSZYSTKIE OPERACJE NA TOWARACH WYMAGAJĄ AUTORYZACJI ==========
+// ========== TYMCZASOWO BEZ AUTORYZACJI - DEBUGGING ==========
 router.post('/create-goods', 
     checkAuth, 
     upload.single('Picture'), 
     historyLogger('goods'), 
     GoodsController.createGood
-); // 🔒 Tworzenie towaru bez walidacji express-validator (kontroler ma własną)
+); // � TYMCZASOWO BEZ AUTORYZACJI - TYLKO DO DEBUGOWANIA
 
 router.get('/get-all-goods', 
     validators.queryValidation,

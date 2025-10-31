@@ -201,11 +201,16 @@ exports.updateManyWallets = async (req, res, next) => {
         // Trigger price list synchronization for all changes
         if (results.length > 0) {
             try {
+                const token = req.headers.authorization;
                 await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                     updateOutdated: true,
                     addNew: false,
                     removeDeleted: false,
                     updatePrices: false // Don't update prices, just names
+                }, {
+                    headers: {
+                        Authorization: token
+                    }
                 });
             } catch (syncError) {
                 console.error('❌ Error synchronizing price lists:', syncError.message);
@@ -345,11 +350,16 @@ exports.updateWallets = async (req, res, next) => {
                     
                     // Trigger price list synchronization
                     try {
+                        const token = req.headers.authorization;
                         await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                             updateOutdated: true,
                             addNew: false,
                             removeDeleted: false,
                             updatePrices: false // Don't update prices, just names
+                        }, {
+                            headers: {
+                                Authorization: token
+                            }
                         });
                     } catch (syncError) {
                         console.error('❌ Error synchronizing price lists:', syncError.message);

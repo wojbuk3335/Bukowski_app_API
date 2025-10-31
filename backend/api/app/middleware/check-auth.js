@@ -27,7 +27,7 @@ module.exports = (req, res, next) => {
             });
         }
 
-        // Sprawdź format nagłówka (Bearer token)
+        // Sprawdź format nagłówka (Bearer token)  
         const authHeader = req.headers.authorization;
         if (!authHeader.startsWith('Bearer ')) {
             return res.status(401).json({

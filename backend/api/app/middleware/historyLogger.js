@@ -189,7 +189,7 @@ const historyLogger = (collectionName) => {
                         }
 
                         // Compare subcategory (only for non-bags products)
-                        if (oldGood.category !== 'Torebki' && updatedGood.subcategory && oldGood.subcategory && oldGood.subcategory._id.toString() !== updatedGood.subcategory) {
+                        if (oldGood.category !== 'Torebki' && updatedGood.subcategory && oldGood.subcategory && oldGood.subcategory._id && oldGood.subcategory._id.toString() !== updatedGood.subcategory) {
                             try {
                                 const newSubcategory = await Category.findById(updatedGood.subcategory);
                                 if (newSubcategory) {

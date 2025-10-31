@@ -253,11 +253,16 @@ class GoodsController {
             .then(async result => {
                 // New product created - sync all price lists to add new product INCLUDING prices
                 try {
+                    const token = req.headers.authorization;
                     await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                         updateOutdated: false, // Don't update existing items when creating new product
                         addNew: true, // Add this new product to all price lists
                         removeDeleted: false,
                         updatePrices: true // THIS IS KEY - include prices when new product comes from product card
+                    }, {
+                        headers: {
+                            Authorization: token
+                        }
                     });
                     console.log('All price lists synchronized with new product including prices');
                 } catch (syncError) {
@@ -710,11 +715,16 @@ class GoodsController {
                         // Product was updated - sync all price lists with new data INCLUDING prices
                         try {
                             // Synchronizuj cenniki po zmianie produktu (nazwy i ceny)
+                            const token = req.headers.authorization;
                             await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                                 updateOutdated: true,
                                 addNew: false,
                                 removeDeleted: false,
                                 updatePrices: true // WŁĄCZ aktualizację cen!
+                            }, {
+                                headers: {
+                                    Authorization: token
+                                }
                             });
                             console.log('All price lists synchronized with updated product data and prices');
                         } catch (syncError) {
@@ -960,11 +970,16 @@ class GoodsController {
                             updatePrices: true // WŁĄCZ aktualizację cen!
                         });
                     } else {
+                        const token = req.headers.authorization;
                         await axios.post(`${config.domain || 'http://localhost:3000'}/api/pricelists/sync-all`, {
                             updateOutdated: true,
                             addNew: false,
                             removeDeleted: false,
                             updatePrices: true // WŁĄCZ aktualizację cen!
+                        }, {
+                            headers: {
+                                Authorization: token
+                            }
                         });
                     }
                     console.log('✅ Price lists synchronized with updated product data and prices');
