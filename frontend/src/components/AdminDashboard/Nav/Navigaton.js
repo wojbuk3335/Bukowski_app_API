@@ -175,6 +175,7 @@ function Navigaton() {
             </NavDropdown>
             <Nav.Link as={Link} to="/admin/dashboard/sales">Sprzedaż</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/history">Historia</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/operacje">Operacje</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/wykruk">Wykruk z dnia</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/corrections">Korekty</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/addtostate">Dobieranie</Nav.Link>

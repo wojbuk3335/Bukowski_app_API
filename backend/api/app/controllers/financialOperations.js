@@ -15,7 +15,36 @@ class FinancialOperationController {
     // Get all financial operations
     getFinancialOperations = async (req, res) => {
         try {
-            const operations = await FinancialOperation.find();
+            let query = {};
+            
+            // Filtrowanie po dacie
+            if (req.query.date) {
+                const selectedDate = new Date(req.query.date);
+                const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
+                const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
+                
+                query.date = {
+                    $gte: startOfDay,
+                    $lte: endOfDay
+                };
+            }
+            
+            // Filtrowanie po typie operacji
+            if (req.query.operation) {
+                query.type = req.query.operation;
+            }
+            
+            // Filtrowanie po użytkowniku (przez userSymbol)
+            if (req.query.user) {
+                // Znajdź użytkownika po ID i pobierz jego symbol
+                const User = require('../db/models/user');
+                const user = await User.findById(req.query.user);
+                if (user) {
+                    query.userSymbol = user.symbol;
+                }
+            }
+            
+            const operations = await FinancialOperation.find(query).sort({ date: -1 });
             res.status(200).json(operations);
         } catch (error) {
             res.status(500).json({ error: error.message });
