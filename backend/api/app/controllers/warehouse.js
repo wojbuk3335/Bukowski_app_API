@@ -145,7 +145,8 @@ class WarehouseController {
                     { operation: 'Przeniesienie magazynowe' }, // Warehouse movement
                     { operation: 'Dodano do magazynu' }, // Added to warehouse (zatowarowanie)
                     { operation: 'Usunięto z magazynu' }, // Removed from warehouse
-                    { operation: 'Dodano do stanu' } // General state addition (could be to warehouse)
+                    { operation: 'Dodano do stanu' }, // General state addition (could be to warehouse)
+                    { operation: 'Automatyczne uzupełnienie z magazynu' } // Automatic warehouse replenishment
                 ]
             };
 
@@ -730,6 +731,20 @@ class WarehouseController {
                             reportItem.add = 1;
                             totalAdded += 1;
                         }
+                        break;
+                        
+                    case 'Automatyczne uzupełnienie z magazynu':
+                        // Automatic warehouse replenishment - transfer from warehouse to user
+                        let autoDetails = {};
+                        try {
+                            autoDetails = JSON.parse(operation.details || '{}');
+                        } catch (e) {
+                            autoDetails = {};
+                        }
+                        const autoTargetPoint = operation.to || autoDetails.sellingPointSymbol || 'Nieznany punkt';
+                        reportItem.type = `Transfer do ${autoTargetPoint}`;
+                        reportItem.subtract = 1;
+                        totalSubtracted += 1;
                         break;
                 }
 
