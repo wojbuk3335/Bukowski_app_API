@@ -172,6 +172,7 @@ const bagsRoutes = require('./routes/bags'); // Import bags routes
 const walletsRoutes = require('./routes/wallets'); // Import wallets routes
 const remainingProductsRoutes = require('./routes/remainingProducts'); // Import remaining products routes
 const deductionsRoutes = require('./routes/deductions'); // Import deductions routes
+const financialOperationsRoutes = require('./routes/financialOperations'); // Import financial operations routes
 const transferProcessingRoutes = require('./routes/transferProcessing'); // Import transfer processing routes
 const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
 const correctionsRoutes = require('./routes/corrections'); // Import corrections routes
@@ -189,6 +190,7 @@ app.use('/api/warehouse', warehouseRoutes); // Use warehouse routes
 app.use('/api/transfer', transferProcessingRoutes); // Use transfer processing routes
 app.use('/api/transfer', transferRoutes); // Use transfer routes
 app.use('/api/deductions', deductionsRoutes); // Use deductions routes
+app.use('/api/financial-operations', financialOperationsRoutes); // Use financial operations routes
 app.use('/api/history', historyRoutes); // Use history routes
 app.use('/api/transaction-history', transactionHistoryRoutes); // Use transaction history routes
 app.use('/api/jackets', jacketRoutes);
