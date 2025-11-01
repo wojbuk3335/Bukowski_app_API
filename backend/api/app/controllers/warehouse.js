@@ -146,7 +146,8 @@ class WarehouseController {
                     { operation: 'Dodano do magazynu' }, // Added to warehouse (zatowarowanie)
                     { operation: 'Usunięto z magazynu' }, // Removed from warehouse
                     { operation: 'Dodano do stanu' }, // General state addition (could be to warehouse)
-                    { operation: 'Automatyczne uzupełnienie z magazynu' } // Automatic warehouse replenishment
+                    { operation: 'Automatyczne uzupełnienie z magazynu' }, // Automatic warehouse replenishment
+                    { operation: 'Transfer między punktami' } // Transfer between points (including to/from MAGAZYN)
                 ]
             };
 
@@ -727,7 +728,7 @@ class WarehouseController {
                             reportItem.subtract = 1;
                             totalSubtracted += 1;
                         } else if (operation.to === 'Magazyn') {
-                            reportItem.type = `Zwrot z ${operation.from}`;
+                            reportItem.type = `Transfer z ${operation.from}`;
                             reportItem.add = 1;
                             totalAdded += 1;
                         }
@@ -745,6 +746,21 @@ class WarehouseController {
                         reportItem.type = `Transfer do ${autoTargetPoint}`;
                         reportItem.subtract = 1;
                         totalSubtracted += 1;
+                        break;
+
+                    case 'Transfer między punktami':
+                        // Transfer between points - check if it involves MAGAZYN
+                        if (operation.from === 'MAGAZYN') {
+                            // Transfer from MAGAZYN to another point (subtract from warehouse)
+                            reportItem.type = `Transfer do ${operation.to}`;
+                            reportItem.subtract = 1;
+                            totalSubtracted += 1;
+                        } else if (operation.to === 'MAGAZYN') {
+                            // Transfer from another point to MAGAZYN (add to warehouse)
+                            reportItem.type = `Transfer z ${operation.from}`;
+                            reportItem.add = 1;
+                            totalAdded += 1;
+                        }
                         break;
                 }
 

@@ -792,10 +792,9 @@ const WykrukZDnia = () => {
       if (((item.operation === 'Odpisano ze stanu (transfer)' || 
            item.operation === 'Odpisano ze stanu (sprzedaż)') && 
           item.from === sellingPoint) ||
-          // Nowa operacja - transfer między punktami gdzie ten punkt jest źródłem i został przetworzony
+          // Nowa operacja - transfer między punktami gdzie ten punkt jest źródłem (nie wymagamy blueProcessed)
           (item.operation === 'Transfer między punktami' && 
-           item.from === sellingPoint && 
-           item.transferStatus && item.transferStatus.blueProcessed)) {
+           item.from === sellingPoint)) {
         transfersOut.push({
           product: item.product || 'Nieznany produkt',
           size: item.size || '-',
@@ -825,10 +824,10 @@ const WykrukZDnia = () => {
            item.from !== 'MAGAZYN' && item.from !== 'magazyn' && 
            item.from !== 'SPRZEDANE') ||
           (item.operation === 'Dodano do stanu (transfer przychodzący)')) ||
-          // Nowa operacja - transfer między punktami gdzie ten punkt jest celem i został przetworzony
+          // Nowa operacja - transfer między punktami gdzie ten punkt jest celem (nie wymagamy yellowProcessed)
           (item.operation === 'Transfer między punktami' && 
-           item.to === sellingPoint && 
-           item.transferStatus && item.transferStatus.yellowProcessed)) {
+           item.to === sellingPoint &&
+           item.from !== 'MAGAZYN' && item.from !== 'magazyn')) {
         
         supplementsIn.push({
           product: item.product || 'Nieznany produkt',

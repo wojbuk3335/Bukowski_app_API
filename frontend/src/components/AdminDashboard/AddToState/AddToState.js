@@ -310,10 +310,12 @@ const AddToState = ({ onAdd }) => {
       });
       const data = await response.json();
       
-      // Filtruj użytkowników - usuń admin, magazyn i dom
+      // Filtruj użytkowników - usuń admin, dom, superadmin i limited admin, ale zostaw magazyn
       const filteredUsers = (data.users || []).filter(user => {
         const symbol = user.symbol?.toLowerCase();
-        return symbol !== 'admin' && symbol !== 'magazyn' && symbol !== 'dom';
+        const role = user.role?.toLowerCase();
+        return symbol !== 'admin' && symbol !== 'dom' && symbol !== 'limited_admin' &&
+               role !== 'superadmin' && role !== 'limited admin' && role !== 'admin' && role !== 'admin2';
       });
       
       setUsers(filteredUsers);
