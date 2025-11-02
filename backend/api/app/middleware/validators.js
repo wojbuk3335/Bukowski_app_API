@@ -49,7 +49,7 @@ const validators = {
             .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/)
             .withMessage('Hasło musi zawierać małą literę, wielką literę, cyfrę i znak specjalny'),
         body('symbol')
-            .isLength({ min: 2, max: 20 })
+            .isLength({ min: 1, max: 20 })
             .matches(/^[A-Z0-9_]+$/)
             .withMessage('Symbol może zawierać tylko wielkie litery, cyfry i _'),
         body('role')

@@ -38,6 +38,27 @@ const financialOperationSchema = new mongoose.Schema({
         required: true,
         default: Date.now,
     },
+    // Additional fields for product-related transactions
+    productId: {
+        type: String,
+        required: false,
+        // ID of the product if this is a product-related transaction
+    },
+    productName: {
+        type: String,
+        required: false,
+        // Name of the product if this is a product-related transaction
+    },
+    finalPrice: {
+        type: Number,
+        required: false,
+        // Final agreed price for the product
+    },
+    remainingAmount: {
+        type: Number,
+        required: false,
+        // Amount still to be paid (finalPrice - amount paid so far)
+    },
 }, {
     timestamps: true,
 });

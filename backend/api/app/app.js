@@ -177,6 +177,7 @@ const transferProcessingRoutes = require('./routes/transferProcessing'); // Impo
 const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
 const correctionsRoutes = require('./routes/corrections'); // Import corrections routes
 const priceListRoutes = require('./routes/priceList'); // Import price list routes
+const cudzichTransactionRoutes = require('./routes/cudzichTransaction'); // Import Cudzich transaction routes
 const debugUsersRoutes = require('./routes/debug-users'); // 🔧 TYMCZASOWY DEBUG
 const emergencyResetRoutes = require('./routes/emergency-reset'); // 🚨 EMERGENCY RESET
 
@@ -191,6 +192,7 @@ app.use('/api/transfer', transferProcessingRoutes); // Use transfer processing r
 app.use('/api/transfer', transferRoutes); // Use transfer routes
 app.use('/api/deductions', deductionsRoutes); // Use deductions routes
 app.use('/api/financial-operations', financialOperationsRoutes); // Use financial operations routes
+app.use('/api/cudzich', cudzichTransactionRoutes); // Use Cudzich transaction routes
 app.use('/api/history', historyRoutes); // Use history routes
 app.use('/api/transaction-history', transactionHistoryRoutes); // Use transaction history routes
 app.use('/api/jackets', jacketRoutes);
