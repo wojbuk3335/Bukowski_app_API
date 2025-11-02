@@ -8,6 +8,10 @@ const Operacje = () => {
   const [selectedOperation, setSelectedOperation] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
   const [users, setUsers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [reasonType, setReasonType] = useState(''); // 'product' or 'other'
+  const [selectedProduct, setSelectedProduct] = useState('');
+  const [otherReason, setOtherReason] = useState('');
 
   // Lista dostępnych operacji finansowych
   const operationTypes = [
@@ -19,6 +23,7 @@ const Operacje = () => {
   useEffect(() => {
     fetchUsers();
     fetchOperations();
+    fetchProducts();
   }, [selectedDate, selectedOperation, selectedUser]);
 
   const fetchUsers = async () => {
@@ -43,6 +48,28 @@ const Operacje = () => {
       setUsers(filteredUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const token = localStorage.getItem('AdminToken');
+      const response = await fetch('/api/goods/get-all-goods', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        // Expecting an array of goods
+        setProducts(data || []);
+      } else {
+        setProducts([]);
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setProducts([]);
     }
   };
 
@@ -183,6 +210,62 @@ const Operacje = () => {
         </Col>
       </Row>
 
+      {/* Powód dopisania (tylko dla 'Dopisz kwotę') */}
+      {selectedOperation === 'addition' && (
+        <Row className="mb-3">
+          <Col md={12}>
+            <Form.Group>
+              <Form.Label style={{ color: 'white' }}>Powód dopisania:</Form.Label>
+              <div className="d-flex align-items-center" style={{ gap: '20px' }}>
+                <Form.Check
+                  type="radio"
+                  id="reason-product"
+                  name="reason"
+                  label="Zaliczka na produkt"
+                  checked={reasonType === 'product'}
+                  onChange={() => { setReasonType('product'); setOtherReason(''); }}
+                />
+                <Form.Check
+                  type="radio"
+                  id="reason-other"
+                  name="reason"
+                  label="Inny powód dopisania"
+                  checked={reasonType === 'other'}
+                  onChange={() => { setReasonType('other'); setSelectedProduct(''); }}
+                />
+              </div>
+
+              {/* Jeśli wybrano zaliczkę na produkt - pokaż select z produktami */}
+              {reasonType === 'product' && (
+                <Form.Select
+                  className="mt-2"
+                  value={selectedProduct}
+                  onChange={(e) => setSelectedProduct(e.target.value)}
+                  style={{ backgroundColor: 'black', color: 'white', border: '1px solid #ddd' }}
+                >
+                  <option value="">-- Wybierz produkt --</option>
+                  {products.map(p => (
+                    <option key={p._id} value={p._id}>{p.fullName || p.code || p.name}</option>
+                  ))}
+                </Form.Select>
+              )}
+
+              {/* Jeśli wybrano inny powód - pokaż input */}
+              {reasonType === 'other' && (
+                <Form.Control
+                  className="mt-2"
+                  type="text"
+                  placeholder="Wpisz powód dopisania..."
+                  value={otherReason}
+                  onChange={(e) => setOtherReason(e.target.value)}
+                  style={{ backgroundColor: 'black', color: 'white', border: '1px solid #ddd' }}
+                />
+              )}
+            </Form.Group>
+          </Col>
+        </Row>
+      )}
+
       {/* Tabela operacji */}
       <Row>
         <Col>
@@ -200,12 +283,15 @@ const Operacje = () => {
                   <th>Kwota</th>
                   <th>Waluta</th>
                   <th>Powód</th>
+                  <th>Produkt</th>
+                  <th>Cena finalna</th>
+                  <th>Do dopłaty</th>
                 </tr>
               </thead>
               <tbody>
                 {operations.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center">
+                    <td colSpan="9" className="text-center">
                       Brak operacji dla wybranych filtrów
                     </td>
                   </tr>
@@ -224,6 +310,27 @@ const Operacje = () => {
                       </td>
                       <td>{operation.currency}</td>
                       <td>{operation.reason || '-'}</td>
+                      <td>
+                        {operation.productName || '-'}
+                        {operation.productId && (
+                          <small className="text-muted d-block">
+                            ID: {operation.productId}
+                          </small>
+                        )}
+                      </td>
+                      <td>
+                        {operation.finalPrice ? 
+                          formatCurrency(operation.finalPrice, operation.currency) : 
+                          '-'
+                        }
+                      </td>
+                      <td>
+                        {operation.remainingAmount !== undefined ? (
+                          <span className={operation.remainingAmount > 0 ? 'text-danger' : 'text-success'}>
+                            {formatCurrency(operation.remainingAmount, operation.currency)}
+                          </span>
+                        ) : '-'}
+                      </td>
                     </tr>
                   ))
                 )}

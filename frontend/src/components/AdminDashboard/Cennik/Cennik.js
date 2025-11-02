@@ -48,10 +48,12 @@ const Cennik = () => {
                 const response = await fetch('/api/user');
                 const data = await response.json();
                 
-                // Filtruj użytkowników - usuń admin i magazyn, pozostaw dom i zwykłych użytkowników
+                // Filtruj użytkowników - usuń admin, magazyn i role administracyjne, pozostaw dom i zwykłych użytkowników
                 const filteredUsers = (data.users || []).filter(user => {
+                    const symbol = user.symbol?.toLowerCase();
                     const role = user.role?.toLowerCase();
-                    return role !== 'admin' && role !== 'magazyn';
+                    return symbol !== 'admin' && symbol !== 'limited_admin' &&
+                           role !== 'admin' && role !== 'magazyn' && role !== 'admin2' && role !== 'superadmin';
                 });
                 
                 setUsers(filteredUsers);
