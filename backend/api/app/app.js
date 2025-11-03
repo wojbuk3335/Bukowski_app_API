@@ -49,9 +49,8 @@ const limiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req, res, next, options) => {
-        // Loguj gdy ktoś uderza w limit
+        // PRZYWRÓCONE - z naprawionym securityLogger
         try {
-            const securityLogger = require('./services/securityLogger');
             securityLogger.log('RATE_LIMIT_HIT', { limitType: 'GLOBAL_LIMIT' }, req);
         } catch (error) {
             console.error('Security logging error:', error);
@@ -68,9 +67,8 @@ const loginLimiter = rateLimit({
     },
     skipSuccessfulRequests: true,
     handler: (req, res, next, options) => {
-        // Loguj próby brute force na logowanie
+        // PRZYWRÓCONE - z naprawionym securityLogger
         try {
-            const securityLogger = require('./services/securityLogger');
             securityLogger.log('RATE_LIMIT_HIT', { limitType: 'LOGIN_LIMIT' }, req);
             securityLogger.log('BRUTE_FORCE_LOGIN', {
                 attemptedEmail: req.body?.email || 'unknown'
@@ -87,17 +85,21 @@ app.use(limiter); // Globalny limit - 1000 req/15min per IP
 app.use('/api/user/login', loginLimiter); // Limit logowania - 50 prób/5min per IP
 
 // 🔒 SECURITY MIDDLEWARE
+// PRZYWRÓCONE - securityLogger naprawiony
 const { ipValidator, addIPToToken } = require('./middleware/ipValidator');
 const tokenBlacklist = require('./services/tokenBlacklist');
 const securityLogger = require('./services/securityLogger');
 
-app.use('/api/admin', ipValidator); // Walidacja IP dla ścieżek adminów
-app.use('/api/user/login', addIPToToken); // Dodawanie IP do nowych sesji
+// 🔒 PRZYWRÓCONE - ale z elastyczną walidacją IP
+app.use('/api/admin', ipValidator); // Walidacja IP dla ścieżek adminów (tylko ostrzeżenia)
+// app.use('/api/user/login', addIPToToken); // Dodawanie IP do nowych sesji - WYŁĄCZONE
 
 // 🔒 Sprawdzanie blacklisty tokenów dla wszystkich chronionych ścieżek
+// PRZYWRÓCONE - tokenBlacklist z obsługą błędów
 app.use('/api', tokenBlacklist.checkTokenBlacklist());
 
 // 🔒 Wykrywanie podejrzanych User-Agent
+// PRZYWRÓCONE - z naprawionym securityLogger
 app.use('/api', (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';
     const suspiciousPatterns = ['bot', 'crawler', 'spider', 'curl', 'wget'];
@@ -112,6 +114,7 @@ app.use('/api', (req, res, next) => {
 });
 
 // 🔒 OCHRONA PRZED NoSQL INJECTION (z wyjątkami dla poprawnych danych)
+// PRZYWRÓCONE - z naprawionym securityLogger
 app.use(mongoSanitize({
   replaceWith: '_',
   allowDots: true, // Zezwól na kropki w emailach

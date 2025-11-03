@@ -621,7 +621,9 @@ const AddToState = ({ onAdd }) => {
         
         if (selectedDate) {
           filteredSales = filteredSales.filter(sale => {
-            const saleDate = new Date(sale.timestamp).toISOString().split('T')[0];
+            // Use 'date' field first (more reliable), fallback to 'timestamp' for backward compatibility
+            const dateToUse = sale.date || sale.timestamp;
+            const saleDate = new Date(dateToUse).toISOString().split('T')[0];
             return saleDate === selectedDate;
           });
         }
@@ -664,8 +666,13 @@ const AddToState = ({ onAdd }) => {
           transfer_to: sale.sellingPoint,
           isBlueBullet: true, // Niebieska kulka
           date: sale.timestamp,
-          // fullName i size pozostają jako stringi z obiektu sale
-          // NIE tworzymy obiektów - sprzedaże już mają stringi
+          // Create display format: "ProductName (From)(Source)" for Cudzich transactions
+          // Note: Size will be displayed in separate column, don't include it in fullName
+          fullName: sale.source === 'Cudzich' 
+            ? `${sale.fullName} (${sale.from})(${sale.source})`
+            : `${sale.fullName} (${sale.from})`,
+          // Keep original size
+          size: sale.size
         }));
 
         // NOWE: Filtruj transfery PRZYCHODZĄCE do wybranego punktu (ŻÓŁTE)

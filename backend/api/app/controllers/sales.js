@@ -5,7 +5,7 @@ class SalesController {
 
     static async saveSales(req, res) {
         try {
-            const { fullName, timestamp, barcode, size, sellingPoint, from, cash, card, symbol } = req.body;
+            const { fullName, timestamp, barcode, size, sellingPoint, from, cash, card, symbol, source, notes } = req.body;
 
             // Parse the timestamp from the provided format
             const parsedTimestamp = new Date(
@@ -23,7 +23,9 @@ class SalesController {
                 cash,
                 card,
                 symbol, // Add symbol field
-                date: new Date() // Current date
+                date: new Date(), // Current date
+                source: source || null, // Add source field for Cudzich transactions
+                notes: notes || null // Add notes field for additional information
             });
 
             await sales.save();

@@ -104,37 +104,33 @@ class UsersController {
                 argon2.verify(user.password, req.body.password) // Replaced bcrypt.compare with argon2.verify
                     .then(async result => {
                         if (result) {
-                            // 🔒 DLA ADMINÓW: WYMAGA 2FA
-                            if (user.role === 'admin') {
-                                try {
-                                    // Generuj i wyślij kod weryfikacyjny
-                                    const verificationCode = twoFactorAuthService.generateVerificationCode();
-                                    
-                                    twoFactorAuthService.storeVerificationCode(user._id.toString(), verificationCode);
-                                    
-                                    // Wyślij kod na email
-                                    const emailResult = await emailService.sendVerificationCode(user.email, verificationCode);
-                                    
-                                    if (emailResult.success) {
-                                        return res.status(200).json({
-                                            message: 'Verification code sent',
-                                            requiresVerification: true,
-                                            userId: user._id,
-                                            email: user.email,
-                                            success: false, // Nie jest jeszcze w pełni zalogowany
-                                            step: '2fa_verification'
-                                        });
-                                    } else {
-                                        return res.status(500).json({
-                                            message: 'Błąd wysyłania kodu weryfikacyjnego. Spróbuj ponownie.'
-                                        });
-                                    }
-                                } catch (error) {
-                                    return res.status(500).json({
-                                        message: 'Wewnętrzny błąd serwera podczas procesu 2FA'
-                                    });
-                                }
-                            }
+                            // TYMCZASOWO WYŁĄCZONE 2FA - MOŻE POWODOWAĆ CRASH
+                            // if (user.role === 'admin') {
+                            //     try {
+                            //         const verificationCode = twoFactorAuthService.generateVerificationCode();
+                            //         twoFactorAuthService.storeVerificationCode(user._id.toString(), verificationCode);
+                            //         const emailResult = await emailService.sendVerificationCode(user.email, verificationCode);
+                            //         
+                            //         if (emailResult.success) {
+                            //             return res.status(200).json({
+                            //                 message: 'Verification code sent',
+                            //                 requiresVerification: true,
+                            //                 userId: user._id,
+                            //                 email: user.email,
+                            //                 success: false,
+                            //                 step: '2fa_verification'
+                            //             });
+                            //         } else {
+                            //             return res.status(500).json({
+                            //                 message: 'Błąd wysyłania kodu weryfikacyjnego. Spróbuj ponownie.'
+                            //             });
+                            //         }
+                            //     } catch (error) {
+                            //         return res.status(500).json({
+                            //             message: 'Wewnętrzny błąd serwera podczas procesu 2FA'
+                            //         });
+                            //     }
+                            // }
 
                             // 🔒 DLA ZWYKŁYCH UŻYTKOWNIKÓW: Normalny login
                             const token = jwt.sign({
@@ -192,6 +188,7 @@ class UsersController {
     // 🔒 BEZPIECZNE WYLOGOWANIE - unieważnia token
     logout(req, res, next) {
         try {
+            // PRZYWRÓCONE - z naprawionym securityLogger
             const tokenBlacklist = require('../services/tokenBlacklist');
             const securityLogger = require('../services/securityLogger');
             

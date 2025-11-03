@@ -15,25 +15,34 @@ class SecurityLogger {
     }
 
     log(event, details, req) {
-        const timestamp = new Date().toISOString();
-        const ip = req.ip || req.connection.remoteAddress || 'unknown';
-        const userAgent = req.get('User-Agent') || 'unknown';
-        
-        const logEntry = {
-            timestamp,
-            event,
-            ip,
-            userAgent,
-            url: req.url,
-            method: req.method,
-            details
-        };
+        try {
+            const timestamp = new Date().toISOString();
+            const ip = req.ip || req.connection.remoteAddress || 'unknown';
+            const userAgent = req.get('User-Agent') || 'unknown';
+            
+            const logEntry = {
+                timestamp,
+                event,
+                ip,
+                userAgent,
+                url: req.url,
+                method: req.method,
+                details
+            };
 
-        // Log do pliku
-        const logLine = JSON.stringify(logEntry) + '\n';
-        fs.appendFileSync(this.logFile, logLine);
-
-        // Security events are logged to file only for production readiness
+            // Log do pliku - z obsługą błędów
+            const logLine = JSON.stringify(logEntry) + '\n';
+            
+            // Sprawdź czy katalog istnieje przed zapisem
+            this.ensureLogDirectory();
+            
+            fs.appendFileSync(this.logFile, logLine);
+            
+        } catch (error) {
+            // Jeśli nie można zapisać do pliku, loguj do konsoli
+            console.error('❌ Security Logger Error:', error.message);
+            console.log('🔒 Security Event:', event, details);
+        }
     }
 
     // Różne typy zdarzeń bezpieczeństwa

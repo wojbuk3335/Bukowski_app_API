@@ -61,6 +61,16 @@ const salesSchema = mongoose.Schema({
     processedAt: {
         type: Date,
         default: null
+    },
+    source: {
+        type: String,
+        required: false,
+        default: null
+    },
+    notes: {
+        type: String,
+        required: false,
+        default: null
     }
 });
 

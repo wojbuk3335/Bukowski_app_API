@@ -19,21 +19,21 @@ const ipValidator = (req, res, next) => {
         
         // Sprawdź czy token zawiera informację o IP (jeśli zostanie dodana)
         if (decoded.loginIP && decoded.loginIP !== currentIP) {
-            securityLogger.suspiciousActivity(req, 'IP_MISMATCH', {
-                userId: decoded.id,
-                tokenIP: decoded.loginIP,
-                currentIP: currentIP
-            });
-
-            // W trybie development tylko loguj, w produkcji można zablokować
-            if (process.env.NODE_ENV === 'production') {
-                return res.status(403).json({
-                    error: 'Sesja nieważna z powodu zmiany adresu IP',
-                    code: 'IP_VALIDATION_FAILED'
+            // Loguj zmianę IP, ale nie blokuj - pozwala na zmianę lokalizacji
+            try {
+                securityLogger.suspiciousActivity(req, 'IP_MISMATCH', {
+                    userId: decoded.id,
+                    tokenIP: decoded.loginIP,
+                    currentIP: currentIP
                 });
-            } else {
-                console.log('⚠️ IP MISMATCH DETECTED (Development mode - not blocking)');
+            } catch (error) {
+                console.error('Security logging error in IP validator:', error);
             }
+
+            console.log('⚠️ IP CHANGE DETECTED - Logged but not blocking (flexible security)');
+            
+            // ELASTYCZNA WALIDACJA: loguj, ale nie blokuj użytkowników
+            // W przyszłości można dodać whitelist zaufanych IP lub inne mechanizmy
         }
 
         next();
