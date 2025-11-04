@@ -43,6 +43,7 @@ import Cennik from './components/AdminDashboard/Cennik/Cennik';
 import WykrukZDnia from './components/AdminDashboard/WykrukZDnia/WykrukZDnia';
 import Operacje from './components/AdminDashboard/Operacje/Operacje';
 import Cudzich from './components/AdminDashboard/Cudzich/Cudzich';
+import Orders from './components/AdminDashboard/Orders/Orders';
 import ApiTestComponent from './components/ApiTestComponent';
 
 function App() {
@@ -98,6 +99,7 @@ function App() {
           <Route path="remaining-products" element={<RemainingProducts />} />
           <Route path="cennik" element={<Cennik />} />
           <Route path="cudzich" element={<Cudzich />} />
+          <Route path="orders" element={<Orders />} />
           <Route path="api-test" element={<ApiTestComponent />} />
         </Route>
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />
