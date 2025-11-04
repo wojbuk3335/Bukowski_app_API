@@ -2546,7 +2546,7 @@ const Goods = () => {
                                     id="productName"
                                     className={styles.inputField}
                                     value={productName}
-                                    onChange={(e) => setProductName(e.target.value)}
+                                    readOnly
                                 />
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
@@ -2869,7 +2869,7 @@ const Goods = () => {
                                     id="bagProductName"
                                     className={styles.inputField}
                                     value={productName}
-                                    onChange={(e) => setProductName(e.target.value)}
+                                    readOnly
                                 />
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
@@ -3160,7 +3160,7 @@ const Goods = () => {
                                     id="walletProductName"
                                     className={styles.inputField}
                                     value={productName}
-                                    onChange={(e) => setProductName(e.target.value)}
+                                    readOnly
                                 />
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
@@ -3473,7 +3473,7 @@ const Goods = () => {
                                     id="remainingProductName"
                                     className={styles.inputField}
                                     value={productName}
-                                    onChange={(e) => setProductName(e.target.value)}
+                                    readOnly
                                 />
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
