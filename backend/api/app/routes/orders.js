@@ -15,4 +15,10 @@ router.get('/', authenticateToken, orderController.getAllOrders);
 // Get order by ID
 router.get('/:orderId', authenticateToken, orderController.getOrderById);
 
+// Complete order
+router.put('/:id/complete', authenticateToken, orderController.completeOrder);
+
+// Revert order back to pending
+router.put('/:id/revert', authenticateToken, orderController.revertOrder);
+
 module.exports = router;

@@ -240,3 +240,159 @@ exports.getOrderById = async (req, res) => {
     });
   }
 };
+
+// Complete order and send shipping notification
+exports.completeOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shippingDate, status } = req.body;
+
+    if (!shippingDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Data wysyłki jest wymagana'
+      });
+    }
+
+    // Find and update order
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Zamówienie nie zostało znalezione'
+      });
+    }
+
+    // Update order status
+    order.status = status || 'zrealizowano';
+    order.shippingDate = new Date(shippingDate);
+    order.completedAt = new Date();
+    
+    await order.save();
+
+    // Send shipping notification email to customer
+    await sendShippingNotification(order, shippingDate);
+
+    res.status(200).json({
+      success: true,
+      message: 'Zamówienie zostało zrealizowane i klient otrzymał powiadomienie',
+      data: order
+    });
+  } catch (error) {
+    console.error('Error completing order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd podczas realizacji zamówienia',
+      error: error.message
+    });
+  }
+};
+
+// Send shipping notification email
+const sendShippingNotification = async (order, shippingDate) => {
+  try {
+    const formatDate = (date) => {
+      return new Date(date).toLocaleDateString('pl-PL', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    };
+
+    const mailOptions = {
+      from: `"Bukowski App" <${process.env.SMTP_USER || 'bukowskiapp.system@gmail.com'}>`,
+      to: order.customer.email,
+      subject: `🚚 Twoje zamówienie ${order.orderId} zostało zrealizowane`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #28a745;">✅ Zamówienie zrealizowane!</h2>
+          <p>Dzień dobry <strong>${order.customer.name}</strong>,</p>
+          
+          <p>Mamy miłą wiadomość! Twoje zamówienie zostało zrealizowane i jest gotowe do wysyłki.</p>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #495057;">📦 Szczegóły zamówienia:</h3>
+            <p><strong>Numer zamówienia:</strong> ${order.orderId}</p>
+            <p><strong>Produkt:</strong> ${order.product.name}</p>
+            <p><strong>Planowana data wysyłki:</strong> <span style="color: #28a745; font-weight: bold;">${formatDate(shippingDate)}</span></p>
+            
+            ${order.customer.deliveryOption === 'shipping' ? `
+              <p><strong>Adres wysyłki:</strong><br>
+              ${order.customer.address.street} ${order.customer.address.houseNumber}<br>
+              ${order.customer.address.postalCode} ${order.customer.address.city}</p>
+            ` : order.customer.deliveryOption === 'delivery' ? `
+              <p><strong>Adres dostawy:</strong><br>
+              ${order.customer.address.street} ${order.customer.address.houseNumber}<br>
+              ${order.customer.address.city}</p>
+            ` : `
+              <p><strong>Odbiór osobisty</strong> - prosimy o kontakt w celu umówienia terminu odbioru</p>
+            `}
+          </div>
+          
+          <div style="background-color: #e8f4f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4 style="margin-top: 0; color: #17a2b8;">💰 Rozliczenie:</h4>
+            <p><strong>Kwota pobrania:</strong> ${order.payment.cashOnDelivery.toFixed(2)} zł</p>
+            <p><strong>Dokument:</strong> ${order.payment.documentType === 'invoice' ? 'Faktura' : 'Paragon'}</p>
+          </div>
+          
+          <p>W przypadku pytań prosimy o kontakt:</p>
+          <p>📧 Email: bukowski@interia.eu<br>
+          📱 Telefon: 604971789</p>
+          
+          <p style="margin-top: 30px;">Dziękujemy za zaufanie!</p>
+          <p><strong>Zespół Bukowski App</strong></p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Shipping notification sent to ${order.customer.email} for order ${order.orderId}`);
+  } catch (error) {
+    console.error('❌ Error sending shipping notification:', error);
+    throw error;
+  }
+};
+
+// Revert order back to pending status
+exports.revertOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find order
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Zamówienie nie zostało znalezione'
+      });
+    }
+
+    // Check if order is completed
+    if (order.status !== 'zrealizowano') {
+      return res.status(400).json({
+        success: false,
+        message: 'Można przywrócić tylko zrealizowane zamówienia'
+      });
+    }
+
+    // Revert order status
+    order.status = 'pending';
+    order.shippingDate = null;
+    order.completedAt = null;
+    
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Zamówienie zostało przywrócone do statusu aktywnego',
+      data: order
+    });
+  } catch (error) {
+    console.error('Error reverting order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Błąd podczas przywracania zamówienia',
+      error: error.message
+    });
+  }
+};

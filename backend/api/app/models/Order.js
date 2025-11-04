@@ -61,8 +61,14 @@ const OrderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled'],
+    enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled', 'zrealizowano'],
     default: 'pending'
+  },
+  shippingDate: {
+    type: Date
+  },
+  completedAt: {
+    type: Date
   },
   createdAt: {
     type: Date,
