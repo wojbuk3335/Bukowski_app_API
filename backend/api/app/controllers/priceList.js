@@ -84,11 +84,6 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
             const changes_detected = [];
             
             if (priceItem.fullName !== currentGood.fullName) {
-                console.log('FullName change detected:', {
-                    product: priceItem.fullName,
-                    oldName: priceItem.fullName,
-                    newName: currentGood.fullName
-                });
                 changes_detected.push({
                     field: 'fullName',
                     oldValue: priceItem.fullName,
@@ -147,11 +142,6 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
                 });
             } else if (priceSubcategory && !goodSubcategory) {
                 // If price list has subcategory but goods doesn't, it might be a populate issue - ignore for now
-                console.log('Ignoring subcategory change due to potential populate issue:', {
-                    product: priceItem.fullName,
-                    priceListSubcategory: priceSubcategory,
-                    goodsSubcategory: goodSubcategory
-                });
             }
 
             // Check for bagsCategoryId changes (for bags/wallets)
@@ -159,11 +149,6 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
                 const priceBagsCategoryId = priceItem.bagsCategoryId?.toString() || '';
                 const goodBagsCategoryId = currentGood.bagsCategoryId?.toString() || '';
                 if (priceBagsCategoryId !== goodBagsCategoryId) {
-                    console.log('BagsCategoryId change detected:', {
-                        product: priceItem.fullName,
-                        oldBagsCategoryId: priceBagsCategoryId,
-                        newBagsCategoryId: goodBagsCategoryId
-                    });
                     changes_detected.push({
                         field: 'bagsCategoryId',
                         oldValue: priceBagsCategoryId,
@@ -207,11 +192,6 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
             const pricePicture = priceItem.picture || '';
             const goodPicture = currentGood.picture || '';
             if (pricePicture !== goodPicture) {
-                console.log('Picture change detected:', {
-                    product: priceItem.fullName,
-                    oldPicture: pricePicture,
-                    newPicture: goodPicture
-                });
                 changes_detected.push({
                     field: 'picture',
                     oldValue: pricePicture,
@@ -223,11 +203,6 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
             const priceRemainingSubsub = priceItem.remainingsubsubcategory || '';
             const goodRemainingSubsub = currentGood.remainingsubsubcategory || '';
             if (priceRemainingSubsub !== goodRemainingSubsub) {
-                console.log('Remaining subsubcategory change detected:', {
-                    product: priceItem.fullName,
-                    oldSubsub: priceRemainingSubsub,
-                    newSubsub: goodRemainingSubsub
-                });
                 changes_detected.push({
                     field: 'remainingsubsubcategory',
                     oldValue: priceRemainingSubsub,
@@ -239,11 +214,6 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
             const priceBagProduct = priceItem.bagProduct || '';
             const goodBagProduct = currentGood.bagProduct || '';
             if (priceBagProduct !== goodBagProduct) {
-                console.log('BagProduct change detected:', {
-                    product: priceItem.fullName,
-                    oldBagProduct: priceBagProduct,
-                    newBagProduct: goodBagProduct
-                });
                 changes_detected.push({
                     field: 'bagProduct',
                     oldValue: priceBagProduct,

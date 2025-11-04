@@ -265,7 +265,6 @@ class GoodsController {
                             Authorization: token
                         }
                     });
-                    console.log('All price lists synchronized with new product including prices');
                 } catch (syncError) {
                     console.error('Error synchronizing price lists after product creation:', syncError.message);
                     // Don't fail the product creation if sync fails - just log the error
@@ -369,7 +368,6 @@ class GoodsController {
                             subcategoryData = await SubcategoryCoats.findById(good.subcategory).select('Kat_1_Opis_1 Płeć');
                         } catch (error) {
                             // If ObjectId lookup fails, subcategoryData remains null
-                            console.log(`ObjectId lookup failed for: ${good.subcategory}`);
                         }
                     }
                     
@@ -389,7 +387,6 @@ class GoodsController {
                             }
                         } catch (error) {
                             // If new collection lookup also fails, keep subcategoryData as null
-                            console.log(`Name lookup failed for: ${good.subcategory}`);
                         }
                     }
                     
@@ -496,7 +493,6 @@ class GoodsController {
                             subcategoryData = await Category.findById(good.subcategory).select('Kat_1_Opis_1');
                         } catch (error) {
                             // If ObjectId lookup fails, subcategoryData remains null
-                            console.log(`Category ObjectId lookup failed for: ${good.subcategory}`);
                         }
                     }
                     
@@ -570,7 +566,6 @@ class GoodsController {
         // Check if category is being changed (should be blocked)
         const newCategory = req.body.category ? req.body.category.replace(/_/g, ' ') : null;
         if (newCategory && existingGood.category !== newCategory) {
-            console.log(`⚠️ Category change blocked: "${existingGood.category}" → "${newCategory}"`);
             // Keep the original category instead of changing it
             req.body.category = existingGood.category;
         }
@@ -730,7 +725,6 @@ class GoodsController {
                                     Authorization: token
                                 }
                             });
-                            console.log('All price lists synchronized with updated product data and prices');
                         } catch (syncError) {
                             console.error('Error synchronizing price lists after product name update:', syncError.message);
                         }
@@ -758,16 +752,13 @@ class GoodsController {
 
     async deleteGood(req, res, next) {
         const id = req.params.goodId;
-        console.log('🗑️ DELETE REQUEST - Product ID:', id);
         
         try {
             const result = await Goods.deleteOne({ _id: id });
-            console.log('�️ Delete result - deletedCount:', result.deletedCount);
             
             if (result.deletedCount > 0) {
                 // Synchronize all price lists to remove deleted product
                 try {
-                    console.log('🔄 Starting product removal from price lists...');
                     const syncResult = await PriceListController.performSyncAllPriceLists({
                         updateOutdated: true,
                         addNew: false,
@@ -775,8 +766,6 @@ class GoodsController {
                         updatePrices: false
                     });
                     
-                    console.log('✅ Product successfully removed from all price lists:', syncResult.totalRemovedProducts, 'products removed');
-                    console.log('📊 Sync result:', syncResult);
                 } catch (syncError) {
                     console.error('❌ Error synchronizing price lists after product deletion:', syncError);
                     console.error('❌ Stack trace:', syncError.stack);
@@ -800,21 +789,16 @@ class GoodsController {
 
     // New method to synchronize product names when stock or color changes
     async syncProductNames(req, res, next) {
-        try {
-            console.log('📨 syncProductNames called with body:', JSON.stringify(req.body, null, 2));
-            
+        try {            
             const { type, oldValue, newValue, fieldType } = req.body;
             
             // Handle empty request body (manual sync call)
             if (!type || !oldValue || !newValue) {
-                console.log('🔄 Manual sync called with no parameters - returning success without changes');
                 return res.status(200).json({
                     message: 'Manual synchronization completed - no specific changes requested',
                     updatedCount: 0
                 });
             }
-            
-            console.log('🔄 Starting product names synchronization:', { type, oldValue, newValue, fieldType });
 
             let updateQuery = {};
             let goods = [];
@@ -822,8 +806,6 @@ class GoodsController {
             if (type === 'stock' && fieldType === 'Tow_Opis') {
                 // Find all goods that use this stock
                 goods = await Goods.find({ stock: oldValue.id });
-                
-                console.log(`Found ${goods.length} products using stock: ${oldValue.name}`);
 
                 // Update each product's fullName
                 for (const good of goods) {
@@ -837,7 +819,6 @@ class GoodsController {
                             { $set: { fullName: newFullName } }
                         );
                         
-                        console.log(`✅ Updated: "${oldFullName}" → "${newFullName}"`);
                     }
                 }
             } 
@@ -856,8 +837,6 @@ class GoodsController {
                             { _id: good._id },
                             { $set: { fullName: newFullName } }
                         );
-                        
-                        console.log(`✅ Updated product: "${oldFullName}" → "${newFullName}"`);
                     }
                 }
             }
@@ -885,9 +864,6 @@ class GoodsController {
                                 }
                             }
                         );
-                        
-                        console.log(`✅ Updated belt product: "${oldFullName}" → "${newFullName}"`);
-                        console.log(`✅ Updated remainingsubsubcategory: "${oldValue.name.trim()}" → "${newValue.name.trim()}"`);
                     }
                 }
             }
@@ -915,9 +891,6 @@ class GoodsController {
                                 }
                             }
                         );
-                        
-                        console.log(`✅ Updated glove product: "${oldFullName}" → "${newFullName}"`);
-                        console.log(`✅ Updated remainingsubsubcategory: "${oldValue.name.trim()}" → "${newValue.name.trim()}"`);
                     }
                 }
             }
@@ -954,10 +927,6 @@ class GoodsController {
                                 }
                             }
                         );
-                        
-                        console.log(`✅ Updated remaining product: "${oldFullName}" → "${newFullName}"`);
-                        console.log(`✅ Updated bagProduct: "${oldBagProduct}" → "${newBagProduct}"`);
-                        console.log(`✅ Updated code: "${oldCode}" → "${newCode}"`);
                     }
                 }
             }
@@ -986,7 +955,6 @@ class GoodsController {
                             }
                         });
                     }
-                    console.log('✅ Price lists synchronized with updated product data and prices');
                 } catch (syncError) {
                     console.error('❌ Error synchronizing price lists:', syncError.message);
                 }
