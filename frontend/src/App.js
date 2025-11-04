@@ -56,6 +56,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/user" />} />
         <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/admin/login" element={<Navigate to="/user" replace />} />
         <Route path="/admin/verify-2fa" element={<TwoFactorVerification />} />
         <Route path="/user" element={<UserLogin />} />
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={AdminDashboard} allowedRoles={['admin']} />}>

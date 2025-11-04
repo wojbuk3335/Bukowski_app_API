@@ -79,7 +79,7 @@ const generateRemainingProductCode = async (remainingProductCode, colorData) => 
 
 class GoodsController {
     async createGood(req, res, next) {
-        const { stock, color, fullName, code, category, subcategory, remainingsubsubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId, priceKarpacz, discount_priceKarpacz } = req.body; // Add manufacturer and Karpacz fields
+        const { stock, color, fullName, code, category, subcategory, remainingsubsubcategory, manufacturer, price, discount_price, sellingPoint, barcode, Plec, bagProduct, bagId, bagsCategoryId, priceKarpacz, discount_priceKarpacz, description } = req.body; // Add manufacturer, Karpacz fields and description
         
         // Basic validation
         if (!fullName || fullName.trim() === '') {
@@ -175,6 +175,7 @@ class GoodsController {
             priceExceptions,
             sellingPoint,
             barcode,
+            description: description || '', // Add description field with default empty string
             // Karpacz pricing fields
             priceKarpacz: parseFloat(priceKarpacz) || 0,
             discount_priceKarpacz: parseFloat(discount_priceKarpacz) || 0,
@@ -312,7 +313,7 @@ class GoodsController {
             // For test environment, use simpler approach without populate
             if (process.env.NODE_ENV === 'test') {
                 const goods = await Goods.find()
-                    .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec Rodzaj price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz');
+                    .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec Rodzaj price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz description');
                 
                 res.status(200).json({
                     count: goods.length,
@@ -339,7 +340,8 @@ class GoodsController {
                         picture: good.picture,
                         priceExceptions: good.priceExceptions,
                         sellingPoint: good.sellingPoint,
-                        barcode: good.barcode
+                        barcode: good.barcode,
+                        description: good.description
                     }))
                 });
                 return;
@@ -347,7 +349,7 @@ class GoodsController {
 
             // For production environment, use populate
             const goods = await Goods.find()
-                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec Rodzaj price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz')
+                .select('_id stock color bagProduct bagId bagsCategoryId fullName code category subcategory remainingSubcategory remainingsubsubcategory manufacturer Plec Rodzaj price discount_price picture priceExceptions sellingPoint barcode priceKarpacz discount_priceKarpacz priceExceptionsKarpacz description')
                 .populate('stock', 'Tow_Opis Tow_Kod')
                 .populate('color', 'Kol_Opis Kol_Kod')
                 .populate('manufacturer', 'Prod_Opis Prod_Kod')
@@ -539,7 +541,8 @@ class GoodsController {
                     picture: good.picture,
                     priceExceptions: good.priceExceptions,
                     sellingPoint: good.sellingPoint,
-                    barcode: good.barcode
+                    barcode: good.barcode,
+                    description: good.description
                 }))
             });
         } catch (err) {
@@ -582,6 +585,7 @@ class GoodsController {
             priceExceptions: JSON.parse(req.body.priceExceptions || '[]'),
             sellingPoint: req.body.sellingPoint,
             barcode: req.body.barcode,
+            description: req.body.description || '', // Add description field with default empty string
             // Karpacz pricing fields
             priceKarpacz: parseFloat(req.body.priceKarpacz) || 0,
             discount_priceKarpacz: parseFloat(req.body.discount_priceKarpacz) || 0,

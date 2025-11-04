@@ -123,18 +123,6 @@ function Corrections() {
         const nameAndSizeMatch = item.fullName === correction.fullName && 
                                 item.size === correction.size;
         
-        // Debug log
-        if (nameAndSizeMatch || barcodeMatch) {
-          console.log(`✅ Found match in ${item.symbol}:`, {
-            itemBarcode: item.barcode,
-            correctionBarcode: correction.barcode,
-            barcodeMatch,
-            nameAndSizeMatch,
-            fullName: item.fullName,
-            size: item.size
-          });
-        }
-        
         // Akceptuj jeśli barcode pasuje LUB (fullName + size) pasują
         return barcodeMatch || nameAndSizeMatch;
       });
@@ -155,8 +143,6 @@ function Corrections() {
       
       const locations = Object.values(locationGroups);
       
-      console.log('🎯 Found product in locations:', locations.length);
-      console.log('📋 Available locations:', locations.map(loc => `${loc.symbol} (${loc.count} items)`));
       setAvailableLocations(locations);
       setShowProductModal(true);
       
@@ -186,8 +172,6 @@ function Corrections() {
         return;
       }
       
-      console.log(`Writing off from ${fromSymbol}:`, itemToWriteOff);
-      
       const token = localStorage.getItem('AdminToken');
       // Wywołanie API do odpisania produktu używając istniejącego endpointu
       const writeOffResponse = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'}/api/state/barcode/${itemToWriteOff.barcode}/symbol/${fromSymbol}`, {
@@ -214,7 +198,6 @@ function Corrections() {
             detail: { transactionId: selectedCorrection.transactionId }
           });
           window.dispatchEvent(event);
-          console.log(`🔔 Dispatched transactionCorrected event for transaction: ${selectedCorrection.transactionId}`);
           
           // Also save to localStorage as backup
           try {
@@ -228,7 +211,6 @@ function Corrections() {
             if (!correctedIds.includes(selectedCorrection.transactionId)) {
               correctedIds.push(selectedCorrection.transactionId);
               localStorage.setItem('correctedTransactionIds', JSON.stringify(correctedIds));
-              console.log('💾 Saved corrected transaction to localStorage:', selectedCorrection.transactionId);
             }
           } catch (error) {
             console.error('Error storing corrected transaction ID:', error);

@@ -37,6 +37,18 @@ router.post('/insert-many-sales',
     checkAuth, 
     SalesController.insertManySales
 ); // 🔒 Masowe dodawanie z walidacją
+
+router.post('/mark-as-returned', 
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.markAsReturned
+); // 🔒 Oznaczanie sprzedaży jako zwrócone
+
+router.post('/create-historical-sale', 
+    validators.handleValidationErrors,
+    checkAuth, 
+    SalesController.createHistoricalSale
+); // 🔒 Tworzenie sprzedaży historycznej
 router.delete('/delete-all-sales', checkAuth, roleAuth.adminOnly(), SalesController.deleteAllSales); // 🔒🔒🔒 TYLKO ADMIN!
 
 // Dynamic routes - też zabezpieczone

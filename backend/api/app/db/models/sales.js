@@ -71,6 +71,20 @@ const salesSchema = mongoose.Schema({
         type: String,
         required: false,
         default: null
+    },
+    returned: {
+        type: Boolean,
+        default: false
+    },
+    returnReason: {
+        type: String,
+        required: false,
+        default: null
+    },
+    returnDate: {
+        type: Date,
+        required: false,
+        default: null
     }
 });
 

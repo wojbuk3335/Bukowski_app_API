@@ -70,6 +70,7 @@ const Goods = () => {
     const [sizes, setSizes] = useState([]);
     const [editingGood, setEditingGood] = useState(null); // New state for editing
     const [productName, setProductName] = useState(''); // New state for product name
+    const [description, setDescription] = useState(''); // New state for product description
     const [searchTerm, setSearchTerm] = useState(''); // State for search functionality
     const modalRef = useRef(null);
 
@@ -1508,6 +1509,7 @@ const Goods = () => {
         formData.append('sellingPoint', ''); // Default value for sellingPoint
         formData.append('barcode', ''); // Default value for barcode
         formData.append('Plec', finalPlec); // Płeć z kategorii torebek lub podkategorii
+        formData.append('description', description); // Add description field
         
         // Add Rodzaj field for belts and gloves during editing
         if (selectedCategory === 'Pozostały asortyment' && editingGood && editingGood.Rodzaj) {
@@ -1612,6 +1614,7 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+            setDescription(good.description || '');
             
         } else if (good.category === 'Portfele') {
             // Obsługa edycji portfeli
@@ -1632,6 +1635,7 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+            setDescription(good.description || '');
             
         } else if (good.category === 'Pozostały asortyment') {
             // Obsługa edycji pozostałego asortymentu
@@ -1652,6 +1656,7 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+            setDescription(good.description || '');
 
             // Load subcategory options first for belts/gloves
             if (good.bagsCategoryId) {
@@ -1700,6 +1705,7 @@ const Goods = () => {
             setPrice(good.price);
             setDiscountPrice(good.discount_price);
             setProductName(good.fullName);
+            setDescription(good.description || '');
         }
         setSelectedImage(null); // Reset image selection for editing
         setModal(true);
@@ -1784,6 +1790,7 @@ const Goods = () => {
         } else {
             setProductName('');
         }
+        setDescription(''); // Reset description field
     };
 
     const makeModalDraggable = () => {
@@ -1890,6 +1897,7 @@ const Goods = () => {
                         (good.stock ? good.stock.Tow_Opis : '-'),
                     'Kolor': good.color ? good.color.Kol_Opis : '-',
                     'Nazwa produktu': good.fullName || '-',
+                    'Opis': good.description || '',
                     'Kod kreskowy': good.code || '-',
                     'Kategoria': good.category || '-',
                     'Podkategoria': (() => {
@@ -2185,7 +2193,7 @@ const Goods = () => {
 
             // Full table headers (14 columns - without Akcje and Karpacz fields)
             const headers = [
-                'Lp', 'Produkt', 'Kolor', 'Nazwa produktu', 'Kod kreskowy', 'Kategoria', 
+                'Lp', 'Produkt', 'Kolor', 'Nazwa produktu', 'Opis', 'Kod kreskowy', 'Kategoria', 
                 'Podkategoria', 'Podpodkategoria', 'Grupa', 'Zdjecie', 'Cena', 'Cena promocyjna', 'Wyjatki', 'Rodzaj'
             ];
 
@@ -2222,16 +2230,17 @@ const Goods = () => {
                     1: { halign: 'center', cellWidth: 22 },    // Produkt - 22mm
                     2: { halign: 'center', cellWidth: 18 },    // Kolor - 18mm
                     3: { halign: 'center', cellWidth: 28 },    // Nazwa produktu - 28mm
-                    4: { halign: 'center', cellWidth: 20 },  // Kod kreskowy - 20mm
-                    5: { halign: 'center', cellWidth: 18 },    // Kategoria - 18mm
-                    6: { halign: 'center', cellWidth: 22 },    // Podkategoria - 22mm
-                    7: { halign: 'center', cellWidth: 22 },    // Podpodkategoria - 22mm
-                    8: { halign: 'center', cellWidth: 20 },    // Grupa - 20mm
-                    9: { halign: 'center', cellWidth: 20 },    // Zdjęcie - 20mm
-                    10: { halign: 'center', cellWidth: 15 },  // Cena - 15mm
-                    11: { halign: 'center', cellWidth: 18 },  // Cena promocyjna - 18mm
-                    12: { halign: 'center', cellWidth: 25 },   // Wyjątki - 25mm
-                    13: { halign: 'center', cellWidth: 12 }   // Rodzaj - 12mm
+                    4: { halign: 'center', cellWidth: 20 },  // Opis - 20mm
+                    5: { halign: 'center', cellWidth: 20 },  // Kod kreskowy - 20mm
+                    6: { halign: 'center', cellWidth: 18 },    // Kategoria - 18mm
+                    7: { halign: 'center', cellWidth: 22 },    // Podkategoria - 22mm
+                    8: { halign: 'center', cellWidth: 22 },    // Podpodkategoria - 22mm
+                    9: { halign: 'center', cellWidth: 20 },    // Grupa - 20mm
+                    10: { halign: 'center', cellWidth: 20 },    // Zdjęcie - 20mm
+                    11: { halign: 'center', cellWidth: 15 },  // Cena - 15mm
+                    12: { halign: 'center', cellWidth: 18 },  // Cena promocyjna - 18mm
+                    13: { halign: 'center', cellWidth: 25 },   // Wyjątki - 25mm
+                    14: { halign: 'center', cellWidth: 12 }   // Rodzaj - 12mm
                 }, // Total: 268mm (fits comfortably in 295mm)
                 alternateRowStyles: {
                     fillColor: [245, 245, 245]
@@ -2539,6 +2548,21 @@ const Goods = () => {
                                     value={productName}
                                     onChange={(e) => setProductName(e.target.value)}
                                 />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="description" className={styles.label}>Opis:</Label>
+                                <Input
+                                    type="textarea"
+                                    id="description"
+                                    className={styles.inputField}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    maxLength={200}
+                                    placeholder="Opcjonalny opis produktu (max 200 znaków)"
+                                />
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                                    {description.length}/200
+                                </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="productCode" className={styles.label}>Kod produktu:</Label>
@@ -2849,6 +2873,21 @@ const Goods = () => {
                                 />
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
+                                <Label for="bagDescription" className={styles.label}>Opis:</Label>
+                                <Input
+                                    type="textarea"
+                                    id="bagDescription"
+                                    className={styles.inputField}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    maxLength={200}
+                                    placeholder="Opcjonalny opis produktu (max 200 znaków)"
+                                />
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                                    {description.length}/200
+                                </div>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
                                 <Label for="bagProductCodeGenerated" className={styles.label}>Kod produktu:</Label>
                                 <Input
                                     type="text"
@@ -3123,6 +3162,21 @@ const Goods = () => {
                                     value={productName}
                                     onChange={(e) => setProductName(e.target.value)}
                                 />
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
+                                <Label for="walletDescription" className={styles.label}>Opis:</Label>
+                                <Input
+                                    type="textarea"
+                                    id="walletDescription"
+                                    className={styles.inputField}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    maxLength={200}
+                                    placeholder="Opcjonalny opis produktu (max 200 znaków)"
+                                />
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                                    {description.length}/200
+                                </div>
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
                                 <Label for="walletProductCodeGenerated" className={styles.label}>Kod produktu:</Label>
@@ -3423,6 +3477,21 @@ const Goods = () => {
                                 />
                             </FormGroup>
                             <FormGroup className={styles.formGroup}>
+                                <Label for="remainingDescription" className={styles.label}>Opis:</Label>
+                                <Input
+                                    type="textarea"
+                                    id="remainingDescription"
+                                    className={styles.inputField}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    maxLength={200}
+                                    placeholder="Opcjonalny opis produktu (max 200 znaków)"
+                                />
+                                <div style={{ textAlign: 'right', fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                                    {description.length}/200
+                                </div>
+                            </FormGroup>
+                            <FormGroup className={styles.formGroup}>
                                 <Label for="remainingProductCodeGenerated" className={styles.label}>Kod produktu:</Label>
                                 <Input
                                     type="text"
@@ -3527,6 +3596,7 @@ const Goods = () => {
                             <th className={styles.tableHeader}>Produkt</th>
                             <th className={styles.tableHeader}>Kolor</th>
                             <th className={styles.tableHeader}>Nazwa produktu</th>
+                            <th className={styles.tableHeader}>Opis</th>
                             <th className={styles.tableHeader}>Kod kreskowy</th>
                             <th className={styles.tableHeader}>Kategoria</th>
                             <th className={styles.tableHeader}>Podkategoria</th>
@@ -3549,6 +3619,9 @@ const Goods = () => {
                                 </td>
                                 <td className={styles.tableCell} data-label="Kolor">{good.color ? good.color.Kol_Opis || '-' : '-'}</td>
                                 <td className={styles.tableCell} data-label="Nazwa produktu">{good.fullName}</td>
+                                <td className={styles.tableCell} data-label="Opis" title={good.description || ''}>
+                                    {good.description ? (good.description.length > 30 ? good.description.substring(0, 30) + '...' : good.description) : ''}
+                                </td>
                                 <td className={styles.tableCell} data-label="Kod produktu">{good.code}</td>
                                 <td className={styles.tableCell} data-label="Kategoria">{good.category}</td>
                                 <td className={styles.tableCell} data-label="Podkategoria">

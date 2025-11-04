@@ -252,14 +252,7 @@ class CudzichTransactionController {
     // Pobierz cennik Cudzich z cenami
     getCudzichPriceList = async (req, res) => {
         try {
-            console.log('🔍 Szukam cennika dla sellingPointName: "Cudzich"');
-            
-            // Najpierw sprawdź wszystkie cenniki
             const allPriceLists = await PriceList.find({}, 'sellingPointName sellingPointId');
-            console.log('📋 Wszystkie cenniki:', allPriceLists.map(pl => ({ 
-                name: pl.sellingPointName, 
-                id: pl.sellingPointId 
-            })));
             
             const cudzichPriceList = await PriceList.findOne({ 
                 sellingPointName: 'Cudzich' 
@@ -275,7 +268,6 @@ class CudzichTransactionController {
                 });
                 
                 if (alternatives) {
-                    console.log('✅ Znaleziono alternatywny cennik:', alternatives.sellingPointName);
                     return res.status(200).json(alternatives);
                 }
                 
@@ -285,7 +277,6 @@ class CudzichTransactionController {
                 });
             }
             
-            console.log('✅ Znaleziono cennik Cudzich');
             res.status(200).json(cudzichPriceList);
             
         } catch (error) {

@@ -1141,20 +1141,64 @@ const AddToState = ({ onAdd }) => {
               }
             }
             
-            // Dla sprzedaży: usuń jak wcześniej
+            // Dla sprzedaży: zamiast usuwać sprzedaż, oznacz ją jako przetworzoną (processed = true)
             if (missingItem.originalData && missingItem.originalData._id && missingItem.originalData.isFromSale) {
               try {
+                console.log(`🔄 Updating sale ${missingItem.originalData._id} as processed...`);
+                console.log(`📊 Missing item data:`, missingItem.originalData);
+                const token = localStorage.getItem('AdminToken');
+                console.log(`🔑 Token exists:`, token ? 'Yes' : 'No');
                 
-                const deleteResponse = await fetch(`${API_BASE_URL}/api/sales/delete-sale/${missingItem.originalData._id}`, {
-                  method: 'DELETE'
+                // Pobierz aktualne dane sprzedaży, żeby mieć wymagane pola dla walidacji
+                const currentSaleResponse = await fetch(`${API_BASE_URL}/api/sales/${missingItem.originalData._id}`, {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
                 });
                 
-                if (deleteResponse.ok) {
-                } else {
-                  console.error(`❌ Failed to delete sale: ${missingItem.originalData._id}`);
+                if (!currentSaleResponse.ok) {
+                  throw new Error(`Failed to fetch current sale data: ${currentSaleResponse.statusText}`);
                 }
-              } catch (deleteError) {
-                console.error(`Error deleting sale ${missingItem.originalData._id}:`, deleteError);
+                
+                const currentSaleData = await currentSaleResponse.json();
+                console.log('📄 Current sale data:', currentSaleData);
+                
+                // Przygotuj dane aktualizacji z zachowaniem wymaganych pól
+                const requestBody = {
+                  ...currentSaleData, // Zachowaj wszystkie aktualne pola
+                  processed: true,
+                  processedAt: new Date().toISOString()
+                };
+                
+                // Usuń pola które mogą powodować konflikty przy aktualizacji
+                delete requestBody._id;
+                delete requestBody.__v;
+                delete requestBody.date;
+                
+                console.log(`📤 Request body:`, requestBody);
+                console.log(`🎯 Request URL:`, `${API_BASE_URL}/api/sales/update-sales/${missingItem.originalData._id}`);
+                
+                const updateResponse = await fetch(`${API_BASE_URL}/api/sales/update-sales/${missingItem.originalData._id}`, {
+                  method: 'PATCH',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify(requestBody)
+                });
+
+                console.log(`📥 Response status:`, updateResponse.status);
+                
+                if (updateResponse.ok) {
+                  const responseData = await updateResponse.json();
+                  console.log(`✅ Sale ${missingItem.originalData._id} marked as processed successfully:`, responseData);
+                } else {
+                  const errorText = await updateResponse.text();
+                  console.error(`❌ Failed to mark sale as processed: ${missingItem.originalData._id}`, updateResponse.status, errorText);
+                }
+              } catch (updateError) {
+                console.error(`Error marking sale ${missingItem.originalData._id} as processed:`, updateError);
               }
             }
           }
@@ -1164,7 +1208,7 @@ const AddToState = ({ onAdd }) => {
             `• ${item.fullName} ${item.size} (${item.barcode})`
           ).join('\n');
           
-          alert(`⚠️ UWAGA - WYKRYTO BRAKI W STANIE!\n\nNastępujące kurtki nie zostały znalezione w stanie punktu ${sellingPoint}:\n\n${missingItemsList}\n\n✅ Problemy zostały zapisane w tabeli Korekty do rozwiązania.\n🗑️ Nieistniejące pozycje zostały usunięte z listy.\n\n🔄 Operacja zostanie kontynuowana z dostępnymi kurtkami.`);
+          alert(`⚠️ UWAGA - WYKRYTO BRAKI W STANIE!\n\nNastępujące kurtki nie zostały znalezione w stanie punktu ${sellingPoint}:\n\n${missingItemsList}\n\n✅ Problemy zostały zapisane w tabeli Korekty do rozwiązania.\nℹ️ Nieistniejące pozycje zostały oznaczone jako przetworzone (zapis do korekt).\n\n🔄 Operacja zostanie kontynuowana z dostępnymi kurtkami.`);
           
         } else {
           console.error('Failed to save corrections');

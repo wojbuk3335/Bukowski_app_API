@@ -39,6 +39,7 @@ const goodsSchema = mongoose.Schema({
     Plec: { type: String, required: false }, // Not required for bags
     Rodzaj: { type: String, required: false }, // Gender field for belts and gloves (D/M)
     picture: { type: String, default: "" },
+    description: { type: String, required: false, default: "", maxlength: 200 }, // Optional description field with 200 character limit
     priceExceptions: {
         type: [{
             size: { type: mongoose.Schema.Types.ObjectId, ref: 'Size' },

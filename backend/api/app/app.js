@@ -36,7 +36,7 @@ app.use(cors({
         : ['http://localhost:3000', 'http://localhost:3001'], // Development
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'correction-id', 'correction-transaction-id', 'operation-type', 'X-Requested-With']
 }));
 
 // 🔒 RATE LIMITING - Ochrona przed atakami
