@@ -182,6 +182,7 @@ const correctionsRoutes = require('./routes/corrections'); // Import corrections
 const priceListRoutes = require('./routes/priceList'); // Import price list routes
 const cudzichTransactionRoutes = require('./routes/cudzichTransaction'); // Import Cudzich transaction routes
 const ordersRoutes = require('./routes/orders'); // Import orders routes
+const remanentRoutes = require('./routes/remanent'); // Import remanent routes
 const debugUsersRoutes = require('./routes/debug-users'); // 🔧 TYMCZASOWY DEBUG
 const emergencyResetRoutes = require('./routes/emergency-reset'); // 🚨 EMERGENCY RESET
 
@@ -228,6 +229,7 @@ app.use('/api/state', stateRoutes);
 app.use('/api/category', categoryRoutes);
 app.use('/api/subcategoryCoats', subcategoryCoatsRoutes);
 app.use('/api/print', printRoutes); // Use print routes
+app.use('/api/remanent', remanentRoutes); // Use remanent routes
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../public')));

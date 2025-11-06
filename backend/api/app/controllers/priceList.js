@@ -243,11 +243,7 @@ async function performComparisonWithPriceList(priceList, includePricing = false)
         }
     }
 
-    // console.log('Comparison completed:', {
-    //     outdatedCount: changes.outdatedItems.length,
-    //     newCount: changes.newItems.length,
-    //     removedCount: changes.removedItems.length
-    // });
+
 
     return { changes };
 }
@@ -323,7 +319,6 @@ class PriceListController {
                                 itemObj.subcategory = { _id: remainingData._id, Kat_1_Opis_1: remainingData.Rem_Kat_1_Opis_1 };
                             }
                         } catch (error) {
-                            console.error('Error populating subcategory:', error.message);
                             // Keep original value if population fails
                         }
                     }
@@ -334,7 +329,6 @@ class PriceListController {
             
             res.status(200).json({ priceList: populatedItems });
         } catch (error) {
-            console.error('Error fetching price list:', error);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -342,11 +336,8 @@ class PriceListController {
     // Create initial price list from current goods
     async createPriceList(req, res, next) {
         try {
-            console.log('🔄 Starting createPriceList...');
             const { sellingPointId } = req.params;
             const { forceRecreate } = req.body; // New parameter to force recreation
-            console.log('📍 Selling point ID:', sellingPointId);
-            console.log('🔧 Force recreate:', forceRecreate);
             
             if (!mongoose.Types.ObjectId.isValid(sellingPointId)) {
                 return res.status(400).json({ message: 'Invalid selling point ID' });
@@ -362,7 +353,6 @@ class PriceListController {
             const existingPriceList = await PriceList.findOne({ sellingPointId });
             if (existingPriceList) {
                 if (forceRecreate) {
-                    console.log('🗑️ Force recreate enabled - deleting existing price list');
                     await PriceList.deleteOne({ sellingPointId });
                 } else {
                     return res.status(409).json({ 
@@ -468,8 +458,6 @@ class PriceListController {
                 priceList: populatedPriceList.items 
             });
         } catch (error) {
-            console.error('❌ Error creating price list:', error);
-            console.error('❌ Error stack:', error.stack);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -549,7 +537,6 @@ class PriceListController {
                 priceList: populatedPriceList.items 
             });
         } catch (error) {
-            console.error('Error cloning price list:', error);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -592,7 +579,6 @@ class PriceListController {
                 item: priceList.items[itemIndex]
             });
         } catch (error) {
-            console.error('Error updating price:', error);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -613,7 +599,6 @@ class PriceListController {
             
             res.status(200).json({ message: 'Price list deleted successfully' });
         } catch (error) {
-            console.error('Error deleting price list:', error);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -690,7 +675,6 @@ class PriceListController {
                 priceList: populatedPriceList.items 
             });
         } catch (error) {
-            console.error('Error adding new products to price list:', error);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -765,7 +749,6 @@ class PriceListController {
                 updateResults
             });
         } catch (error) {
-            console.error('Error adding new products to all price lists:', error);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -804,7 +787,6 @@ class PriceListController {
             });
 
         } catch (error) {
-            console.error('Error comparing price list with goods:', error);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -832,7 +814,6 @@ class PriceListController {
             // Get comparison data by calling the helper function directly - include pricing changes only when updatePrices is true
             const comparisonResult = await performComparisonWithPriceList(priceList, updatePrices);
             const { outdatedItems, newItems, removedItems } = comparisonResult.changes;
-            
 
 
             let updatedCount = 0;
@@ -936,7 +917,6 @@ class PriceListController {
             });
 
         } catch (error) {
-            console.error('Error syncing price list with goods:', error);
             res.status(500).json({ message: 'Server error', error: error.message });
         }
     }
@@ -1092,7 +1072,6 @@ class PriceListController {
 
             res.status(200).json(result);
         } catch (error) {
-            console.error('Error in syncAllPriceListsWithGoods:', error);
             res.status(500).json({ error: 'Internal server error during synchronization' });
         }
     }
@@ -1100,7 +1079,6 @@ class PriceListController {
     // Create individual price list item (for testing)
     async createPriceListItem(req, res, next) {
         try {
-            console.log('🆕 Creating individual price list item for testing:', req.body);
             const { good, price, discount_price } = req.body;
 
             if (!good || !price) {
@@ -1141,8 +1119,6 @@ class PriceListController {
 
             const savedPriceList = await priceList.save();
             
-            console.log('✅ Price list created:', savedPriceList._id);
-            
             res.status(201).json({
                 message: 'Price list created successfully',
                 createdPriceList: {
@@ -1157,7 +1133,6 @@ class PriceListController {
             });
 
         } catch (error) {
-            console.error('❌ Error creating price list item:', error);
             res.status(500).json({
                 error: error.message,
                 message: 'Failed to create price list item'
@@ -1172,14 +1147,12 @@ class PriceListController {
             let priceLists;
             if (process.env.NODE_ENV === 'test') {
                 priceLists = await PriceList.find({});
-                console.log(`✅ Found ${priceLists.length} price lists (test mode - no population)`);
             } else {
                 priceLists = await PriceList.find({})
                     .populate('items.stock', 'Tow_Opis Tow_Kod')
                     .populate('items.color', 'Kol_Opis Kol_Kod')
                     .populate('items.manufacturer', 'Prod_Opis')
                     .populate('items.priceExceptions.size', 'Roz_Opis');
-                console.log(`✅ Found ${priceLists.length} price lists`);
             }
 
             // For test compatibility, also include a flat list where each item appears as a separate priceList entry
@@ -1231,7 +1204,6 @@ class PriceListController {
             });
 
         } catch (error) {
-            console.error('❌ Error getting all price lists:', error);
             res.status(500).json({
                 error: error.message,
                 message: 'Failed to get price lists'
@@ -1244,8 +1216,6 @@ class PriceListController {
         try {
             const { priceListId } = req.params;
             const { good, price, discount_price, picture } = req.body;
-
-            console.log('🔄 Updating price list:', priceListId);
 
             // Find the price list that contains an item with this ID
             const priceList = await PriceList.findOne({ 'items._id': priceListId });
@@ -1277,15 +1247,12 @@ class PriceListController {
 
             await priceList.save();
 
-            console.log('✅ Price list updated successfully');
-
             res.status(200).json({
                 message: 'Price list updated successfully',
                 updatedItem: priceList.items[itemIndex]
             });
 
         } catch (error) {
-            console.error('❌ Error updating price list:', error);
             res.status(500).json({
                 error: error.message,
                 message: 'Failed to update price list'

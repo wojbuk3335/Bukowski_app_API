@@ -86,13 +86,19 @@ const Orders = () => {
 
         // Filter by search query
         if (searchQuery) {
-            filtered = filtered.filter(order => 
-                order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                order.customer.phone.includes(searchQuery) ||
-                (order.customer.email && order.customer.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (order.product.name && order.product.name.toLowerCase().includes(searchQuery.toLowerCase()))
-            );
+            filtered = filtered.filter(order => {
+                const fullProductName = [
+                    order.product.name,
+                    order.product.color,
+                    order.product.size
+                ].filter(Boolean).join(' ').toLowerCase();
+                
+                return order.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       order.customer.phone.includes(searchQuery) ||
+                       (order.customer.email && order.customer.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                       fullProductName.includes(searchQuery.toLowerCase());
+            });
         }
 
         // Filter by status
@@ -548,15 +554,16 @@ const Orders = () => {
                                             </td>
                                             <td>
                                                 <div>
-                                                    {order.product.name && <strong>{order.product.name}</strong>}
+                                                    <strong>
+                                                        {[
+                                                            order.product.name,
+                                                            order.product.color?.toUpperCase(),
+                                                            order.product.size?.toUpperCase()
+                                                        ].filter(Boolean).join(' ')}
+                                                    </strong>
                                                 </div>
-                                                {order.product.color && (
-                                                    <small className="text-muted">Kolor: {order.product.color}</small>
-                                                )}
-                                                {order.product.size && (
-                                                    <div>
-                                                        <small className="text-muted">Rozmiar: {order.product.size}</small>
-                                                    </div>
+                                                {order.product.description && (
+                                                    <small className="text-muted">{order.product.description}</small>
                                                 )}
                                             </td>
                                             <td>
@@ -711,9 +718,15 @@ const Orders = () => {
                                 </div>
                                 <div className="col-md-6">
                                     <h6>🛍️ Produkt</h6>
-                                    <p><strong>Nazwa:</strong> {selectedOrder.product.name || 'Nie podano'}</p>
-                                    <p><strong>Kolor:</strong> {selectedOrder.product.color || 'Nie podano'}</p>
-                                    <p><strong>Rozmiar:</strong> {selectedOrder.product.size || 'Nie podano'}</p>
+                                    <p><strong>Pełna nazwa:</strong> 
+                                        <span className="ms-2 text-primary fw-bold">
+                                            {[
+                                                selectedOrder.product.name,
+                                                selectedOrder.product.color?.toUpperCase(),
+                                                selectedOrder.product.size?.toUpperCase()
+                                            ].filter(Boolean).join(' ') || 'Nie podano'}
+                                        </span>
+                                    </p>
                                     {selectedOrder.product.description && (
                                         <p><strong>Opis:</strong> {selectedOrder.product.description}</p>
                                     )}

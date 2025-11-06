@@ -140,10 +140,12 @@ exports.sendOrderEmail = async (req, res) => {
       console.log('✅ Email do klienta wysłany pomyślnie:', customerInfo.messageId);
     } else {
       console.log('ℹ️ Email klienta nie został podany, wysyłanie tylko powiadomienia do właściciela');
-    }    // Also send notification email to business owner
+    }
+    
+    // Also send notification email to business owner
     const businessEmail = 'bukowski@interia.eu';
     const businessMailOptions = {
-      ...mailOptions,
+      from: `"Bukowski App" <${process.env.SMTP_USER || 'bukowskiapp.system@gmail.com'}>`,
       to: businessEmail,
       subject: `NOWE ZAMÓWIENIE ${orderId} - Powiadomienie dla właściciela`,
       html: `
