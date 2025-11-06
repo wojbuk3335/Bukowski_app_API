@@ -23,43 +23,174 @@
 
 .corrections-stats {
   display: flex;
-  gap: 15px;
-  margin-bottom: 25px;
+  gap: 10px;
+  margin-bottom: 20px;
   justify-content: center;
   flex-wrap: wrap;
 }
 
-.stat-card {
+.stat-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 80px;
+  height: 60px;
   color: white;
-  padding: 15px 20px;
-  border-radius: 10px;
-  text-align: center;
-  min-width: 140px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-family: inherit;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .stat-unresolved {
   background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
 }
 
+.stat-unresolved:hover {
+  background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+}
+
 .stat-resolved {
   background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+}
+
+.stat-resolved:hover {
+  background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
 }
 
 .stat-total {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.stat-card h3 {
-  font-size: 2em;
-  margin: 0;
-  font-weight: bold;
+.stat-total:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
 }
 
-.stat-card p {
-  margin: 5px 0 0 0;
-  font-size: 0.9em;
+.stat-number {
+  font-size: 1.5em;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.75em;
   opacity: 0.9;
+  margin-top: 2px;
+  line-height: 1;
+}
+
+/* Sekcja filtrów */
+.filters-section, .reports-section {
+  background: black;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #333;
+}
+
+.filters-section h3, .reports-section h3 {
+  margin: 0 0 15px 0;
+  color: white;
+  font-size: 1.2em;
+}
+
+.filters-grid, .reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-group label {
+  font-weight: 600;
+  color: white;
+  font-size: 0.9em;
+}
+
+.filter-input, .filter-select {
+  padding: 8px 12px;
+  border: 1px solid #555;
+  border-radius: 5px;
+  font-size: 0.9em;
+  transition: border-color 0.3s ease;
+  background-color: #333;
+  color: white;
+}
+
+.filter-input:focus, .filter-select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+}
+
+/* Sekcja raportów */
+.reports-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.reports-content {
+  border-top: 1px solid #555;
+  padding-top: 15px;
+}
+
+.date-picker-container {
+  position: relative;
+  display: inline-block;
+}
+
+.date-picker {
+  padding: 8px 35px 8px 12px;
+  border: 1px solid #555;
+  border-radius: 5px;
+  font-size: 0.9em;
+  background-color: #333;
+  color: white;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+  width: 100%;
+}
+
+.date-picker:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.date-picker-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+  pointer-events: none;
+  color: white;
 }
 
 .corrections-table-container {
@@ -246,6 +377,16 @@
   color: #f57c00;
 }
 
+.operation-type.remanent-brak {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.operation-type.remanent-nadwyżka {
+  background-color: #fff8e1;
+  color: #f57c00;
+}
+
 .action-buttons {
   display: flex;
   gap: 5px;
@@ -261,6 +402,21 @@
   .corrections-stats {
     flex-direction: column;
     align-items: center;
+    gap: 8px;
+  }
+  
+  .stat-button {
+    min-width: 100px;
+    height: 50px;
+    padding: 6px 12px;
+  }
+  
+  .stat-number {
+    font-size: 1.3em;
+  }
+  
+  .stat-label {
+    font-size: 0.7em;
   }
   
   .table-header {
@@ -292,6 +448,23 @@
   .table th, .table td {
     padding: 8px 4px;
     font-size: 0.8em;
+  }
+  
+  /* Filtry responsive */
+  .filters-grid, .reports-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .filter-actions {
+    justify-content: center;
+    margin-top: 10px;
+  }
+  
+  .reports-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
   }
 }
 
@@ -584,4 +757,204 @@
   .modal-footer .btn {
     width: 100%;
   }
+}
+
+/* DateRangePicker Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 1px solid #e9ecef;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.4em;
+  font-weight: 600;
+}
+
+.modal-header button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.2em;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.modal-header button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.modal-body {
+  padding: 25px;
+}
+
+.date-range-section {
+  margin-top: 20px;
+}
+
+.date-range-section label {
+  display: block;
+  margin-bottom: 15px;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 1.1em;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 25px;
+  border-top: 1px solid #e9ecef;
+  background-color: #f8f9fa;
+  border-radius: 0 0 12px 12px;
+}
+
+.modal-footer .btn {
+  min-width: 120px;
+  padding: 10px 20px;
+  font-weight: 500;
+}
+
+/* DateRangePicker Custom Styles */
+.rdrCalendarWrapper {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.rdrDefinedRangesWrapper {
+  border-right: 1px solid #e9ecef;
+  background-color: #f8f9fa;
+}
+
+.rdrStaticRange {
+  border: none;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.rdrStaticRange:hover {
+  background-color: #e9ecef;
+}
+
+.rdrStaticRangeSelected {
+  background-color: #007bff !important;
+  color: white !important;
+}
+
+.rdrDayToday .rdrDayNumber span {
+  background-color: #007bff;
+  color: white;
+}
+
+.rdrSelected, .rdrInRange, .rdrStartEdge, .rdrEndEdge {
+  background-color: #007bff !important;
+}
+
+.rdrSelected .rdrDayNumber span {
+  color: white !important;
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    margin: 10px;
+  }
+  
+  .modal-header {
+    padding: 15px 20px;
+  }
+  
+  .modal-header h3 {
+    font-size: 1.2em;
+  }
+  
+  .modal-body {
+    padding: 20px;
+  }
+  
+  .modal-footer {
+    padding: 15px 20px;
+    flex-direction: column;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+  }
+  
+  .rdrDateRangePickerWrapper {
+    flex-direction: column;
+  }
+  
+  .rdrDefinedRangesWrapper {
+    border-right: none;
+    border-bottom: 1px solid #e9ecef;
+  }
+}
+
+/* Custom modal styles - bardziej specyficzne selektory */
+.modal.custom-modal .modal-dialog .modal-content {
+  background-color: black !important;
+  color: white !important;
+  border: 1px solid white !important;
+}
+
+.modal.custom-modal .modal-dialog .modal-content .modal-header,
+.modal.custom-modal .modal-dialog .modal-content .modal-header h5,
+.modal.custom-modal .modal-dialog .modal-content .modal-header .modal-title {
+  background: black !important;
+  background-color: black !important;
+  color: white !important;
+  border-bottom: 1px solid white !important;
+  border: 1px solid white !important;
+}
+
+.modal.custom-modal .modal-dialog .modal-content .modal-body {
+  background-color: black !important;
+  color: white !important;
+}
+
+.modal.custom-modal .modal-dialog .modal-content .modal-footer {
+  background-color: black !important;
+  border-top: 1px solid white !important;
+}
+
+.modal.custom-modal .form-check-label {
+  color: white !important;
+}
+
+.modal.custom-modal .btn-close {
+  background-color: white !important;
+  color: black !important;
 }

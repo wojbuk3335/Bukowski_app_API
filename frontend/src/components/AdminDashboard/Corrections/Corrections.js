@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { DateRangePicker, defaultStaticRanges as originalStaticRanges, defaultInputRanges as originalInputRanges } from 'react-date-range';
+import { Modal, ModalHeader, ModalBody, ModalFooter, FormGroup, Label, Button } from 'reactstrap';
+import 'react-date-range/dist/styles.css';
+import 'react-date-range/dist/theme/default.css';
+import pl from 'date-fns/locale/pl';
+import styles from '../Warehouse/Warehouse.module.css'; // Import warehouse styles
 import './Corrections.css';
 
 function Corrections() {
@@ -10,15 +16,74 @@ function Corrections() {
     total: 0
   });
   
+  // Filtry
+  const [filters, setFilters] = useState({
+    status: 'all', // all, PENDING, RESOLVED, IGNORED
+    sellingPoint: '',
+    productName: '',
+    size: '',
+    operationType: 'all' // all, SALE, TRANSFER, WRITE_OFF, REMANENT_BRAK, REMANENT_NADWYŻKA
+  });
+  const [filteredCorrections, setFilteredCorrections] = useState([]);
+  
   // Modal dla wskazywania produktu
   const [showProductModal, setShowProductModal] = useState(false);
   const [selectedCorrection, setSelectedCorrection] = useState(null);
   const [availableLocations, setAvailableLocations] = useState([]);
   const [searchingProduct, setSearchingProduct] = useState(false);
 
+  // Modal dla raportów z DateRangePicker
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState('all');
+  const [dateRange, setDateRange] = useState([{
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Ostatnie 30 dni
+    endDate: new Date(),
+    key: 'selection'
+  }]);
+  const [generatingReport, setGeneratingReport] = useState(false);
+
+  // Nadpisanie etykiet w defaultStaticRanges
+  const customStaticRanges = originalStaticRanges.map((range) => {
+    if (range.label === 'Today') {
+      return { ...range, label: 'Dzisiaj' };
+    }
+    if (range.label === 'Yesterday') {
+      return { ...range, label: 'Wczoraj' };
+    }
+    if (range.label === 'This Week') {
+      return { ...range, label: 'Ten tydzień' };
+    }
+    if (range.label === 'Last Week') {
+      return { ...range, label: 'Poprzedni tydzień' };
+    }
+    if (range.label === 'This Month') {
+      return { ...range, label: 'Ten miesiąc' };
+    }
+    if (range.label === 'Last Month') {
+      return { ...range, label: 'Poprzedni miesiąc' };
+    }
+    return range;
+  });
+
+  // Nadpisanie etykiet w defaultInputRanges
+  const customInputRanges = originalInputRanges.map((range) => {
+    if (range.label === 'days up to today') {
+      return { ...range, label: 'dni do dzisiaj' };
+    }
+    if (range.label === 'days starting today') {
+      return { ...range, label: 'dni od dzisiaj' };
+    }
+    return range;
+  });
+
   useEffect(() => {
     fetchCorrections();
   }, []);
+
+  // Zastosuj filtry gdy zmienią się dane lub filtry
+  useEffect(() => {
+    applyFilters();
+  }, [corrections, filters]);
 
   const fetchCorrections = async () => {
     try {
@@ -48,25 +113,220 @@ function Corrections() {
       const pending = correctionsData?.filter(c => c.status === 'PENDING').length || 0;
       const resolved = correctionsData?.filter(c => c.status === 'RESOLVED').length || 0;
       const ignored = correctionsData?.filter(c => c.status === 'IGNORED').length || 0;
-      
+
+      setCorrections(correctionsData || []);
       setStats({
-        unresolved: pending + ignored,
+        unresolved: pending,
         resolved: resolved,
         total: correctionsData?.length || 0
       });
-      
-    } catch (error) {
-      console.error('Błąd podczas ładowania korekt:', error);
-      // W przypadku błędu ustaw puste dane
-      setCorrections([]);
-      setStats({ unresolved: 0, resolved: 0, total: 0 });
-    } finally {
       setLoading(false);
+    } catch (error) {
+      console.error('Błąd podczas pobierania korekt:', error);
+      setLoading(false);
+      alert('Błąd podczas pobierania korekt');
     }
   };
 
-  const handleRefresh = () => {
-    fetchCorrections();
+  // Funkcja filtrowania korekt
+  const applyFilters = () => {
+    let filtered = [...corrections];
+
+    // Filtr statusu
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(correction => correction.status === filters.status);
+    }
+
+    // Filtr punktu sprzedaży
+    if (filters.sellingPoint.trim()) {
+      filtered = filtered.filter(correction => 
+        correction.sellingPoint?.toLowerCase().includes(filters.sellingPoint.toLowerCase())
+      );
+    }
+
+    // Filtr nazwy produktu
+    if (filters.productName.trim()) {
+      filtered = filtered.filter(correction => 
+        correction.fullName?.toLowerCase().includes(filters.productName.toLowerCase())
+      );
+    }
+
+    // Filtr rozmiaru
+    if (filters.size.trim()) {
+      filtered = filtered.filter(correction => 
+        correction.size?.toLowerCase().includes(filters.size.toLowerCase())
+      );
+    }
+
+    // Filtr typu operacji
+    if (filters.operationType !== 'all') {
+      filtered = filtered.filter(correction => correction.attemptedOperation === filters.operationType);
+    }
+
+    setFilteredCorrections(filtered);
+  };
+
+  // Funkcja resetowania filtrów
+  const resetFilters = () => {
+    setFilters({
+      status: 'all',
+      sellingPoint: '',
+      productName: '',
+      size: '',
+      operationType: 'all'
+    });
+  };
+
+  // Funkcja generowania raportu
+  const generateReport = async () => {
+    try {
+      setGeneratingReport(true);
+      
+      // Filtruj korekty według zakresu dat i typu
+      let reportData = [...corrections];
+      
+      // Filtruj według typu raportu
+      if (reportType === 'remanent') {
+        reportData = reportData.filter(correction => 
+          correction.attemptedOperation === 'REMANENT_BRAK' || 
+          correction.attemptedOperation === 'REMANENT_NADWYŻKA'
+        );
+      }
+      
+      // Filtruj według zakresu dat
+      if (dateRange[0].startDate && dateRange[0].endDate) {
+        const startDate = new Date(dateRange[0].startDate);
+        const endDate = new Date(dateRange[0].endDate);
+        endDate.setHours(23, 59, 59, 999); // Ustaw koniec dnia
+        
+        reportData = reportData.filter(correction => {
+          const correctionDate = new Date(correction.createdAt);
+          return correctionDate >= startDate && correctionDate <= endDate;
+        });
+      }
+      
+      generateReportFile(reportData);
+    } catch (error) {
+      console.error('Błąd podczas generowania raportu:', error);
+      alert('Błąd podczas generowania raportu');
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
+  // Funkcja generowania pliku raportu
+  const generateReportFile = (data) => {
+    const reportTitle = reportType === 'remanent' ? 'Raport Korekt Remanentowych' : 'Raport Wszystkich Korekt';
+    const today = new Date().toLocaleDateString('pl-PL');
+    
+    // Stwórz HTML do drukowania
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${reportTitle}</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            color: black;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 20px;
+          }
+          .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+          }
+          .header p {
+            margin: 5px 0;
+            font-size: 14px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+          }
+          th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+          }
+          th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+          }
+          .operation-remanent { background-color: #e2e3e5; }
+          @media print {
+            body { margin: 0; }
+            .header { page-break-after: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${reportTitle}</h1>
+          <p><strong>Wygenerowano:</strong> ${today}</p>
+          <p><strong>Liczba korekt:</strong> ${data.length}</p>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Data wykrycia</th>
+              <th>Typ operacji</th>
+              <th>Produkt</th>
+              <th>Rozmiar</th>
+              <th>Punkt sprzedaży</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    
+    data.forEach(correction => {
+      const operationLabel = {
+        'SALE': 'Sprzedaż',
+        'TRANSFER': 'Transfer', 
+        'WRITE_OFF': 'Odpisanie',
+        'REMANENT_BRAK': 'Remanent-Brak',
+        'REMANENT_NADWYŻKA': 'Remanent-Nadwyżka'
+      }[correction.attemptedOperation] || correction.attemptedOperation;
+      
+      const operationClass = correction.attemptedOperation.includes('REMANENT') ? 'operation-remanent' : '';
+      
+      htmlContent += `
+        <tr>
+          <td>${new Date(correction.createdAt).toLocaleDateString('pl-PL')}</td>
+          <td class="${operationClass}">${operationLabel}</td>
+          <td>${correction.fullName || ''}</td>
+          <td>${correction.size || ''}</td>
+          <td>${correction.sellingPoint || ''}</td>
+        </tr>
+      `;
+    });
+    
+    htmlContent += `
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+    
+    // Otwórz nowe okno i wydrukuj
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    // Czekaj aż strona się załaduje, potem drukuj
+    printWindow.onload = function() {
+      printWindow.print();
+      printWindow.close();
+    };
   };
 
   const handleStatusUpdate = async (correctionId, newStatus) => {
@@ -88,7 +348,24 @@ function Corrections() {
       if (response.ok) {
         // Odśwież dane po aktualizacji
         fetchCorrections();
-        alert(`Korekta została oznaczona jako ${newStatus === 'RESOLVED' ? 'rozwiązana' : newStatus === 'IGNORED' ? 'zignorowana' : newStatus.toLowerCase()}`);
+        
+        // Pokaż odpowiedni komunikat w zależności od akcji
+        let message = '';
+        switch(newStatus) {
+          case 'RESOLVED':
+            message = 'Korekta została oznaczona jako rozwiązana';
+            break;
+          case 'IGNORED':
+            message = 'Korekta została zignorowana';
+            break;
+          case 'PENDING':
+            message = 'Korekta została przywrócona do oczekiwania';
+            break;
+          default:
+            message = `Status korekty został zmieniony na ${newStatus.toLowerCase()}`;
+        }
+        
+        alert(message);
       } else {
         alert('Błąd podczas aktualizacji statusu korekty');
       }
@@ -96,6 +373,10 @@ function Corrections() {
       console.error('Błąd podczas aktualizacji statusu:', error);
       alert('Błąd podczas aktualizacji statusu korekty');
     }
+  };
+
+  const handleRefresh = () => {
+    fetchCorrections();
   };
 
   const handleFindProduct = async (correction) => {
@@ -249,21 +530,110 @@ function Corrections() {
       
       <div className="corrections-content">
         <div className="corrections-stats">
-          <div className="stat-card stat-unresolved">
-            <h3>{stats.unresolved}</h3>
-            <p>Nierozwiązane korekty</p>
-          </div>
-          <div className="stat-card stat-resolved">
-            <h3>{stats.resolved}</h3>
-            <p>Rozwiązane korekty</p>
-          </div>
-          <div className="stat-card stat-total">
-            <h3>{stats.total}</h3>
-            <p>Łącznie korekty</p>
+          <button className="stat-button stat-unresolved">
+            <span className="stat-number">{stats.unresolved}</span>
+            <span className="stat-label">Nierozwiązane</span>
+          </button>
+          <button className="stat-button stat-resolved">
+            <span className="stat-number">{stats.resolved}</span>
+            <span className="stat-label">Rozwiązane</span>
+          </button>
+          <button className="stat-button stat-total">
+            <span className="stat-number">{stats.total}</span>
+            <span className="stat-label">Łącznie</span>
+          </button>
+        </div>
+
+        {/* Sekcja filtrów */}
+        <div className="filters-section">
+          <h3>Filtry</h3>
+          <div className="filters-grid">
+            <div className="filter-group">
+              <label>Status:</label>
+              <select 
+                value={filters.status} 
+                onChange={(e) => setFilters({...filters, status: e.target.value})}
+                className="filter-select"
+              >
+                <option value="all">Wszystkie</option>
+                <option value="PENDING">Oczekujące</option>
+                <option value="RESOLVED">Rozwiązane</option>
+                <option value="IGNORED">Zignorowane</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>Punkt sprzedaży:</label>
+              <input 
+                type="text"
+                value={filters.sellingPoint}
+                onChange={(e) => setFilters({...filters, sellingPoint: e.target.value})}
+                placeholder="Nazwa punktu..."
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label>Produkt:</label>
+              <input 
+                type="text"
+                value={filters.productName}
+                onChange={(e) => setFilters({...filters, productName: e.target.value})}
+                placeholder="Nazwa produktu..."
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label>Rozmiar:</label>
+              <input 
+                type="text"
+                value={filters.size}
+                onChange={(e) => setFilters({...filters, size: e.target.value})}
+                placeholder="Rozmiar..."
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label>Typ operacji:</label>
+              <select 
+                value={filters.operationType} 
+                onChange={(e) => setFilters({...filters, operationType: e.target.value})}
+                className="filter-select"
+              >
+                <option value="all">Wszystkie</option>
+                <option value="SALE">Sprzedaż</option>
+                <option value="TRANSFER">Transfer</option>
+                <option value="WRITE_OFF">Odpisanie</option>
+                <option value="REMANENT_BRAK">Remanent-Brak</option>
+                <option value="REMANENT_NADWYŻKA">Remanent-Nadwyżka</option>
+              </select>
+            </div>
+
+            <div className="filter-actions">
+              <button className="btn btn-secondary btn-sm" onClick={resetFilters}>
+                Resetuj filtry
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="corrections-table-container">
+        {/* Sekcja raportów */}
+        <div className="reports-section">
+          <div className="filters-header">
+            <h3>Raporty</h3>
+            <button 
+              className="btn btn-info btn-sm"
+              onClick={() => setShowReportModal(true)}
+            >
+              Drukuj raport korekt
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="corrections-table-container">
           <div className="table-header">
             <h2>Lista korekt</h2>
             <div className="table-actions">
@@ -293,21 +663,23 @@ function Corrections() {
                       Ładowanie korekty...
                     </td>
                   </tr>
-                ) : corrections.length === 0 ? (
+                ) : filteredCorrections.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="no-data">
-                      Brak korekty do wyświetlenia
+                      {corrections.length === 0 ? 'Brak korekt do wyświetlenia' : 'Brak korekt pasujących do filtrów'}
                     </td>
                   </tr>
                 ) : (
-                  corrections.map((correction) => (
+                  filteredCorrections.map((correction) => (
                     <tr key={correction._id}>
                       <td>{formatDate(correction.createdAt)}</td>
                       <td>
-                        <span className={`operation-type ${correction.attemptedOperation.toLowerCase()}`}>
+                        <span className={`operation-type ${correction.attemptedOperation.toLowerCase().replace('_', '-')}`}>
                           {correction.attemptedOperation === 'SALE' ? 'Sprzedaż' : 
                            correction.attemptedOperation === 'TRANSFER' ? 'Transfer' : 
                            correction.attemptedOperation === 'WRITE_OFF' ? 'Odpisanie' : 
+                           correction.attemptedOperation === 'REMANENT_BRAK' ? 'Remanent-Brak' :
+                           correction.attemptedOperation === 'REMANENT_NADWYŻKA' ? 'Remanent-Nadwyżka' :
                            correction.attemptedOperation}
                         </span>
                       </td>
@@ -326,14 +698,49 @@ function Corrections() {
                         <div className="action-buttons">
                           {correction.status === 'PENDING' && (
                             <>
+                              {/* Hide "Wskaż produkt" for remanent-origin corrections */}
+                              {!['REMANENT_BRAK', 'REMANENT_NADWYŻKA'].includes(correction.attemptedOperation) && (
+                                <button 
+                                  className="btn btn-warning btn-sm"
+                                  onClick={() => handleFindProduct(correction)}
+                                  title="Znajdź produkt w innych punktach"
+                                >
+                                  Wskaż produkt
+                                </button>
+                              )}
                               <button 
-                                className="btn btn-warning btn-sm"
-                                onClick={() => handleFindProduct(correction)}
-                                title="Znajdź produkt w innych punktach"
+                                className="btn btn-success btn-sm"
+                                onClick={() => handleStatusUpdate(correction._id, 'RESOLVED')}
+                                title="Oznacz jako rozwiązane"
                               >
-                                Wskaż produkt
+                                Rozwiązano
+                              </button>
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleStatusUpdate(correction._id, 'IGNORED')}
+                                title="Zignoruj tę korektę"
+                              >
+                                Zignoruj
                               </button>
                             </>
+                          )}
+                          {correction.status === 'RESOLVED' && (
+                            <button 
+                              className="btn btn-info btn-sm"
+                              onClick={() => handleStatusUpdate(correction._id, 'PENDING')}
+                              title="Cofnij rozwiązanie i wróć do oczekiwania"
+                            >
+                              Cofnij rozwiązanie
+                            </button>
+                          )}
+                          {correction.status === 'IGNORED' && (
+                            <button 
+                              className="btn btn-info btn-sm"
+                              onClick={() => handleStatusUpdate(correction._id, 'PENDING')}
+                              title="Cofnij ignorowanie i wróć do oczekiwania"
+                            >
+                              Przywróć
+                            </button>
                           )}
                         </div>
                       </td>
@@ -344,9 +751,7 @@ function Corrections() {
             </table>
           </div>
         </div>
-      </div>
 
-      {/* Modal do wyświetlania znalezionych lokalizacji */}
       {showProductModal && selectedCorrection && (
         <div className="modal-overlay" onClick={() => setShowProductModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -419,6 +824,82 @@ function Corrections() {
           </div>
         </div>
       )}
+
+      {/* Modal raportu korekt - identyczny jak w Warehouse */}
+      <Modal 
+        isOpen={showReportModal} 
+        toggle={() => setShowReportModal(false)} 
+        size="lg"
+      >
+        <ModalHeader 
+          toggle={() => setShowReportModal(false)}
+          className={`${styles.modalHeader}`}
+        >
+          Raport Korekt
+        </ModalHeader>
+        <ModalBody className={styles.modalBody}>
+          <FormGroup>
+            <Label>Typ raportu:</Label>
+            <div>
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="radio"
+                  name="reportType"
+                  id="allCorrections"
+                  value="all"
+                  checked={reportType === 'all'}
+                  onChange={(e) => setReportType(e.target.value)}
+                />
+                <label className="form-check-label" htmlFor="allCorrections">
+                  Wszystkie korekty
+                </label>
+              </div>
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="radio"
+                  name="reportType"
+                  id="remanentCorrections"
+                  value="remanent"
+                  checked={reportType === 'remanent'}
+                  onChange={(e) => setReportType(e.target.value)}
+                />
+                <label className="form-check-label" htmlFor="remanentCorrections">
+                  Tylko korekty remanentowe
+                </label>
+              </div>
+            </div>
+          </FormGroup>
+
+          <FormGroup>
+            <Label for="reportDateRange">Zakres dat:</Label>
+            <DateRangePicker
+              ranges={dateRange}
+              onChange={(ranges) => setDateRange([ranges.selection])}
+              locale={pl}
+              rangeColors={['#3d91ff']}
+              staticRanges={customStaticRanges}
+              inputRanges={customInputRanges}
+            />
+          </FormGroup>
+        </ModalBody>
+        <ModalFooter className={styles.modalFooter}>
+          <Button color="secondary" onClick={() => setShowReportModal(false)}>
+            Anuluj
+          </Button>
+          <Button 
+            color="primary" 
+            onClick={() => {
+              generateReport();
+              setShowReportModal(false);
+            }}
+            disabled={generatingReport}
+          >
+            {generatingReport ? 'Przygotowywanie...' : 'Drukuj raport'}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

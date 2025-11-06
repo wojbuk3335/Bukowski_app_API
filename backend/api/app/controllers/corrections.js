@@ -170,6 +170,10 @@ class CorrectionsController {
 
             if (status === 'RESOLVED') {
                 updateData.resolvedAt = new Date();
+            } else if (status === 'PENDING') {
+                // Wyczyść resolvedAt gdy wracamy do oczekiwania
+                updateData.resolvedAt = null;
+                updateData.resolvedBy = null;
             }
 
             const correction = await Corrections.findByIdAndUpdate(

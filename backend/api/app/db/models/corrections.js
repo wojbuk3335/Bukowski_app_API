@@ -25,7 +25,7 @@ const correctionsSchema = mongoose.Schema({
     errorType: {
         type: String,
         required: true,
-        enum: ['MISSING_IN_STATE', 'DOUBLE_ENTRY', 'WRONG_LOCATION', 'OTHER'],
+        enum: ['MISSING_IN_STATE', 'EXTRA_IN_REMANENT', 'DOUBLE_ENTRY', 'WRONG_LOCATION', 'OTHER'],
         default: 'MISSING_IN_STATE'
     },
     description: {
@@ -35,7 +35,7 @@ const correctionsSchema = mongoose.Schema({
     attemptedOperation: {
         type: String,
         required: true,
-        enum: ['WRITE_OFF', 'TRANSFER', 'SALE', 'OTHER'],
+        enum: ['WRITE_OFF', 'TRANSFER', 'SALE', 'REMANENT_BRAK', 'REMANENT_NADWYŻKA', 'OTHER'],
         default: 'WRITE_OFF'
     },
     status: {
