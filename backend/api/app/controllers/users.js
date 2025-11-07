@@ -140,7 +140,7 @@ class UsersController {
                                 symbol: user.symbol,
                                 sellingPoint: user.sellingPoint
                             }, jsonwebtoken, {
-                                expiresIn: '15m'
+                                expiresIn: '12h' // 🔒 PRODUKCJA: 12 godzin dla normalnego użytkowania
                             });
 
                             const rememberMe = req.body.rememberMe || false;
@@ -707,7 +707,7 @@ class UsersControllerExtension extends UsersController {
                     symbol: user.symbol,
                     sellingPoint: user.sellingPoint
                 }, jsonwebtoken, {
-                    expiresIn: '15m'
+                    expiresIn: '12h' // 🔒 PRODUKCJA: 12 godzin dla normalnego użytkowania
                 });
 
                 // Pobierz rememberMe z sesji lub ustaw domyślną wartość

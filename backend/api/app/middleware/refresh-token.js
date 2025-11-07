@@ -19,7 +19,7 @@ class RefreshTokenManager {
             symbol: userData.symbol,
             sellingPoint: userData.sellingPoint
         }, jsonwebtoken, {
-            expiresIn: '15m' // 🔒 PRODUKCJA: Access token 15 minut
+            expiresIn: '12h' // 🔒 PRODUKCJA: 12 godzin dla normalnego użytkowania
         });
 
         const refreshToken = crypto.randomBytes(64).toString('hex');
@@ -57,7 +57,7 @@ class RefreshTokenManager {
             symbol: userData.symbol,
             sellingPoint: userData.sellingPoint
         }, jsonwebtoken, {
-            expiresIn: '15m' // 🔒 PRODUKCJA: 15 minut dla nowego access token
+            expiresIn: '12h' // 🔒 PRODUKCJA: 12 godzin dla normalnego użytkowania
         });
 
         return newAccessToken;
