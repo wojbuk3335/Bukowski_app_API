@@ -7,6 +7,7 @@ const Operacje = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedOperation, setSelectedOperation] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
+  const [searchText, setSearchText] = useState(''); // Dodane pole wyszukiwania
   const [users, setUsers] = useState([]);
   const [products, setProducts] = useState([]);
   const [reasonType, setReasonType] = useState(''); // 'product' or 'other'
@@ -140,6 +141,20 @@ const Operacje = () => {
     }
   };
 
+  // Funkcja filtrowania operacji na podstawie tekstu wyszukiwania
+  const filteredOperations = operations.filter(operation => {
+    if (!searchText) return true;
+    
+    const searchLower = searchText.toLowerCase();
+    return (
+      (operation.userSymbol && operation.userSymbol.toLowerCase().includes(searchLower)) ||
+      (operation.reason && operation.reason.toLowerCase().includes(searchLower)) ||
+      (operation.productName && operation.productName.toLowerCase().includes(searchLower)) ||
+      (operation.currency && operation.currency.toLowerCase().includes(searchLower)) ||
+      (operation.amount && operation.amount.toString().includes(searchText))
+    );
+  });
+
   return (
     <Container fluid className="mt-4">
       <Row>
@@ -151,6 +166,43 @@ const Operacje = () => {
       </Row>
 
       {/* Filtry */}
+      <Row className="mb-4">
+        <Col md={12} className="mb-3">
+          <Form.Group>
+            <Form.Label style={{ color: 'white' }}>🔍 Wyszukaj:</Form.Label>
+            <div className="d-flex gap-2">
+              <Form.Control
+                type="text"
+                placeholder="Szukaj po użytkowniku, powodzie, produkcie, kwocie..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                style={{ 
+                  backgroundColor: 'black', 
+                  color: 'white', 
+                  border: '1px solid #0d6efd',
+                  borderRadius: '5px'
+                }}
+              />
+              {searchText && (
+                <Button 
+                  variant="outline-secondary" 
+                  size="sm"
+                  onClick={() => setSearchText('')}
+                  style={{ minWidth: '80px' }}
+                >
+                  Wyczyść
+                </Button>
+              )}
+            </div>
+            {searchText && (
+              <small style={{ color: '#6c757d' }}>
+                Znaleziono: {filteredOperations.length} z {operations.length} operacji
+              </small>
+            )}
+          </Form.Group>
+        </Col>
+      </Row>
+
       <Row className="mb-4">
         <Col md={3}>
           <Form.Group>
@@ -289,14 +341,17 @@ const Operacje = () => {
                 </tr>
               </thead>
               <tbody>
-                {operations.length === 0 ? (
+                {filteredOperations.length === 0 ? (
                   <tr>
                     <td colSpan="9" className="text-center">
-                      Brak operacji dla wybranych filtrów
+                      {searchText ? 
+                        `Brak operacji pasujących do wyszukiwania "${searchText}"` : 
+                        'Brak operacji dla wybranych filtrów'
+                      }
                     </td>
                   </tr>
                 ) : (
-                  operations.map((operation) => (
+                  filteredOperations.map((operation) => (
                     <tr key={operation._id}>
                       <td>{formatDate(operation.createdAt)}</td>
                       <td>
@@ -341,7 +396,7 @@ const Operacje = () => {
       </Row>
 
       {/* Podsumowanie */}
-      {operations.length > 0 && (
+      {filteredOperations.length > 0 && (
         <Row className="mt-4">
           <Col>
             <div style={{ 
@@ -350,18 +405,23 @@ const Operacje = () => {
               borderRadius: '5px',
               border: '1px solid #ddd'
             }}>
-              <h5 style={{ color: 'white', marginBottom: '10px' }}>Podsumowanie:</h5>
+              <h5 style={{ color: 'white', marginBottom: '10px' }}>
+                Podsumowanie {searchText ? `(filtrowane)` : ''}:
+              </h5>
               <p style={{ color: 'white', margin: '5px 0' }}>
-                Łączna liczba operacji: <strong>{operations.length}</strong>
+                Wyświetlane operacje: <strong>{filteredOperations.length}</strong>
+                {searchText && operations.length > filteredOperations.length && (
+                  <span style={{ color: '#6c757d' }}> z {operations.length} łącznie</span>
+                )}
               </p>
               <p style={{ color: 'white', margin: '5px 0' }}>
                 Operacje dodania: <strong style={{ color: '#28a745' }}>
-                  {operations.filter(op => op.type === 'addition').length}
+                  {filteredOperations.filter(op => op.type === 'addition').length}
                 </strong>
               </p>
               <p style={{ color: 'white', margin: '5px 0' }}>
                 Operacje odpisania: <strong style={{ color: '#dc3545' }}>
-                  {operations.filter(op => op.type === 'deduction').length}
+                  {filteredOperations.filter(op => op.type === 'deduction').length}
                 </strong>
               </p>
             </div>

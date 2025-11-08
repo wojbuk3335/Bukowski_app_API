@@ -150,6 +150,7 @@ app.use(bodyParser.json({ limit: '50mb' })); // Increase JSON limit
 // Routes which should handle requests
 const jacketRoutes = require('./routes/jackets');
 const userRoutes = require('./routes/user');
+const employeeRoutes = require('./routes/employees');
 const stockRoutes = require('./routes/stock');
 const colorRoutes = require('./routes/colors');
 const sizeRoutes = require('./routes/sizes');
@@ -203,6 +204,7 @@ app.use('/api/history', historyRoutes); // Use history routes
 app.use('/api/transaction-history', transactionHistoryRoutes); // Use transaction history routes
 app.use('/api/jackets', jacketRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/employees', employeeRoutes);
 app.use('/api/excel/stock', stockRoutes);
 app.use('/api/excel/color', colorRoutes);
 app.use('/api/excel/size', sizeRoutes);
