@@ -19,7 +19,7 @@ const financialOperationSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['addition', 'deduction', 'advance_taken', 'advance_payment', 'purchase', 'refund', 'deposit', 'withdrawal'],
+        enum: ['addition', 'deduction', 'advance_taken', 'advance_payment', 'purchase', 'refund', 'deposit', 'withdrawal', 'employee_advance', 'salary_payment'],
         // addition: Dopisanie kwoty (+)
         // deduction: Odpisanie kwoty (-)
         // advance_taken: Wzięta zaliczka (-)
@@ -28,6 +28,8 @@ const financialOperationSchema = new mongoose.Schema({
         // refund: Zwrot (+)
         // deposit: Wpłata (+)
         // withdrawal: Wypłata (-)
+        // employee_advance: Zaliczka dla pracownika (-)
+        // salary_payment: Wypłata pensji dla pracownika (-)
     },
     reason: {
         type: String,
@@ -58,6 +60,22 @@ const financialOperationSchema = new mongoose.Schema({
         type: Number,
         required: false,
         // Amount still to be paid (finalPrice - amount paid so far)
+    },
+    // Employee advance fields
+    employeeId: {
+        type: String,
+        required: false,
+        // ID of the employee for employee_advance type
+    },
+    employeeName: {
+        type: String,
+        required: false,
+        // Name of the employee for employee_advance type
+    },
+    employeeCode: {
+        type: String,
+        required: false,
+        // Employee code for employee_advance type
     },
 }, {
     timestamps: true,

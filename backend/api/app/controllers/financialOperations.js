@@ -29,9 +29,27 @@ class FinancialOperationController {
                 };
             }
             
+            // Filtrowanie po zakresie dat
+            if (req.query.startDate && req.query.endDate) {
+                query.date = {
+                    $gte: new Date(req.query.startDate),
+                    $lte: new Date(req.query.endDate)
+                };
+            }
+            
             // Filtrowanie po typie operacji
             if (req.query.operation) {
                 query.type = req.query.operation;
+            }
+            
+            // Filtrowanie po typie operacji (alternatywna nazwa parametru)
+            if (req.query.type) {
+                query.type = req.query.type;
+            }
+            
+            // Filtrowanie po pracowniku (dla zaliczek)
+            if (req.query.employeeId) {
+                query.employeeId = req.query.employeeId;
             }
             
             // Filtrowanie po użytkowniku (przez userSymbol)

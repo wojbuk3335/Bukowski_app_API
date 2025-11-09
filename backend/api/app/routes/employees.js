@@ -27,13 +27,21 @@ router.get('/', checkAuth, async (req, res) => {
 // POST - Dodaj nowego pracownika
 router.post('/', checkAuth, historyLogger('employees'), async (req, res) => {
     try {
-        const { firstName, lastName, position, hourlyRate, salesCommission, notes } = req.body;
+        const { firstName, lastName, workLocation, position, hourlyRate, salesCommission, notes } = req.body;
 
         // Walidacja wymaganych pól
         if (!firstName || !lastName) {
             return res.status(400).json({
                 success: false,
                 message: 'Imię i nazwisko są wymagane'
+            });
+        }
+
+        // Walidacja miejsca zatrudnienia
+        if (!workLocation) {
+            return res.status(400).json({
+                success: false,
+                message: 'Miejsce zatrudnienia jest wymagane'
             });
         }
 
@@ -66,6 +74,7 @@ router.post('/', checkAuth, historyLogger('employees'), async (req, res) => {
             employeeId,
             firstName,
             lastName,
+            workLocation,
             position: position || '',
             hourlyRate: hourlyRate || 0,
             salesCommission: salesCommission || 0,
@@ -93,7 +102,7 @@ router.post('/', checkAuth, historyLogger('employees'), async (req, res) => {
 router.put('/:id', checkAuth, historyLogger('employees'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { firstName, lastName, position, hourlyRate, salesCommission, notes } = req.body;
+        const { firstName, lastName, workLocation, position, hourlyRate, salesCommission, notes } = req.body;
 
         // Walidacja ID
         if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -108,6 +117,14 @@ router.put('/:id', checkAuth, historyLogger('employees'), async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Imię i nazwisko są wymagane'
+            });
+        }
+
+        // Walidacja miejsca zatrudnienia
+        if (!workLocation) {
+            return res.status(400).json({
+                success: false,
+                message: 'Miejsce zatrudnienia jest wymagane'
             });
         }
 
@@ -132,6 +149,7 @@ router.put('/:id', checkAuth, historyLogger('employees'), async (req, res) => {
             {
                 firstName,
                 lastName,
+                workLocation,
                 position: position || '',
                 hourlyRate: hourlyRate || 0,
                 salesCommission: salesCommission || 0,

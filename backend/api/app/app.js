@@ -151,6 +151,8 @@ app.use(bodyParser.json({ limit: '50mb' })); // Increase JSON limit
 const jacketRoutes = require('./routes/jackets');
 const userRoutes = require('./routes/user');
 const employeeRoutes = require('./routes/employees');
+const workHoursRoutes = require('./routes/workHours');
+const salesAssignmentsRoutes = require('./routes/salesAssignments');
 const stockRoutes = require('./routes/stock');
 const colorRoutes = require('./routes/colors');
 const sizeRoutes = require('./routes/sizes');
@@ -205,6 +207,8 @@ app.use('/api/transaction-history', transactionHistoryRoutes); // Use transactio
 app.use('/api/jackets', jacketRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/work-hours', workHoursRoutes);
+app.use('/api/sales-assignments', salesAssignmentsRoutes);
 app.use('/api/excel/stock', stockRoutes);
 app.use('/api/excel/color', colorRoutes);
 app.use('/api/excel/size', sizeRoutes);
@@ -259,6 +263,10 @@ app.use((error, req, res, next) => {
 
 // Start the server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
+    // Uruchom scheduler czyszczenia przypisań
+    const { startDailyCleanup } = require('./services/assignmentCleanup');
+    startDailyCleanup();
+    
     app.listen(port, () => {
         // Server started silently
     });

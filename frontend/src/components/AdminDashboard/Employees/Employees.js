@@ -25,12 +25,15 @@ const Employees = () => {
         hourlyRate: '', 
         salesCommission: '',
         employeeId: '',
+        workLocation: '',
         notes: ''
     });
     const [isEditing, setIsEditing] = useState(false);
+    const [locations, setLocations] = useState([]);
 
     useEffect(() => {
         fetchData();
+        fetchLocations();
     }, []);
 
     const toggleModal = () => {
@@ -46,6 +49,7 @@ const Employees = () => {
             lastName: employee.lastName || '',
             hourlyRate: employee.hourlyRate?.toString() || '',
             salesCommission: employee.salesCommission?.toString() || '',
+            workLocation: employee.workLocation || '',
             notes: employee.notes || ''
         };
         setCurrentEmployee(employeeData);
@@ -61,6 +65,7 @@ const Employees = () => {
             lastName: '',
             hourlyRate: '',
             salesCommission: '',
+            workLocation: '',
             notes: ''
         });
         setIsEditing(false);
@@ -76,6 +81,11 @@ const Employees = () => {
     const validateEmployee = () => {
         if (!currentEmployee.firstName || !currentEmployee.lastName) {
             alert('Proszę wypełnić imię i nazwisko');
+            return false;
+        }
+
+        if (!currentEmployee.workLocation) {
+            alert('Proszę wybrać miejsce zatrudnienia');
             return false;
         }
 
@@ -108,6 +118,7 @@ const Employees = () => {
             const employeeData = {
                 firstName: currentEmployee.firstName,
                 lastName: currentEmployee.lastName,
+                workLocation: currentEmployee.workLocation,
                 hourlyRate: currentEmployee.hourlyRate ? parseFloat(currentEmployee.hourlyRate) : 0,
                 salesCommission: currentEmployee.salesCommission ? parseFloat(currentEmployee.salesCommission) : 0,
                 notes: currentEmployee.notes || ''
@@ -195,6 +206,29 @@ const Employees = () => {
         }
     };
 
+    const fetchLocations = async () => {
+        try {
+            const response = await axios.get('/api/excel/localization/get-all-localizations', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('AdminToken')}`
+                }
+            });
+            
+            // Wyciągnij lokalizacje z polem Miejsc_1_Opis_1
+            const localizationsWithDescription = response.data.localizations.filter(localization => 
+                localization.Miejsc_1_Opis_1 && 
+                localization.Miejsc_1_Opis_1.trim() !== ""
+            );
+            
+            const locationNames = localizationsWithDescription.map(loc => loc.Miejsc_1_Opis_1);
+            setLocations(locationNames);
+        } catch (error) {
+            console.error('Błąd podczas ładowania lokalizacji:', error);
+            // Domyślne lokalizacje jeśli nie udało się pobrać
+            setLocations(['Warszawa', 'Kraków', 'Gdańsk']);
+        }
+    };
+
     const getAllEmployees = async () => {
         try {
             const url = `/api/employees`; // Nowy endpoint specjalnie dla pracowników
@@ -237,6 +271,7 @@ const Employees = () => {
                     <th>ID Pracownika</th>
                     <th>Imię</th>
                     <th>Nazwisko</th>
+                    <th>Miejsce zatrudnienia</th>
                     <th>Stawka godzinowa (PLN)</th>
                     <th>Procent od sprzedaży (%)</th>
                     <th>Akcje</th>
@@ -245,7 +280,7 @@ const Employees = () => {
             <tbody>
                 {rows.length === 0 ? (
                     <tr>
-                        <td colSpan="6" className="text-center">
+                        <td colSpan="7" className="text-center">
                             {loading ? 'Ładowanie danych pracowników...' : 'Brak danych pracowników.'}
                         </td>
                     </tr>
@@ -255,6 +290,7 @@ const Employees = () => {
                             <td>{item.employeeId}</td>
                             <td>{item.firstName}</td>
                             <td>{item.lastName}</td>
+                            <td>{item.workLocation || 'Nie określono'}</td>
                             <td>
                                 {item.hourlyRate ? `${parseFloat(item.hourlyRate).toFixed(2)} zł` : 'Nie określono'}
                             </td>
@@ -393,6 +429,23 @@ const Employees = () => {
                             placeholder="Wpisz nazwisko pracownika"
                             required
                         />
+                    </FormGroup>
+                    <FormGroup>
+                        <label>Miejsce zatrudnienia *</label>
+                        <Input
+                            type="select"
+                            name="workLocation"
+                            value={currentEmployee.workLocation}
+                            onChange={handleChange}
+                            required
+                        >
+                            <option value="">Wybierz miejsce zatrudnienia</option>
+                            {locations.map((location, index) => (
+                                <option key={index} value={location}>
+                                    {location}
+                                </option>
+                            ))}
+                        </Input>
                     </FormGroup>
                     <FormGroup>
                         <label>Stawka godzinowa (PLN)</label>

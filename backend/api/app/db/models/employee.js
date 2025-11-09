@@ -34,6 +34,12 @@ const employeeSchema = new mongoose.Schema({
         min: 0,
         default: 0
     },
+    workLocation: {
+        type: String,
+        required: true,
+        trim: true,
+        maxlength: 100
+    },
     salesCommission: {
         type: Number,
         min: 0,
