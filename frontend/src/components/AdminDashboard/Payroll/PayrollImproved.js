@@ -205,14 +205,14 @@ const Payroll = () => {
     const workDays = hours.length;
     
     setSummary({
-      totalHours: totalHours.toFixed(2),
+      totalHours: totalHours.toFixed(1),
       totalPay: totalPay.toFixed(2),
       totalCommissions: totalCommissions.toFixed(2),
       totalAdvances: totalAdvances.toFixed(2),
       totalPayments: totalPayments.toFixed(2),
       finalPay: finalPay.toFixed(2),
       workDays,
-      averageHoursPerDay: workDays > 0 ? (totalHours / workDays).toFixed(2) : 0
+      averageHoursPerDay: workDays > 0 ? (totalHours / workDays).toFixed(1) : 0
     });
   };
 
@@ -283,7 +283,7 @@ const Payroll = () => {
         combinedData.push({
           type: 'work_hours',
           date: record.date,
-          description: `${record.totalHours}h pracy w ${record.sellingPoint || 'punkt nieznany'}`,
+          description: `${(record.totalHours || 0).toFixed(1)}h pracy w ${record.sellingPoint || 'punkt nieznany'}`,
           amount: record.dailyPay || 0,
           details: {
             startTime: record.startTime,
@@ -843,9 +843,6 @@ const Payroll = () => {
                   <div className="mb-1">Całkowita prowizja: <span className="text-success fw-bold">{selectedCommissionDetails.totalAmount.toFixed(2)} zł</span></div>
                   {selectedCommissionDetails.totalSalesAmount && (
                     <div className="mb-1">Całkowity obrót: <span className="text-info fw-bold">{selectedCommissionDetails.totalSalesAmount.toFixed(2)} zł</span></div>
-                  )}
-                  {selectedCommissionDetails.commissionRate && (
-                    <div className="mb-1">Stawka prowizji: <span className="text-warning fw-bold">{selectedCommissionDetails.commissionRate}%</span></div>
                   )}
                 </div>
               </div>

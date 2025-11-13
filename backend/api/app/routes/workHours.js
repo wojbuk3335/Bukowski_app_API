@@ -425,6 +425,42 @@ router.put('/upsert', checkAuth, async (req, res) => {
         }
       }
 
+      // 🔄 PRZELICZ PROWIZJE OD ZALICZEK po zmianie godzin pracy
+      
+      // 1. Usuń stare prowizje od zaliczek z tego dnia
+      const deletedCommissions = await FinancialOperation.deleteMany({
+        type: 'sales_commission',
+        employeeId: employeeId,
+        reason: { $regex: /zaliczek/ },
+        date: {
+          $gte: dateStart,
+          $lt: dateEnd
+        }
+      });
+
+      // 2. Znajdź wszystkie zaliczki z tego dnia
+      const advances = await FinancialOperation.find({
+        type: 'addition',
+        finalPrice: { $exists: true, $gt: 0 },
+        date: {
+          $gte: dateStart,
+          $lt: dateEnd
+        }
+      });
+
+      // 3. Przelicz prowizje dla zaliczek z kontrolą godzin pracy
+      let recalculatedCount = 0;
+      for (const advance of advances) {
+        try {
+          // Użyj takiego samego sposobu jak w createFinancialOperation
+          const FinancialOperationControllerClass = require('../controllers/financialOperations').constructor;
+          await FinancialOperationControllerClass.calculateAdvanceCommission(advance);
+          recalculatedCount++;
+        } catch (err) {
+          // Błąd przy przeliczaniu - kontynuuj z następną zaliczką
+        }
+      }
+
     } catch (commissionError) {
       // Nie przerywamy procesu - godziny zostały zapisane
     }

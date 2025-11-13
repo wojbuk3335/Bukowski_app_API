@@ -322,9 +322,6 @@ class FinancialOperationController {
                 return; // Nie jest to zaliczka na produkt lub brak ceny finalnej
             }
 
-            console.log(`💰 ZALICZKA: Sprawdzam prowizję dla operacji ${operation._id}`);
-            console.log(`💰 Typ: ${operation.type}, Cena finalna: ${operation.finalPrice}`);
-
             // Znajdź aktywne przypisanie pracownika dla danego użytkownika i daty
             const SalesAssignment = require('../db/models/salesAssignment');
             const Employee = require('../db/models/employee');
@@ -361,13 +358,40 @@ class FinancialOperationController {
                 return;
             }
 
-            console.log(`👤 Pracownik: ${employee.firstName} ${employee.lastName} (${employee.salesCommission}%)`);
+            // KONTROLA GODZIN PRACY - sprawdź czy zaliczka była wzięta w godzinach pracy
+            const WorkHours = require('../db/models/workHours');
+            const operationTime = new Date(operation.date);
+            const operationHour = operationTime.getHours();
+            const operationMinute = operationTime.getMinutes();
+            const operationTimeInMinutes = operationHour * 60 + operationMinute;
+
+            // Znajdź godziny pracy pracownika dla tego dnia
+            const dateString = operationDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+            
+            const workHours = await WorkHours.findOne({
+                employeeId: assignment.employeeId,
+                date: dateString // Używaj string zamiast Date range
+            });
+
+            if (!workHours) {
+                console.log(`❌ Brak godzin pracy dla pracownika ${employee.firstName} ${employee.lastName} na dzień ${operationDate.toLocaleDateString()}`);
+                return;
+            }
+
+            // Konwertuj godziny pracy na minuty
+            const startTime = workHours.startTime.split(':');
+            const endTime = workHours.endTime.split(':');
+            const startTimeInMinutes = parseInt(startTime[0]) * 60 + parseInt(startTime[1]);
+            const endTimeInMinutes = parseInt(endTime[0]) * 60 + parseInt(endTime[1]);
+
+            // Sprawdź czy operacja była w godzinach pracy
+            if (operationTimeInMinutes < startTimeInMinutes || operationTimeInMinutes > endTimeInMinutes) {
+                return;
+            }
 
             // Oblicz prowizję od całkowitej ceny (zaliczka + dopłata)
             const totalAmount = operation.finalPrice;
             const commissionAmount = (totalAmount * employee.salesCommission) / 100;
-
-            console.log(`💵 Obliczam prowizję: ${employee.salesCommission}% z ${totalAmount} zł = ${commissionAmount} zł`);
 
             // Sprawdź czy już istnieje dzienna prowizja dla tego pracownika
             const existingDailyCommission = await FinancialOperation.findOne({
@@ -404,7 +428,6 @@ class FinancialOperationController {
                     updatedAt: new Date()
                 });
 
-                console.log(`✅ PROWIZJA ZAKTUALIZOWANA: +${commissionAmount} PLN (łącznie ${newCommissionAmount} PLN) dla ${employee.firstName} ${employee.lastName}`);
                 return;
             }
 
@@ -495,29 +518,36 @@ class FinancialOperationController {
             grouped[dateKey].amount += commission.amount;
             grouped[dateKey].salesAmount += commission.salesAmount || 0;
             
-            // Określ nazwę produktu
-            let productName = commission.productName;
-            
-            if (!productName) {
-                if (commission.reason && commission.reason.includes('zaliczek')) {
-                    productName = await this.findProductNameForAdvanceCommission(commission);
-                }
+            // Jeśli prowizja już ma szczegóły w commissionDetails, użyj ich
+            if (commission.commissionDetails && commission.commissionDetails.length > 0) {
+                grouped[dateKey].commissionDetails.push(...commission.commissionDetails);
+            } else {
+                // Jeśli nie ma szczegółów, stwórz jeden element
+                
+                // Określ nazwę produktu
+                let productName = commission.productName;
+                
                 if (!productName) {
-                    productName = this.extractProductNameFromReason(commission.reason);
+                    if (commission.reason && commission.reason.includes('zaliczek')) {
+                        productName = await this.findProductNameForAdvanceCommission(commission);
+                    }
+                    if (!productName) {
+                        productName = this.extractProductNameFromReason(commission.reason);
+                    }
+                    if (!productName) {
+                        productName = 'Nieznany produkt';
+                    }
                 }
-                if (!productName) {
-                    productName = 'Nieznany produkt';
-                }
+                
+                // Dodaj szczegóły do breakdown
+                grouped[dateKey].commissionDetails.push({
+                    productName: productName,
+                    saleAmount: commission.salesAmount || 0,
+                    commissionAmount: commission.amount,
+                    description: commission.reason,
+                    originalId: commission._id
+                });
             }
-            
-            // Dodaj szczegóły do breakdown
-            grouped[dateKey].commissionDetails.push({
-                productName: productName,
-                saleAmount: commission.salesAmount || 0,
-                commissionAmount: commission.amount,
-                description: commission.reason,
-                originalId: commission._id
-            });
         }
         
         // Konwertuj obiekt na tablicę
