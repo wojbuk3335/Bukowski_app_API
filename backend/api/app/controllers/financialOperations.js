@@ -67,7 +67,14 @@ class FinancialOperationController {
             }
             
             const operations = await FinancialOperation.find(query).sort({ date: -1 });
-            res.status(200).json(operations);
+            
+            // Jeśli zapytanie dotyczy prowizji, grupuj je dziennie
+            if (req.query.type === 'sales_commission') {
+                const groupedCommissions = await this.groupCommissionsByDay(operations);
+                res.status(200).json(groupedCommissions);
+            } else {
+                res.status(200).json(operations);
+            }
         } catch (error) {
             res.status(500).json({ error: error.message });
         } 
@@ -362,9 +369,8 @@ class FinancialOperationController {
 
             console.log(`💵 Obliczam prowizję: ${employee.salesCommission}% z ${totalAmount} zł = ${commissionAmount} zł`);
 
-            // Sprawdź czy prowizja za tę operację już istnieje
-            const existingCommission = await FinancialOperation.findOne({
-                productId: operation.productId,
+            // Sprawdź czy już istnieje dzienna prowizja dla tego pracownika
+            const existingDailyCommission = await FinancialOperation.findOne({
                 type: 'sales_commission',
                 employeeId: assignment.employeeId,
                 date: {
@@ -373,25 +379,58 @@ class FinancialOperationController {
                 }
             });
 
-            if (existingCommission) {
-                console.log(`⚠️ Prowizja już istnieje dla tej operacji`);
+            if (existingDailyCommission) {
+                // Aktualizuj istniejącą prowizję - dodaj nową kwotę i sprzedaż
+                const newCommissionAmount = existingDailyCommission.amount + commissionAmount;
+                const newSalesAmount = existingDailyCommission.salesAmount + totalAmount;
+                
+                // Dodaj nowy szczegół prowizji do listy
+                const newCommissionDetail = {
+                    productName: operation.productName,
+                    productId: operation.productId,
+                    saleAmount: totalAmount,
+                    commissionAmount: commissionAmount,
+                    operationId: operation._id,
+                    description: `Prowizja od zaliczki na ${operation.productName} - ${totalAmount} PLN`
+                };
+
+                const updatedDetails = [...(existingDailyCommission.commissionDetails || []), newCommissionDetail];
+                
+                await FinancialOperation.findByIdAndUpdate(existingDailyCommission._id, {
+                    amount: newCommissionAmount,
+                    salesAmount: newSalesAmount,
+                    reason: `Prowizja ${employee.salesCommission}% od zaliczek - całkowita wartość sprzedaży: ${newSalesAmount} PLN`,
+                    commissionDetails: updatedDetails,
+                    updatedAt: new Date()
+                });
+
+                console.log(`✅ PROWIZJA ZAKTUALIZOWANA: +${commissionAmount} PLN (łącznie ${newCommissionAmount} PLN) dla ${employee.firstName} ${employee.lastName}`);
                 return;
             }
 
-            // Zapisz prowizję
+            // Utwórz nową dzienną prowizję jeśli nie istnieje
+            const initialCommissionDetail = {
+                productName: operation.productName,
+                productId: operation.productId,
+                saleAmount: totalAmount,
+                commissionAmount: commissionAmount,
+                operationId: operation._id,
+                description: `Prowizja od zaliczki na ${operation.productName} - ${totalAmount} PLN`
+            };
+
             const commissionOperation = new FinancialOperation({
                 userSymbol: 'SYSTEM',
                 amount: commissionAmount,
-                currency: operation.currency,
+                currency: 'PLN', // Commission is always calculated in PLN
                 type: 'sales_commission',
-                reason: `Prowizja ${employee.salesCommission}% od zaliczki na produkt ${operation.productName} - całkowita wartość: ${totalAmount} ${operation.currency}`,
+                reason: `Prowizja ${employee.salesCommission}% od zaliczek - całkowita wartość sprzedaży: ${totalAmount} PLN`,
                 date: operation.date,
                 employeeId: assignment.employeeId,
                 employeeName: `${employee.firstName} ${employee.lastName}`,
                 employeeCode: employee.employeeId,
-                productId: operation.productId,
                 salesAmount: totalAmount,
-                commissionRate: employee.salesCommission
+                commissionRate: employee.salesCommission,
+                commissionDetails: [initialCommissionDetail]
             });
 
             await commissionOperation.save();
@@ -403,6 +442,133 @@ class FinancialOperationController {
             // Nie przerywamy procesu - zaliczka zostanie zapisana bez prowizji
         }
     }
+
+    // Get commission details for a specific commission operation
+    getCommissionDetails = async (req, res) => {
+        try {
+            const operation = await FinancialOperation.findById(req.params.id);
+            if (!operation) {
+                return res.status(404).json({ message: 'Commission operation not found' });
+            }
+
+            if (operation.type !== 'sales_commission') {
+                return res.status(400).json({ message: 'This operation is not a commission' });
+            }
+
+            res.status(200).json({
+                commissionDetails: operation.commissionDetails || [],
+                totalAmount: operation.amount,
+                totalSalesAmount: operation.salesAmount,
+                commissionRate: operation.commissionRate,
+                employeeName: operation.employeeName
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+
+    // Grupuj prowizje według dnia
+    groupCommissionsByDay = async (commissions) => {
+        const grouped = {};
+        
+        for (const commission of commissions) {
+            const dateKey = new Date(commission.date).toISOString().split('T')[0]; // YYYY-MM-DD
+            
+            if (!grouped[dateKey]) {
+                grouped[dateKey] = {
+                    _id: `grouped_${dateKey}_${commission.employeeId}`,
+                    date: commission.date,
+                    type: 'sales_commission',
+                    operation: 'sales_commission',
+                    amount: 0,
+                    currency: commission.currency || 'PLN',
+                    reason: 'Prowizja od sprzedaży',
+                    employeeId: commission.employeeId,
+                    employeeName: commission.employeeName,
+                    salesAmount: 0,
+                    commissionRate: commission.commissionRate, // Bierzemy z pierwszej prowizji
+                    commissionDetails: [] // Szczegółowy breakdown
+                };
+            }
+            
+            // Dodaj kwotę prowizji do sumy dziennej
+            grouped[dateKey].amount += commission.amount;
+            grouped[dateKey].salesAmount += commission.salesAmount || 0;
+            
+            // Określ nazwę produktu
+            let productName = commission.productName;
+            
+            if (!productName) {
+                if (commission.reason && commission.reason.includes('zaliczek')) {
+                    productName = await this.findProductNameForAdvanceCommission(commission);
+                }
+                if (!productName) {
+                    productName = this.extractProductNameFromReason(commission.reason);
+                }
+                if (!productName) {
+                    productName = 'Nieznany produkt';
+                }
+            }
+            
+            // Dodaj szczegóły do breakdown
+            grouped[dateKey].commissionDetails.push({
+                productName: productName,
+                saleAmount: commission.salesAmount || 0,
+                commissionAmount: commission.amount,
+                description: commission.reason,
+                originalId: commission._id
+            });
+        }
+        
+        // Konwertuj obiekt na tablicę
+        return Object.values(grouped).sort((a, b) => new Date(b.date) - new Date(a.date));
+    };
+
+    // Wyciągnij nazwę produktu z opisu prowizji
+    extractProductNameFromReason = (reason) => {
+        if (!reason) return null;
+        
+        // Dla prowizji dziennej: "Prowizja dzienna 1% od sprzedaży 25000 zł - Parzygnat (1 sprzedaży: Dagmara ZŁOTY L)"
+        let match = reason.match(/sprzedaży:\s*([^)]+)/);
+        if (match) {
+            return match[1].trim(); // "Dagmara ZŁOTY L"
+        }
+        
+        // Dla prowizji od zaliczek: "Prowizja 1% od zaliczek - całkowita wartość sprzedaży: 1000 PLN"
+        if (reason.includes('zaliczek')) {
+            return 'Prowizja od zaliczek';
+        }
+        
+        // Jeśli nie można wyciągnąć, zwróć null
+        return null;
+    };
+
+    // Znajdź nazwę produktu dla prowizji od zaliczek
+    findProductNameForAdvanceCommission = async (commission) => {
+        try {
+            // Znajdź zaliczkę z tego samego dnia - może być type "addition" lub "employee_advance"
+            const commissionDate = new Date(commission.date);
+            const startOfDay = new Date(commissionDate.setHours(0, 0, 0, 0));
+            const endOfDay = new Date(commissionDate.setHours(23, 59, 59, 999));
+
+            const relatedAdvance = await FinancialOperation.findOne({
+                $or: [
+                    { type: 'employee_advance' },
+                    { type: 'addition' }
+                ],
+                productName: { $exists: true, $ne: null },
+                date: {
+                    $gte: startOfDay,
+                    $lte: endOfDay
+                }
+            });
+            
+            return relatedAdvance?.productName || null;
+        } catch (error) {
+            console.error('Error finding product name for advance commission:', error);
+            return null;
+        }
+    };
 }
 
 module.exports = new FinancialOperationController();

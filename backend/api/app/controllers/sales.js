@@ -86,8 +86,6 @@ class SalesController {
             // Usuń wszystkie sprzedaże
             const deletedSales = await Sales.deleteMany();
             
-            console.log(`✅ Usunięto ${deletedSales.deletedCount} sprzedaży i ${deletedCommissions.deletedCount} prowizji`);
-            
             res.status(200).json({ 
                 message: 'All sales and related commissions deleted successfully',
                 deletedSales: deletedSales.deletedCount,
@@ -157,9 +155,9 @@ class SalesController {
             });
 
             if (deletedCommission) {
-                console.log(`✅ Usunięto prowizję ${deletedCommission.amount} zł dla pracownika ${deletedCommission.employeeName}`);
+                // Prowizja została usunięta
             } else {
-                console.log(`ℹ️ Brak prowizji do usunięcia dla sprzedaży ${salesId}`);
+                // Brak prowizji do usunięcia
             }
 
             // Usuń sprzedaż
@@ -261,7 +259,6 @@ class SalesController {
                 
                 if (deletedCommission) {
                     deletedCommissionsCount++;
-                    console.log(`✅ Usunięto prowizję ${deletedCommission.amount} zł dla sprzedaży ${sale._id}`);
                 }
             }
 
@@ -281,8 +278,6 @@ class SalesController {
                     }
                 }
             );
-
-            console.log(`✅ Oznaczono ${updateResult.modifiedCount} sprzedaży jako zwrócone i usunięto ${deletedCommissionsCount} prowizji`);
 
             res.status(200).json({
                 message: 'Sales marked as returned and commissions removed successfully',
@@ -368,8 +363,6 @@ class SalesController {
                 sellingPoint: sale.sellingPoint,
                 date: { $gte: dateStart, $lt: dateEnd }
             });
-
-            console.log(`📊 Znaleziono ${salesFromDay.length} sprzedaży do przeliczenia`);
 
             // 3. Znajdź wszystkie godziny pracy z tego dnia w tym punkcie
             const allWorkHours = await WorkHours.find({

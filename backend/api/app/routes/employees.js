@@ -214,10 +214,6 @@ router.delete('/:id', checkAuth, historyLogger('employees'), async (req, res) =>
             employeeId: id
         });
 
-        console.log(`🗑️ Usunięto pracownika ${deletedEmployee.firstName} ${deletedEmployee.lastName}`);
-        console.log(`🗑️ Usunięto ${deletedCommissions.deletedCount} prowizji/operacji finansowych`);
-        console.log(`🗑️ Usunięto ${deletedWorkHours.deletedCount} wpisów godzin pracy`);
-
         res.status(200).json({
             success: true,
             message: 'Pracownik został usunięty pomyślnie',

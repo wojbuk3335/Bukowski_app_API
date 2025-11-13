@@ -107,8 +107,6 @@ router.post('/', checkAuth, async (req, res) => {
     // ✅ NOWA LOGIKA: Pracownik dostaje prowizje tylko za PRZYSZŁE sprzedaże
     // NIE naliczamy mu prowizji za sprzedaże które były przed jego dodaniem
     // System automatycznie będzie mu naliczał prowizje za nowe sprzedaże bo isActive = true
-    
-    console.log(`✅ Pracownik ${employee.firstName} ${employee.lastName} został dodany. Będzie dostawał prowizje za sprzedaże od teraz.`);
 
     // Populate przed zwróceniem
     await assignment.populate('employeeId', 'firstName lastName employeeId hourlyRate');
@@ -154,7 +152,9 @@ router.delete('/:id', checkAuth, async (req, res) => {
     // ✅ NIE USUWAMY prowizji - pracownik zasłużył na te które już ma!
     // System automatycznie nie będzie naliczał mu nowych prowizji bo isActive = false
     
-    console.log(`✅ Pracownik ${assignment.employeeId} został dezaktywowany. Zachowuje prowizje do momentu ${assignment.deactivatedAt.toLocaleString()}`);
+    await assignment.save();
+
+    // Jeśli ustawiliśmy deleteWorkHours na true, usuń godziny pracy i prowizje
 
     // Usuń wszystkie godziny pracy tego pracownika dla tego punktu sprzedaży
     try {
@@ -163,7 +163,6 @@ router.delete('/:id', checkAuth, async (req, res) => {
         sellingPoint: assignment.sellingPoint
       });
       
-      console.log(`Usunięto ${deletedWorkHours.deletedCount} wpisów godzin pracy dla przypisania ${id}`);
     } catch (workHoursError) {
       console.error('Błąd podczas usuwania godzin pracy:', workHoursError);
       // Nie przerywamy procesu - przypisanie już zostało usunięte
@@ -231,7 +230,6 @@ router.delete('/employee/:employeeId', checkAuth, async (req, res) => {
         });
         
         deletedWorkHoursCount = deletedWorkHours.deletedCount;
-        console.log(`Usunięto ${deletedWorkHoursCount} wpisów godzin pracy dla pracownika ${employeeId} w punkcie ${sellingPoint}`);
 
         // Usuń także wszystkie prowizje tego pracownika
         const deletedCommissions = await FinancialOperation.deleteMany({
@@ -240,14 +238,13 @@ router.delete('/employee/:employeeId', checkAuth, async (req, res) => {
         });
         
         deletedCommissionsCount = deletedCommissions.deletedCount;
-        console.log(`🗑️ Usunięto ${deletedCommissionsCount} prowizji dla pracownika ${employeeId}`);
 
       } catch (workHoursError) {
         console.error('Błąd podczas usuwania godzin pracy lub prowizji:', workHoursError);
         // Nie przerywamy procesu - przypisanie już zostało usunięte
       }
     } else {
-      console.log(`Zachowywanie godzin pracy i prowizji dla pracownika ${employeeId} w punkcie ${sellingPoint}`);
+      // Zachowywanie godzin pracy i prowizji dla pracownika
     }
 
     res.json({
@@ -312,8 +309,6 @@ router.post('/recalculate-commissions', checkAuth, async (req, res) => {
     const dateEnd = new Date(dateStart);
     dateEnd.setDate(dateEnd.getDate() + 1);
 
-    console.log(`🔄 Przeliczam prowizje dla punktu ${sellingPoint} za dzień ${dateStart.toLocaleDateString()}`);
-
     const Sales = require('../db/models/sales');
     const FinancialOperation = require('../db/models/financialOperation');
 
@@ -323,8 +318,6 @@ router.post('/recalculate-commissions', checkAuth, async (req, res) => {
       date: { $gte: dateStart, $lt: dateEnd },
       reason: { $regex: sellingPoint }
     });
-
-    console.log(`🗑️ Usunięto ${deletedOldCommissions.deletedCount} starych prowizji`);
 
     // 2. Znajdź aktywnych pracowników przypisanych do tego punktu w tym dniu
     const activeAssignments = await SalesAssignment.find({
@@ -341,16 +334,15 @@ router.post('/recalculate-commissions', checkAuth, async (req, res) => {
       });
     }
 
-    console.log(`👥 Znaleziono ${activeAssignments.length} aktywnych pracowników`);
-
     // 3. Znajdź wszystkie sprzedaże z tego punktu w tym dniu
     const sales = await Sales.find({
       sellingPoint: sellingPoint,
       date: { $gte: dateStart, $lt: dateEnd },
-      returned: { $ne: true }
+      returned: { $ne: true },
+      isReturned: { $ne: true }
     });
 
-    console.log(`💰 Znaleziono ${sales.length} sprzedaży do przeliczenia`);
+    // 4. Przelicz prowizje dla każdego aktywnego pracownika
 
     let totalAddedCommissions = 0;
     let totalCommissionAmount = 0;
@@ -394,7 +386,9 @@ router.post('/recalculate-commissions', checkAuth, async (req, res) => {
         totalAddedCommissions++;
         totalCommissionAmount += commissionAmount;
 
-        console.log(`✅ Naliczono ${commissionAmount.toFixed(2)} PLN dla ${employee.firstName} ${employee.lastName}`);
+        await newCommission.save();
+        createdCommissions++;
+        
       }
     }
 

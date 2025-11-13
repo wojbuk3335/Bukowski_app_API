@@ -39,7 +39,6 @@ router.get('/', checkAuth, async (req, res) => {
       const lastDay = new Date(yearNumber, monthNumber, 0);
       const endDateString = lastDay.toISOString().split('T')[0]; // "2025-11-30"
       
-      console.log(`🗓️ Filtering work hours for month ${month}/${year}: ${startDateString} - ${endDateString}`);
       query.date = { $gte: startDateString, $lte: endDateString };
     } else if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };
@@ -51,8 +50,6 @@ router.get('/', checkAuth, async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    console.log(`🔍 Work hours query:`, query);
-
     const workHours = await WorkHours.find(query)
       .populate('employeeId', 'firstName lastName employeeId')
       .populate('createdBy', 'email username')
@@ -61,8 +58,6 @@ router.get('/', checkAuth, async (req, res) => {
       .limit(parseInt(limit));
 
     const total = await WorkHours.countDocuments(query);
-
-    console.log(`📊 Found ${workHours.length} work hours records (total: ${total})`);
 
     res.json({
       workHours,
@@ -306,8 +301,6 @@ router.put('/upsert', checkAuth, async (req, res) => {
 
     // 🔄 PRZELICZ PROWIZJE po aktualizacji godzin pracy
     try {
-      console.log(`🔄 Przeliczam prowizje po aktualizacji godzin pracy dla ${sellingPoint} w dniu ${date}`);
-      
       const FinancialOperation = require('../db/models/financialOperation');
       const Sales = require('../db/models/sales');
       const SalesAssignment = require('../db/models/salesAssignment');
@@ -325,28 +318,16 @@ router.put('/upsert', checkAuth, async (req, res) => {
         reason: { $regex: sellingPoint }
       });
 
-      console.log(`🗑️ Usunięto ${deletedOldCommissions.deletedCount} starych prowizji przed przeliczeniem`);
-
       // 2. Znajdź wszystkie sprzedaże z tego dnia w tym punkcie
       const salesFromDay = await Sales.find({
         sellingPoint: sellingPoint,
         date: { $gte: dateStart, $lt: dateEnd }
       });
 
-      console.log(`📊 Znaleziono ${salesFromDay.length} sprzedaży do przeliczenia`);
-
       // 3. Dla każdej sprzedaży sprawdź czy była w godzinach pracy i grupuj prowizje
       const employeeCommissions = new Map();
       
-      console.log(`🔍 Sprawdzam sprzedaże z ${date} w punkcie ${sellingPoint}`);
-      
       for (const sale of salesFromDay) {
-        console.log(`📦 Sprzedaż ${sale._id}:`);
-        console.log(`   - fullName: ${sale.fullName}`);
-        console.log(`   - size: ${sale.size}`);
-        console.log(`   - symbol: ${sale.symbol}`);
-        console.log(`   - cash: ${JSON.stringify(sale.cash)}`);
-        console.log(`   - card: ${JSON.stringify(sale.card)}`);
         
         // Oblicz łączną cenę ze sprzedaży (cash + card)
         let totalPrice = 0;
@@ -357,10 +338,7 @@ router.put('/upsert', checkAuth, async (req, res) => {
           totalPrice += sale.card.reduce((sum, payment) => sum + (payment.price || 0), 0);
         }
         
-        console.log(`   - łączna cena: ${totalPrice} zł`);
-        
         if (totalPrice <= 0) {
-          console.log(`❌ Sprzedaż bez ceny - pomijam`);
           continue;
         }
         
@@ -374,16 +352,10 @@ router.put('/upsert', checkAuth, async (req, res) => {
           sellingPoint: sellingPoint
         });
         
-        console.log(`⏰ Czas sprzedaży: ${saleTimeString}`);
-        console.log(`🕐 Dostępne godziny pracy:`, allWorkHours.map(wh => 
-          `${wh.employeeName}: ${wh.startTime}-${wh.endTime}`
-        ));
-        
         // Sprawdź dla każdego pracownika czy sprzedaż była w jego godzinach
         let commissionAssigned = false;
         for (const workHours of allWorkHours) {
           if (saleTimeString >= workHours.startTime && saleTimeString <= workHours.endTime) {
-            console.log(`✅ Sprzedaż w godzinach pracy ${workHours.employeeName} - dodaję prowizję`);
             
             const employeeKey = `${workHours.employeeId}`;
             
@@ -412,7 +384,6 @@ router.put('/upsert', checkAuth, async (req, res) => {
               commission: commissionAmount
             });
             
-            console.log(`💰 Dodano prowizję ${commissionAmount} zł dla ${workHours.employeeName}`);
             commissionAssigned = true;
             break; // Jedna sprzedaż = jedna prowizja
           }
@@ -420,10 +391,9 @@ router.put('/upsert', checkAuth, async (req, res) => {
         
         if (!commissionAssigned) {
           if (allWorkHours.length === 0) {
-            console.log(`❌ Brak godzin pracy w tym punkcie`);
+            // Brak godzin pracy w tym punkcie
           } else {
-            const workingHours = allWorkHours.map(wh => `${wh.startTime}-${wh.endTime}`).join(', ');
-            console.log(`⚠️ Sprzedaż o ${saleTimeString} poza godzinami (${workingHours})`);
+            // Sprzedaż poza godzinami pracy
           }
         }
       }
@@ -452,15 +422,10 @@ router.put('/upsert', checkAuth, async (req, res) => {
 
           await newCommission.save();
           createdCommissions++;
-          
-          console.log(`✅ Utworzono zbiorczą prowizję dla ${commissionData.employeeName}: ${commissionData.totalCommission} zł za ${commissionData.salesCount} sprzedaży`);
         }
       }
 
-      console.log(`✅ Utworzono ${createdCommissions} zbiorczych prowizji za ten dzień`);
-      
     } catch (commissionError) {
-      console.error('❌ Błąd podczas przeliczania prowizji:', commissionError);
       // Nie przerywamy procesu - godziny zostały zapisane
     }
 

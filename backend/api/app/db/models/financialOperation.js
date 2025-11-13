@@ -99,6 +99,15 @@ const financialOperationSchema = new mongoose.Schema({
         required: false,
         // Commission rate percentage (e.g., 1.5 for 1.5%)
     },
+    // Commission details breakdown for grouped commissions
+    commissionDetails: [{
+        productName: String,
+        productId: String,
+        saleAmount: Number,
+        commissionAmount: Number,
+        operationId: String,
+        description: String
+    }],
 }, {
     timestamps: true,
 });

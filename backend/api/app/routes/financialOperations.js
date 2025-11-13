@@ -26,4 +26,7 @@ router.get('/search/advances', checkAuth, financialOperationController.searchAdv
 // Sales commission calculation
 router.post('/calculate-commission', checkAuth, financialOperationController.calculateSalesCommission); // 🔒🔒🔒 Oblicz prowizję od sprzedaży
 
+// Get commission details
+router.get('/:id/commission-details', checkAuth, financialOperationController.getCommissionDetails); // 🔒🔒🔒 Szczegóły prowizji
+
 module.exports = router;

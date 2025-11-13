@@ -7,7 +7,6 @@ const validators = {
     handleValidationErrors: (req, res, next) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            console.warn(`⚠️ BŁĘDY WALIDACJI: ${req.ip} - ${req.method} ${req.url}`, errors.array());
             return res.status(400).json({
                 message: 'Nieprawidłowe dane wejściowe',
                 errors: errors.array()
