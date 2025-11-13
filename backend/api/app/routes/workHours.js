@@ -11,6 +11,8 @@ router.get('/', checkAuth, async (req, res) => {
       employeeId, 
       startDate, 
       endDate, 
+      month,
+      year,
       sellingPoint, 
       location,
       page = 1, 
@@ -24,7 +26,22 @@ router.get('/', checkAuth, async (req, res) => {
     if (sellingPoint) query.sellingPoint = sellingPoint;
     if (location) query.location = location;
     
-    if (startDate && endDate) {
+    // Obsługuj parametry month i year z aplikacji webowej
+    if (month && year) {
+      const monthNumber = parseInt(month);
+      const yearNumber = parseInt(year);
+      
+      // Pierwszy dzień miesiąca
+      const firstDay = new Date(yearNumber, monthNumber - 1, 1);
+      const startDateString = firstDay.toISOString().split('T')[0]; // "2025-11-01"
+      
+      // Ostatni dzień miesiąca
+      const lastDay = new Date(yearNumber, monthNumber, 0);
+      const endDateString = lastDay.toISOString().split('T')[0]; // "2025-11-30"
+      
+      console.log(`🗓️ Filtering work hours for month ${month}/${year}: ${startDateString} - ${endDateString}`);
+      query.date = { $gte: startDateString, $lte: endDateString };
+    } else if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };
     } else if (startDate) {
       query.date = { $gte: startDate };
@@ -34,6 +51,8 @@ router.get('/', checkAuth, async (req, res) => {
 
     const skip = (page - 1) * limit;
 
+    console.log(`🔍 Work hours query:`, query);
+
     const workHours = await WorkHours.find(query)
       .populate('employeeId', 'firstName lastName employeeId')
       .populate('createdBy', 'email username')
@@ -42,6 +61,8 @@ router.get('/', checkAuth, async (req, res) => {
       .limit(parseInt(limit));
 
     const total = await WorkHours.countDocuments(query);
+
+    console.log(`📊 Found ${workHours.length} work hours records (total: ${total})`);
 
     res.json({
       workHours,
@@ -196,6 +217,270 @@ router.post('/', checkAuth, async (req, res) => {
     
     res.status(500).json({ 
       message: 'Błąd podczas dodawania godzin pracy', 
+      error: error.message 
+    });
+  }
+});
+
+// PUT /api/work-hours/upsert - Upsert (update lub create) godzin pracy
+router.put('/upsert', checkAuth, async (req, res) => {
+  try {
+    const {
+      employeeId,
+      date,
+      startTime,
+      endTime,
+      sellingPoint,
+      location,
+      notes
+    } = req.body;
+
+    // Walidacja wymaganych pól
+    if (!employeeId || !date || !startTime || !endTime || !sellingPoint || !location) {
+      return res.status(400).json({ 
+        message: 'Wszystkie wymagane pola muszą być wypełnione',
+        required: ['employeeId', 'date', 'startTime', 'endTime', 'sellingPoint', 'location']
+      });
+    }
+
+    // Sprawdzenie czy pracownik istnieje
+    const employee = await Employee.findById(employeeId);
+    if (!employee) {
+      return res.status(404).json({ message: 'Pracownik nie znaleziony' });
+    }
+
+    // Szukaj istniejącego rekordu
+    let workHours = await WorkHours.findOne({
+      employeeId,
+      date
+    });
+
+    let isUpdate = !!workHours;
+
+    if (workHours) {
+      // Aktualizuj istniejący rekord
+      workHours.startTime = startTime;
+      workHours.endTime = endTime;
+      workHours.notes = notes;
+      workHours.sellingPoint = sellingPoint;
+      workHours.location = location;
+      workHours.hourlyRate = employee.hourlyRate;
+    } else {
+      // Utwórz nowy rekord
+      const workHoursData = {
+        employeeId,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        date,
+        startTime,
+        endTime,
+        sellingPoint,
+        location,
+        notes,
+        hourlyRate: employee.hourlyRate,
+        createdBy: req.userData.userId,
+        createdByName: req.userData.email || req.userData.username
+      };
+
+      workHours = new WorkHours(workHoursData);
+    }
+
+    // Calculate totalHours and dailyPay manually as backup
+    const start = startTime.split(':');
+    const end = endTime.split(':');
+    const startMinutes = parseInt(start[0]) * 60 + parseInt(start[1]);
+    const endMinutes = parseInt(end[0]) * 60 + parseInt(end[1]);
+    
+    let totalMinutes = endMinutes - startMinutes;
+    if (totalMinutes < 0) {
+      totalMinutes += 24 * 60; // Handle overnight work
+    }
+    
+    workHours.totalHours = totalMinutes / 60;
+    workHours.dailyPay = workHours.totalHours * employee.hourlyRate;
+
+    await workHours.save();
+
+    // Populate przed zwróceniem
+    await workHours.populate('employeeId', 'firstName lastName employeeId');
+    await workHours.populate('createdBy', 'email username');
+
+    // 🔄 PRZELICZ PROWIZJE po aktualizacji godzin pracy
+    try {
+      console.log(`🔄 Przeliczam prowizje po aktualizacji godzin pracy dla ${sellingPoint} w dniu ${date}`);
+      
+      const FinancialOperation = require('../db/models/financialOperation');
+      const Sales = require('../db/models/sales');
+      const SalesAssignment = require('../db/models/salesAssignment');
+      
+      // Ustaw zakres dat dla tego dnia
+      const targetDate = new Date(date);
+      const dateStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const dateEnd = new Date(dateStart);
+      dateEnd.setDate(dateEnd.getDate() + 1);
+
+      // 1. Usuń wszystkie stare prowizje za ten dzień w tym punkcie
+      const deletedOldCommissions = await FinancialOperation.deleteMany({
+        type: 'sales_commission',
+        date: { $gte: dateStart, $lt: dateEnd },
+        reason: { $regex: sellingPoint }
+      });
+
+      console.log(`🗑️ Usunięto ${deletedOldCommissions.deletedCount} starych prowizji przed przeliczeniem`);
+
+      // 2. Znajdź wszystkie sprzedaże z tego dnia w tym punkcie
+      const salesFromDay = await Sales.find({
+        sellingPoint: sellingPoint,
+        date: { $gte: dateStart, $lt: dateEnd }
+      });
+
+      console.log(`📊 Znaleziono ${salesFromDay.length} sprzedaży do przeliczenia`);
+
+      // 3. Dla każdej sprzedaży sprawdź czy była w godzinach pracy i grupuj prowizje
+      const employeeCommissions = new Map();
+      
+      console.log(`🔍 Sprawdzam sprzedaże z ${date} w punkcie ${sellingPoint}`);
+      
+      for (const sale of salesFromDay) {
+        console.log(`📦 Sprzedaż ${sale._id}:`);
+        console.log(`   - fullName: ${sale.fullName}`);
+        console.log(`   - size: ${sale.size}`);
+        console.log(`   - symbol: ${sale.symbol}`);
+        console.log(`   - cash: ${JSON.stringify(sale.cash)}`);
+        console.log(`   - card: ${JSON.stringify(sale.card)}`);
+        
+        // Oblicz łączną cenę ze sprzedaży (cash + card)
+        let totalPrice = 0;
+        if (sale.cash && sale.cash.length > 0) {
+          totalPrice += sale.cash.reduce((sum, payment) => sum + (payment.price || 0), 0);
+        }
+        if (sale.card && sale.card.length > 0) {
+          totalPrice += sale.card.reduce((sum, payment) => sum + (payment.price || 0), 0);
+        }
+        
+        console.log(`   - łączna cena: ${totalPrice} zł`);
+        
+        if (totalPrice <= 0) {
+          console.log(`❌ Sprzedaż bez ceny - pomijam`);
+          continue;
+        }
+        
+        // Sprawdź czy sprzedaż była w godzinach pracy
+        const saleDate = new Date(sale.date);
+        const saleTimeString = saleDate.toTimeString().substring(0, 5); // HH:MM format
+        
+        // Znajdź wszystkie godziny pracy dla tego dnia w tym punkcie
+        const allWorkHours = await WorkHours.find({
+          date: date,
+          sellingPoint: sellingPoint
+        });
+        
+        console.log(`⏰ Czas sprzedaży: ${saleTimeString}`);
+        console.log(`🕐 Dostępne godziny pracy:`, allWorkHours.map(wh => 
+          `${wh.employeeName}: ${wh.startTime}-${wh.endTime}`
+        ));
+        
+        // Sprawdź dla każdego pracownika czy sprzedaż była w jego godzinach
+        let commissionAssigned = false;
+        for (const workHours of allWorkHours) {
+          if (saleTimeString >= workHours.startTime && saleTimeString <= workHours.endTime) {
+            console.log(`✅ Sprzedaż w godzinach pracy ${workHours.employeeName} - dodaję prowizję`);
+            
+            const employeeKey = `${workHours.employeeId}`;
+            
+            if (!employeeCommissions.has(employeeKey)) {
+              employeeCommissions.set(employeeKey, {
+                employeeId: workHours.employeeId,
+                employeeName: workHours.employeeName,
+                employeeCode: workHours.employeeCode || 'N/A',
+                totalSales: 0,
+                totalCommission: 0,
+                salesCount: 0,
+                salesDetails: []
+              });
+            }
+            
+            const commissionData = employeeCommissions.get(employeeKey);
+            const commissionAmount = totalPrice * 0.01; // 1% prowizja
+            
+            commissionData.totalSales += totalPrice;
+            commissionData.totalCommission += commissionAmount;
+            commissionData.salesCount++;
+            commissionData.salesDetails.push({
+              productName: `${sale.fullName} ${sale.size}`,
+              productSize: sale.size,
+              price: totalPrice,
+              commission: commissionAmount
+            });
+            
+            console.log(`💰 Dodano prowizję ${commissionAmount} zł dla ${workHours.employeeName}`);
+            commissionAssigned = true;
+            break; // Jedna sprzedaż = jedna prowizja
+          }
+        }
+        
+        if (!commissionAssigned) {
+          if (allWorkHours.length === 0) {
+            console.log(`❌ Brak godzin pracy w tym punkcie`);
+          } else {
+            const workingHours = allWorkHours.map(wh => `${wh.startTime}-${wh.endTime}`).join(', ');
+            console.log(`⚠️ Sprzedaż o ${saleTimeString} poza godzinami (${workingHours})`);
+          }
+        }
+      }
+
+      // 4. Utwórz zbiorcze prowizje dla każdego pracownika
+      let createdCommissions = 0;
+      
+      for (const [employeeKey, commissionData] of employeeCommissions) {
+        if (commissionData.totalCommission > 0) {
+          // Utwórz zbiorczą prowizję za cały dzień
+          const commissionReason = `Prowizja dzienna 1% od sprzedaży ${commissionData.totalSales} zł - ${sellingPoint} (${commissionData.salesCount} sprzedaży: ${commissionData.salesDetails.map(s => s.productName).join(', ')})`;
+          
+          const newCommission = new FinancialOperation({
+            userSymbol: 'SYSTEM',
+            amount: commissionData.totalCommission,
+            currency: 'PLN',
+            type: 'sales_commission',
+            reason: commissionReason,
+            date: new Date(),
+            employeeId: commissionData.employeeId,
+            employeeName: commissionData.employeeName,
+            employeeCode: commissionData.employeeCode,
+            salesAmount: commissionData.totalSales,
+            commissionRate: 1
+          });
+
+          await newCommission.save();
+          createdCommissions++;
+          
+          console.log(`✅ Utworzono zbiorczą prowizję dla ${commissionData.employeeName}: ${commissionData.totalCommission} zł za ${commissionData.salesCount} sprzedaży`);
+        }
+      }
+
+      console.log(`✅ Utworzono ${createdCommissions} zbiorczych prowizji za ten dzień`);
+      
+    } catch (commissionError) {
+      console.error('❌ Błąd podczas przeliczania prowizji:', commissionError);
+      // Nie przerywamy procesu - godziny zostały zapisane
+    }
+
+    res.status(200).json({
+      message: `Godziny pracy zostały ${isUpdate ? 'zaktualizowane' : 'dodane'} pomyślnie. Prowizje zostały przeliczone.`,
+      workHours,
+      isUpdate
+    });
+  } catch (error) {
+    console.error('Error upserting work hours:', error);
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: 'Błąd walidacji danych',
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Błąd podczas zapisywania godzin pracy', 
       error: error.message 
     });
   }

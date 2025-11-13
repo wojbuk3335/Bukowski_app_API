@@ -85,6 +85,21 @@ const salesSchema = mongoose.Schema({
         type: Date,
         required: false,
         default: null
+    },
+    isPickup: {
+        type: Boolean,
+        default: false
+    },
+    advanceAmount: {
+        type: Number,
+        required: false,
+        default: 0
+    },
+    relatedAdvanceId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'FinancialOperation',
+        required: false,
+        default: null
     }
 });
 

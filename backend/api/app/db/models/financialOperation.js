@@ -19,7 +19,7 @@ const financialOperationSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['addition', 'deduction', 'advance_taken', 'advance_payment', 'purchase', 'refund', 'deposit', 'withdrawal', 'employee_advance', 'salary_payment'],
+        enum: ['addition', 'deduction', 'advance_taken', 'advance_payment', 'advance', 'purchase', 'refund', 'deposit', 'withdrawal', 'employee_advance', 'salary_payment', 'sales_commission'],
         // addition: Dopisanie kwoty (+)
         // deduction: Odpisanie kwoty (-)
         // advance_taken: Wzięta zaliczka (-)
@@ -30,6 +30,7 @@ const financialOperationSchema = new mongoose.Schema({
         // withdrawal: Wypłata (-)
         // employee_advance: Zaliczka dla pracownika (-)
         // salary_payment: Wypłata pensji dla pracownika (-)
+        // sales_commission: Prowizja od sprzedaży (+)
     },
     reason: {
         type: String,
@@ -50,6 +51,11 @@ const financialOperationSchema = new mongoose.Schema({
         type: String,
         required: false,
         // Name of the product if this is a product-related transaction
+    },
+    productSize: {
+        type: String,
+        required: false,
+        // Size of the product if this is a product-related transaction
     },
     finalPrice: {
         type: Number,
@@ -76,6 +82,22 @@ const financialOperationSchema = new mongoose.Schema({
         type: String,
         required: false,
         // Employee code for employee_advance type
+    },
+    // Sales commission fields
+    salesId: {
+        type: String,
+        required: false,
+        // ID of the sales record this commission is based on
+    },
+    salesAmount: {
+        type: Number,
+        required: false,
+        // Total sales amount from which commission is calculated
+    },
+    commissionRate: {
+        type: Number,
+        required: false,
+        // Commission rate percentage (e.g., 1.5 for 1.5%)
     },
 }, {
     timestamps: true,

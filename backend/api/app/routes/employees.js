@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Employee = require('../db/models/employee'); // Model pracownika
+const FinancialOperation = require('../db/models/financialOperation'); // Model operacji finansowych
+const WorkHours = require('../db/models/workHours'); // Model godzin pracy
 const checkAuth = require('../middleware/check-auth'); // Middleware autoryzacji
 const historyLogger = require('../middleware/historyLogger');
 
@@ -202,9 +204,28 @@ router.delete('/:id', checkAuth, historyLogger('employees'), async (req, res) =>
             });
         }
 
+        // Usuń wszystkie prowizje i operacje finansowe powiązane z pracownikiem
+        const deletedCommissions = await FinancialOperation.deleteMany({
+            employeeId: id.toString()
+        });
+
+        // Usuń godziny pracy dla tego pracownika
+        const deletedWorkHours = await WorkHours.deleteMany({
+            employeeId: id
+        });
+
+        console.log(`🗑️ Usunięto pracownika ${deletedEmployee.firstName} ${deletedEmployee.lastName}`);
+        console.log(`🗑️ Usunięto ${deletedCommissions.deletedCount} prowizji/operacji finansowych`);
+        console.log(`🗑️ Usunięto ${deletedWorkHours.deletedCount} wpisów godzin pracy`);
+
         res.status(200).json({
             success: true,
-            message: 'Pracownik został usunięty pomyślnie'
+            message: 'Pracownik został usunięty pomyślnie',
+            deletedData: {
+                employee: deletedEmployee,
+                commissionsDeleted: deletedCommissions.deletedCount,
+                workHoursDeleted: deletedWorkHours.deletedCount
+            }
         });
 
     } catch (error) {

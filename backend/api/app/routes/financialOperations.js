@@ -20,4 +20,10 @@ router.delete('/all', checkAuth, financialOperationController.deleteAllFinancial
 router.get('/user/:userSymbol', checkAuth, financialOperationController.getFinancialOperationsByUser); // 🔒🔒🔒 Operacje użytkownika
 router.get('/type/:type', checkAuth, financialOperationController.getFinancialOperationsByType); // 🔒🔒🔒 Operacje według typu
 
+// Search for advance payments
+router.get('/search/advances', checkAuth, financialOperationController.searchAdvancePayments); // 🔒🔒🔒 Szukaj zaliczek
+
+// Sales commission calculation
+router.post('/calculate-commission', checkAuth, financialOperationController.calculateSalesCommission); // 🔒🔒🔒 Oblicz prowizję od sprzedaży
+
 module.exports = router;

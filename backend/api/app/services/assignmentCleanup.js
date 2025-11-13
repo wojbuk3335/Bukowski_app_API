@@ -41,7 +41,7 @@ const startDailyCleanup = () => {
         timezone: "Europe/Warsaw"
     });
 
-    console.log('✅ SCHEDULER: Dzienne czyszczenie przypisań zostało skonfigurowane (00:01 każdego dnia)');
+    // console.log('✅ SCHEDULER: Dzienne czyszczenie przypisań zostało skonfigurowane (00:01 każdego dnia)');
 };
 
 // Funkcja do manualnego uruchomienia czyszczenia (do testów)

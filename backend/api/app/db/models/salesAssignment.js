@@ -33,6 +33,10 @@ const salesAssignmentSchema = mongoose.Schema({
         type: Boolean,
         default: true
     },
+    deactivatedAt: {
+        type: Date,
+        required: false
+    },
     notes: {
         type: String,
         required: false
