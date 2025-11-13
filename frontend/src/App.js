@@ -45,7 +45,7 @@ import Operacje from './components/AdminDashboard/Operacje/Operacje';
 import Cudzich from './components/AdminDashboard/Cudzich/Cudzich';
 import Orders from './components/AdminDashboard/Orders/Orders';
 import Employees from './components/AdminDashboard/Employees/Employees';
-import Payroll from './components/AdminDashboard/Payroll/Payroll';
+import Payroll from './components/AdminDashboard/Payroll/PayrollImproved';
 import ApiTestComponent from './components/ApiTestComponent';
 
 function App() {

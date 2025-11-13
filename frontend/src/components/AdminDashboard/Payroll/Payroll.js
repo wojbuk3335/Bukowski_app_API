@@ -10,6 +10,7 @@ const Payroll = () => {
   const [workHours, setWorkHours] = useState([]);
   const [advances, setAdvances] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [commissions, setCommissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState(null);
@@ -18,6 +19,12 @@ const Payroll = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentLoading, setPaymentLoading] = useState(false);
+  
+  // State dla filtrów tabeli
+  const [showWorkHours, setShowWorkHours] = useState(true);
+  const [showAdvances, setShowAdvances] = useState(true);
+  const [showPayments, setShowPayments] = useState(true);
+  const [showCommissions, setShowCommissions] = useState(true);
 
   // Załaduj listę pracowników przy inicjalizacji
   useEffect(() => {
@@ -63,9 +70,9 @@ const Payroll = () => {
       
       if (workHoursResponse.ok) {
         setWorkHours(workHoursData.workHours || []);
-        // Pobierz zaliczki i wypłaty przed obliczeniem podsumowania
+        // Pobierz zaliczki, wypłaty i prowizje przed obliczeniem podsumowania
         const financialData = await fetchAdvances();
-        calculateSummary(workHoursData.workHours || [], financialData.advances, financialData.payments);
+        calculateSummary(workHoursData.workHours || [], financialData.advances, financialData.payments, financialData.commissions);
       } else {
         setError(workHoursData.message || 'Błąd podczas ładowania danych');
         setWorkHours([]);
@@ -77,6 +84,7 @@ const Payroll = () => {
       setWorkHours([]);
       setAdvances([]);
       setPayments([]);
+      setCommissions([]);
       setSummary(null);
     } finally {
       setLoading(false);
@@ -85,11 +93,11 @@ const Payroll = () => {
 
   const fetchAdvances = async () => {
     if (!selectedEmployee || !selectedMonth || !selectedYear) {
-      return { advances: [], payments: [] };
+      return { advances: [], payments: [], commissions: [] };
     }
 
     try {
-      // Pobierz zaliczki i wypłaty dla pracownika w danym miesiącu
+      // Pobierz zaliczki, wypłaty i prowizje dla pracownika w danym miesiącu
       const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString();
       const endDate = new Date(selectedYear, selectedMonth, 0).toISOString();
       
@@ -106,12 +114,21 @@ const Payroll = () => {
           'Authorization': `Bearer ${localStorage.getItem('AdminToken')}`
         }
       });
+
+      // Pobierz prowizje
+      const commissionsResponse = await fetch(`/api/financial-operations?type=sales_commission&employeeId=${selectedEmployee}&startDate=${startDate}&endDate=${endDate}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('AdminToken')}`
+        }
+      });
       
       const advancesData = await advancesResponse.json();
       const paymentsData = await paymentsResponse.json();
+      const commissionsData = await commissionsResponse.json();
       
       const allAdvances = [];
       const allPayments = [];
+      const allCommissions = [];
       
       if (advancesResponse.ok) {
         allAdvances.push(...(advancesData || []));
@@ -120,10 +137,15 @@ const Payroll = () => {
       if (paymentsResponse.ok) {
         allPayments.push(...(paymentsData || []));
       }
+
+      if (commissionsResponse.ok) {
+        allCommissions.push(...(commissionsData || []));
+      }
       
       setAdvances(allAdvances);
       setPayments(allPayments);
-      return { advances: allAdvances, payments: allPayments };
+      setCommissions(allCommissions);
+      return { advances: allAdvances, payments: allPayments, commissions: allCommissions };
       
     } catch (error) {
       console.error('Error fetching advances:', error);
@@ -133,12 +155,13 @@ const Payroll = () => {
     }
   };
 
-  const calculateSummary = (hours, advancesData = [], paymentsData = []) => {
+  const calculateSummary = (hours, advancesData = [], paymentsData = [], commissionsData = []) => {
     const totalHours = hours.reduce((sum, record) => sum + (record.totalHours || 0), 0);
     const totalPay = hours.reduce((sum, record) => sum + (record.dailyPay || 0), 0);
     const totalAdvances = advancesData.reduce((sum, advance) => sum + Math.abs(advance.amount), 0);
     const totalPayments = paymentsData.reduce((sum, payment) => sum + Math.abs(payment.amount), 0);
-    const finalPay = totalPay - totalAdvances - totalPayments;
+    const totalCommissions = commissionsData.reduce((sum, commission) => sum + (commission.amount || 0), 0);
+    const finalPay = totalPay + totalCommissions - totalAdvances - totalPayments;
     const workDays = hours.length;
     
     setSummary({
@@ -146,6 +169,7 @@ const Payroll = () => {
       totalPay: totalPay.toFixed(2),
       totalAdvances: totalAdvances.toFixed(2),
       totalPayments: totalPayments.toFixed(2),
+      totalCommissions: totalCommissions.toFixed(2),
       finalPay: finalPay.toFixed(2),
       workDays,
       averageHoursPerDay: workDays > 0 ? (totalHours / workDays).toFixed(2) : 0
@@ -213,54 +237,79 @@ const Payroll = () => {
   const getCombinedFinancialData = () => {
     const combinedData = [];
     
-    // Dodaj godziny pracy
-    workHours.forEach(record => {
-      combinedData.push({
-        type: 'work_hours',
-        date: record.date,
-        description: `${record.totalHours}h pracy w ${record.sellingPoint || 'punkt nieznany'}`,
-        amount: record.dailyPay || 0,
-        details: {
-          startTime: record.startTime,
-          endTime: record.endTime,
-          totalHours: record.totalHours,
-          sellingPoint: record.sellingPoint,
-          notes: record.notes,
-          status: record.status
-        },
-        color: 'success'
+    // Dodaj godziny pracy (jeśli filtr jest włączony)
+    if (showWorkHours) {
+      workHours.forEach(record => {
+        combinedData.push({
+          type: 'work_hours',
+          date: record.date,
+          description: `${record.totalHours}h pracy w ${record.sellingPoint || 'punkt nieznany'}`,
+          amount: record.dailyPay || 0,
+          details: {
+            startTime: record.startTime,
+            endTime: record.endTime,
+            totalHours: record.totalHours,
+            sellingPoint: record.sellingPoint,
+            notes: record.notes,
+            status: record.status
+          },
+          color: 'success'
+        });
       });
-    });
+    }
     
-    // Dodaj zaliczki
-    advances.forEach(advance => {
-      combinedData.push({
-        type: 'advance',
-        date: advance.date,
-        description: `Zaliczka pracownika`,
-        amount: -Math.abs(advance.amount),
-        details: {
-          reason: advance.reason,
-          currency: advance.currency
-        },
-        color: 'danger'
+    // Dodaj zaliczki (jeśli filtr jest włączony)
+    if (showAdvances) {
+      advances.forEach(advance => {
+        combinedData.push({
+          type: 'advance',
+          date: advance.date,
+          description: `Zaliczka pracownika`,
+          amount: -Math.abs(advance.amount),
+          details: {
+            reason: advance.reason,
+            currency: advance.currency
+          },
+          color: 'danger'
+        });
       });
-    });
+    }
     
-    // Dodaj wypłaty
-    payments.forEach(payment => {
-      combinedData.push({
-        type: 'payment',
-        date: payment.date,
-        description: `Wypłata pensji`,
-        amount: -Math.abs(payment.amount),
-        details: {
-          reason: payment.reason,
-          currency: payment.currency
-        },
-        color: 'warning'
+    // Dodaj wypłaty (jeśli filtr jest włączony)
+    if (showPayments) {
+      payments.forEach(payment => {
+        combinedData.push({
+          type: 'payment',
+          date: payment.date,
+          description: `Wypłata pensji`,
+          amount: -Math.abs(payment.amount),
+          details: {
+            reason: payment.reason,
+            currency: payment.currency
+          },
+          color: 'warning'
+        });
       });
-    });
+    }
+
+    // Dodaj prowizje (jeśli filtr jest włączony)
+    if (showCommissions) {
+      commissions.forEach(commission => {
+        combinedData.push({
+          type: 'commission',
+          date: commission.date,
+          description: `Prowizja od sprzedaży`,
+          amount: commission.amount || 0,
+          details: {
+            reason: commission.reason,
+            currency: commission.currency,
+            salesAmount: commission.salesAmount,
+            commissionRate: commission.commissionRate
+          },
+          color: 'info'
+        });
+      });
+    }
     
     // Sortuj po dacie (najnowsze pierwsze)
     return combinedData.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -412,10 +461,16 @@ const Payroll = () => {
                               <p className="mb-0">Wypłata brutto</p>
                             </div>
                           </Col>
-                          <Col md={2}>
+                          <Col md={1}>
+                            <div className="text-center">
+                              <h3 className="text-success">+{summary.totalCommissions} zł</h3>
+                              <p className="mb-0 small">Prowizje</p>
+                            </div>
+                          </Col>
+                          <Col md={1}>
                             <div className="text-center">
                               <h3 className="text-danger">-{summary.totalAdvances} zł</h3>
-                              <p className="mb-0">Zaliczki</p>
+                              <p className="mb-0 small">Zaliczki</p>
                             </div>
                           </Col>
                           <Col md={2}>
@@ -458,8 +513,63 @@ const Payroll = () => {
               {(workHours.length > 0 || advances.length > 0 || payments.length > 0) && (
                 <Card>
                   <Card.Header>
-                    <h5 className="mb-0">Historia finansowa pracownika</h5>
-                    <small className="text-muted">Godziny pracy, zaliczki i wypłaty</small>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div>
+                        <h5 className="mb-0">Historia finansowa pracownika</h5>
+                        <small className="text-muted">Godziny pracy, zaliczki i wypłaty</small>
+                      </div>
+                      <div>
+                        <Button
+                          variant="outline-secondary"
+                          size="sm"
+                          className="me-3"
+                          onClick={() => {
+                            const allOn = showWorkHours && showAdvances && showPayments && showCommissions;
+                            setShowWorkHours(!allOn);
+                            setShowAdvances(!allOn);
+                            setShowPayments(!allOn);
+                            setShowCommissions(!allOn);
+                          }}
+                        >
+                          {(showWorkHours && showAdvances && showPayments && showCommissions) ? 'Ukryj wszystko' : 'Pokaż wszystko'}
+                        </Button>
+                        <Form.Check
+                          type="checkbox"
+                          id="filter-work-hours"
+                          label="Godziny pracy"
+                          checked={showWorkHours}
+                          onChange={(e) => setShowWorkHours(e.target.checked)}
+                          inline
+                          className="me-3"
+                        />
+                        <Form.Check
+                          type="checkbox"
+                          id="filter-advances"
+                          label="Zaliczki"
+                          checked={showAdvances}
+                          onChange={(e) => setShowAdvances(e.target.checked)}
+                          inline
+                          className="me-3"
+                        />
+                        <Form.Check
+                          type="checkbox"
+                          id="filter-payments"
+                          label="Wypłaty"
+                          checked={showPayments}
+                          onChange={(e) => setShowPayments(e.target.checked)}
+                          inline
+                          className="me-3"
+                        />
+                        <Form.Check
+                          type="checkbox"
+                          id="filter-commissions"
+                          label="Prowizje"
+                          checked={showCommissions}
+                          onChange={(e) => setShowCommissions(e.target.checked)}
+                          inline
+                        />
+                      </div>
+                    </div>
                   </Card.Header>
                   <Card.Body>
                     <Table striped bordered hover responsive>
@@ -473,51 +583,74 @@ const Payroll = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {getCombinedFinancialData().map((record, index) => (
-                          <tr key={`${record.type}-${index}`}>
-                            <td>{formatDate(record.date)}</td>
-                            <td>
-                              <Badge bg={
-                                record.type === 'work_hours' ? 'primary' : 
-                                record.type === 'advance' ? 'danger' : 
-                                'warning'
-                              }>
-                                {record.type === 'work_hours' ? 'Praca' : 
-                                 record.type === 'advance' ? 'Zaliczka' : 
-                                 'Wypłata'}
-                              </Badge>
-                            </td>
-                            <td>{record.description}</td>
-                            <td>
-                              <Badge bg={record.amount >= 0 ? 'success' : 'danger'}>
-                                {record.amount >= 0 ? '+' : ''}{record.amount.toFixed(2)} zł
-                              </Badge>
-                            </td>
-                            <td>
-                              {record.type === 'work_hours' && (
-                                <small>
-                                  {record.details.startTime && record.details.endTime ? 
-                                    `${formatTime(record.details.startTime)} - ${formatTime(record.details.endTime)}` : 
-                                    '-'
-                                  }
-                                  {record.details.notes && (
-                                    <><br/><em>{record.details.notes}</em></>
-                                  )}
-                                </small>
-                              )}
-                              {record.type === 'advance' && (
-                                <small>
-                                  {record.details.reason}
-                                </small>
-                              )}
-                              {record.type === 'payment' && (
-                                <small>
-                                  {record.details.reason}
-                                </small>
-                              )}
+                        {getCombinedFinancialData().length > 0 ? (
+                          getCombinedFinancialData().map((record, index) => (
+                            <tr key={`${record.type}-${index}`}>
+                              <td>{formatDate(record.date)}</td>
+                              <td>
+                                <Badge bg={
+                                  record.type === 'work_hours' ? 'primary' : 
+                                  record.type === 'advance' ? 'danger' : 
+                                  record.type === 'commission' ? 'info' :
+                                  'warning'
+                                }>
+                                  {record.type === 'work_hours' ? 'Praca' : 
+                                   record.type === 'advance' ? 'Zaliczka' : 
+                                   record.type === 'commission' ? 'Prowizja' :
+                                   'Wypłata'}
+                                </Badge>
+                              </td>
+                              <td>{record.description}</td>
+                              <td>
+                                <Badge bg={record.amount >= 0 ? 'success' : 'danger'}>
+                                  {record.amount >= 0 ? '+' : ''}{record.amount.toFixed(2)} zł
+                                </Badge>
+                              </td>
+                              <td>
+                                {record.type === 'work_hours' && (
+                                  <small>
+                                    {record.details.startTime && record.details.endTime ? 
+                                      `${formatTime(record.details.startTime)} - ${formatTime(record.details.endTime)}` : 
+                                      '-'
+                                    }
+                                    {record.details.notes && (
+                                      <><br/><em>{record.details.notes}</em></>
+                                    )}
+                                  </small>
+                                )}
+                                {record.type === 'advance' && (
+                                  <small>
+                                    {record.details.reason}
+                                  </small>
+                                )}
+                                {record.type === 'payment' && (
+                                  <small>
+                                    {record.details.reason}
+                                  </small>
+                                )}
+                                {record.type === 'commission' && (
+                                  <small>
+                                    {record.details.reason}
+                                    {record.details.salesAmount && record.details.commissionRate && (
+                                      <><br/>
+                                        <em>Obrót: {record.details.salesAmount.toFixed(2)} zł ({record.details.commissionRate}%)</em>
+                                      </>
+                                    )}
+                                  </small>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="text-center text-muted py-4">
+                              {(!showWorkHours && !showAdvances && !showPayments && !showCommissions) ? 
+                                'Zaznacz filtry powyżej aby wyświetlić dane' : 
+                                'Brak danych do wyświetlenia dla wybranych filtrów'
+                              }
                             </td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </Table>
                     

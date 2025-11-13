@@ -3,13 +3,33 @@ import { Card, Container, Row, Col, Form, Button, Table, Alert, Spinner, Badge, 
 import './Payroll.module.css';
 
 const Payroll = () => {
+  // Funkcje do zapisywania i wczytywania stanu z localStorage
+  const saveFiltersToStorage = (filters) => {
+    localStorage.setItem('payrollFilters', JSON.stringify(filters));
+  };
+
+  const loadFiltersFromStorage = () => {
+    const savedFilters = localStorage.getItem('payrollFilters');
+    return savedFilters ? JSON.parse(savedFilters) : {};
+  };
+
+  // Sprawdź czy dane zostały załadowane z localStorage
+  const hasLoadedFromStorage = () => {
+    const savedFilters = loadFiltersFromStorage();
+    return savedFilters.selectedEmployee && savedFilters.selectedMonth && savedFilters.selectedYear;
+  };
+
+  // Załaduj zapisane filtry lub użyj domyślnych wartości
+  const savedFilters = loadFiltersFromStorage();
+  
   const [employees, setEmployees] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedEmployee, setSelectedEmployee] = useState(savedFilters.selectedEmployee || '');
+  const [selectedMonth, setSelectedMonth] = useState(savedFilters.selectedMonth || '');
+  const [selectedYear, setSelectedYear] = useState(savedFilters.selectedYear || new Date().getFullYear());
   const [workHours, setWorkHours] = useState([]);
   const [advances, setAdvances] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [commissions, setCommissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState(null);
@@ -19,10 +39,35 @@ const Payroll = () => {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentLoading, setPaymentLoading] = useState(false);
 
+  // State dla filtrów tabeli
+  const [showWorkHours, setShowWorkHours] = useState(true);
+  const [showAdvances, setShowAdvances] = useState(true);
+  const [showPayments, setShowPayments] = useState(true);
+  const [showCommissions, setShowCommissions] = useState(true);
+
+  // Zapisz filtry do localStorage przy każdej zmianie
+  useEffect(() => {
+    const filters = {
+      selectedEmployee,
+      selectedMonth,
+      selectedYear
+    };
+    saveFiltersToStorage(filters);
+  }, [selectedEmployee, selectedMonth, selectedYear]);
+
   // Załaduj listę pracowników przy inicjalizacji
   useEffect(() => {
     fetchEmployees();
   }, []);
+
+  // Automatycznie załaduj dane gdy pracownicy zostają załadowani i mamy zapisane filtry
+  useEffect(() => {
+    if (employees.length > 0 && hasLoadedFromStorage()) {
+      setTimeout(() => {
+        fetchWorkHours();
+      }, 100); // Małe opóźnienie żeby stan się ustabilizował
+    }
+  }, [employees]);
 
   const fetchEmployees = async () => {
     try {
@@ -65,7 +110,7 @@ const Payroll = () => {
         setWorkHours(workHoursData.workHours || []);
         // Pobierz zaliczki i wypłaty przed obliczeniem podsumowania
         const financialData = await fetchAdvances();
-        calculateSummary(workHoursData.workHours || [], financialData.advances, financialData.payments);
+        calculateSummary(workHoursData.workHours || [], financialData.advances, financialData.payments, financialData.commissions);
       } else {
         setError(workHoursData.message || 'Błąd podczas ładowania danych');
         setWorkHours([]);
@@ -106,12 +151,21 @@ const Payroll = () => {
           'Authorization': `Bearer ${localStorage.getItem('AdminToken')}`
         }
       });
+
+      // Pobierz prowizje
+      const commissionsResponse = await fetch(`/api/financial-operations?type=sales_commission&employeeId=${selectedEmployee}&startDate=${startDate}&endDate=${endDate}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('AdminToken')}`
+        }
+      });
       
       const advancesData = await advancesResponse.json();
       const paymentsData = await paymentsResponse.json();
+      const commissionsData = await commissionsResponse.json();
       
       const allAdvances = [];
       const allPayments = [];
+      const allCommissions = [];
       
       if (advancesResponse.ok) {
         allAdvances.push(...(advancesData || []));
@@ -120,10 +174,15 @@ const Payroll = () => {
       if (paymentsResponse.ok) {
         allPayments.push(...(paymentsData || []));
       }
+
+      if (commissionsResponse.ok) {
+        allCommissions.push(...(commissionsData || []));
+      }
       
       setAdvances(allAdvances);
       setPayments(allPayments);
-      return { advances: allAdvances, payments: allPayments };
+      setCommissions(allCommissions);
+      return { advances: allAdvances, payments: allPayments, commissions: allCommissions };
       
     } catch (error) {
       console.error('Error fetching advances:', error);
@@ -133,17 +192,19 @@ const Payroll = () => {
     }
   };
 
-  const calculateSummary = (hours, advancesData = [], paymentsData = []) => {
+  const calculateSummary = (hours, advancesData = [], paymentsData = [], commissionsData = []) => {
     const totalHours = hours.reduce((sum, record) => sum + (record.totalHours || 0), 0);
     const totalPay = hours.reduce((sum, record) => sum + (record.dailyPay || 0), 0);
     const totalAdvances = advancesData.reduce((sum, advance) => sum + Math.abs(advance.amount), 0);
     const totalPayments = paymentsData.reduce((sum, payment) => sum + Math.abs(payment.amount), 0);
-    const finalPay = totalPay - totalAdvances - totalPayments;
+    const totalCommissions = commissionsData.reduce((sum, commission) => sum + Math.abs(commission.amount), 0);
+    const finalPay = totalPay + totalCommissions - totalAdvances - totalPayments;
     const workDays = hours.length;
     
     setSummary({
       totalHours: totalHours.toFixed(2),
       totalPay: totalPay.toFixed(2),
+      totalCommissions: totalCommissions.toFixed(2),
       totalAdvances: totalAdvances.toFixed(2),
       totalPayments: totalPayments.toFixed(2),
       finalPay: finalPay.toFixed(2),
@@ -213,54 +274,79 @@ const Payroll = () => {
   const getCombinedFinancialData = () => {
     const combinedData = [];
     
-    // Dodaj godziny pracy
-    workHours.forEach(record => {
-      combinedData.push({
-        type: 'work_hours',
-        date: record.date,
-        description: `${record.totalHours}h pracy w ${record.sellingPoint || 'punkt nieznany'}`,
-        amount: record.dailyPay || 0,
-        details: {
-          startTime: record.startTime,
-          endTime: record.endTime,
-          totalHours: record.totalHours,
-          sellingPoint: record.sellingPoint,
-          notes: record.notes,
-          status: record.status
-        },
-        color: 'success'
+    // Dodaj godziny pracy (jeśli filtr jest włączony)
+    if (showWorkHours) {
+      workHours.forEach(record => {
+        combinedData.push({
+          type: 'work_hours',
+          date: record.date,
+          description: `${record.totalHours}h pracy w ${record.sellingPoint || 'punkt nieznany'}`,
+          amount: record.dailyPay || 0,
+          details: {
+            startTime: record.startTime,
+            endTime: record.endTime,
+            totalHours: record.totalHours,
+            sellingPoint: record.sellingPoint,
+            notes: record.notes,
+            status: record.status
+          },
+          color: 'success'
+        });
       });
-    });
+    }
     
-    // Dodaj zaliczki
-    advances.forEach(advance => {
-      combinedData.push({
-        type: 'advance',
-        date: advance.date,
-        description: `Zaliczka pracownika`,
-        amount: -Math.abs(advance.amount),
-        details: {
-          reason: advance.reason,
-          currency: advance.currency
-        },
-        color: 'danger'
+    // Dodaj zaliczki (jeśli filtr jest włączony)
+    if (showAdvances) {
+      advances.forEach(advance => {
+        combinedData.push({
+          type: 'advance',
+          date: advance.date,
+          description: `Zaliczka pracownika`,
+          amount: -Math.abs(advance.amount),
+          details: {
+            reason: advance.reason,
+            currency: advance.currency
+          },
+          color: 'danger'
+        });
       });
-    });
+    }
     
-    // Dodaj wypłaty
-    payments.forEach(payment => {
-      combinedData.push({
-        type: 'payment',
-        date: payment.date,
-        description: `Wypłata pensji`,
-        amount: -Math.abs(payment.amount),
-        details: {
-          reason: payment.reason,
-          currency: payment.currency
-        },
-        color: 'warning'
+    // Dodaj wypłaty (jeśli filtr jest włączony)
+    if (showPayments) {
+      payments.forEach(payment => {
+        combinedData.push({
+          type: 'payment',
+          date: payment.date,
+          description: `Wypłata pensji`,
+          amount: -Math.abs(payment.amount),
+          details: {
+            reason: payment.reason,
+            currency: payment.currency
+          },
+          color: 'warning'
+        });
       });
-    });
+    }
+
+    // Dodaj prowizje (jeśli filtr jest włączony)
+    if (showCommissions) {
+      commissions.forEach(commission => {
+        combinedData.push({
+          type: 'commission',
+          date: commission.date,
+          description: `Prowizja od sprzedaży`,
+          amount: commission.amount || 0,
+          details: {
+            reason: commission.reason,
+            currency: commission.currency,
+            salesAmount: commission.salesAmount,
+            commissionRate: commission.commissionRate
+          },
+          color: 'info'
+        });
+      });
+    }
     
     // Sortuj po dacie (najnowsze pierwsze)
     return combinedData.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -306,6 +392,10 @@ const Payroll = () => {
                 <i className="fas fa-calculator me-2"></i>
                 System wypłat pracowników
               </h4>
+              <small className="text-muted">
+                <i className="fas fa-save me-1"></i>
+                Filtry są automatycznie zapisywane i przywracane po odświeżeniu
+              </small>
             </Card.Header>
             <Card.Body>
               {/* Filtry */}
@@ -353,7 +443,7 @@ const Payroll = () => {
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                <Col md={3} className="d-flex align-items-end">
+                <Col md={3} className="d-flex align-items-end gap-2">
                   <Button 
                     variant="primary" 
                     onClick={fetchWorkHours}
@@ -371,8 +461,34 @@ const Payroll = () => {
                       </>
                     )}
                   </Button>
+                  
+                  <Button 
+                    variant="outline-secondary" 
+                    size="sm"
+                    onClick={() => {
+                      setSelectedEmployee('');
+                      setSelectedMonth('');
+                      setSelectedYear(new Date().getFullYear());
+                      setWorkHours([]);
+                      setAdvances([]);
+                      setPayments([]);
+                      setSummary(null);
+                      localStorage.removeItem('payrollFilters');
+                    }}
+                    title="Wyczyść zapisane filtry"
+                  >
+                    <i className="fas fa-times"></i>
+                  </Button>
                 </Col>
               </Row>
+
+              {/* Komunikat o przywróconych filtrach */}
+              {hasLoadedFromStorage() && selectedEmployee && selectedMonth && selectedYear && (
+                <Alert variant="info" className="mb-3">
+                  <i className="fas fa-info-circle me-2"></i>
+                  Przywrócono zapisane filtry. Dane zostały automatycznie załadowane.
+                </Alert>
+              )}
 
               {/* Komunikaty błędów */}
               {error && (
@@ -414,6 +530,12 @@ const Payroll = () => {
                           </Col>
                           <Col md={2}>
                             <div className="text-center">
+                              <h3 className="text-success">+{summary.totalCommissions} zł</h3>
+                              <p className="mb-0">Prowizje</p>
+                            </div>
+                          </Col>
+                          <Col md={2}>
+                            <div className="text-center">
                               <h3 className="text-danger">-{summary.totalAdvances} zł</h3>
                               <p className="mb-0">Zaliczki</p>
                             </div>
@@ -426,7 +548,7 @@ const Payroll = () => {
                           </Col>
                           <Col md={2}>
                             <div className="text-center">
-                              <h3 className="text-success">{summary.finalPay} zł</h3>
+                              <h3 className="text-primary">{summary.finalPay} zł</h3>
                               <p className="mb-0"><strong>Do wypłaty</strong></p>
                             </div>
                           </Col>
@@ -455,11 +577,68 @@ const Payroll = () => {
               )}
 
               {/* Wspólna tabela - Historia finansowa pracownika */}
-              {(workHours.length > 0 || advances.length > 0 || payments.length > 0) && (
+              {(workHours.length > 0 || advances.length > 0 || payments.length > 0 || commissions.length > 0) && (
                 <Card>
                   <Card.Header>
-                    <h5 className="mb-0">Historia finansowa pracownika</h5>
-                    <small className="text-muted">Godziny pracy, zaliczki i wypłaty</small>
+                    <Row className="align-items-center">
+                      <Col>
+                        <h5 className="mb-0">Historia finansowa pracownika</h5>
+                        <small className="text-muted">Godziny pracy, zaliczki, wypłaty i prowizje</small>
+                      </Col>
+                      <Col xs="auto">
+                        <div className="d-flex align-items-center">
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            className="me-3"
+                            onClick={() => {
+                              const allOn = showWorkHours && showAdvances && showPayments && showCommissions;
+                              setShowWorkHours(!allOn);
+                              setShowAdvances(!allOn);
+                              setShowPayments(!allOn);
+                              setShowCommissions(!allOn);
+                            }}
+                          >
+                            {(showWorkHours && showAdvances && showPayments && showCommissions) ? 'Ukryj wszystko' : 'Pokaż wszystko'}
+                          </Button>
+                          <Form.Check
+                            type="checkbox"
+                            id="filter-work-hours"
+                            label="Godziny pracy"
+                            checked={showWorkHours}
+                            onChange={(e) => setShowWorkHours(e.target.checked)}
+                            inline
+                            className="me-3"
+                          />
+                          <Form.Check
+                            type="checkbox"
+                            id="filter-advances"
+                            label="Zaliczki"
+                            checked={showAdvances}
+                            onChange={(e) => setShowAdvances(e.target.checked)}
+                            inline
+                            className="me-3"
+                          />
+                          <Form.Check
+                            type="checkbox"
+                            id="filter-payments"
+                            label="Wypłaty"
+                            checked={showPayments}
+                            onChange={(e) => setShowPayments(e.target.checked)}
+                            inline
+                            className="me-3"
+                          />
+                          <Form.Check
+                            type="checkbox"
+                            id="filter-commissions"
+                            label="Prowizje"
+                            checked={showCommissions}
+                            onChange={(e) => setShowCommissions(e.target.checked)}
+                            inline
+                          />
+                        </div>
+                      </Col>
+                    </Row>
                   </Card.Header>
                   <Card.Body>
                     <Table striped bordered hover responsive>
@@ -480,10 +659,12 @@ const Payroll = () => {
                               <Badge bg={
                                 record.type === 'work_hours' ? 'primary' : 
                                 record.type === 'advance' ? 'danger' : 
+                                record.type === 'commission' ? 'info' : 
                                 'warning'
                               }>
                                 {record.type === 'work_hours' ? 'Praca' : 
                                  record.type === 'advance' ? 'Zaliczka' : 
+                                 record.type === 'commission' ? 'Prowizja' :
                                  'Wypłata'}
                               </Badge>
                             </td>
@@ -511,6 +692,11 @@ const Payroll = () => {
                                 </small>
                               )}
                               {record.type === 'payment' && (
+                                <small>
+                                  {record.details.reason}
+                                </small>
+                              )}
+                              {record.type === 'commission' && (
                                 <small>
                                   {record.details.reason}
                                 </small>
