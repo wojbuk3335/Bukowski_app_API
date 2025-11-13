@@ -26,6 +26,9 @@ const Payroll = () => {
   const [showPayments, setShowPayments] = useState(true);
   const [showCommissions, setShowCommissions] = useState(true);
 
+  // State dla szczegółów prowizji
+  const [selectedCommissionDetails, setSelectedCommissionDetails] = useState(null);
+
   // Załaduj listę pracowników przy inicjalizacji
   useEffect(() => {
     fetchEmployees();
@@ -304,7 +307,9 @@ const Payroll = () => {
             reason: commission.reason,
             currency: commission.currency,
             salesAmount: commission.salesAmount,
-            commissionRate: commission.commissionRate
+            commissionRate: commission.commissionRate,
+            commissionDetails: commission.commissionDetails, // Dodajemy szczegóły prowizji
+            employeeName: commission.employeeName
           },
           color: 'info'
         });
@@ -347,6 +352,11 @@ const Payroll = () => {
 
   return (
     <Container fluid className="payroll-container">
+      {/* SUPER DEBUG - powinno być widoczne zawsze */}
+      <div style={{backgroundColor: 'red', color: 'white', padding: '20px', fontSize: '20px', textAlign: 'center'}}>
+        🚨 PAYROLL COMPONENT LOADED! 🚨
+      </div>
+      
       <Row>
         <Col>
           <Card>
@@ -572,6 +582,14 @@ const Payroll = () => {
                     </div>
                   </Card.Header>
                   <Card.Body>
+                    {/* DEBUG: Pokaż ilość danych */}
+                    <div style={{backgroundColor: 'yellow', padding: '10px', marginBottom: '10px'}}>
+                      <h5>DEBUG INFO:</h5>
+                      <p>Wszystkie dane: {getCombinedFinancialData().length}</p>
+                      <p>Prowizje: {getCombinedFinancialData().filter(r => r.type === 'commission').length}</p>
+                      <p>Typy: {getCombinedFinancialData().map(r => r.type).join(', ')}</p>
+                    </div>
+                    
                     <Table striped bordered hover responsive>
                       <thead className="table-dark">
                         <tr>
@@ -585,7 +603,7 @@ const Payroll = () => {
                       <tbody>
                         {getCombinedFinancialData().length > 0 ? (
                           getCombinedFinancialData().map((record, index) => (
-                            <tr key={`${record.type}-${index}`}>
+                            <tr key={`${record.type}-${index}`} onClick={() => alert('RECORD TYPE: ' + record.type)}>
                               <td>{formatDate(record.date)}</td>
                               <td>
                                 <Badge bg={
@@ -629,14 +647,28 @@ const Payroll = () => {
                                   </small>
                                 )}
                                 {record.type === 'commission' && (
-                                  <small>
-                                    {record.details.reason}
-                                    {record.details.salesAmount && record.details.commissionRate && (
-                                      <><br/>
-                                        <em>Obrót: {record.details.salesAmount.toFixed(2)} zł ({record.details.commissionRate}%)</em>
-                                      </>
-                                    )}
-                                  </small>
+                                  <div>
+                                    <div style={{backgroundColor: 'red', color: 'white', padding: '5px'}}>
+                                      DEBUG: To jest prowizja! Type: {record.type}
+                                    </div>
+                                    <Button 
+                                      variant="outline-info" 
+                                      size="sm"
+                                      onClick={() => alert('Kliknięto Szczegóły!')}
+                                    >
+                                      SZCZEGÓŁY TEST
+                                    </Button>
+                                    <div>
+                                      <small>
+                                        {record.details.reason}
+                                        {record.details.salesAmount && record.details.commissionRate && (
+                                          <><br/>
+                                            <em>Obrót: {record.details.salesAmount.toFixed(2)} zł ({record.details.commissionRate}%)</em>
+                                          </>
+                                        )}
+                                      </small>
+                                    </div>
+                                  </div>
                                 )}
                               </td>
                             </tr>
@@ -744,6 +776,64 @@ const Payroll = () => {
                 Zatwierdź wypłatę
               </>
             )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal szczegółów prowizji */}
+      <Modal 
+        show={selectedCommissionDetails !== null} 
+        onHide={() => setSelectedCommissionDetails(null)}
+        size="lg"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className="fas fa-list-ul me-2"></i>
+            Szczegóły prowizji
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedCommissionDetails && (
+            <>
+              <div className="mb-3">
+                <strong>Pracownik:</strong> {selectedCommissionDetails.employeeName}
+                <br />
+                <strong>Łączna prowizja:</strong> <Badge bg="success">+{selectedCommissionDetails.totalAmount.toFixed(2)} zł</Badge>
+                <br />
+                <strong>Łączny obrót:</strong> {selectedCommissionDetails.totalSalesAmount.toFixed(2)} zł
+                <br />
+                <strong>Stawka prowizji:</strong> {selectedCommissionDetails.commissionRate}%
+              </div>
+              
+              <h6>Szczegółowy breakdown:</h6>
+              <Table striped bordered hover size="sm">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Produkt</th>
+                    <th>Wartość sprzedaży</th>
+                    <th>Prowizja</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedCommissionDetails.details.map((detail, index) => (
+                    <tr key={index}>
+                      <td>{index + 1}</td>
+                      <td>{detail.description || detail.productName}</td>
+                      <td>{detail.saleAmount.toFixed(2)} zł</td>
+                      <td>
+                        <Badge bg="info">+{detail.commissionAmount.toFixed(2)} zł</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setSelectedCommissionDetails(null)}>
+            Zamknij
           </Button>
         </Modal.Footer>
       </Modal>

@@ -44,6 +44,9 @@ const Payroll = () => {
   const [showAdvances, setShowAdvances] = useState(true);
   const [showPayments, setShowPayments] = useState(true);
   const [showCommissions, setShowCommissions] = useState(true);
+  
+  // State dla modal ze szczegółami prowizji
+  const [selectedCommissionDetails, setSelectedCommissionDetails] = useState(null);
 
   // Zapisz filtry do localStorage przy każdej zmianie
   useEffect(() => {
@@ -341,7 +344,9 @@ const Payroll = () => {
             reason: commission.reason,
             currency: commission.currency,
             salesAmount: commission.salesAmount,
-            commissionRate: commission.commissionRate
+            commissionRate: commission.commissionRate,
+            commissionDetails: commission.commissionDetails, // Dodaj szczegółowy breakdown
+            employeeName: commission.employeeName
           },
           color: 'info'
         });
@@ -697,9 +702,29 @@ const Payroll = () => {
                                 </small>
                               )}
                               {record.type === 'commission' && (
-                                <small>
-                                  {record.details.reason}
-                                </small>
+                                <div>
+                                  <Button 
+                                    variant="primary"
+                                    size="sm"
+                                    style={{backgroundColor: '#0d6efd', borderColor: '#0d6efd', color: 'white'}}
+                                    onClick={() => setSelectedCommissionDetails({
+                                      details: record.details.commissionDetails || [
+                                        {
+                                          productName: "Pojedyncza prowizja",
+                                          saleAmount: record.details.salesAmount || record.amount * 100,
+                                          commissionAmount: record.amount,
+                                          description: record.details.reason
+                                        }
+                                      ],
+                                      totalAmount: record.amount,
+                                      totalSalesAmount: record.details.salesAmount,
+                                      commissionRate: record.details.commissionRate,
+                                      employeeName: record.details.employeeName || "Pracownik"
+                                    })}
+                                  >
+                                    Szczegóły
+                                  </Button>
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -800,6 +825,70 @@ const Payroll = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Modal ze szczegółami prowizji */}
+      <Modal show={selectedCommissionDetails !== null} onHide={() => setSelectedCommissionDetails(null)} size="xl" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className="fas fa-percentage me-2"></i>
+            Szczegóły prowizji - {selectedCommissionDetails?.employeeName}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{overflow: 'visible'}}>
+          {selectedCommissionDetails && (
+            <div>
+              <div className="mb-3">
+                <strong>Podsumowanie:</strong>
+                <div className="mt-2">
+                  <div className="mb-1">Całkowita prowizja: <span className="text-success fw-bold">{selectedCommissionDetails.totalAmount.toFixed(2)} zł</span></div>
+                  {selectedCommissionDetails.totalSalesAmount && (
+                    <div className="mb-1">Całkowity obrót: <span className="text-info fw-bold">{selectedCommissionDetails.totalSalesAmount.toFixed(2)} zł</span></div>
+                  )}
+                  {selectedCommissionDetails.commissionRate && (
+                    <div className="mb-1">Stawka prowizji: <span className="text-warning fw-bold">{selectedCommissionDetails.commissionRate}%</span></div>
+                  )}
+                </div>
+              </div>
+              
+              <div>
+                <strong>Szczegółowy breakdown:</strong>
+                <div style={{overflow: 'visible'}}>
+                  <Table striped bordered hover className="mt-2" size="sm" responsive>
+                    <thead className="table-dark">
+                      <tr>
+                        <th style={{minWidth: '150px'}}>Produkt</th>
+                        <th style={{minWidth: '120px'}}>Kwota sprzedaży</th>
+                        <th style={{minWidth: '100px'}}>Prowizja</th>
+                        <th style={{minWidth: '150px'}}>Opis</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedCommissionDetails.details.map((detail, index) => (
+                        <tr key={index}>
+                          <td style={{wordWrap: 'break-word'}}>{detail.productName || 'Nieznany produkt'}</td>
+                          <td>
+                            <Badge bg="info">{detail.saleAmount?.toFixed(2) || '0.00'} zł</Badge>
+                          </td>
+                          <td>
+                            <Badge bg="success">{detail.commissionAmount?.toFixed(2) || '0.00'} zł</Badge>
+                          </td>
+                          <td style={{wordWrap: 'break-word'}}>{detail.description || 'Brak opisu'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setSelectedCommissionDetails(null)}>
+            Zamknij
+          </Button>
+        </Modal.Footer>
+      </Modal>
+      
     </Container>
   );
 };
