@@ -1,0 +1,77 @@
+/* SeachEngineList.module.css */
+
+.container {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+}
+
+.header {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 16px;
+}
+
+.list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.listItem {
+    padding: 8px;
+    border-bottom: 1px solid #ccc;
+}
+
+.listItem:hover {
+    background-color: #f9f9f9;
+    cursor: pointer;
+}
+
+.responsiveTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.responsiveTable thead {
+    display: table-header-group;
+}
+
+.responsiveTable tbody tr {
+    display: table-row;
+}
+
+.responsiveTable td {
+    padding: 8px;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .responsiveTable thead {
+        display: none; /* Hide table headers on mobile */
+    }
+
+    .responsiveTable tbody tr {
+        display: block; /* Display rows as blocks */
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+    }
+
+    .responsiveTable td {
+        display: block; /* Display cells as blocks */
+        text-align: left;
+        padding: 10px;
+        position: relative;
+    }
+
+    .responsiveTable td::before {
+        content: attr(data-label); /* Use data-label for column titles */
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+        color: #fff;
+    }
+
+    .hideOnMobile {
+        display: none !important; /* Hide elements on mobile */
+    }
+}

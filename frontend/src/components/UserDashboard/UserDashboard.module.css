@@ -1,0 +1,76 @@
+.loginText{
+    margin-top: 20px;
+    font-size: 25px;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    color: #fff;
+}
+
+.logoutButton {
+    background-color: #0d6efd; /* Red */
+    border: none;
+    color: rgb(0, 0, 0);
+    padding: 5px 10px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 12px; /* Make the button small */
+    margin: 10px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.logoutButton:hover {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.autTextEmail {
+    color: #0d6efd;
+}
+  
+.userPanel {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center horizontally */
+}
+  
+.loginText {
+    margin-right: 10px; /* Adjust as needed */
+}
+  
+.user-dashboard-nav {
+    margin-top: 20px;
+}
+  
+.user-dashboard-nav ul {
+    list-style-type: none;
+    padding: 0;
+}
+  
+.user-dashboard-nav li {
+    display: inline;
+    margin-right: 10px;
+}
+  
+.user-dashboard-nav a {
+    text-decoration: none;
+    color: #0d6efd;
+}
+  
+.user-dashboard-content {
+    margin-top: 20px;
+}
+  
+/* Media query for smaller screens */
+@media (max-width: 800px) {
+    .loginText {
+      font-size: 14px; /* Smaller font size */
+      margin-right: 5px; /* Adjust margin */
+    }
+  
+    .logoutButton {
+      font-size: 14px; /* Smaller font size */
+      padding: 3px 7px; /* Adjust padding */
+    }
+}

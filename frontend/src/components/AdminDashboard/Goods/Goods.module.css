@@ -1,0 +1,916 @@
+:root {
+    --bs-table-bg: #bf2121;
+    /* Override Bootstrap table background color */
+    --bs-table-color: var(--bs-table-color-state, var(--bs-table-color-type, #ffffff));
+    /* Override Bootstrap table text color */
+}
+
+.title {
+    color: white;
+}
+
+.addButton {
+    margin-bottom: 20px;
+    color: black;
+}
+
+.tableContainer {
+    overflow-x: auto;
+}
+
+.table {
+    color: #ffffff !important;
+    text-decoration: none !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border: 1px solid white !important;
+    margin: 0 auto !important;
+    background-color: #000000 !important;
+    --bs-table-bg: black;
+    --bs-table-color-state: white;
+    --bs-table-color-type: white;
+    --bs-table-color: white;
+}
+
+.tableHeader {
+    border: 1px solid white !important;
+    padding: 8px !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    white-space: nowrap !important;
+}
+
+.tableCell {
+    border: 1px solid white !important;
+    padding: 8px !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+/* Specific rule for th elements with tableCell class (Lp column) */
+th.tableCell {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: 1px solid white !important;
+}
+
+.custom-modal .modal-content {
+    background-color: black;
+    color: white;
+    border: 1px solid white;
+}
+
+.modalHeader {
+    display: flex !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+    padding: 1rem !important;
+    border-bottom: 1px solid #dee2e6 !important;
+    border-top-left-radius: 0.375rem !important;
+    border-top-right-radius: 0.375rem !important;
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: 1px solid white !important;
+    cursor: grab !important;
+}
+
+.modalHeader .btn-close {
+    background-color: white;
+    /* Set background color to white */
+    color: black;
+    /* Set font color to black */
+    border-radius: 50%;
+    /* Make it circular */
+    padding: 5px;
+    /* Add some padding */
+    border: 1px solid black;
+    /* Add border for better visibility */
+    position: absolute;
+    /* Position it absolutely */
+    top: 10px;
+    /* Adjust top position */
+    right: 10px;
+    /* Adjust right position */
+}
+
+.btn-close {
+    --bs-btn-close-color: #fff;
+    --bs-btn-close-bg: url(data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27 fill=%27%23fff%27%3e%3cpath d=%27M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z%27/%3e%3c/svg%3e);
+    display: none;
+    /* Hide the default close button */
+}
+
+.modalBody {
+    position: relative;
+    flex: 1 1 auto;
+    padding: var(--bs-modal-body-padding);
+    color: white;
+    border: 1px solid white;
+    background-color: black;
+    padding: 20px;
+}
+
+.modalFooter {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    padding: var(--bs-modal-footer-padding);
+    border-top: var(--bs-modal-footer-border-width) solid var(--bs-modal-footer-border-color);
+    background-color: black;
+    color: white;
+    border: 1px solid white;
+}
+
+.formGroup {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    /* Add margin between the label and input/select */
+}
+
+.emailLabel {
+    margin-right: 20px;
+    /* Increase margin-right for better spacing */
+    color: white;
+    min-width: 80px;
+    /* Adjust the width as needed */
+    margin-bottom: 0;
+    /* Ensure no margin at the bottom */
+}
+
+.label {
+    margin-right: 20px;
+    color: white;
+    min-width: 150px; /* Fixed width for consistent alignment */
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.inputField {
+    flex: 1;
+    background-color: black;
+    /* Set background color to black */
+    color: white;
+    /* Set font color to white */
+    margin-bottom: 0;
+    /* Ensure no margin at the bottom */
+    width: 100% !important; /* Force full width */
+    box-sizing: border-box; /* Include padding and border in width calculation */
+}
+
+/* Specific styling for textarea to match input fields exactly */
+.inputField textarea,
+textarea.inputField {
+    resize: none !important;
+    padding: 0.375rem 0.75rem !important; /* Same padding as Bootstrap inputs */
+    border: 1px solid #ced4da !important;
+    border-radius: 0.25rem !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+    width: calc(100% + 8px) !important; /* Slightly wider than other inputs */
+    box-sizing: border-box !important;
+    min-height: 80px !important; /* Height for approximately 3 lines */
+    height: 80px !important; /* Fixed height */
+    overflow-y: hidden !important; /* Hide scrollbar initially */
+    background-color: black !important;
+    color: white !important;
+}
+
+.buttonGroup {
+    display: flex;
+    gap: 10px;
+    /* Add margin between buttons */
+    justify-content: center;
+    /* Center the buttons horizontally */
+}
+
+.buttonGroup .btn {
+    color: black;
+    /* Set font color to black */
+    font-size: 12px;
+    /* Make the buttons small */
+    padding: 5px 10px;
+    /* Adjust padding for smaller buttons */
+}
+
+.buttonGroup .btn:hover {
+    color: white;
+    /* Set font color to white on hover */
+}
+
+.btn-danger {
+    --bs-btn-color: #000000;
+    color: #000000;
+}
+
+.btn-warning:hover {
+    color: rgb(255, 255, 255) !important;
+    /* Ensure the font color is set to black on hover */
+}
+
+.btn-warning {
+    --bs-btn-hover-color: white;
+    /* Set hover color to white */
+}
+
+.btn-wyloguj {
+    color: black;
+    /* Set font color to black */
+    font-size: 12px;
+    /* Make the button small */
+    padding: 5px 10px;
+    /* Adjust padding for smaller button */
+}
+
+.btn-wyloguj:hover {
+    color: white;
+    /* Set font color to white on hover */
+}
+
+.btn-close {
+    --bs-btn-close-bg: transparent;
+    /* Set the background to transparent */
+    display: none;
+    /* Hide the default close button */
+}
+
+.modal-header .btn-close {
+    padding: calc(var(--bs-modal-header-padding-y)* .5) calc(var(--bs-modal-header-padding-x)* .5);
+    margin: calc(-.5* var(--bs-modal-header-padding-y)) calc(-.5* var(--bs-modal-header-padding-x)) calc(-.5* var(--bs-modal-header-padding-y)) auto;
+    display: none;
+}
+
+.modal-backdrop {
+    background-color: red;
+}
+
+.form-select {
+    color: #ffffff;
+    background-color: #000000;
+
+}
+
+.btn-warning {
+    --bs-btn-color: #ffffff;
+    --bs-btn-bg: #ffc107;
+    --bs-btn-border-color: #ffc107;
+    --bs-btn-hover-color: #000;
+    --bs-btn-hover-bg: #ffca2c;
+    --bs-btn-hover-border-color: #ffc720;
+    --bs-btn-focus-shadow-rgb: 217, 164, 6;
+    --bs-btn-active-color: #000;
+    --bs-btn-active-bg: #ffcd39;
+    --bs-btn-active-border-color: #ffc720;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #000;
+    --bs-btn-disabled-bg: #ffc107;
+    --bs-btn-disabled-border-color: #ffc107;
+}
+
+.sellingPointColumn {
+    width: 150px;
+    /* Adjust the width as needed */
+    white-space: nowrap;
+    /* Prevent text from wrapping */
+}
+
+.hand-cursor {
+    cursor: pointer;
+}
+
+.draggable-header {
+    cursor: move !important;
+}
+
+.modal-header {
+    cursor: move !important;
+}
+
+.noWrapLabel {
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+
+    .table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid white;
+        /* Ensure table border remains white */
+    }
+
+    .table thead {
+        display: none;
+    }
+
+    .table tbody,
+    .table tr,
+    .table td {
+        display: block;
+        width: 100%;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+    }
+
+    .table tr {
+        margin-bottom: 15px;
+    }
+
+    .table td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+    }
+
+    .table td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 50%;
+        padding-left: 15px;
+        font-weight: bold;
+        text-align: left;
+    }
+
+    .table td[data-label="Punkt sprzedaży"]::before {
+        content: "Punkt sprzedaży";
+        /* Ensure the label is displayed even if the content is empty */
+    }
+
+    .buttonGroup .btn {
+        margin-bottom: 10px;
+        /* Add margin between buttons */
+        margin-right: 10px;
+    }
+
+    .btn-warning {
+        --bs-btn-color: #000000;
+        --bs-btn-hover-color: #ffffff;
+        margin-right: 10px;
+    }
+}
+
+@media (max-width: 2150px) {
+
+    .tableHeader,
+    .tableCell {
+        font-size: 0.875rem;
+        /* Smaller font size */
+    }
+
+    .button,
+    .btn {
+        font-size: 0.75rem;
+        /* Smaller button size */
+        padding: 5px 10px;
+        /* Adjust padding for smaller buttons */
+    }
+
+    .addButton,
+    .addExceptionButton {
+        font-size: 0.75rem;
+        /* Smaller button size */
+        padding: 5px 10px;
+        /* Adjust padding for smaller buttons */
+    }
+}
+
+@media (max-width: 1900px) {
+
+    .tableHeader,
+    .tableCell {
+        font-size: 0.75rem;
+        /* Even smaller font size */
+    }
+
+    .button,
+    .btn {
+        font-size: 0.625rem;
+        /* Even smaller button size */
+        padding: 4px 8px;
+        /* Adjust padding for even smaller buttons */
+    }
+
+    .addButton,
+    .addExceptionButton {
+        font-size: 0.625rem;
+        /* Even smaller button size */
+        padding: 4px 8px;
+        /* Adjust padding for even smaller buttons */
+    }
+}
+
+@media (max-width: 1660px) {
+    .table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid white;
+        /* Ensure table border remains white */
+    }
+
+    .table thead {
+        display: none;
+    }
+
+    .table tbody,
+    .table tr,
+    .table td,
+    .table th {
+        display: block;
+        width: 100%;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+    }
+
+    .table tr {
+        margin-bottom: 15px;
+        background-color: white;
+        /* Set background color to white */
+    }
+
+    .table td,
+    .table th {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+        min-height: 30px;
+        /* Set a minimum height for cells */
+        display: flex;
+        align-items: center;
+        /* Center text vertically */
+        justify-content: flex-end;
+        /* Align text to the right */
+        background-color: black;
+        /* Set background color to black */
+    }
+
+    .table td::before,
+    .table th::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 50%;
+        padding-left: 15px;
+        font-weight: bold;
+        text-align: left;
+    }
+
+    .table td[data-label="Lp"]::before {
+        content: "Lp";
+        position: absolute;
+        top: -20px;
+        /* Adjust this value to center the title vertically */
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        width: 100%;
+    }
+
+    .table td[data-label="Lp"] {
+        width: 100%;
+        /* Make the width 100% */
+    }
+
+    .table td[data-label="Produkt"]::before {
+        content: "Produkt";
+    }
+
+    .table td[data-label="Kolor"]::before {
+        content: "Kolor";
+    }
+
+    .table td[data-label="Nazwa produktu"]::before {
+        content: "Nazwa produktu";
+    }
+
+    .table td[data-label="Kod produktu"]::before {
+        content: "Kod produktu";
+    }
+
+    .table td[data-label="Kategoria"]::before {
+        content: "Kategoria";
+    }
+
+    .table td[data-label="Zdjęcie"]::before {
+        content: "Zdjęcie";
+    }
+
+    .table td[data-label="Cena (PLN)"]::before {
+        content: "Cena (PLN)";
+    }
+
+    .table td[data-label="Cena promocyjna (PLN)"]::before {
+        content: "Cena promocyjna (PLN)";
+    }
+
+    .table td[data-label="Wyjątki"]::before {
+        content: "Wyjątki";
+    }
+
+    .table td[data-label="Akcje"]::before {
+        content: "Akcje";
+    }
+
+}
+
+@media (max-width: 1660px) {
+    .table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid white;
+        /* Ensure table border remains white */
+    }
+
+    .table thead {
+        display: none;
+    }
+
+    .table tbody,
+    .table tr,
+    .table td,
+    .table th {
+        display: block;
+        width: 100%;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+    }
+
+    .table tr {
+        margin-bottom: 15px;
+        background-color: white;
+        /* Set background color to white */
+    }
+
+    .table td,
+    .table th {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border: 1px solid white;
+        /* Ensure table cell borders remain white */
+        min-height: 30px;
+        /* Set a minimum height for cells */
+        display: flex;
+        align-items: center;
+        /* Center text vertically */
+        justify-content: flex-end;
+        /* Align text to the right */
+        background-color: black;
+        /* Set background color to black */
+    }
+
+    .table td::before,
+    .table th::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 50%;
+        padding-left: 15px;
+        font-weight: bold;
+        text-align: left;
+    }
+
+    .table td[data-label="Lp"]::before {
+        content: "Lp";
+        position: absolute;
+        top: -20px;
+        /* Adjust this value to center the title vertically */
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        width: 100%;
+    }
+
+    .table td[data-label="Lp"] {
+        width: 100%;
+        /* Make the width 100% */
+    }
+
+    .table td[data-label="Produkt"]::before {
+        content: "Produkt";
+    }
+
+    .table td[data-label="Kolor"]::before {
+        content: "Kolor";
+    }
+
+    .table td[data-label="Nazwa produktu"]::before {
+        content: "Nazwa produktu";
+    }
+
+    .table td[data-label="Kod produktu"]::before {
+        content: "Kod produktu";
+    }
+
+    .table td[data-label="Kategoria"]::before {
+        content: "Kategoria";
+    }
+
+    .table td[data-label="Zdjęcie"]::before {
+        content: "Zdjęcie";
+    }
+
+    .table td[data-label="Cena (PLN)"]::before {
+        content: "Cena (PLN)";
+    }
+
+    .table td[data-label="Cena promocyjna (PLN)"]::before {
+        content: "Cena promocyjna (PLN)";
+    }
+
+    .table td[data-label="Wyjątki"]::before {
+        content: "Wyjątki";
+    }
+
+    .table td[data-label="Akcje"]::before {
+        content: "Akcje";
+    }
+
+    /* Style for the <tbody> element in the table */
+    .table tbody {
+        background-color: #f8f9fa;
+        /* Set the background color */
+        color: #212529;
+        /* Set the text color */
+    }
+
+    /* Style for the <td> elements within the <tbody> */
+    .table tbody td {
+        background-color: #000000;
+        /* Set the background color for table cells */
+        color: #ffffff;
+        /* Set the text color */
+        padding: 10px;
+        /* Add padding */
+        border: 1px solid #ddd;
+        /* Add border */
+    }
+}
+
+.button {
+    font-size: 0.875rem;
+    /* Small button size */
+    margin-bottom: 10px;
+}
+
+.buttonRefresh {
+    background-color: #ffc107;
+    /* Bootstrap yellow */
+    border-color: #ffc107;
+    color: #212529;
+    margin-bottom: 10px;
+}
+
+.buttonRefresh:hover {
+    background-color: #ffe066;
+    /* Lighter yellow */
+    border-color: #ffe066;
+    color: #212529;
+}
+
+.UploadButton {
+    margin-right: 5px;
+}
+
+.inputFile {
+    display: inline-block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.2;
+    color: #fff;
+    /* Set text color to white */
+    background-color: #000;
+    /* Set background color to black */
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: 0.3rem;
+    /* Bootstrap-like border radius */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: pointer;
+    /* Add pointer cursor on hover */
+}
+
+.inputFile:focus {
+    color: #fff;
+    /* Ensure text color remains white on focus */
+    background-color: #000;
+    /* Ensure background color remains black on focus */
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.inputFile:hover {
+    border-color: #fff;
+    /* Change border color to white on hover */
+}
+
+.inputFile::file-selector-button {
+    cursor: pointer;
+    /* Ensure the cursor is a pointer for the file input button */
+    color: #000000;
+}
+
+.inputFile::file-selector-button:hover {
+    color: #ffffff;
+    background-color: #df480c;
+    /* Darken background color on hover */
+    border-color: #da1919;
+    /* Darken border color on hover */
+}
+
+.priceExceptionRow {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    /* Add margin between rows */
+}
+
+.priceExceptionInput {
+    margin-right: 10px;
+    /* Add margin between inputs */
+}
+
+.removeButton {
+    margin-left: 10px;
+    /* Add margin to the left of the remove button */
+}
+
+.addExceptionButtonContainer {
+    text-align: center;
+    /* Center the button */
+    margin-top: 10px;
+    /* Add margin to the top of the container */
+    width: 100%;
+    /* Ensure it takes the full width */
+}
+
+.addExceptionButton {
+    margin-top: 0;
+    /* Remove margin from the button itself */
+}
+
+.addExceptionButton,
+.addButton {
+    color: black;
+    /* Set font color to black */
+}
+
+.addExceptionButton:hover,
+.addButton:hover {
+    color: white;
+    /* Set font color to white on hover */
+}
+
+span {
+    /* font-weight: 500; */
+    font-family: var(--bs-body-font-family);
+    font-weight: 400;
+}
+
+.btn-primary {
+    --bs-btn-color: #000000;
+}
+
+.inputFile::file-selector-button:hover {
+    color: #000000;
+    background-color: #df480c;
+    /* Darken background color on hover */
+    border-color: #da1919;
+    /* Darken border color on hover */
+}
+
+.inputFile::file-selector-button:hover {
+    color: #000000;
+    background-color: #df480c;
+    /* Darken background color on hover */
+    border-color: #da1919;
+    /* Darken border color on hover */
+}
+
+.btn-success {
+    --bs-btn-color: #000000;
+}
+
+.red {
+    color: red;
+}
+
+.yellow {
+    color: yellow;
+}
+
+.blue {
+    color: blue;
+}
+
+.green {
+    color: green;
+}
+
+.inputWrapper {
+    position: relative;
+    width: 100%;
+}
+
+.hiddenInput {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    z-index: 1;
+}
+
+.styledCode {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+.redLetters {
+    color: red;
+}
+
+.digit-color::placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.digit-color {
+    color: black;
+    /* Default color for non-digit characters */
+}
+
+.digit-color::-webkit-input-placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.digit-color::-moz-placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.digit-color:-ms-input-placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+.digit-color:-moz-placeholder {
+    color: red;
+    /* Change this to your desired color */
+}
+
+/* Style for disabled fields during edit mode */
+.disabledField {
+    background-color: #f5f5f5 !important;
+    color: #6c757d !important;
+    cursor: not-allowed !important;
+    opacity: 0.7 !important;
+}
+
+.disabledField:disabled {
+    background-color: #e9ecef !important;
+    border-color: #d6d8db !important;
+}
+
+/* Style for readonly fields */
+.inputField[readonly] {
+    background-color: #2c2c2c !important; /* Darker gray background */
+    color: #cccccc !important; /* Light gray text */
+    cursor: not-allowed !important;
+    opacity: 0.8 !important;
+    border-color: #555555 !important; /* Darker border */
+}

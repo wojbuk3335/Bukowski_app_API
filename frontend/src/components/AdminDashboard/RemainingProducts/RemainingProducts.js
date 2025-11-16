@@ -1,0 +1,503 @@
+import React, { Fragment, useEffect, useState } from "react";
+import {
+    Col,
+    Row,
+    Button,
+    FormGroup,
+    Input,
+    Table,
+    Modal,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+} from "reactstrap";
+import axios from "axios";
+import styles from './RemainingProducts.module.css';
+
+const RemainingProducts = () => {
+    const [loading, setLoading] = useState(false);
+    const [rows, setRows] = useState([]);
+    const [modal, setModal] = useState(false);
+    const [currentProduct, setCurrentProduct] = useState({ _id: '', Poz_Kod: '', productType: '' });
+    const [startingNumber, setStartingNumber] = useState(10);
+    const [validationMessage, setValidationMessage] = useState('');
+
+    // Validation function for Poz_Kod - different rules based on product type
+    const validatePozKod = (value, productType) => {
+        if (!value || value === '') return { isValid: true, message: '' };
+        
+        // Special validation for Pasek (Belt) - format: "APS 052" (3 letters + space + 3 digits)
+        if (productType === 'Pasek') {
+            const beltPattern = /^[A-Z]{3} \d{3}$/;
+            if (!beltPattern.test(value)) {
+                return { 
+                    isValid: false, 
+                    message: 'Pasek musi mieć format: 3 duże litery + spacja + 3 cyfry (np. APS 052)' 
+                };
+            }
+            return { isValid: true, message: '' };
+        }
+        
+        // Validation for Rękawiczka - MUST have a dot followed by exactly 3 digits
+        if (productType === 'Rękawiczka') {
+            // Check if the value contains at least one number with a dot and exactly 3 digits after it
+            const hasValidDecimal = /\d+\.\d{3}/.test(value);
+            
+            if (!hasValidDecimal) {
+                return { 
+                    isValid: false, 
+                    message: 'Rękawiczka: Poz_Kod musi zawierać liczbę z kropką i dokładnie 3 cyframi po niej (np. Rekawiczka12.123)' 
+                };
+            }
+            
+            // Additional check: make sure no numbers have more than 3 decimal places
+            const decimalMatches = value.match(/\d+\.\d+/g);
+            if (decimalMatches) {
+                for (let match of decimalMatches) {
+                    const decimalPart = match.split('.')[1];
+                    if (decimalPart && decimalPart.length !== 3) {
+                        return { 
+                            isValid: false, 
+                            message: 'Rękawiczka: Wszystkie liczby muszą mieć dokładnie 3 cyfry po kropce (np. 12.123, nie 12.12 ani 12.1234)' 
+                        };
+                    }
+                }
+            }
+            
+            // Check for reasonable length for gloves
+            if (value.length > 100) {
+                return { 
+                    isValid: false, 
+                    message: 'Poz_Kod może mieć maksymalnie 100 znaków' 
+                };
+            }
+            
+            return { isValid: true, message: '' };
+        }
+        
+        // Default validation for products without type selected
+        const decimalMatches = value.match(/\d+\.\d+/g);
+        if (decimalMatches) {
+            for (let match of decimalMatches) {
+                const decimalPart = match.split('.')[1];
+                if (decimalPart && decimalPart.length > 3) {
+                    return { 
+                        isValid: false, 
+                        message: 'Poz_Kod nie może zawierać liczb z więcej niż 3 cyframi po kropce (np. 12.123 jest ok, ale 12.1234 nie)' 
+                    };
+                }
+            }
+        }
+        
+        // Check for reasonable length
+        if (value.length > 100) {
+            return { 
+                isValid: false, 
+                message: 'Poz_Kod może mieć maksymalnie 100 znaków' 
+            };
+        }
+        
+        return { isValid: true, message: '' };
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const toggleModal = () => setModal(!modal);
+
+    const handleUpdateClick = (product) => {
+        const defaultProductType = product.productType || 'Rękawiczka';
+        const currentPozKod = product.Poz_Kod || '';
+        
+        setCurrentProduct({
+            _id: product._id,
+            Poz_Nr: product.Poz_Nr,
+            Poz_Kod: currentPozKod,
+            productType: defaultProductType
+        });
+        
+        // Validate existing code with default/current product type
+        if (currentPozKod !== '') {
+            const validation = validatePozKod(currentPozKod, defaultProductType);
+            setValidationMessage(validation.isValid ? '' : validation.message);
+        } else {
+            setValidationMessage('');
+        }
+        
+        toggleModal();
+    };
+
+    const handleUpdateChange = (e) => {
+        const newValue = e.target.value;
+        // Always allow typing
+        setCurrentProduct({ ...currentProduct, Poz_Kod: newValue });
+        
+        // Show real-time validation feedback without blocking input
+        if (newValue !== '') {
+            const validation = validatePozKod(newValue, currentProduct.productType);
+            setValidationMessage(validation.isValid ? '' : validation.message);
+        } else {
+            setValidationMessage('');
+        }
+    };
+
+    const handleProductTypeChange = (e) => {
+        const newProductType = e.target.value;
+        const currentPozKod = currentProduct.Poz_Kod;
+        
+        setCurrentProduct({ ...currentProduct, productType: newProductType });
+        
+        // Update validation message for current value with new product type
+        if (currentPozKod !== '') {
+            const validation = validatePozKod(currentPozKod, newProductType);
+            setValidationMessage(validation.isValid ? '' : validation.message);
+        } else {
+            setValidationMessage('');
+        }
+    };
+
+    const handlePaste = (e) => {
+        // Allow pasting - validation will happen in real-time via handleUpdateChange
+        // No need to block paste operation
+    };
+
+    const handleUpdateSubmit = async () => {
+        try {
+            setLoading(true);
+
+            // Validate the Poz_Kod before submitting
+            const validation = validatePozKod(currentProduct.Poz_Kod, currentProduct.productType);
+            if (!validation.isValid) {
+                alert(validation.message);
+                setLoading(false);
+                return;
+            }
+
+            // Check if the Poz_Kod value is unique
+            const response = await axios.get(`/api/excel/remaining-products/get-all-remaining-products`);
+            const products = response.data.remainingProducts;
+            const duplicate = products.find(product => product.Poz_Kod === currentProduct.Poz_Kod && product._id !== currentProduct._id);
+
+            if (duplicate && currentProduct.Poz_Kod !== "") {
+                alert(`Wartość Poz_Kod "${currentProduct.Poz_Kod}" już istnieje w bazie danych. Proszę wybrać inną wartość.`);
+                setLoading(false);
+                return;
+            }
+
+            await axios.patch(`/api/excel/remaining-products/update-remaining-products/${currentProduct._id}`, { 
+                Poz_Kod: currentProduct.Poz_Kod,
+                productType: currentProduct.productType 
+            });
+            fetchData();
+            toggleModal();
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const result = (await axios.get(`/api/excel/remaining-products/get-all-remaining-products`)).data;
+            // Sort in descending order - newest (highest number) on top
+            const sortedProducts = Array.isArray(result.remainingProducts) ? result.remainingProducts.sort((a, b) => Number(b.Poz_Nr) - Number(a.Poz_Nr)) : [];
+            setRows(sortedProducts);
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleStartingNumberChange = (e) => {
+        const value = parseInt(e.target.value);
+        // Ensure minimum value is 10
+        if (value < 10) {
+            setStartingNumber(10);
+        } else {
+            setStartingNumber(value || 10);
+        }
+    };
+
+    const addNewRow = async () => {
+        try {
+            setLoading(true);
+
+            // Get current products to find next Poz_Nr
+            const productList = await getProductList();
+            
+            let nextPozNr;
+            if (productList.length === 0) {
+                // First row - use starting number, ale sprawdź czy jest w zakresie
+                if (startingNumber < 10 || startingNumber > 99) {
+                    alert("Numer początkowy musi być w zakresie 10-99.");
+                    setLoading(false);
+                    return;
+                }
+                nextPozNr = startingNumber;
+            } else {
+                // Subsequent rows - increment from max
+                const maxPozNr = Math.max(...productList.map(product => Number(product.Poz_Nr) || 0));
+                nextPozNr = maxPozNr + 1;
+            }
+
+            // Check if we reached the limit (max 99 positions)
+            if (nextPozNr > 99) {
+                alert("Osiągnięto maksymalną liczbę produktów (99). Nie można dodać więcej wierszy.");
+                setLoading(false);
+                return;
+            }
+
+            // Create new product
+            const newProduct = {
+                Poz_Nr: nextPozNr,
+                Poz_Kod: ""
+            };
+
+            await axios.post('/api/excel/remaining-products/insert-remaining-products', [newProduct]);
+            
+            fetchData();
+        } catch (error) {
+            console.log(error);
+            alert("Błąd podczas dodawania nowego wiersza");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getProductList = async () => {
+        try {
+            const url = `/api/excel/remaining-products/get-all-remaining-products`;
+            const productResponse = (await axios.get(url)).data;
+            return Array.isArray(productResponse.remainingProducts) ? productResponse.remainingProducts : [];
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    };
+
+    const renderDataTable = () => (
+        <Table className={styles.table}>
+            <thead>
+                <tr>
+                    <th>Poz_Nr</th>
+                    <th>Poz_Kod</th>
+                    <th>Typ produktu</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map((item, idx) => (
+                    <tr key={idx}>
+                        <td id_from_excel_column={item.Poz_Nr} id={item._id}>{item.Poz_Nr}</td>
+                        <td id_from_excel_column={item.Poz_Nr} id={item._id}>{item.Poz_Kod}</td>
+                        <td id_from_excel_column={item.Poz_Nr} id={item._id}>
+                            {item.productType || ''}
+                        </td>
+                        <td id_from_excel_column={item.Poz_Nr} id={item._id}>
+                            <Button id_from_excel_column={item.Poz_Nr} id={item._id} color="primary" size="sm" className={styles.button} onClick={() => handleUpdateClick(item)}>Aktualizuj</Button>
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </Table>
+    );
+
+    if (loading) {
+        return (
+            <div
+                className="spinner-container"
+                style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'black',
+                }}
+            >
+                <div
+                    className="spinner-border"
+                    role="status"
+                    style={{
+                        color: 'white',
+                        width: '3rem',
+                        height: '3rem',
+                    }}
+                >
+                    <span className="sr-only"></span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <Fragment>
+                <h3 className={`${styles.textCenter} ${styles.mt4} ${styles.mb4} ${styles.textWhite}`}>
+                    Pozostały asortyment
+                </h3>
+                <div className={styles.container}>
+                    {rows.length === 0 && (
+                        <Row className={styles.xxx}>
+                            <Col md="12" className={styles.textCenter}>
+                                <FormGroup>
+                                    <label className={styles.textWhite} style={{ marginBottom: '10px', display: 'block' }}>
+                                        Numer początkowy (od którego zacząć liczenie):
+                                    </label>
+                                    <Input
+                                        type="number"
+                                        min="10"
+                                        max="99"
+                                        value={startingNumber}
+                                        onChange={handleStartingNumberChange}
+                                        style={{ 
+                                            width: '100px', 
+                                            margin: '0 auto 20px auto',
+                                            backgroundColor: 'black',
+                                            color: 'white',
+                                            border: '1px solid white'
+                                        }}
+                                    />
+                                    <div className={styles.textWhite} style={{ fontSize: '0.9rem', marginBottom: '20px' }}>
+                                        Liczenie będzie od {startingNumber} do 99 (max {99 - startingNumber + 1} pozycji)
+                                    </div>
+                                </FormGroup>
+                            </Col>
+                        </Row>
+                    )}
+                    <Row className={styles.xxx}>
+                        <Col md="12" className={styles.textCenter}>
+                            <div className={styles.buttonGroup}>
+                                <Button disabled={loading} color="primary" size="sm" className={`${styles.button} ${styles.buttonAdd}`} onClick={addNewRow}>
+                                    {"Dodaj nowy wiersz"}
+                                </Button>
+                                <Button color="secondary" size="sm" className={`${styles.button} ${styles.buttonRefresh}`} onClick={fetchData}>Odśwież</Button>
+                            </div>
+                        </Col>
+                    </Row>
+                    {renderDataTable()}
+                </div>
+            </Fragment>
+
+            {/* Modal dla edycji */}
+            <Modal 
+                isOpen={modal} 
+                toggle={toggleModal}
+                contentClassName="bg-dark text-white border-white"
+                style={{ 
+                    '--bs-modal-bg': 'black',
+                    '--bs-modal-header-bg': 'black',
+                    '--bs-modal-body-bg': 'black',
+                    '--bs-modal-footer-bg': 'black'
+                }}
+            >
+                <ModalHeader toggle={toggleModal} className={styles.modalHeader}>
+                    Aktualizuj produkt (Poz_Nr: {currentProduct.Poz_Nr})
+                </ModalHeader>
+                <ModalBody className={styles.modalBody}>
+                    <FormGroup style={{ marginBottom: '20px' }}>
+                        <label style={{ color: 'white', marginBottom: '12px', display: 'block', fontWeight: 'bold' }}>
+                            Typ produktu:
+                        </label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <label style={{ color: 'white', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                                <input
+                                    type="radio"
+                                    name="productType"
+                                    value="Rękawiczka"
+                                    checked={currentProduct.productType === 'Rękawiczka'}
+                                    onChange={handleProductTypeChange}
+                                    style={{ marginRight: '8px' }}
+                                />
+                                Rękawiczka
+                            </label>
+                            <label style={{ color: 'white', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                                <input
+                                    type="radio"
+                                    name="productType"
+                                    value="Pasek"
+                                    checked={currentProduct.productType === 'Pasek'}
+                                    onChange={handleProductTypeChange}
+                                    style={{ marginRight: '8px' }}
+                                />
+                                Pasek
+                            </label>
+                        </div>
+                    </FormGroup>
+                    
+                    <FormGroup>
+                        <label htmlFor="pozKodInput" style={{ color: 'white', marginBottom: '8px', display: 'block' }}>
+                            Poz_Kod:
+                        </label>
+                        {currentProduct.productType === 'Pasek' && (
+                            <div style={{ 
+                                color: '#ffc107', 
+                                fontSize: '0.85rem', 
+                                marginBottom: '8px',
+                                fontStyle: 'italic' 
+                            }}>
+                                Format dla pasków: 3 duże litery + spacja + 3 cyfry (np. APS 052)
+                            </div>
+                        )}
+                        {currentProduct.productType === 'Rękawiczka' && (
+                            <div style={{ 
+                                color: '#28a745', 
+                                fontSize: '0.85rem', 
+                                marginBottom: '8px',
+                                fontStyle: 'italic' 
+                            }}>
+                                Format dla rękawiczek: musi zawierać liczbę z kropką i dokładnie 3 cyframi (np. Rekawiczka12.123)
+                            </div>
+                        )}
+                        <Input
+                            id="pozKodInput"
+                            type="text"
+                            value={currentProduct.Poz_Kod}
+                            onChange={handleUpdateChange}
+                            onPaste={handlePaste}
+                            placeholder={
+                                currentProduct.productType === 'Pasek' 
+                                    ? "np. APS 052" 
+                                    : currentProduct.productType === 'Rękawiczka'
+                                    ? "np. Rekawiczka12.123"
+                                    : "np. Kod12.123"
+                            }
+                            title={
+                                currentProduct.productType === 'Pasek'
+                                    ? "Format: 3 duże litery + spacja + 3 cyfry (np. APS 052)"
+                                    : currentProduct.productType === 'Rękawiczka'
+                                    ? "Format: musi zawierać liczbę z kropką i dokładnie 3 cyframi (np. Rekawiczka12.123)"
+                                    : "Kod może zawierać różne formaty"
+                            }
+                            style={{
+                                borderColor: validationMessage ? '#dc3545' : ''
+                            }}
+                        />
+                        {validationMessage && (
+                            <div style={{ 
+                                color: '#dc3545', 
+                                fontSize: '0.8rem', 
+                                marginTop: '4px',
+                                fontStyle: 'italic',
+                                backgroundColor: '#ffebee',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid #dc3545'
+                            }}>
+                                {validationMessage}
+                            </div>
+                        )}
+                    </FormGroup>
+                </ModalBody>
+                <ModalFooter className={styles.modalFooter}>
+                    <Button color="primary" size="sm" className={styles.button} onClick={handleUpdateSubmit}>Aktualizuj</Button>{' '}
+                    <Button color="secondary" size="sm" className={styles.button} onClick={toggleModal}>Anuluj</Button>
+                </ModalFooter>
+            </Modal>
+        </div>
+    );
+};
+
+export default RemainingProducts;

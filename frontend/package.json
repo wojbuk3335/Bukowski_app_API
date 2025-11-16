@@ -1,0 +1,93 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/react-fontawesome": "^0.2.2",
+    "@mui/material": "^7.1.0",
+    "@mui/styled-engine-sc": "^7.1.0",
+    "@mui/x-data-grid": "^8.3.0",
+    "@mui/x-date-pickers": "^8.3.0",
+    "axios": "^1.7.7",
+    "bcrypt": "^5.1.1",
+    "bootstrap": "^5.3.3",
+    "bwip-js": "^4.6.0",
+    "chart.js": "^4.5.0",
+    "date-fns": "^2.30.0",
+    "downshift": "^9.0.9",
+    "file-saver": "^2.0.5",
+    "jquery": "^3.7.1",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
+    "popper.js": "^1.16.1",
+    "react": "^18.3.1",
+    "react-barcode": "^1.6.1",
+    "react-bootstrap": "^2.10.5",
+    "react-chartjs-2": "^5.3.0",
+    "react-csv": "^2.2.2",
+    "react-date-range": "^1.4.0",
+    "react-datepicker": "^8.2.1",
+    "react-dom": "^18.3.1",
+    "react-draggable": "^4.4.6",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^6.26.2",
+    "react-scripts": "5.0.1",
+    "react-select": "^5.10.1",
+    "react-table": "^7.8.0",
+    "reactstrap": "^9.2.3",
+    "rsuite": "^5.80.2",
+    "styled-components": "^6.1.18",
+    "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5",
+    "zebra-browser-print-wrapper": "^0.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "proxy": "http://localhost:3000",
+  "jest": {
+    "transform": {
+      "^.+\\.jsx?$": "babel-jest",
+      "^.+\\.mjs$": "babel-jest"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(axios)/)"
+    ],
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy",
+      "\\.(gif|ttf|eot|svg|png)$": "<rootDir>/__mocks__/fileMock.js"
+    }
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "jest-environment-jsdom": "^30.2.0",
+    "react-test-renderer": "^18.3.1"
+  }
+}

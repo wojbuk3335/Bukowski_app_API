@@ -1,0 +1,313 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #000000;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  padding: .375rem .75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #fff;
+  appearance: none;
+  background-color: #000;
+  background-clip: padding-box;
+  border: var(--bs-border-width) solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+
+.form-control:focus {
+  color: #fff;
+  background-color: #000;
+  border-color: #fff;
+  outline: 0;
+  box-shadow: 0 0 0 .25rem rgba(255, 255, 255, .25);
+}
+
+.text-muted {
+  --bs-text-opacity: 1;
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.btn-warning {
+  --bs-btn-color: #000000;
+  --bs-btn-hover-color: #ffffff;
+}
+
+.btn-danger {
+  --bs-btn-color: #000000;
+  --bs-btn-hover-color: #fff;
+}
+
+@media (max-width: 768px) {
+  .btn-warning.btn {
+    margin-right: 10px;
+    /* Add margin-right to .btn-warning */
+  }
+
+  .form-select:disabled {
+    background-color: #242424;
+  }
+
+  .form-control:disabled {
+    background-color: #242424;
+    opacity: 1;
+  }
+}
+
+.form-select:disabled {
+  background-color: #242424;
+}
+
+.form-control:disabled {
+  background-color: #242424;
+  opacity: 1;
+}
+
+.form-label {
+  margin-bottom: .5rem;
+  margin-bottom: 0;
+  margin-right: 13px;
+}
+
+.btn-warning {
+  --bs-btn-color: #000000;
+  --bs-btn-hover-color: #ffffff;
+  margin-right: 10px;
+}
+
+.btn-primary {
+  --bs-btn-color: #000000;
+}
+
+.inputFile::file-selector-button:hover {
+  color: #000000;
+  background-color: #df480c;
+  /* Darken background color on hover */
+  border-color: #da1919;
+  /* Darken border color on hover */
+}
+
+.btn-success {
+  --bs-btn-color: #000000;
+}
+
+.table-bordered>:not(caption)>*>* {
+  border-width: 0 var(--bs-border-width);
+  background: black;
+}
+
+.table-striped>tbody>tr:nth-of-type(odd)>* {
+  --bs-table-color-type: var(--bs-table-striped-color);
+  --bs-table-bg-type: #000000;
+}
+
+.table {
+  border: 1px solid #ffffff;
+}
+
+.modal-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: var(--bs-modal-header-padding);
+  border-bottom: var(--bs-modal-header-border-width) solid var(--bs-modal-header-border-color);
+  border-top-left-radius: var(--bs-modal-inner-border-radius);
+  border-top-right-radius: var(--bs-modal-inner-border-radius);
+  background: black;
+  border: 1px solid white;
+  color: white;
+}
+
+.table>:not(caption)>*>* {
+  padding: .5rem .5rem;
+  color: var(--bs-table-color-state, var(--bs-table-color-type, var(--bs-table-color)));
+  background-color: var(--bs-table-bg);
+  border-bottom-width: var(--bs-border-width);
+  box-shadow: inset 0 0 0 9999px var(--bs-table-bg-state, var(--bs-table-bg-type, var(--bs-table-accent-bg)));
+  background: black;
+  color: white;
+}
+
+.modal-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  padding: calc(var(--bs-modal-padding) - var(--bs-modal-footer-gap)* .5);
+  background-color: var(--bs-modal-footer-bg);
+  border-top: var(--bs-modal-footer-border-width) solid var(--bs-modal-footer-border-color);
+  border-bottom-right-radius: var(--bs-modal-inner-border-radius);
+  border-bottom-left-radius: var(--bs-modal-inner-border-radius);
+  background: black;
+  border: 1px solid white;
+}
+
+.datepicker-custom {
+  padding: 5px;
+  /* Ensure consistent padding */
+  border-radius: 4px;
+  /* Match the container's border radius */
+  box-sizing: border-box;
+  /* Include padding and border in the element's total width/height */
+  outline: none;
+  /* Remove default focus outline */
+}
+
+
+@media (max-width: 746px) {
+  .responsiveContainer {
+    display: flex;
+    flex-wrap: wrap;
+    /* Allow wrapping of child elements */
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .responsiveContainer>div {
+    width: 100%;
+    /* Make each child take up 100% width */
+    margin-bottom: 10px;
+    /* Add spacing between stacked elements */
+  }
+
+  .responsiveContainer {
+    gap: 0;
+    /* Remove horizontal gap when stacked */
+  }
+
+  .sssss {
+    background-color: #ffc107;
+  }
+}
+
+@media (max-width: 746px) {
+  .responsiveContainer {
+    display: flex;
+    flex-wrap: wrap;
+    /* Allow wrapping of child elements */
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .responsiveContainer>div {
+    width: 100%;
+    /* Make each child take up 100% width */
+    margin-bottom: 10px;
+    /* Add spacing between stacked elements */
+  }
+
+  .responsiveContainer {
+    gap: 0;
+    /* Remove horizontal gap when stacked */
+  }
+
+  .sssss {
+    background-color: #ffc107;
+  }
+
+  .RRR {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .rrr {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+}
+
+
+.btn-info {
+  color: black
+}
+
+.btn-info:hover {
+  color: white
+}
+
+
+.form-control,
+.form-select,
+button {
+  background-color: black;
+  color: white;
+  border: 1px solid white;
+  border-radius: 4px;
+  padding: 5px;
+  height: 38px;
+  box-sizing: border-box;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+/* Focus state for form controls */
+.form-control:focus,
+.form-select:focus,
+button:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.5);
+}
+
+
+.table thead th {
+  background-color: rgb(24, 24, 24);
+  color: white;
+  border: 1px solid white;
+  text-align: center;
+}
+
+.rdrDateDisplayWrapper {
+  background-color: rgb(0 0 0);
+}
+
+
+@media (min-width: 576px) {
+    .container, .container-sm {
+        max-width: 100% !important;
+    }
+}

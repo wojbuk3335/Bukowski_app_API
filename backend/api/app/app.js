@@ -1,0 +1,275 @@
+const express = require('express');
+const app = express();
+const helmet = require('helmet'); // 🔒 Zabezpieczenia HTTP headers
+const rateLimit = require('express-rate-limit'); // 🔒 Rate limiting
+const mongoSanitize = require('express-mongo-sanitize'); // 🔒 Ochrona przed NoSQL injection
+const morgan = require('morgan');
+const bodyParser = require('body-parser');
+const path = require('path');
+const cors = require('cors');
+const { port } = require('./config'); // Import port configuration
+const { domain } = require('./config'); // Import domain configuration
+// 🔒 ZABEZPIECZENIA HTTP HEADERS
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+        },
+    },
+    crossOriginEmbedderPolicy: false, // Dla compatibility z zewnętrznymi bibliotekami
+}));
+
+app.use(express.json({ limit: '50mb' })); // Increase JSON payload limit
+
+// 🔒 BEZPIECZNA KONFIGURACJA CORS - zamiast app.use(cors())
+app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+        ? ['https://bukowskiapp.pl'] // 🔒 Poprawna domena produkcyjna
+        : ['http://localhost:3000', 'http://localhost:3001'], // Development
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'correction-id', 'correction-transaction-id', 'operation-type', 'X-Requested-With']
+}));
+
+// 🔒 RATE LIMITING - Ochrona przed atakami
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minut
+    max: 1000, // zwiększone z 100 do 1000 requestów na IP na 15 minut
+    message: {
+        error: 'Zbyt wiele requestów z tego IP, spróbuj ponownie za 15 minut.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res, next, options) => {
+        // PRZYWRÓCONE - z naprawionym securityLogger
+        try {
+            securityLogger.log('RATE_LIMIT_HIT', { limitType: 'GLOBAL_LIMIT' }, req);
+        } catch (error) {
+            console.error('Security logging error:', error);
+        }
+        res.status(options.statusCode).json(options.message);
+    }
+});
+
+const loginLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minut (krótszy czas)
+    max: 50, // zwiększone z 10 do 50 prób logowania na IP na 5 minut
+    message: {
+        error: 'Zbyt wiele prób logowania, spróbuj ponownie za 5 minut.'
+    },
+    skipSuccessfulRequests: true,
+    handler: (req, res, next, options) => {
+        // PRZYWRÓCONE - z naprawionym securityLogger
+        try {
+            securityLogger.log('RATE_LIMIT_HIT', { limitType: 'LOGIN_LIMIT' }, req);
+            securityLogger.log('BRUTE_FORCE_LOGIN', {
+                attemptedEmail: req.body?.email || 'unknown'
+            }, req);
+        } catch (error) {
+            console.error('Security logging error:', error);
+        }
+        res.status(options.statusCode).json(options.message);
+    }
+});
+
+// 🔒 RATE LIMITING ENABLED - Ochrona przed atakami
+app.use(limiter); // Globalny limit - 1000 req/15min per IP
+app.use('/api/user/login', loginLimiter); // Limit logowania - 50 prób/5min per IP
+
+// 🔒 SECURITY MIDDLEWARE
+// PRZYWRÓCONE - securityLogger naprawiony
+const { ipValidator, addIPToToken } = require('./middleware/ipValidator');
+const tokenBlacklist = require('./services/tokenBlacklist');
+const securityLogger = require('./services/securityLogger');
+
+// 🔒 PRZYWRÓCONE - ale z elastyczną walidacją IP
+app.use('/api/admin', ipValidator); // Walidacja IP dla ścieżek adminów (tylko ostrzeżenia)
+// app.use('/api/user/login', addIPToToken); // Dodawanie IP do nowych sesji - WYŁĄCZONE
+
+// 🔒 Sprawdzanie blacklisty tokenów dla wszystkich chronionych ścieżek
+// PRZYWRÓCONE - tokenBlacklist z obsługą błędów
+app.use('/api', tokenBlacklist.checkTokenBlacklist());
+
+// 🔒 Wykrywanie podejrzanych User-Agent
+// PRZYWRÓCONE - z naprawionym securityLogger
+app.use('/api', (req, res, next) => {
+    const userAgent = req.get('User-Agent') || '';
+    const suspiciousPatterns = ['bot', 'crawler', 'spider', 'curl', 'wget'];
+    const isSuspicious = suspiciousPatterns.some(pattern => 
+        userAgent.toLowerCase().includes(pattern)
+    );
+    
+    if (isSuspicious) {
+        securityLogger.log('SUSPICIOUS_USER_AGENT', { userAgent }, req);
+    }
+    next();
+});
+
+// 🔒 OCHRONA PRZED NoSQL INJECTION (z wyjątkami dla poprawnych danych)
+// PRZYWRÓCONE - z naprawionym securityLogger
+app.use(mongoSanitize({
+  replaceWith: '_',
+  allowDots: true, // Zezwól na kropki w emailach
+  onSanitize: ({ req, key }) => {
+    // Nie loguj normalnych emaili z kropkami
+    if (key.includes('@') && key.includes('.') && !key.includes('$') && !key.includes('{')) {
+      return; // To prawdopodobnie normalny email
+    }
+    // Loguj poważne próby injection
+    securityLogger.log('NOSQL_INJECTION_ATTEMPT', { injectionPayload: key }, req);
+    console.warn(`⚠️ NoSQL injection attempt detected: ${key} in ${req.url}`);
+  }
+}));
+
+// Log wszystkich requestów dla logowania - TEMPORARY DEBUG
+app.use('/api/user/login', (req, res, next) => {
+    next();
+});
+
+// Set UTF-8 headers only for API routes
+app.use('/api', (req, res, next) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    next();
+});
+
+const mongoose = require('./db/mongoose');
+
+// app.use(morgan('dev')); // HTTP request logging - DISABLED for production
+
+app.use(bodyParser.urlencoded({ extended: false, limit: '50mb' })); // Increase URL encoded limit
+app.use(bodyParser.json({ limit: '50mb' })); // Increase JSON limit
+
+// Routes which should handle requests
+const jacketRoutes = require('./routes/jackets');
+const userRoutes = require('./routes/user');
+const employeeRoutes = require('./routes/employees');
+const workHoursRoutes = require('./routes/workHours');
+const salesAssignmentsRoutes = require('./routes/salesAssignments');
+const stockRoutes = require('./routes/stock');
+const colorRoutes = require('./routes/colors');
+const sizeRoutes = require('./routes/sizes');
+const goodsRoutes = require('./routes/goods');
+const configRoutes = require('./routes/config');
+const stateRoutes = require('./routes/state');
+const categoryRoutes = require('./routes/category');
+const subcategoryCoatsRoutes = require('./routes/subcategoryCoats');
+const bagsCategoryRoutes = require('./routes/bagsCategory');
+const walletsCategoryRoutes = require('./routes/walletsCategory');
+const remainingCategoryRoutes = require('./routes/remainingCategory');
+const remainingSubcategoryRoutes = require('./routes/remainingSubcategory');
+const manufacturerRoutes = require('./routes/manufacturer');
+const beltsRoutes = require('./routes/belts');
+const glovesRoutes = require('./routes/gloves');
+const printRoutes = require('./routes/print'); // Import print routes
+const historyRoutes = require('./routes/history'); // Import history routes
+const salesRoutes = require('./routes/sales'); // Import sales routes
+const transferRoutes = require('./routes/transfer'); // Import transfer routes
+const transactionHistoryRoutes = require('./routes/transactionHistory'); // Import transaction history routes
+const localizationRoutes = require('./routes/locatization'); // Import localization routes
+const bagsRoutes = require('./routes/bags'); // Import bags routes
+const walletsRoutes = require('./routes/wallets'); // Import wallets routes
+const remainingProductsRoutes = require('./routes/remainingProducts'); // Import remaining products routes
+const deductionsRoutes = require('./routes/deductions'); // Import deductions routes
+const financialOperationsRoutes = require('./routes/financialOperations'); // Import financial operations routes
+const transferProcessingRoutes = require('./routes/transferProcessing'); // Import transfer processing routes
+const warehouseRoutes = require('./routes/warehouse'); // Import warehouse routes
+const correctionsRoutes = require('./routes/corrections'); // Import corrections routes
+const priceListRoutes = require('./routes/priceList'); // Import price list routes
+const cudzichTransactionRoutes = require('./routes/cudzichTransaction'); // Import Cudzich transaction routes
+const ordersRoutes = require('./routes/orders'); // Import orders routes
+const remanentRoutes = require('./routes/remanent'); // Import remanent routes
+const debugUsersRoutes = require('./routes/debug-users'); // 🔧 TYMCZASOWY DEBUG
+const emergencyResetRoutes = require('./routes/emergency-reset'); // 🚨 EMERGENCY RESET
+
+app.use('/api/emergency', emergencyResetRoutes); // 🚨 EMERGENCY - USUŃ NATYCHMIAST PO UŻYCIU!
+app.use('/api/debug', debugUsersRoutes); // 🔧 TYMCZASOWY ENDPOINT - USUŃ PO DEBUGOWANIU!
+app.use('/api/corrections', correctionsRoutes); // Use corrections routes
+app.use('/api/pricelists', priceListRoutes); // Use price list routes
+app.use('/api/excel/priceList', priceListRoutes); // Use price list routes for excel namespace
+app.use('/api/sales', salesRoutes); // Use sales routes
+app.use('/api/warehouse', warehouseRoutes); // Use warehouse routes
+app.use('/api/transfer', transferProcessingRoutes); // Use transfer processing routes
+app.use('/api/transfer', transferRoutes); // Use transfer routes
+app.use('/api/deductions', deductionsRoutes); // Use deductions routes
+app.use('/api/financial-operations', financialOperationsRoutes); // Use financial operations routes
+app.use('/api/cudzich', cudzichTransactionRoutes); // Use Cudzich transaction routes
+app.use('/api/orders', ordersRoutes); // Use orders routes
+app.use('/api/history', historyRoutes); // Use history routes
+app.use('/api/transaction-history', transactionHistoryRoutes); // Use transaction history routes
+app.use('/api/jackets', jacketRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/work-hours', workHoursRoutes);
+app.use('/api/sales-assignments', salesAssignmentsRoutes);
+app.use('/api/excel/stock', stockRoutes);
+app.use('/api/excel/color', colorRoutes);
+app.use('/api/excel/size', sizeRoutes);
+app.use('/api/excel/goods', goodsRoutes);
+app.use('/api/goods', goodsRoutes); // Add direct API access for print selections
+app.use('/api/excel/category', categoryRoutes);
+app.use('/api/excel/subcategoryCoats', subcategoryCoatsRoutes);
+app.use('/api/excel/bags-category', bagsCategoryRoutes);
+app.use('/api/excel/subcategoryBags', bagsCategoryRoutes); // Alias for bags subcategories
+app.use('/api/excel/wallets-category', walletsCategoryRoutes);
+app.use('/api/excel/remaining-category', remainingCategoryRoutes);
+app.use('/api/excel/remaining-subcategory', remainingSubcategoryRoutes);
+app.use('/api/excel/manufacturers', manufacturerRoutes);
+app.use('/api/manufacturers', manufacturerRoutes); // Add direct API access
+app.use('/api/sizes', sizeRoutes); // Add direct API access
+app.use('/api/excel/belts', beltsRoutes);
+app.use('/api/excel/gloves', glovesRoutes);
+app.use('/api/excel/localization', localizationRoutes); // Use localization routes
+app.use('/api/excel/bags', bagsRoutes); // Use bags routes
+app.use('/api/excel/wallets', walletsRoutes); // Use wallets routes
+app.use('/api/excel/remaining-products', remainingProductsRoutes); // Use remaining products routes
+app.use('/api/config', configRoutes);
+app.use('/api/state', stateRoutes);
+app.use('/api/category', categoryRoutes);
+app.use('/api/subcategoryCoats', subcategoryCoatsRoutes);
+app.use('/api/print', printRoutes); // Use print routes
+app.use('/api/remanent', remanentRoutes); // Use remanent routes
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Error handling for unmatched API routes - ONLY for /api paths
+app.use('/api/*', (req, res, next) => {
+    const error = new Error('API endpoint not found');
+    error.status = 404;
+    next(error);
+});
+
+// Catch-all route to serve React's index.html for NON-API routes only
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public', 'index.html'));
+});
+
+app.use((error, req, res, next) => {
+    res.status(error.status || 500);
+    res.json({
+        error: {
+            message: error.message
+        }
+    });
+});
+
+// Start the server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+    // Uruchom scheduler czyszczenia przypisań
+    const { startDailyCleanup } = require('./services/assignmentCleanup');
+    startDailyCleanup();
+    
+    app.listen(port, () => {
+        // Server started silently
+    });
+}
+
+module.exports = app;

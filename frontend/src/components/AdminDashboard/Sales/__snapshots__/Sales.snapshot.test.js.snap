@@ -1,0 +1,1111 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Sales Component Snapshots should match snapshot with empty sales data 1`] = `
+<div>
+  <div
+    className="d-flex justify-content-center align-items-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info me-3"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Lp. 
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Data 
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;
+
+exports[`Sales Component Snapshots should match snapshot with error state 1`] = `
+<div>
+  <div
+    className="d-flex justify-content-center align-items-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info me-3"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Lp. 
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Data 
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;
+
+exports[`Sales Component Snapshots should match snapshot with multi-currency payments 1`] = `
+<div>
+  <div
+    className="d-flex justify-content-center align-items-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info me-3"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Lp. 
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Data 
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;
+
+exports[`Sales Component Snapshots should match snapshot with no payment data 1`] = `
+<div>
+  <div
+    className="d-flex justify-content-center align-items-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info me-3"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Lp. 
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Data 
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;
+
+exports[`Sales Component Snapshots should match snapshot with payment data 1`] = `
+<div>
+  <div
+    className="d-flex justify-content-center align-items-center mb-3"
+  >
+    <button
+      className="btn btn-primary me-2"
+      data={Array []}
+      data-testid="csv-link"
+      filename="sprzedaz.csv"
+    >
+      Eksportuj CSV
+    </button>
+    <button
+      className="btn btn-warning me-2"
+      onClick={[Function]}
+    >
+      Eksportuj PDF (Dane + Podsumowanie)
+    </button>
+    <button
+      className="btn btn-success me-2"
+      onClick={[Function]}
+    >
+      Drukuj Raport
+    </button>
+    <button
+      className="btn btn-info me-3"
+      onClick={[Function]}
+    >
+      Eksportuj Excel
+    </button>
+    <div
+      className="d-flex align-items-center date-picker-container"
+      style={
+        Object {
+          "position": "relative",
+        }
+      }
+    >
+      <div
+        className="me-2"
+        style={
+          Object {
+            "width": "200px",
+          }
+        }
+      >
+        <input
+          className="form-control"
+          onChange={[Function]}
+          placeholder="Wyszukaj..."
+          type="text"
+          value=""
+        />
+      </div>
+      <button
+        className="btn btn-outline-secondary"
+        onClick={[Function]}
+        style={
+          Object {
+            "minWidth": "40px",
+          }
+        }
+        title="Wybierz zakres dat "
+      >
+        📅
+      </button>
+    </div>
+  </div>
+  <div
+    className="tableContainer"
+    id="sales-report-content"
+  >
+    <table
+      className="table table responsiveTable text-center"
+    >
+      <caption
+        className="caption"
+      >
+        Tabela przedstawiająca dane sprzedaży w systemie
+      </caption>
+      <thead>
+        <tr>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Lp. 
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Pełna nazwa 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Data 
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Punkt sprzedaży 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+          >
+            <span
+              onClick={[Function]}
+              style={
+                Object {
+                  "cursor": "pointer",
+                }
+              }
+            >
+              Rozmiar 
+            </span>
+            <select
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              value=""
+            >
+              <option
+                value=""
+              >
+                Wszystkie
+              </option>
+            </select>
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+          >
+            Kod kreskowy 
+            <input
+              className="form-control form-control-sm mt-1"
+              onChange={[Function]}
+              placeholder="Filter"
+              type="text"
+            />
+          </th>
+          <th
+            className="tableHeader noWrap"
+            onClick={[Function]}
+            style={
+              Object {
+                "textAlign": "center",
+                "verticalAlign": "middle",
+              }
+            }
+          >
+            Płatności 
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            Brak danych sprzedaży
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td
+            className="text-center"
+            colSpan="7"
+          >
+            <strong>
+              Łączne przychody: 
+            </strong>
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+`;

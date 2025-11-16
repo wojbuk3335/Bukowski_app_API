@@ -1,0 +1,30 @@
+.container {
+    margin-top: 20px;
+}
+
+.table {
+    width: 60%; /* Narrower table width */
+    margin-left: auto;
+    margin-right: auto;
+    background-color: black;
+    color: white;
+    border: 1px solid white;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+    text-align: center;
+}
+
+.table > :not(caption) > * > * {
+    padding: .5rem .5rem;
+    color: white;
+    background-color: #000;
+    border: 1px solid white;
+}
+
+@media (max-width: 768px) {
+    .table {
+        width: 100%; /* Full width on smaller screens */
+    }
+}
