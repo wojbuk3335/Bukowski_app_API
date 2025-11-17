@@ -184,6 +184,7 @@ function Navigaton() {
             <Nav.Link as={Link} to="/admin/dashboard/cudzich">Cudzich</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/orders">Zamówienia</Nav.Link>
             <Nav.Link as={Link} to="/admin/dashboard/payroll">Wypłaty</Nav.Link>
+            <Nav.Link as={Link} to="/admin/dashboard/pan-kazek">Pan Kazek</Nav.Link>
 
           </Nav>
         </Navbar.Collapse>

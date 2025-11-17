@@ -46,6 +46,7 @@ import Cudzich from './components/AdminDashboard/Cudzich/Cudzich';
 import Orders from './components/AdminDashboard/Orders/Orders';
 import Employees from './components/AdminDashboard/Employees/Employees';
 import Payroll from './components/AdminDashboard/Payroll/PayrollImproved';
+import PanKazek from './components/AdminDashboard/PanKazek/PanKazek';
 import ApiTestComponent from './components/ApiTestComponent';
 
 function App() {
@@ -104,6 +105,7 @@ function App() {
           <Route path="orders" element={<Orders />} />
           <Route path="employees" element={<Employees />} />
           <Route path="payroll" element={<Payroll />} />
+          <Route path="pan-kazek" element={<PanKazek />} />
           <Route path="api-test" element={<ApiTestComponent />} />
         </Route>
         <Route path="/admin/dashboard/*" element={<AdminPrivateRoute element={NoFound} allowedRoles={['admin']} />} />

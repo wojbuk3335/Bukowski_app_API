@@ -19,8 +19,6 @@ const cleanupOldAssignments = async () => {
                 isActive: false 
             }
         );
-
-        console.log(`🕛 CLEANUP: Dezaktywowano ${result.modifiedCount} starych przypisań sprzedawców`);
         
         return result.modifiedCount;
     } catch (error) {
@@ -33,15 +31,11 @@ const cleanupOldAssignments = async () => {
 const startDailyCleanup = () => {
     // Cron job: każdego dnia o 00:01
     cron.schedule('1 0 * * *', async () => {
-        console.log('🕛 ROZPOCZĘCIE DZIENNEGO CZYSZCZENIA PRZYPISAŃ...');
-        const cleanedCount = await cleanupOldAssignments();
-        console.log(`🕛 ZAKOŃCZONO CZYSZCZENIE: ${cleanedCount} starych przypisań`);
+        await cleanupOldAssignments();
     }, {
         scheduled: true,
         timezone: "Europe/Warsaw"
     });
-
-    // console.log('✅ SCHEDULER: Dzienne czyszczenie przypisań zostało skonfigurowane (00:01 każdego dnia)');
 };
 
 // Funkcja do manualnego uruchomienia czyszczenia (do testów)
