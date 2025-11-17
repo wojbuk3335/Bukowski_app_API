@@ -599,6 +599,112 @@ class FinancialOperationController {
             return null;
         }
     };
+
+    // Delete financial operation and related commission
+    deleteFinancialOperation = async (req, res) => {
+        try {
+            const { id } = req.params;
+            
+            // Znajdź operację przed usunięciem
+            const operation = await FinancialOperation.findById(id);
+            
+            if (!operation) {
+                return res.status(404).json({ error: 'Operacja finansowa nie znaleziona' });
+            }
+            
+            // Jeśli to zaliczka na produkt (type: 'addition' z finalPrice), usuń powiązaną prowizję
+            if (operation.type === 'addition' && operation.finalPrice && operation.productName) {
+                const operationDate = new Date(operation.date);
+                const startOfDay = new Date(operationDate.setHours(0, 0, 0, 0));
+                const endOfDay = new Date(operationDate.setHours(23, 59, 59, 999));
+                
+                // Znajdź prowizje które zawierają ten produkt w commissionDetails
+                const commissions = await FinancialOperation.find({
+                    type: 'sales_commission',
+                    date: {
+                        $gte: startOfDay,
+                        $lte: endOfDay
+                    },
+                    'commissionDetails.productName': operation.productName
+                });
+                
+                let deletedCount = 0;
+                
+                for (const commission of commissions) {
+                    // Usuń produkt z commissionDetails
+                    const updatedDetails = commission.commissionDetails.filter(
+                        detail => detail.productName !== operation.productName
+                    );
+                    
+                    if (updatedDetails.length === 0) {
+                        // Jeśli to był jedyny produkt w prowizji, usuń całą prowizję
+                        await FinancialOperation.findByIdAndDelete(commission._id);
+                        deletedCount++;
+                        console.log(`Usunięto całą prowizję ${commission._id} dla produktu ${operation.productName}`);
+                    } else {
+                        // Jeśli są jeszcze inne produkty, przelicz prowizję
+                        const newTotalSales = updatedDetails.reduce((sum, d) => sum + d.salesAmount, 0);
+                        const newCommission = newTotalSales * (commission.commissionRate / 100);
+                        
+                        await FinancialOperation.findByIdAndUpdate(commission._id, {
+                            commissionDetails: updatedDetails,
+                            salesAmount: newTotalSales,
+                            amount: newCommission,
+                            reason: `Prowizja ${commission.commissionRate}% od zaliczek - całkowita wartość sprzedaży: ${newTotalSales} PLN`
+                        });
+                        
+                        console.log(`Zaktualizowano prowizję ${commission._id}, usunięto produkt ${operation.productName}`);
+                    }
+                }
+                
+                console.log(`Przetworzono ${commissions.length} prowizji dla zaliczki ${id}`);
+            }
+            
+            // Usuń główną operację
+            await FinancialOperation.findByIdAndDelete(id);
+            
+            res.status(200).json({ 
+                message: 'Operacja finansowa została usunięta',
+                operation,
+                deletedCommissions: operation.type === 'addition' && operation.finalPrice ? true : false
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+
+    // Delete all financial operations
+    deleteAllFinancialOperations = async (req, res) => {
+        try {
+            const result = await FinancialOperation.deleteMany({});
+            res.status(200).json({ 
+                message: 'Wszystkie operacje finansowe zostały usunięte',
+                deletedCount: result.deletedCount
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    };
+
+    // Update financial operation
+    updateFinancialOperation = async (req, res) => {
+        try {
+            const { id } = req.params;
+            const operation = await FinancialOperation.findByIdAndUpdate(
+                id,
+                req.body,
+                { new: true, runValidators: true }
+            );
+            
+            if (!operation) {
+                return res.status(404).json({ error: 'Operacja finansowa nie znaleziona' });
+            }
+            
+            res.status(200).json(operation);
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    };
 }
 
 module.exports = new FinancialOperationController();
