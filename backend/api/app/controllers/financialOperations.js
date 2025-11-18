@@ -664,7 +664,7 @@ class FinancialOperationController {
             await FinancialOperation.findByIdAndDelete(id);
             
             res.status(200).json({ 
-                message: 'Operacja finansowa została usunięta',
+                message: 'Financial operation deleted successfully',
                 operation,
                 deletedCommissions: operation.type === 'addition' && operation.finalPrice ? true : false
             });
