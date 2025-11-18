@@ -53,6 +53,78 @@ exports.createOrder = async (req, res) => {
     
     await order.save();
     
+    // Jeśli zaliczka > 0, zapisz ją jako operację finansową
+    if (orderData.payment && orderData.payment.deposit > 0) {
+      try {
+        const FinancialOperation = require('../db/models/financialOperation');
+        const User = require('../db/models/user');
+        
+        // KLUCZOWA NAPRAWA: Jeśli createdBy to email, zamień na symbol
+        let userSymbol = orderData.createdBy || 'SYSTEM';
+        if (userSymbol.includes('@')) {
+          console.log(`⚠️ Received email instead of symbol: ${userSymbol}`);
+          try {
+            const user = await User.findOne({ email: userSymbol });
+            if (user && user.symbol) {
+              userSymbol = user.symbol;
+              console.log(`✅ Converted email to symbol: ${userSymbol}`);
+            } else {
+              console.log(`❌ Could not find user with email: ${userSymbol}, using email`);
+            }
+          } catch (userErr) {
+            console.error('❌ Error finding user:', userErr);
+          }
+        }
+        
+        // Przygotuj nazwę produktu
+        const productName = [
+          orderData.product?.name || 'Produkt',
+          orderData.product?.color || '',
+          orderData.product?.size || ''
+        ].filter(Boolean).join(' ');
+        
+        // Przygotuj opis zaliczki
+        const depositCurrency = orderData.payment.depositCurrency || 'PLN';
+        const totalPrice = orderData.payment.totalPrice;
+        const depositAmount = orderData.payment.deposit;
+        const remainingAmount = totalPrice - depositAmount;
+        
+        let depositReason = `Zaliczka na zamówienie ${orderId}: ${productName}. `;
+        depositReason += `Cena: ${totalPrice} PLN, `;
+        depositReason += `Zaliczka: ${depositAmount} ${depositCurrency}, `;
+        depositReason += `Pozostało: ${remainingAmount} PLN. `;
+        depositReason += `Klient: ${orderData.customer.name}`;
+        
+        // Utwórz operację finansową
+        const financialOperation = new FinancialOperation({
+          userSymbol: userSymbol, // Symbol użytkownika (już zamieniony jeśli był email)
+          amount: depositAmount, // Dodatnia kwota (zaliczka)
+          currency: depositCurrency,
+          type: 'addition', // Typ: dopisanie kwoty
+          reason: depositReason,
+          date: new Date(),
+          // Dane produktu dla systemu prowizji
+          productName: productName,
+          finalPrice: totalPrice, // Cena finalna w PLN (dla obliczeń prowizji)
+          remainingAmount: remainingAmount,
+          // Powiązanie z zamówieniem
+          orderId: orderId,
+          orderMongoId: order._id
+        });
+        
+        await financialOperation.save();
+        console.log(`✅ Zaliczka ${depositAmount} ${depositCurrency} dla zamówienia ${orderId} zapisana jako operacja finansowa`);
+        
+        // Oblicz prowizję od zaliczki (jeśli applicable)
+        const FinancialOperationController = require('./financialOperations');
+        await FinancialOperationController.calculateAdvanceCommission(financialOperation);
+        
+      } catch (error) {
+        console.error('❌ Błąd podczas zapisywania zaliczki jako operacji finansowej:', error);
+        // Nie przerywamy procesu - zamówienie zostało zapisane
+      }
+    }
+    
     res.status(201).json({
       success: true,
       message: 'Zamówienie zostało utworzone',

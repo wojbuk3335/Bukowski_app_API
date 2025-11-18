@@ -67,6 +67,18 @@ const financialOperationSchema = new mongoose.Schema({
         required: false,
         // Amount still to be paid (finalPrice - amount paid so far)
     },
+    // Order-related fields
+    orderId: {
+        type: String,
+        required: false,
+        // Order ID (ORD-xxxx) if this operation is related to an order
+    },
+    orderMongoId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Order',
+        required: false,
+        // MongoDB ObjectId reference to Order if this operation is related to an order
+    },
     // Employee advance fields
     employeeId: {
         type: String,

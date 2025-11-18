@@ -8,7 +8,7 @@ class FinancialOperationController {
             await operation.save();
             
             // Sprawdź czy to zaliczka na produkt z ceną finalną - jeśli tak, oblicz prowizję
-            await FinancialOperationController.calculateAdvanceCommission(operation);
+            await this.calculateAdvanceCommission(operation);
             
             res.status(201).json(operation);
         } catch (error) {
@@ -315,7 +315,7 @@ class FinancialOperationController {
     };
 
     // Oblicz prowizję od zaliczki na produkt
-    static async calculateAdvanceCommission(operation) {
+    calculateAdvanceCommission = async (operation) => {
         try {
             // Sprawdź czy to zaliczka na produkt z ceną finalną
             if (operation.type !== 'addition' || !operation.finalPrice || operation.finalPrice <= 0) {

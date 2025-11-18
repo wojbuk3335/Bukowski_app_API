@@ -44,6 +44,10 @@ const OrderSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    depositCurrency: {
+      type: String,
+      default: 'PLN'
+    },
     cashOnDelivery: {
       type: Number,
       required: true

@@ -452,9 +452,9 @@ router.put('/upsert', checkAuth, async (req, res) => {
       let recalculatedCount = 0;
       for (const advance of advances) {
         try {
-          // Użyj takiego samego sposobu jak w createFinancialOperation
-          const FinancialOperationControllerClass = require('../controllers/financialOperations').constructor;
-          await FinancialOperationControllerClass.calculateAdvanceCommission(advance);
+          // Użyj poprawnego importu instancji kontrolera
+          const FinancialOperationController = require('../controllers/financialOperations');
+          await FinancialOperationController.calculateAdvanceCommission(advance);
           recalculatedCount++;
         } catch (err) {
           // Błąd przy przeliczaniu - kontynuuj z następną zaliczką
