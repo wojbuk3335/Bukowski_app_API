@@ -62,17 +62,13 @@ exports.createOrder = async (req, res) => {
         // KLUCZOWA NAPRAWA: Jeśli createdBy to email, zamień na symbol
         let userSymbol = orderData.createdBy || 'SYSTEM';
         if (userSymbol.includes('@')) {
-          console.log(`⚠️ Received email instead of symbol: ${userSymbol}`);
           try {
             const user = await User.findOne({ email: userSymbol });
             if (user && user.symbol) {
               userSymbol = user.symbol;
-              console.log(`✅ Converted email to symbol: ${userSymbol}`);
-            } else {
-              console.log(`❌ Could not find user with email: ${userSymbol}, using email`);
             }
           } catch (userErr) {
-            console.error('❌ Error finding user:', userErr);
+            console.error('Error finding user:', userErr);
           }
         }
         
@@ -113,14 +109,13 @@ exports.createOrder = async (req, res) => {
         });
         
         await financialOperation.save();
-        console.log(`✅ Zaliczka ${depositAmount} ${depositCurrency} dla zamówienia ${orderId} zapisana jako operacja finansowa`);
         
         // Oblicz prowizję od zaliczki (jeśli applicable)
         const FinancialOperationController = require('./financialOperations');
         await FinancialOperationController.calculateAdvanceCommission(financialOperation);
         
       } catch (error) {
-        console.error('❌ Błąd podczas zapisywania zaliczki jako operacji finansowej:', error);
+        console.error('Błąd podczas zapisywania zaliczki jako operacji finansowej:', error);
         // Nie przerywamy procesu - zamówienie zostało zapisane
       }
     }
@@ -207,11 +202,9 @@ exports.sendOrderEmail = async (req, res) => {
         html: emailHTML
       };
 
-      console.log(`📧 Wysyłanie emaila potwierdzenia zamówienia ${orderId} do klienta: ${email}`);
       customerInfo = await transporter.sendMail(customerMailOptions);
-      console.log('✅ Email do klienta wysłany pomyślnie:', customerInfo.messageId);
     } else {
-      console.log('ℹ️ Email klienta nie został podany, wysyłanie tylko powiadomienia do właściciela');
+      console.log('Email klienta nie został podany, wysyłanie tylko powiadomienia do właściciela');
     }
     
     // Also send notification email to business owner
@@ -238,7 +231,6 @@ exports.sendOrderEmail = async (req, res) => {
     };
     
     const businessInfo = await transporter.sendMail(businessMailOptions);
-    console.log('✅ Email do właściciela wysłany pomyślnie:', businessInfo.messageId);
     
     res.status(200).json({
       success: true,
