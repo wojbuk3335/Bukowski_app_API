@@ -160,7 +160,7 @@ exports.sendOrderEmail = async (req, res) => {
         <li><strong>Email:</strong> ${orderData.customer.email || 'Nie podano'}</li>
         <li><strong>Sposób dostawy:</strong> ${
           orderData.customer.deliveryOption === 'shipping' ? 'Wysyłka pocztowa' :
-          orderData.customer.deliveryOption === 'delivery' ? 'Dostawa kurierska' :
+          orderData.customer.deliveryOption === 'delivery' ? 'Dostawa na adres' :
           'Odbiór osobisty'
         }</li>
         ${orderData.customer.deliveryOption !== 'pickup' ? `<li><strong>Adres:</strong> ${orderData.customer.address.postalCode ? orderData.customer.address.postalCode + ' ' : ''}${orderData.customer.address.city}${orderData.customer.address.street ? ', ' + orderData.customer.address.street : ''}${orderData.customer.address.houseNumber ? ' ' + orderData.customer.address.houseNumber : ''}</li>` : ''}
